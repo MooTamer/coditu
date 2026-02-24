@@ -24,6 +24,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 w-full bg-background">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
 
+      <h1>SD</h1>
 
         {/* Desktop Navigation */}
         <section className="hidden md:flex items-center gap-6 w-full justify-center">
