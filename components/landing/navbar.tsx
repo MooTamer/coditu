@@ -8,7 +8,7 @@ import { marketingContent } from "@/lib/marketing-content";
 
 export function Navbar() {
   return (
-    <header className="sticky top-0 z-50 border-b border-black/10 bg-white/82 shadow-[0_10px_28px_-24px_rgba(15,23,42,0.55)] backdrop-blur-xl supports-[backdrop-filter]:bg-white/74">
+    <header className="sticky top-0 z-50 py-4 backdrop-blur-xl">
       <Container className="flex h-[--navbar-height] items-center justify-between gap-6">
         <Link href="/" className="flex items-center gap-4">
           <Image

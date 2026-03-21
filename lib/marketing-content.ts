@@ -174,9 +174,10 @@ export const marketingContent: MarketingContent = {
   ],
   hero: {
     eyebrow: "Distributed software house",
-    title: "Tailored digital systems, portals, and AI products under one accountable team",
+    title:
+      "Digital systems, portals, and AI tools built end to end by one team",
     description:
-      "We build all-in-one solutions for companies, teams, and individual operators across Germany and Egypt, from RAG assistants and Microsoft SPFx portals to custom web apps, SEO and performance work, and internal business systems.",
+      "We build tailored software for internal operations, customer portals, and AI-assisted workflows across Germany and Egypt. That includes RAG assistants, Microsoft SPFx portals, custom web apps, performance work, and internal business systems.",
     primaryCtaLabel: "See selected work",
     primaryCtaHref: "#work",
     secondaryCtaLabel: "Start a conversation",
@@ -258,44 +259,45 @@ export const marketingContent: MarketingContent = {
   sections: {
     useCases: {
       eyebrow: "Who We Build For",
-      title: "Structured delivery for teams that need software to carry real work",
+      title: "Software for teams that need their tools to support real work",
       description:
-        "We partner with operators, founders, enterprise teams, and specialists who need one accountable team to design, build, and refine the right digital system.",
+        "We work with operators, founders, enterprise teams, and specialists who need a clear partner to design, build, and improve the right system.",
     },
     services: {
       eyebrow: "Services",
-      title: "All-in-one solutions shaped around the way your business operates",
+      title: "Practical software work shaped around how your business runs",
       description:
-        "From customer-facing platforms to governed internal systems, we combine product thinking, engineering, automation, and optimization under one delivery model.",
+        "From internal tools to customer-facing platforms, we handle design, engineering, automation, and optimization in one delivery flow.",
     },
     work: {
       eyebrow: "Selected Work",
-      title: "Portfolio snapshots with measurable operational and commercial outcomes",
+      title: "Recent work across portals, business systems, and product builds",
       description:
-        "A curated view of portals, assistants, business systems, and growth-focused platforms built for teams that need clarity, speed, and staying power.",
+        "A selection of systems and platforms built for teams that needed clearer workflows, better performance, or a more useful product surface.",
       cardLabel: "Portfolio snapshot",
     },
     process: {
       eyebrow: "Process",
-      title: "A delivery rhythm that keeps strategy, build, and iteration aligned",
+      title: "A straightforward process from brief to follow-up work",
       description:
-        "We keep scope, ownership, and feedback visible from the first brief through launch and long-term optimization.",
+        "We keep scope, decisions, and feedback visible from the first conversation through launch and later improvements.",
     },
     team: {
       eyebrow: "Team",
-      title: "A Germany + Egypt team working like one product unit",
+      title: "A Germany + Egypt team working like one product team",
       description:
-        "Product, design, engineering, AI, and optimization work inside one distributed delivery system with shared standards and clear accountability.",
+        "We work across product, design, engineering, AI, and performance with shared context and direct handoffs.",
     },
     testimonials: {
       eyebrow: "Testimonials",
-      title: "Chosen by teams that need software to perform beyond launch day",
+      title: "Feedback from teams we have built with",
       description:
-        "Our work is measured in adoption, throughput, and business clarity, not just shipping velocity.",
+        "A few notes on how the work felt in practice, from planning through rollout and follow-up.",
     },
     insights: {
       eyebrow: "Insights",
-      title: "Short notes from delivery, architecture, and operational product work",
+      title:
+        "Short notes from delivery, architecture, and operational product work",
       description:
         "Practical thinking from the kinds of systems we build every week across AI, portals, performance, and internal operations.",
       cardLabel: "Delivery note",
@@ -312,42 +314,62 @@ export const marketingContent: MarketingContent = {
       title: "Leadership teams modernizing core operations",
       description:
         "Replace fragmented manual work with software that supports approvals, reporting, and day-to-day execution.",
-      outcomes: ["Clear ownership", "Less tool sprawl", "Faster decisions"],
+      outcomes: ["Clearer ownership", "Less tool sprawl", "Quicker decisions"],
       icon: "workflow",
     },
     {
       title: "Enterprise teams needing governed portals",
       description:
-        "Design secure Microsoft SPFx components and enterprise portals that match internal standards and constraints.",
-      outcomes: ["Governed access", "Portal consistency", "Enterprise-ready delivery"],
+        "Build secure Microsoft SPFx components and enterprise portals that fit internal standards and constraints.",
+      outcomes: [
+        "Governed access",
+        "Consistent portal experience",
+        "Delivery that fits enterprise requirements",
+      ],
       icon: "building",
     },
     {
       title: "Founders and operators packaging expertise",
       description:
-        "Turn a service, workflow, or specialist offer into a polished product or internal platform without juggling multiple vendors.",
-      outcomes: ["Single delivery team", "Fast validation", "Production-ready execution"],
+        "Turn a service, workflow, or specialist offer into a product or internal platform without coordinating multiple vendors.",
+      outcomes: [
+        "One delivery team",
+        "Earlier validation",
+        "A solid production base",
+      ],
       icon: "sparkles",
     },
     {
       title: "Teams deploying AI where it has real leverage",
       description:
-        "Build RAG assistants and knowledge workflows that reduce search friction and support repetitive high-value tasks.",
-      outcomes: ["Grounded answers", "Fewer escalations", "Faster internal support"],
+        "Build RAG assistants and knowledge workflows that reduce time spent searching and support repeatable internal tasks.",
+      outcomes: [
+        "More reliable answers",
+        "Fewer handoffs",
+        "Faster internal support",
+      ],
       icon: "brain",
     },
     {
       title: "Growth teams improving acquisition efficiency",
       description:
-        "Tighten performance, metadata, and technical SEO so faster experiences translate into better conversion and discoverability.",
-      outcomes: ["Stronger Core Web Vitals", "Cleaner metadata", "Better conversion paths"],
+        "Improve performance, metadata, and technical SEO so the site is easier to find and easier to use.",
+      outcomes: [
+        "Better Core Web Vitals",
+        "Clearer metadata",
+        "Stronger conversion paths",
+      ],
       icon: "search",
     },
     {
       title: "Product teams replacing brittle legacy surfaces",
       description:
-        "Modernize internal and external web experiences into maintainable systems with room to grow.",
-      outcomes: ["Stable architecture", "Better maintainability", "Faster iteration"],
+        "Modernize internal and external web experiences into maintainable systems that can keep evolving.",
+      outcomes: [
+        "More stable architecture",
+        "Easier maintenance",
+        "Faster iteration",
+      ],
       icon: "layers",
     },
   ],
@@ -355,43 +377,63 @@ export const marketingContent: MarketingContent = {
     {
       title: "RAG and AI assistants",
       description:
-        "Grounded assistants, knowledge workflows, and operational AI experiences designed around your actual documents, rules, and processes.",
-      bullets: ["Knowledge ingestion", "Guardrailed answers", "Workflow integration"],
+        "RAG assistants, knowledge workflows, and AI features built around the information your team already uses.",
+      bullets: [
+        "Knowledge ingestion",
+        "Response guardrails",
+        "Workflow integration",
+      ],
       icon: "brain",
     },
     {
       title: "Microsoft SPFx and enterprise portals",
       description:
-        "Tailored SPFx components, internal portals, and governed enterprise surfaces that fit the systems your teams already rely on.",
-      bullets: ["Portal architecture", "Governance-aware delivery", "Internal UX upgrades"],
+        "SPFx components, internal portals, and enterprise interfaces built to fit the systems your teams already work in.",
+      bullets: [
+        "Portal architecture",
+        "Governance-aware delivery",
+        "Internal UX upgrades",
+      ],
       icon: "building",
     },
     {
       title: "Custom web apps",
       description:
-        "Customer-facing and internal applications designed around the way your business actually operates, not generic templates.",
-      bullets: ["Product architecture", "Design systems", "Reliable delivery"],
+        "Customer-facing and internal web apps built around real workflows instead of generic templates.",
+      bullets: [
+        "Product architecture",
+        "Interface systems",
+        "Reliable delivery",
+      ],
       icon: "layout",
     },
     {
       title: "Internal business systems",
       description:
         "Operational software for approvals, scheduling, reporting, and multi-step workflows that need structure and visibility.",
-      bullets: ["Workflow automation", "Role-based access", "Unified data views"],
+      bullets: [
+        "Workflow automation",
+        "Role-based access",
+        "Unified data views",
+      ],
       icon: "workflow",
     },
     {
       title: "SEO and performance",
       description:
-        "Technical improvements that make fast experiences easier to discover, easier to trust, and more likely to convert.",
-      bullets: ["Core Web Vitals", "Structured metadata", "Performance budgets"],
+        "Technical improvements that make sites faster, easier to discover, and easier to use.",
+      bullets: [
+        "Core Web Vitals",
+        "Structured metadata",
+        "Performance budgets",
+      ],
       icon: "search",
     },
     {
       title: "All-in-one delivery",
       description:
-        "Strategy, design, engineering, launch support, and ongoing iteration inside one accountable engagement.",
-      bullets: ["Single roadmap", "Cross-functional execution", "Long-term partnership"],
+        "Strategy, design, build, launch support, and follow-on improvements with one team throughout.",
+      bullets: ["One roadmap", "Shared context", "Ongoing follow-up"],
       icon: "sparkles",
     },
   ],
@@ -409,7 +451,7 @@ export const marketingContent: MarketingContent = {
     {
       title: "Northline Partner Workspace",
       summary:
-        "A secure partner-facing workspace that simplified onboarding, document routing, and shared visibility.",
+        "A partner workspace that helped simplify onboarding, document routing, and shared visibility.",
       industry: "Enterprise",
       outcome: "2.4x onboarding throughput",
       tags: ["Enterprise portal", "Partner access"],
@@ -419,7 +461,7 @@ export const marketingContent: MarketingContent = {
     {
       title: "Crestline Growth Platform",
       summary:
-        "A high-performance marketing platform built to connect editorial control, technical SEO, and conversion-focused page design.",
+        "A marketing platform connecting editorial control, technical SEO, and conversion-focused page design.",
       industry: "Growth",
       outcome: "51% higher conversion rate",
       tags: ["Web platform", "Performance"],
@@ -429,21 +471,29 @@ export const marketingContent: MarketingContent = {
     {
       title: "Meridian Knowledge Assistant",
       summary:
-        "A RAG assistant grounded in policy, delivery, and support material for faster internal answers.",
+        "A RAG assistant built on policy, delivery, and support material to make internal answers easier to find.",
       industry: "Professional services",
       outcome: "64% fewer support escalations",
       tags: ["AI assistant", "Knowledge systems"],
-      capabilities: ["Grounded responses", "Internal search", "Knowledge routing"],
+      capabilities: [
+        "Grounded responses",
+        "Internal search",
+        "Knowledge routing",
+      ],
       imageSrc: "/work/work-4.svg",
     },
     {
       title: "Helix Dispatch Console",
       summary:
-        "A tailored scheduling and dispatch system that gave distributed field teams one operational surface.",
+        "A scheduling and dispatch system that gave distributed field teams one place to manage daily operations.",
       industry: "Field operations",
       outcome: "29% less idle time",
       tags: ["Business system", "Scheduling"],
-      capabilities: ["Dispatch workflows", "Shared schedules", "Operational controls"],
+      capabilities: [
+        "Dispatch workflows",
+        "Shared schedules",
+        "Operational controls",
+      ],
       imageSrc: "/work/work-5.svg",
     },
     {
@@ -462,91 +512,106 @@ export const marketingContent: MarketingContent = {
       step: "01",
       title: "Discovery and decision framing",
       description:
-        "We align on business goals, platform constraints, user needs, and the smallest credible path forward.",
+        "We align on goals, constraints, users, and the most sensible place to start.",
     },
     {
       step: "02",
       title: "Product and system design",
       description:
-        "We define information flow, interfaces, content structure, and implementation boundaries before build pressure sets in.",
+        "We map the flow, interface structure, and implementation boundaries before build starts.",
     },
     {
       step: "03",
       title: "Build and integrate",
       description:
-        "Cross-functional delivery moves in visible increments with clear ownership and regular review points.",
+        "We build in small, visible increments with clear ownership and regular review.",
     },
     {
       step: "04",
       title: "Launch and stabilize",
       description:
-        "We release with attention to adoption, quality, performance, and the operational details that matter after go-live.",
+        "We launch carefully, then handle fixes, polish, and the operational details that show up in real use.",
     },
     {
       step: "05",
       title: "Iterate with intent",
       description:
-        "We extend the system, reduce friction, and keep the product aligned with changing business needs.",
+        "We improve the system based on feedback, usage, and what the business needs next.",
     },
   ],
   team: {
     summaryEyebrow: "Distributed by design",
-    summaryTitle: "Shared delivery across Germany and Egypt",
+    summaryTitle: "Working across Germany and Egypt",
     summaryDescription:
-      "Daily overlap, common standards, and accountable handoffs keep strategy and execution connected across both hubs.",
+      "Daily overlap, shared context, and clear handoffs keep the work moving across both hubs.",
     regions: [
       { label: "Germany", className: "left-[34%] top-[30%]", delay: 0.16 },
       { label: "Egypt", className: "left-[55%] top-[48%]", delay: 0.24 },
     ],
     members: [
       {
-        name: "Maya Schneider",
-        role: "Product Strategy",
-        location: "Berlin, Germany",
-        initials: "MS",
-        specialties: ["Discovery", "Roadmapping"],
-      },
-      {
-        name: "Felix Braun",
-        role: "Performance and SEO",
-        location: "Munich, Germany",
-        initials: "FB",
-        specialties: ["Core Web Vitals", "Technical SEO"],
-      },
-      {
-        name: "Omar Tarek",
-        role: "Engineering Lead",
+        name: "Mohamed Tamer",
+        role: "Software Engineer",
         location: "Cairo, Egypt",
-        initials: "OT",
-        specialties: ["Architecture", "Business systems"],
+        initials: "MT",
+        specialties: [
+          "Full-stack development",
+          "UI/UX design",
+          "Microsoft SPFx",
+          "Digital Transformation",
+        ],
       },
       {
-        name: "Leila Hassan",
-        role: "AI Solutions",
-        location: "Alexandria, Egypt",
-        initials: "LH",
-        specialties: ["RAG systems", "Prompt design"],
+        name: "Adam Nafie",
+        role: "Business Systems Lead",
+        location: "Munich, Germany",
+        initials: "AN",
+        specialties: [
+          "Discovery",
+          "Roadmapping",
+          "Core Web Vitals",
+          "Technical SEO",
+        ],
+      },
+      {
+        name: "Abdelrahman Elkhateeb",
+        role: "Software Engineer",
+        location: "Cairo, Egypt",
+        initials: "AE",
+        specialties: ["Performance", "SEO", "Architecture"],
+      },
+      {
+        name: "Ahmed Yehia",
+        role: "Software Engineer",
+        location: "Ulm, Germany",
+        initials: "AY",
+        specialties: [
+          "RAG systems",
+          "Prompt design",
+          "AI features",
+          "optimisation",
+        ],
       },
     ],
   },
   testimonials: [
     {
       quote:
-        "Strukture Digital gave us one team that could shape the roadmap, ship the system, and keep improving it after launch.",
+        "Strukture Digital helped us keep the roadmap, build, and post-launch improvements under one team instead of splitting the work across several parties.",
       author: "Nadia Elmasry",
       role: "COO",
       company: "Northline Group",
     },
     {
       quote:
-        "They translated a messy operational workflow into software our team actually wants to use every day.",
+        "They took a messy operational workflow and turned it into something our team could actually use day to day.",
       author: "Martin Keller",
       role: "Head of Operations",
       company: "Helix Industrial",
     },
     {
       quote:
-        "The quality stayed high across strategy, interface work, engineering, and performance tuning. It felt like one joined-up delivery system.",
+        "The work stayed consistent across product thinking, interface design, engineering, and performance improvements. That made the project easier to manage.",
       author: "Samantha Reed",
       role: "VP Digital",
       company: "Crestline Commerce",
@@ -603,12 +668,16 @@ export const marketingContent: MarketingContent = {
     },
   ],
   footer: {
-    title: "Need one team to structure the next phase of your product or system?",
+    title: "Need one team to build or improve your next product or system?",
     description:
-      "We design, build, and refine tailored digital systems with distributed delivery across Germany and Egypt.",
+      "We design, build, and improve tailored digital systems across Germany and Egypt.",
     email: "hello@strukturedigital.com",
     emailCtaLabel: "Email the team",
-    contactLines: ["Germany + Egypt", "Remote-first delivery", "Strategy, build, and iteration"],
+    contactLines: [
+      "Germany + Egypt",
+      "Remote-first delivery",
+      "Strategy, build, and iteration",
+    ],
     copyright: "Built for teams that need tailored software to do real work.",
   },
 };
