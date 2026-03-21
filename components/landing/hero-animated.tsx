@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { ComponentType, MouseEventHandler } from "react";
+import type { MouseEventHandler } from "react";
 import {
   animate,
   motion,
@@ -10,98 +10,15 @@ import {
   useTransform,
   type MotionValue,
 } from "framer-motion";
-import { Bot, Layers, Lightbulb, ShieldCheck, Workflow } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
-import { getFloatTransition, getRevealTransition, getRevealVariants } from "../_lib/motion";
+import { iconMap } from "@/lib/icon-map";
+import { marketingContent, type HeroTile } from "@/lib/marketing-content";
+import { getFloatTransition, getRevealTransition, getRevealVariants } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
-interface FloatingTileData {
-  id: string;
-  label: string;
-  positionClass: string;
-  variant: "icon" | "avatar";
-  icon?: ComponentType<{ className?: string }>;
-  initials?: string;
-  parallaxFactor: number;
-  floatDistance: number;
-  delay: number;
-}
-
-const floatingTiles: FloatingTileData[] = [
-  {
-    id: "tile-avatar-1",
-    label: "Berlin",
-    positionClass: "left-[2%] top-[24%]",
-    variant: "avatar",
-    initials: "DE",
-    parallaxFactor: 0.34,
-    floatDistance: 10,
-    delay: 0.08,
-  },
-  {
-    id: "tile-avatar-2",
-    label: "Cairo",
-    positionClass: "right-[2%] top-[18%]",
-    variant: "avatar",
-    initials: "EG",
-    parallaxFactor: 0.42,
-    floatDistance: 14,
-    delay: 0.16,
-  },
-  {
-    id: "tile-avatar-3",
-    label: "Austin",
-    positionClass: "left-[8%] bottom-[6%]",
-    variant: "avatar",
-    initials: "US",
-    parallaxFactor: 0.4,
-    floatDistance: 12,
-    delay: 0.24,
-  },
-  {
-    id: "tile-service-1",
-    label: "Web Apps",
-    positionClass: "left-[16%] top-[2%]",
-    variant: "icon",
-    icon: Layers,
-    parallaxFactor: 0.38,
-    floatDistance: 11,
-    delay: 0.2,
-  },
-  {
-    id: "tile-service-2",
-    label: "Systems",
-    positionClass: "right-[16%] top-[2%]",
-    variant: "icon",
-    icon: Workflow,
-    parallaxFactor: 0.33,
-    floatDistance: 13,
-    delay: 0.26,
-  },
-  {
-    id: "tile-service-3",
-    label: "AI",
-    positionClass: "right-[8%] bottom-[10%]",
-    variant: "icon",
-    icon: Bot,
-    parallaxFactor: 0.46,
-    floatDistance: 14,
-    delay: 0.32,
-  },
-  {
-    id: "tile-service-4",
-    label: "SEO",
-    positionClass: "left-[25%] bottom-[2%]",
-    variant: "icon",
-    icon: Lightbulb,
-    parallaxFactor: 0.31,
-    floatDistance: 10,
-    delay: 0.36,
-  },
-];
-
 interface FloatingTileProps {
-  tile: FloatingTileData;
+  tile: HeroTile;
   pointerX: MotionValue<number>;
   pointerY: MotionValue<number>;
   reducedMotion: boolean;
@@ -110,7 +27,7 @@ interface FloatingTileProps {
 function FloatingTile({ tile, pointerX, pointerY, reducedMotion }: FloatingTileProps) {
   const x = useTransform(pointerX, (value) => value * tile.parallaxFactor);
   const y = useTransform(pointerY, (value) => value * tile.parallaxFactor);
-  const Icon = tile.icon;
+  const Icon = tile.icon ? iconMap[tile.icon] : null;
 
   const revealVariants = useMemo(
     () => getRevealVariants(reducedMotion, { yOffset: 10, blur: 7, scale: 0.99 }),
@@ -236,27 +153,7 @@ export function HeroAnimated() {
             ease: [0.32, 0.72, 0, 1],
           }}
         >
-          <motion.svg
-            viewBox="0 0 24 24"
-            className="size-6"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <motion.path
-              d="M5 12.5L10.2 17.2L19.2 7.8"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              initial={reducedMotion ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0.4 }}
-              animate={{ pathLength: 1, opacity: 1 }}
-              transition={
-                reducedMotion
-                  ? { duration: 0 }
-                  : { duration: 0.9, delay: 0.18, ease: [0.22, 1, 0.36, 1] }
-              }
-            />
-          </motion.svg>
+          <ShieldCheck className="size-6" />
         </motion.div>
       </motion.div>
 
@@ -270,7 +167,7 @@ export function HeroAnimated() {
         <ShieldCheck className="size-6 text-violet-500" />
       </motion.div>
 
-      {floatingTiles.map((tile) => (
+      {marketingContent.hero.tiles.map((tile) => (
         <FloatingTile
           key={tile.id}
           tile={tile}

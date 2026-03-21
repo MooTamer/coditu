@@ -4,20 +4,24 @@ import { motion, useReducedMotion } from "framer-motion";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import type { TeamMember } from "../_lib/content";
-import { getFloatTransition, getRevealTransition, getRevealVariants, motionTokens } from "../_lib/motion";
+import type { TeamMember, TeamRegion } from "@/lib/marketing-content";
+import { getFloatTransition, getRevealTransition, getRevealVariants, motionTokens } from "@/lib/motion";
 
 interface TeamAnimatedProps {
+  summaryEyebrow: string;
+  summaryTitle: string;
+  summaryDescription: string;
+  regions: TeamRegion[];
   members: TeamMember[];
 }
 
-const mapPoints = [
-  { label: "Germany", className: "left-[29%] top-[30%]", delay: 0.15 },
-  { label: "Egypt", className: "left-[53%] top-[45%]", delay: 0.2 },
-  { label: "USA", className: "left-[72%] top-[28%]", delay: 0.25 },
-];
-
-export function TeamAnimated({ members }: TeamAnimatedProps) {
+export function TeamAnimated({
+  summaryEyebrow,
+  summaryTitle,
+  summaryDescription,
+  regions,
+  members,
+}: TeamAnimatedProps) {
   const reducedMotion = useReducedMotion() ?? false;
 
   return (
@@ -30,29 +34,28 @@ export function TeamAnimated({ members }: TeamAnimatedProps) {
         viewport={{ once: true, amount: 0.24 }}
         transition={getRevealTransition(reducedMotion)}
       >
-        <p className="mb-3 text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">
-          Distributed by design
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground">
+          {summaryEyebrow}
         </p>
         <h3 className="font-display text-2xl font-semibold tracking-tight text-foreground">
-          Shared delivery across 3 regions
+          {summaryTitle}
         </h3>
         <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
-          Teams overlap daily and keep handoffs tight through a unified process and common technical standards.
+          {summaryDescription}
         </p>
 
         <div className="relative mt-8 h-56 rounded-2xl border border-black/10 bg-white/85">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_28%_35%,rgba(56,189,248,0.2),transparent_45%),radial-gradient(circle_at_72%_28%,rgba(59,130,246,0.16),transparent_46%),radial-gradient(circle_at_52%_48%,rgba(14,165,233,0.16),transparent_42%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_34%_32%,rgba(56,189,248,0.2),transparent_45%),radial-gradient(circle_at_55%_48%,rgba(59,130,246,0.16),transparent_46%)]" />
           <svg
             viewBox="0 0 320 210"
             className="absolute inset-0 h-full w-full stroke-sky-300/70"
             fill="none"
             aria-hidden="true"
           >
-            <path d="M84 76C116 118 166 122 224 75" strokeWidth="1.4" strokeDasharray="5 6" />
-            <path d="M224 75C189 125 154 138 116 124" strokeWidth="1.4" strokeDasharray="5 6" />
+            <path d="M110 86C135 108 156 118 180 116" strokeWidth="1.4" strokeDasharray="5 6" />
           </svg>
 
-          {mapPoints.map((point) => (
+          {regions.map((point) => (
             <motion.div
               key={point.label}
               className={`absolute ${point.className}`}

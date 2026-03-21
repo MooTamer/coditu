@@ -37,10 +37,6 @@ export function cssBezier(ease: CubicBezier): string {
   return `cubic-bezier(${ease.join(",")})`;
 }
 
-export function getScrollBehavior(reducedMotion: boolean): ScrollBehavior {
-  return reducedMotion ? "auto" : "smooth";
-}
-
 export function getRevealVariants(
   reducedMotion: boolean,
   options: RevealOptions = {}

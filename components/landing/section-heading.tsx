@@ -30,16 +30,16 @@ export function SectionHeading({
       {eyebrow ? (
         <Badge
           variant="secondary"
-          className="rounded-full border border-black/10 bg-white/80 px-3 py-1 text-[11px] tracking-[0.14em] uppercase"
+          className="rounded-full border border-black/10 bg-white/80 px-3 py-1 text-[11px] uppercase tracking-[0.14em]"
         >
           {eyebrow}
         </Badge>
       ) : null}
-      <h2 className="font-display text-3xl leading-tight tracking-tight text-balance text-foreground sm:text-4xl lg:text-5xl">
+      <h2 className="text-balance font-display text-3xl leading-tight font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
         {title}
       </h2>
       {description ? (
-        <p className="max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
+        <p className="max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
           {description}
         </p>
       ) : null}

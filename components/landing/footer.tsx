@@ -1,15 +1,13 @@
 import Image from "next/image";
 
+import { SectionShell } from "@/components/landing/section-shell";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-
-import { navItems } from "../_lib/content";
-
-import { AnchorLink } from "./anchor-link";
-import { SectionShell } from "./section-shell";
+import { marketingContent } from "@/lib/marketing-content";
 
 export function Footer() {
   const currentYear = new Date().getUTCFullYear();
+  const { footer, navItems, siteMeta } = marketingContent;
 
   return (
     <SectionShell
@@ -29,46 +27,46 @@ export function Footer() {
               suppressHydrationWarning
               className="rounded-xl object-cover"
             />
-            <p className="font-display text-xl font-semibold tracking-tight">Strukture Digital</p>
+            <p className="font-display text-xl font-semibold tracking-tight">{siteMeta.siteName}</p>
           </div>
           <h2 className="font-display text-3xl leading-tight tracking-tight text-foreground sm:text-4xl">
-            Need an all-in-one digital partner for your next build?
+            {footer.title}
           </h2>
           <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            We design, build, and optimize digital products with distributed delivery across
-            Germany, Egypt, and the USA.
+            {footer.description}
           </p>
           <Button asChild size="lg" className="h-11 rounded-full px-6 text-sm font-semibold">
-            <a href="mailto:hello@strukturedigital.com">Request a Call</a>
+            <a href={`mailto:${footer.email}`}>{footer.emailCtaLabel}</a>
           </Button>
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <p className="mb-3 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Navigate
             </p>
             <div className="flex flex-col gap-2">
               {navItems.map((item) => (
-                <AnchorLink
+                <a
                   key={item.href}
                   href={item.href}
                   className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {item.label}
-                </AnchorLink>
+                </a>
               ))}
             </div>
           </div>
 
           <div>
-            <p className="mb-3 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Contact
             </p>
             <div className="space-y-2 text-sm text-muted-foreground">
-              <p>hello@strukturedigital.com</p>
-              <p>Berlin, Cairo, Austin</p>
-              <p>Remote-first delivery</p>
+              <p>{footer.email}</p>
+              {footer.contactLines.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
             </div>
           </div>
         </div>
@@ -77,7 +75,8 @@ export function Footer() {
       <Separator className="my-6" />
       <p className="text-xs text-muted-foreground">
         © <time dateTime={String(currentYear)} suppressHydrationWarning>{currentYear}</time>{" "}
-        Strukture Digital. Built for teams worldwide.
+        {siteMeta.siteName}.{" "}
+        {footer.copyright}
       </p>
     </SectionShell>
   );

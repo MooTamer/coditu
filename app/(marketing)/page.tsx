@@ -1,14 +1,49 @@
-import { Faq } from "./_components/faq";
-import { Footer } from "./_components/footer";
-import { Hero } from "./_components/hero";
-import { Insights } from "./_components/insights";
-import { Navbar } from "./_components/navbar";
-import { Process } from "./_components/process";
-import { Services } from "./_components/services";
-import { Team } from "./_components/team";
-import { Testimonials } from "./_components/testimonials";
-import { UseCases } from "./_components/use-cases";
-import { Work } from "./_components/work";
+import type { Metadata } from "next";
+
+import { Faq } from "@/components/landing/faq";
+import { Footer } from "@/components/landing/footer";
+import { Hero } from "@/components/landing/hero";
+import { Insights } from "@/components/landing/insights";
+import { Navbar } from "@/components/landing/navbar";
+import { Process } from "@/components/landing/process";
+import { Services } from "@/components/landing/services";
+import { Team } from "@/components/landing/team";
+import { Testimonials } from "@/components/landing/testimonials";
+import { UseCases } from "@/components/landing/use-cases";
+import { Work } from "@/components/landing/work";
+import { marketingContent } from "@/lib/marketing-content";
+
+const { siteMeta } = marketingContent;
+
+export const metadata: Metadata = {
+  title: siteMeta.pageTitle,
+  description: siteMeta.description,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: siteMeta.ogTitle,
+    description: siteMeta.ogDescription,
+    url: "/",
+    siteName: siteMeta.siteName,
+    type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: siteMeta.ogImage,
+        width: 1200,
+        height: 630,
+        alt: siteMeta.siteName,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteMeta.ogTitle,
+    description: siteMeta.ogDescription,
+    images: [siteMeta.ogImage],
+  },
+};
 
 export default function Home() {
   return (

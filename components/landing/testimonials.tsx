@@ -1,23 +1,23 @@
+import { RevealAnimated } from "@/components/landing/reveal-animated";
+import { SectionHeading } from "@/components/landing/section-heading";
+import { SectionShell } from "@/components/landing/section-shell";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-
-import { testimonials } from "../_lib/content";
-
-import { FadeIn } from "./fade-in";
-import { SectionHeading } from "./section-heading";
-import { SectionShell } from "./section-shell";
+import { marketingContent } from "@/lib/marketing-content";
 
 export function Testimonials() {
+  const { sections, testimonials } = marketingContent;
+
   return (
     <SectionShell id="testimonials" className="pt-8 sm:pt-12">
       <SectionHeading
-        eyebrow="Testimonials"
-        title="Trusted by teams that expect clear results"
-        description="We partner closely with leadership and operations teams to deliver outcomes that hold up in production."
+        eyebrow={sections.testimonials.eyebrow}
+        title={sections.testimonials.title}
+        description={sections.testimonials.description}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
         {testimonials.map((item, index) => (
-          <FadeIn key={item.author} delayMs={index * 75}>
+          <RevealAnimated key={item.author} delayMs={index * 75}>
             <Card className="h-full rounded-3xl border-black/10 bg-white/85 shadow-[0_18px_38px_-32px_rgba(15,23,42,0.4)]">
               <CardContent className="pt-2">
                 <p className="text-sm leading-relaxed text-foreground">&ldquo;{item.quote}&rdquo;</p>
@@ -29,7 +29,7 @@ export function Testimonials() {
                 </p>
               </CardFooter>
             </Card>
-          </FadeIn>
+          </RevealAnimated>
         ))}
       </div>
     </SectionShell>

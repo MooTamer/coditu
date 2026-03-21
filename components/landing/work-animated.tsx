@@ -1,19 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowUpRight } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import type { WorkItem } from "../_lib/content";
-import { getRevealTransition, getRevealVariants, motionTokens } from "../_lib/motion";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import type { WorkItem } from "@/lib/marketing-content";
+import { getRevealTransition, getRevealVariants, motionTokens } from "@/lib/motion";
 
 interface WorkAnimatedProps {
   items: WorkItem[];
+  cardLabel: string;
 }
 
-export function WorkAnimated({ items }: WorkAnimatedProps) {
+export function WorkAnimated({ items, cardLabel }: WorkAnimatedProps) {
   const reducedMotion = useReducedMotion() ?? false;
 
   return (
@@ -51,7 +51,7 @@ export function WorkAnimated({ items }: WorkAnimatedProps) {
               />
             </div>
 
-            <CardHeader className="space-y-2">
+            <CardHeader className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <Badge variant="secondary" className="rounded-full px-3 py-1 text-[11px]">
                   {item.industry}
@@ -60,8 +60,10 @@ export function WorkAnimated({ items }: WorkAnimatedProps) {
                   {item.outcome}
                 </span>
               </div>
-              <CardTitle className="text-2xl leading-tight tracking-tight">{item.title}</CardTitle>
-              <CardDescription className="text-sm leading-relaxed">{item.summary}</CardDescription>
+              <div className="space-y-2">
+                <CardTitle className="text-2xl leading-tight tracking-tight">{item.title}</CardTitle>
+                <p className="text-sm leading-relaxed text-muted-foreground">{item.summary}</p>
+              </div>
             </CardHeader>
 
             <CardContent className="space-y-3">
@@ -77,22 +79,19 @@ export function WorkAnimated({ items }: WorkAnimatedProps) {
                 ))}
               </div>
               <div className="flex flex-wrap gap-2">
-                {item.techStack.map((tech) => (
+                {item.capabilities.map((capability) => (
                   <span
-                    key={tech}
+                    key={capability}
                     className="rounded-full border border-black/10 bg-black/[0.03] px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
                   >
-                    {tech}
+                    {capability}
                   </span>
                 ))}
               </div>
             </CardContent>
 
             <CardFooter className="justify-end">
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-foreground">
-                View case
-                <ArrowUpRight className="size-3.5" />
-              </span>
+              <span className="text-xs font-semibold text-foreground">{cardLabel}</span>
             </CardFooter>
           </Card>
         </motion.article>

@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 
-import type { IconKey } from "./content";
+import type { IconKey } from "@/lib/marketing-content";
 
 export const iconMap: Record<IconKey, ComponentType<{ className?: string }>> = {
   globe: Globe,

@@ -2,14 +2,14 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 
-import type { Service } from "../_lib/content";
-import { iconMap } from "../_lib/icon-map";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getRevealTransition, getRevealVariants, motionTokens } from "../_lib/motion";
+import { iconMap } from "@/lib/icon-map";
+import type { ServiceItem } from "@/lib/marketing-content";
+import { getRevealTransition, getRevealVariants, motionTokens } from "@/lib/motion";
 
 interface ServicesAnimatedProps {
-  items: Service[];
+  items: ServiceItem[];
 }
 
 export function ServicesAnimated({ items }: ServicesAnimatedProps) {

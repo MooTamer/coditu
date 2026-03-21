@@ -2,8 +2,8 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 
-import type { ProcessStep } from "../_lib/content";
-import { getRevealTransition, getRevealVariants, motionTokens } from "../_lib/motion";
+import type { ProcessStep } from "@/lib/marketing-content";
+import { getRevealTransition, getRevealVariants, motionTokens } from "@/lib/motion";
 
 interface ProcessAnimatedProps {
   items: ProcessStep[];
@@ -28,7 +28,7 @@ export function ProcessAnimated({ items }: ProcessAnimatedProps) {
             })
           }
         >
-          <div className="mb-4 inline-flex rounded-full border border-black/10 bg-black/[0.03] px-3 py-1 text-xs font-semibold tracking-[0.1em] text-muted-foreground uppercase">
+          <div className="mb-4 inline-flex rounded-full border border-black/10 bg-black/[0.03] px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
             {item.step}
           </div>
           <h3 className="font-display text-lg font-semibold tracking-tight text-foreground">

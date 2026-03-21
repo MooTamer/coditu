@@ -8,11 +8,10 @@ import {
   useState,
 } from "react";
 
+import { motionTokens, prefersReducedMotionFromMediaQuery, cssBezier } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
-import { cssBezier, motionTokens, prefersReducedMotionFromMediaQuery } from "../_lib/motion";
-
-export interface FadeInProps extends HTMLAttributes<HTMLDivElement> {
+export interface RevealAnimatedProps extends HTMLAttributes<HTMLDivElement> {
   delayMs?: number;
   durationMs?: number;
   blurPx?: number;
@@ -20,7 +19,7 @@ export interface FadeInProps extends HTMLAttributes<HTMLDivElement> {
   once?: boolean;
 }
 
-export function FadeIn({
+export function RevealAnimated({
   children,
   className,
   delayMs = 0,
@@ -29,7 +28,7 @@ export function FadeIn({
   yOffset = motionTokens.reveal.yOffset,
   once = true,
   ...props
-}: FadeInProps) {
+}: RevealAnimatedProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -45,6 +44,7 @@ export function FadeIn({
     const handleChange = () => {
       const nextValue = media.matches;
       setReducedMotion(nextValue);
+
       if (nextValue) {
         setIsVisible(true);
       }
@@ -83,6 +83,7 @@ export function FadeIn({
 
         if (entry.isIntersecting) {
           setIsVisible(true);
+
           if (once) {
             observer.unobserve(entry.target);
           }
@@ -115,12 +116,7 @@ export function FadeIn({
       };
 
   return (
-    <div
-      ref={ref}
-      className={cn(className)}
-      style={style}
-      {...props}
-    >
+    <div ref={ref} className={cn(className)} style={style} {...props}>
       {children}
     </div>
   );
