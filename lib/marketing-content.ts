@@ -458,54 +458,6 @@ export const marketingContent: MarketingContent = {
       capabilities: ["Document workflows", "Permissions", "Shared dashboards"],
       imageSrc: "/work/work-2.svg",
     },
-    {
-      title: "Crestline Growth Platform",
-      summary:
-        "A marketing platform connecting editorial control, technical SEO, and conversion-focused page design.",
-      industry: "Growth",
-      outcome: "51% higher conversion rate",
-      tags: ["Web platform", "Performance"],
-      capabilities: ["SEO foundation", "Content workflow", "Conversion design"],
-      imageSrc: "/work/work-3.svg",
-    },
-    {
-      title: "Meridian Knowledge Assistant",
-      summary:
-        "A RAG assistant built on policy, delivery, and support material to make internal answers easier to find.",
-      industry: "Professional services",
-      outcome: "64% fewer support escalations",
-      tags: ["AI assistant", "Knowledge systems"],
-      capabilities: [
-        "Grounded responses",
-        "Internal search",
-        "Knowledge routing",
-      ],
-      imageSrc: "/work/work-4.svg",
-    },
-    {
-      title: "Helix Dispatch Console",
-      summary:
-        "A scheduling and dispatch system that gave distributed field teams one place to manage daily operations.",
-      industry: "Field operations",
-      outcome: "29% less idle time",
-      tags: ["Business system", "Scheduling"],
-      capabilities: [
-        "Dispatch workflows",
-        "Shared schedules",
-        "Operational controls",
-      ],
-      imageSrc: "/work/work-5.svg",
-    },
-    {
-      title: "Luma Expert Studio",
-      summary:
-        "A client and delivery workspace for an independent operator packaging services, materials, and repeatable execution into one system.",
-      industry: "Independent practice",
-      outcome: "3x faster proposal turnaround",
-      tags: ["Custom web app", "Client workspace"],
-      capabilities: ["Client portal", "Content system", "Delivery automation"],
-      imageSrc: "/work/work-6.svg",
-    },
   ],
   processSteps: [
     {
