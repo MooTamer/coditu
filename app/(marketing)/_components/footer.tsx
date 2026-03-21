@@ -9,6 +9,8 @@ import { AnchorLink } from "./anchor-link";
 import { SectionShell } from "./section-shell";
 
 export function Footer() {
+  const currentYear = new Date().getUTCFullYear();
+
   return (
     <SectionShell
       as="footer"
@@ -24,6 +26,7 @@ export function Footer() {
               alt="Strukture Digital logo"
               width={42}
               height={42}
+              suppressHydrationWarning
               className="rounded-xl object-cover"
             />
             <p className="font-display text-xl font-semibold tracking-tight">Strukture Digital</p>
@@ -73,7 +76,8 @@ export function Footer() {
 
       <Separator className="my-6" />
       <p className="text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Strukture Digital. Built for teams worldwide.
+        © <time dateTime={String(currentYear)} suppressHydrationWarning>{currentYear}</time>{" "}
+        Strukture Digital. Built for teams worldwide.
       </p>
     </SectionShell>
   );

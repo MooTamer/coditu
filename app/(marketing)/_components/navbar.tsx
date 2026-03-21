@@ -22,6 +22,7 @@ export function Navbar() {
             alt="Strukture Digital logo"
             width={42}
             height={42}
+            suppressHydrationWarning
             className="size-10 rounded-xl object-cover shadow-[0_8px_18px_-14px_rgba(15,23,42,0.55)]"
             priority
           />
