@@ -1,53 +1,26 @@
-"use client";
-
-import Image from "next/image";
-import { motion, useReducedMotion } from "framer-motion";
-
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { MediaCarousel } from "@/components/landing/media-carousel";
 import type { WorkItem } from "@/lib/marketing-content";
-import { getRevealTransition, getRevealVariants, motionTokens } from "@/lib/motion";
 
 interface WorkAnimatedProps {
   items: WorkItem[];
-  cardLabel: string;
+  cardLabel?: string;
 }
 
 export function WorkAnimated({ items, cardLabel }: WorkAnimatedProps) {
-  const reducedMotion = useReducedMotion() ?? false;
-
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      {items.map((item, index) => (
-        <motion.article
+      {items.map((item) => (
+        <article
           key={item.title}
-          variants={getRevealVariants(reducedMotion, { yOffset: 14 })}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.2 }}
-          transition={
-            getRevealTransition(reducedMotion, {
-              delay: index * motionTokens.stagger.tight,
-            })
-          }
-          whileHover={
-            reducedMotion
-              ? undefined
-              : {
-                  y: -6,
-                  transition: { duration: 0.25 },
-                }
-          }
+          className="transition-transform duration-300 hover:-translate-y-1.5"
         >
-          <Card className="group overflow-hidden rounded-3xl border-black/10 bg-white/85 pt-0 shadow-[0_24px_54px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
-            <div className="relative h-52 overflow-hidden border-b border-black/10">
-              <Image
-                src={item.imageSrc}
-                alt={item.title}
-                fill
-                sizes="(min-width: 1024px) 50vw, 100vw"
-                suppressHydrationWarning
-                className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          <Card className="overflow-hidden rounded-3xl border-black/10 bg-white/85 pt-0 shadow-[0_24px_54px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
+            <div className="relative h-64 overflow-hidden border-b border-black/10">
+              <MediaCarousel
+                images={item.images}
+                className="h-full w-full rounded-none border-0 shadow-none"
               />
             </div>
 
@@ -94,7 +67,7 @@ export function WorkAnimated({ items, cardLabel }: WorkAnimatedProps) {
               <span className="text-xs font-semibold text-foreground">{cardLabel}</span>
             </CardFooter>
           </Card>
-        </motion.article>
+        </article>
       ))}
     </div>
   );

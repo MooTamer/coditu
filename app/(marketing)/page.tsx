@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { EvimPreview } from "@/components/landing/evim-preview";
 import { Faq } from "@/components/landing/faq";
 import { Footer } from "@/components/landing/footer";
 import { Hero } from "@/components/landing/hero";
@@ -55,6 +56,7 @@ export default function Home() {
       <Navbar />
       <main>
         <Hero />
+        <EvimPreview />
         <UseCases />
         <Services />
         <Work />

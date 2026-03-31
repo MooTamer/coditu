@@ -13,7 +13,7 @@ export function Work() {
         title={sections.work.title}
         description={sections.work.description}
       />
-      <WorkAnimated items={workItems} cardLabel={sections.work.cardLabel} />
+      <WorkAnimated items={workItems} />
     </SectionShell>
   );
 }

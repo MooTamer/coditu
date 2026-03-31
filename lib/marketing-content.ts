@@ -40,7 +40,11 @@ export interface WorkItem {
   outcome: string;
   tags: string[];
   capabilities: string[];
-  imageSrc: string;
+  images: Array<{
+    src: string;
+    alt: string;
+    objectPosition?: string;
+  }>;
 }
 
 export interface ProcessStep {
@@ -120,11 +124,11 @@ export interface MarketingContent {
   sections: {
     useCases: SectionIntro;
     services: SectionIntro;
-    work: SectionIntro & { cardLabel: string };
+    work: SectionIntro & { cardLabel?: string };
     process: SectionIntro;
     team: SectionIntro;
     testimonials: SectionIntro;
-    insights: SectionIntro & { cardLabel: string };
+    insights: SectionIntro & { cardLabel?: string };
     faq: SectionIntro;
   };
   useCases: UseCase[];
@@ -274,7 +278,6 @@ export const marketingContent: MarketingContent = {
       title: "Recent work across portals, business systems, and product builds",
       description:
         "A selection of systems and platforms built for teams that needed clearer workflows, better performance, or a more useful product surface.",
-      cardLabel: "Portfolio snapshot",
     },
     process: {
       eyebrow: "Process",
@@ -439,24 +442,67 @@ export const marketingContent: MarketingContent = {
   ],
   workItems: [
     {
-      title: "Atlas Operations Portal",
+      title: "MEINEvim Germany: Internal SharePoint Components",
       summary:
-        "A unified internal platform for approvals, tracking, and reporting across a growing operations team.",
-      industry: "Operations",
-      outcome: "37% faster case handling",
-      tags: ["Internal systems", "Automation"],
-      capabilities: ["Operations portal", "Approval flows", "Reporting"],
-      imageSrc: "/work/work-1.svg",
+        "A set of reusable SharePoint Online components that helped EVIM's internal teams work more efficiently within the modern UI experience.",
+      industry: "Enterprise",
+      outcome: "Reusable components aligned with internal workflows",
+      tags: ["SPFx", "SharePoint Online", "Internal tools"],
+      capabilities: [
+        "Custom SPFx web parts",
+        "Workflow-aligned design",
+        "Internal adoption",
+      ],
+      images: [
+        {
+          src: "/work/Banner and News.webp",
+          alt: "EVIM SharePoint banner and news module",
+          objectPosition: "50% 0%",
+        },
+        {
+          src: "/work/orgChart.png",
+          alt: "EVIM SharePoint internal portal banner",
+          objectPosition: "50% 0%",
+        },
+      ],
     },
     {
-      title: "Northline Partner Workspace",
+      title: "Nile Atelier Egypt: Clothing Manufacturer Portal",
       summary:
         "A partner workspace that helped simplify onboarding, document routing, and shared visibility.",
-      industry: "Enterprise",
-      outcome: "2.4x onboarding throughput",
-      tags: ["Enterprise portal", "Partner access"],
-      capabilities: ["Document workflows", "Permissions", "Shared dashboards"],
-      imageSrc: "/work/work-2.svg",
+      industry: "Manufacturing",
+      outcome: "Streamlined partner onboarding and collaboration",
+      tags: ["Custom web app", "Partner portal"],
+      capabilities: ["Custom web app development", "Document management"],
+      images: [
+        {
+          src: "/work/NileAtelier.webp",
+          alt: "Nile Atelier Egypt: Clothing Manufacturer Portal",
+          objectPosition: "50% 0%",
+        },
+      ],
+    },
+    {
+      title: "NVR Miss: Smart Cat Litter Box Experience",
+      summary:
+        "A product-focused web application showcasing an ergonomically designed cat litter box that improves cleanliness, reduces waste, and enhances usability for both pets and owners.",
+      industry: "E-commerce / Pet Products",
+      outcome:
+        "Clear product positioning with emphasis on usability, hygiene, and simplified purchasing flow",
+      tags: ["Next.js", "Landing page", "Product showcase"],
+      capabilities: [
+        "Product-centric UI design",
+        "User-focused storytelling (problem → solution)",
+        "Clean and minimal navigation",
+      ],
+      images: [
+       
+        {
+          src: "/work/NVRMiss.webp",
+          alt: "Product design showcasing high walls and center entrance",
+          objectPosition: "50% 0%",
+        },
+      ],
     },
   ],
   processSteps: [
