@@ -34,12 +34,21 @@ export interface ServiceItem {
 }
 
 export interface WorkItem {
+  id: string;
   title: string;
   summary: string;
   industry: string;
   outcome: string;
   tags: string[];
-  capabilities: string[];
+  stack: string[];
+  highlights: Array<{
+    label: string;
+    detail: string;
+  }>;
+  cta?: {
+    label: string;
+    href: string;
+  };
   images: Array<{
     src: string;
     alt: string;
@@ -278,6 +287,7 @@ export const marketingContent: MarketingContent = {
       title: "Recent work across portals, business systems, and product builds",
       description:
         "A selection of systems and platforms built for teams that needed clearer workflows, better performance, or a more useful product surface.",
+      cardLabel: "View details",
     },
     process: {
       eyebrow: "Process",
@@ -442,17 +452,32 @@ export const marketingContent: MarketingContent = {
   ],
   workItems: [
     {
+      id: "meinevim-sharepoint-components",
       title: "MEINEvim Germany: Internal SharePoint Components",
       summary:
         "A set of reusable SharePoint Online components that helped EVIM's internal teams work more efficiently within the modern UI experience.",
       industry: "Enterprise",
       outcome: "Reusable components aligned with internal workflows",
       tags: ["SPFx", "SharePoint Online", "Internal tools"],
-      capabilities: [
-        "Custom SPFx web parts",
-        "Workflow-aligned design",
-        "Internal adoption",
+      stack: ["SPFx", "React", "TypeScript", "SharePoint Online"],
+      highlights: [
+        {
+          label: "Problem",
+          detail: "Internal teams relied on fragmented legacy widgets and duplicated updates.",
+        },
+        {
+          label: "Solution",
+          detail: "A reusable SPFx component set designed around EVIM's daily workflows and approvals.",
+        },
+        {
+          label: "Impact",
+          detail: "Teams moved to one maintainable component baseline with higher internal adoption.",
+        },
       ],
+      cta: {
+        label: "Request a call",
+        href: "#contact",
+      },
       images: [
         {
           src: "/work/Banner and News.webp",
@@ -467,13 +492,28 @@ export const marketingContent: MarketingContent = {
       ],
     },
     {
+      id: "nile-atelier-partner-portal",
       title: "Nile Atelier Egypt: Clothing Manufacturer Portal",
       summary:
         "A partner workspace that helped simplify onboarding, document routing, and shared visibility.",
       industry: "Manufacturing",
       outcome: "Streamlined partner onboarding and collaboration",
       tags: ["Custom web app", "Partner portal"],
-      capabilities: ["Custom web app development", "Document management"],
+      stack: ["Next.js", "TypeScript", "Secure file workflows"],
+      highlights: [
+        {
+          label: "Problem",
+          detail: "Supplier onboarding and document handoffs were slow and inconsistent across channels.",
+        },
+        {
+          label: "Solution",
+          detail: "A centralized portal for onboarding, routing documents, and tracking collaboration states.",
+        },
+        {
+          label: "Impact",
+          detail: "Onboarding and handoff cycles became clearer, faster, and easier to track.",
+        },
+      ],
       images: [
         {
           src: "/work/NileAtelier.webp",
@@ -483,28 +523,43 @@ export const marketingContent: MarketingContent = {
       ],
     },
     {
-  title: "Ops Console: Unified Infrastructure Dashboard",
-  summary:
-    "A single-page operations dashboard that centralizes monitoring and management of Redis, Pinecone, S3, PostgreSQL, and AI services through a modern, real-time interface.",
-  industry: "DevOps / Infrastructure / AI Platforms",
-  outcome:
-    "Improved visibility across multiple services with a unified interface, enabling faster debugging, monitoring, and operational decision-making",
-  tags: ["Vue 3", "TypeScript", "DevOps Dashboard", "Monitoring"],
-  capabilities: [
-    "Multi-service infrastructure monitoring",
-    "Real-time telemetry visualization",
-    "Secure API key-based access",
-    "Scalable modular architecture",
-  ],
-  images: [
+      id: "ops-console-dashboard",
+      title: "Ops Console: Unified Infrastructure Dashboard",
+      summary:
+        "A single-page operations dashboard that centralizes monitoring and management of Redis, Pinecone, S3, PostgreSQL, and AI services through a modern, real-time interface.",
+      industry: "DevOps / Infrastructure / AI Platforms",
+      outcome:
+        "Improved visibility across multiple services with a unified interface, enabling faster debugging, monitoring, and operational decision-making",
+      tags: ["Vue 3", "TypeScript", "DevOps Dashboard", "Monitoring"],
+      stack: ["Vue 3", "TypeScript", "Redis", "PostgreSQL", "Pinecone", "S3"],
+      highlights: [
+        {
+          label: "Problem",
+          detail: "Critical ops signals lived in separate tools, slowing incident response.",
+        },
+        {
+          label: "Solution",
+          detail: "A modular dashboard that aggregates telemetry and controls for core infrastructure services.",
+        },
+        {
+          label: "Impact",
+          detail: "Faster debugging and clearer cross-service visibility for day-to-day operations.",
+        },
+      ],
+      cta: {
+        label: "Request a call",
+        href: "#contact",
+      },
+      images: [
+        {
+          src: "/work/converso.webp",
+          alt: "Ops Console bento-grid infrastructure dashboard",
+          objectPosition: "50% 0%",
+        },
+      ],
+    },
     {
-      src: "/work/converso.webp",
-      alt: "Ops Console bento-grid infrastructure dashboard",
-      objectPosition: "50% 0%",
-    }
-  ],
-},
-    {
+      id: "nvr-miss-product-experience",
       title: "NVR Miss: Smart Cat Litter Box Experience",
       summary:
         "A product-focused web application showcasing an ergonomically designed cat litter box that improves cleanliness, reduces waste, and enhances usability for both pets and owners.",
@@ -512,13 +567,22 @@ export const marketingContent: MarketingContent = {
       outcome:
         "Clear product positioning with emphasis on usability, hygiene, and simplified purchasing flow",
       tags: ["Next.js", "Landing page", "Product showcase"],
-      capabilities: [
-        "Product-centric UI design",
-        "User-focused storytelling (problem → solution)",
-        "Clean and minimal navigation",
+      stack: ["Next.js", "TypeScript", "Motion design", "Product storytelling"],
+      highlights: [
+        {
+          label: "Problem",
+          detail: "The product needed clearer value communication and a cleaner conversion path.",
+        },
+        {
+          label: "Solution",
+          detail: "A focused landing experience that leads users from pain points to product benefits.",
+        },
+        {
+          label: "Impact",
+          detail: "Improved product clarity and a simpler purchase journey for target users.",
+        },
       ],
       images: [
-       
         {
           src: "/work/NVRMiss.webp",
           alt: "Product design showcasing high walls and center entrance",
