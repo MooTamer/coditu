@@ -483,6 +483,28 @@ export const marketingContent: MarketingContent = {
       ],
     },
     {
+  title: "Ops Console: Unified Infrastructure Dashboard",
+  summary:
+    "A single-page operations dashboard that centralizes monitoring and management of Redis, Pinecone, S3, PostgreSQL, and AI services through a modern, real-time interface.",
+  industry: "DevOps / Infrastructure / AI Platforms",
+  outcome:
+    "Improved visibility across multiple services with a unified interface, enabling faster debugging, monitoring, and operational decision-making",
+  tags: ["Vue 3", "TypeScript", "DevOps Dashboard", "Monitoring"],
+  capabilities: [
+    "Multi-service infrastructure monitoring",
+    "Real-time telemetry visualization",
+    "Secure API key-based access",
+    "Scalable modular architecture",
+  ],
+  images: [
+    {
+      src: "/work/converso.webp",
+      alt: "Ops Console bento-grid infrastructure dashboard",
+      objectPosition: "50% 0%",
+    }
+  ],
+},
+    {
       title: "NVR Miss: Smart Cat Litter Box Experience",
       summary:
         "A product-focused web application showcasing an ergonomically designed cat litter box that improves cleanliness, reduces waste, and enhances usability for both pets and owners.",
