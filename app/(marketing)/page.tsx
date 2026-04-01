@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-
+ 
 import { Faq } from "@/components/landing/faq";
 import { Footer } from "@/components/landing/footer";
 import { Hero } from "@/components/landing/hero";
