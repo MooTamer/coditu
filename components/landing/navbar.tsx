@@ -20,7 +20,7 @@ export function Navbar() {
             className="size-10 rounded-xl object-cover shadow-[0_8px_18px_-14px_rgba(15,23,42,0.55)]"
             priority
           />
-          <span className="max-w-[11rem] truncate font-display text-base font-semibold tracking-tight text-foreground sm:max-w-none sm:text-xl">
+          <span className="max-w-44 truncate font-display text-base font-semibold tracking-tight text-foreground sm:max-w-none sm:text-xl">
             {marketingContent.siteMeta.siteName}
           </span>
         </Link>

@@ -51,7 +51,7 @@ export function WorkGalleryClient({ items, cardLabel = defaultCardLabel }: WorkG
                 >
                   <motion.div
                     layoutId={imageLayoutId}
-                    className="relative aspect-[16/10] overflow-hidden border-b border-black/10 bg-slate-100 sm:aspect-video"
+                    className="relative aspect-16/10 overflow-hidden border-b border-black/10 bg-slate-100 sm:aspect-video"
                   >
                     {previewImage ? (
                       <Image
@@ -88,7 +88,7 @@ export function WorkGalleryClient({ items, cardLabel = defaultCardLabel }: WorkG
                       <h3 className="line-clamp-2 min-h-[3.2rem] text-xl leading-tight tracking-tight text-foreground sm:min-h-[3.6rem] sm:text-2xl">
                         {item.title}
                       </h3>
-                      <p className="line-clamp-3 min-h-[3.8rem] text-sm leading-relaxed text-muted-foreground sm:min-h-[4rem]">
+                      <p className="line-clamp-3 min-h-[3.8rem] text-sm leading-relaxed text-muted-foreground sm:min-h-16">
                         {item.summary}
                       </p>
                     </div>
@@ -105,7 +105,7 @@ export function WorkGalleryClient({ items, cardLabel = defaultCardLabel }: WorkG
                           </Badge>
                         ))}
                         {item.tags.length > previewTags.length ? (
-                          <span className="rounded-full border border-black/10 bg-black/[0.03] px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                          <span className="rounded-full border border-black/10 bg-black/3 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
                             +{item.tags.length - previewTags.length}
                           </span>
                         ) : null}
@@ -114,7 +114,7 @@ export function WorkGalleryClient({ items, cardLabel = defaultCardLabel }: WorkG
                         {item.stack.slice(0, 3).map((stackItem) => (
                           <span
                             key={`${item.id}-stack-${stackItem}`}
-                            className="rounded-full border border-black/10 bg-black/[0.03] px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                            className="rounded-full border border-black/10 bg-black/3 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
                           >
                             {stackItem}
                           </span>

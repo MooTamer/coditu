@@ -463,15 +463,18 @@ export const marketingContent: MarketingContent = {
       highlights: [
         {
           label: "Problem",
-          detail: "Internal teams relied on fragmented legacy widgets and duplicated updates.",
+          detail:
+            "Internal teams relied on fragmented legacy widgets and duplicated updates.",
         },
         {
           label: "Solution",
-          detail: "A reusable SPFx component set designed around EVIM's daily workflows and approvals.",
+          detail:
+            "A reusable SPFx component set designed around EVIM's daily workflows and approvals.",
         },
         {
           label: "Impact",
-          detail: "Teams moved to one maintainable component baseline with higher internal adoption.",
+          detail:
+            "Teams moved to one maintainable component baseline with higher internal adoption.",
         },
       ],
       cta: {
@@ -503,15 +506,18 @@ export const marketingContent: MarketingContent = {
       highlights: [
         {
           label: "Problem",
-          detail: "Supplier onboarding and document handoffs were slow and inconsistent across channels.",
+          detail:
+            "Supplier onboarding and document handoffs were slow and inconsistent across channels.",
         },
         {
           label: "Solution",
-          detail: "A centralized portal for onboarding, routing documents, and tracking collaboration states.",
+          detail:
+            "A centralized portal for onboarding, routing documents, and tracking collaboration states.",
         },
         {
           label: "Impact",
-          detail: "Onboarding and handoff cycles became clearer, faster, and easier to track.",
+          detail:
+            "Onboarding and handoff cycles became clearer, faster, and easier to track.",
         },
       ],
       images: [
@@ -535,15 +541,18 @@ export const marketingContent: MarketingContent = {
       highlights: [
         {
           label: "Problem",
-          detail: "Critical ops signals lived in separate tools, slowing incident response.",
+          detail:
+            "Critical ops signals lived in separate tools, slowing incident response.",
         },
         {
           label: "Solution",
-          detail: "A modular dashboard that aggregates telemetry and controls for core infrastructure services.",
+          detail:
+            "A modular dashboard that aggregates telemetry and controls for core infrastructure services.",
         },
         {
           label: "Impact",
-          detail: "Faster debugging and clearer cross-service visibility for day-to-day operations.",
+          detail:
+            "Faster debugging and clearer cross-service visibility for day-to-day operations.",
         },
       ],
       cta: {
@@ -571,15 +580,18 @@ export const marketingContent: MarketingContent = {
       highlights: [
         {
           label: "Problem",
-          detail: "The product needed clearer value communication and a cleaner conversion path.",
+          detail:
+            "The product needed clearer value communication and a cleaner conversion path.",
         },
         {
           label: "Solution",
-          detail: "A focused landing experience that leads users from pain points to product benefits.",
+          detail:
+            "A focused landing experience that leads users from pain points to product benefits.",
         },
         {
           label: "Impact",
-          detail: "Improved product clarity and a simpler purchase journey for target users.",
+          detail:
+            "Improved product clarity and a simpler purchase journey for target users.",
         },
       ],
       images: [
