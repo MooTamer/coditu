@@ -15,9 +15,9 @@ export function Testimonials() {
         description={sections.testimonials.description}
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-3">
         {testimonials.map((item, index) => (
-          <RevealAnimated key={item.author} delayMs={index * 75}>
+          <RevealAnimated key={item.author} delayMs={index * 75} className="min-w-0">
             <Card className="h-full rounded-3xl border-black/10 bg-white/85 shadow-[0_18px_38px_-32px_rgba(15,23,42,0.4)]">
               <CardContent className="pt-2">
                 <p className="text-sm leading-relaxed text-foreground">&ldquo;{item.quote}&rdquo;</p>

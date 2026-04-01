@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { MouseEventHandler } from "react";
 import {
   animate,
@@ -44,7 +44,7 @@ function FloatingTile({ tile, pointerX, pointerY, reducedMotion }: FloatingTileP
       transition={getRevealTransition(reducedMotion, { delay: tile.delay, duration: 0.52 })}
     >
       <motion.div
-        className="rounded-2xl border border-white/70 bg-white/90 p-2 shadow-[0_16px_34px_-24px_rgba(15,23,42,0.45)] backdrop-blur-xl"
+        className="rounded-2xl border border-white/70 bg-white/90 p-1.5 shadow-[0_16px_34px_-24px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:p-2"
         animate={
           reducedMotion
             ? undefined
@@ -64,7 +64,7 @@ function FloatingTile({ tile, pointerX, pointerY, reducedMotion }: FloatingTileP
       >
         {tile.variant === "icon" && Icon ? (
           <motion.div
-            className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#eef4ff] to-[#e0ecff] text-slate-700"
+            className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#eef4ff] to-[#e0ecff] text-slate-700 sm:size-12"
             animate={
               reducedMotion
                 ? undefined
@@ -83,7 +83,7 @@ function FloatingTile({ tile, pointerX, pointerY, reducedMotion }: FloatingTileP
             <Icon className="size-5" />
           </motion.div>
         ) : (
-          <div className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#dbeafe] to-[#e2e8f0] text-sm font-semibold text-slate-700">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#dbeafe] to-[#e2e8f0] text-xs font-semibold text-slate-700 sm:size-12 sm:text-sm">
             {tile.initials}
           </div>
         )}
@@ -96,6 +96,29 @@ export function HeroAnimated() {
   const reducedMotion = useReducedMotion() ?? false;
   const pointerX = useMotionValue(0);
   const pointerY = useMotionValue(0);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const media = window.matchMedia("(max-width: 639px)");
+    const handleChange = () => setIsCompactViewport(media.matches);
+    handleChange();
+
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", handleChange);
+      return () => media.removeEventListener("change", handleChange);
+    }
+
+    media.addListener(handleChange);
+    return () => media.removeListener(handleChange);
+  }, []);
+
+  const heroTiles = isCompactViewport
+    ? marketingContent.hero.tiles.slice(0, 4)
+    : marketingContent.hero.tiles;
 
   const handlePointerMove: MouseEventHandler<HTMLDivElement> = (event) => {
     if (reducedMotion) {
@@ -121,7 +144,7 @@ export function HeroAnimated() {
 
   return (
     <div
-      className="relative h-[19rem] w-full overflow-hidden rounded-[2rem] border border-black/10 bg-[#f5f6fa] p-6 shadow-[0_28px_70px_-50px_rgba(15,23,42,0.45)] sm:h-[23rem]"
+      className="relative h-[14.5rem] w-full overflow-hidden rounded-[2rem] border border-black/10 bg-[#f5f6fa] p-4 shadow-[0_28px_70px_-50px_rgba(15,23,42,0.45)] sm:h-[19rem] sm:p-6 lg:h-[23rem]"
       onMouseMove={handlePointerMove}
       onMouseLeave={handlePointerLeave}
       aria-hidden="true"
@@ -130,14 +153,14 @@ export function HeroAnimated() {
       <div className="absolute left-1/2 top-[46%] h-px w-[78%] -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-300/80 to-transparent" />
 
       <motion.div
-        className="absolute left-1/2 top-[45%] flex size-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[1.9rem] bg-gradient-to-br from-[#a78bfa] to-[#8b5cf6] text-white shadow-[0_24px_56px_-32px_rgba(109,40,217,0.7)]"
+        className="absolute left-1/2 top-[45%] flex size-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-[#a78bfa] to-[#8b5cf6] text-white shadow-[0_24px_56px_-32px_rgba(109,40,217,0.7)] sm:size-24 sm:rounded-[1.9rem]"
         variants={getRevealVariants(reducedMotion)}
         initial="hidden"
         animate="visible"
         transition={getRevealTransition(reducedMotion, { delay: 0.04 })}
       >
         <motion.div
-          className="flex size-12 items-center justify-center rounded-full border border-white/65"
+          className="flex size-10 items-center justify-center rounded-full border border-white/65 sm:size-12"
           animate={
             reducedMotion
               ? undefined
@@ -158,7 +181,7 @@ export function HeroAnimated() {
       </motion.div>
 
       <motion.div
-        className="absolute left-1/2 top-[12%] flex size-14 -translate-x-1/2 items-center justify-center rounded-2xl border border-white/70 bg-white/95 shadow-[0_14px_30px_-22px_rgba(15,23,42,0.45)]"
+        className="absolute left-1/2 top-[12%] flex size-12 -translate-x-1/2 items-center justify-center rounded-2xl border border-white/70 bg-white/95 shadow-[0_14px_30px_-22px_rgba(15,23,42,0.45)] sm:size-14"
         variants={getRevealVariants(reducedMotion, { yOffset: 10, blur: 6 })}
         initial="hidden"
         animate="visible"
@@ -167,7 +190,7 @@ export function HeroAnimated() {
         <ShieldCheck className="size-6 text-violet-500" />
       </motion.div>
 
-      {marketingContent.hero.tiles.map((tile) => (
+      {heroTiles.map((tile) => (
         <FloatingTile
           key={tile.id}
           tile={tile}

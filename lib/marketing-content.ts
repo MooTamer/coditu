@@ -179,10 +179,10 @@ export const marketingContent: MarketingContent = {
   },
   navItems: [
     { label: "Work", href: "#work" },
-    { label: "Services", href: "#services" },
-    { label: "Process", href: "#process" },
     { label: "Team", href: "#team" },
-    { label: "Insights", href: "#insights" },
+    // { label: "Process", href: "#process" },
+    { label: "Services", href: "#services" },
+    // { label: "Insights", href: "#insights" },
     { label: "Contact", href: "#contact" },
   ],
   hero: {
@@ -475,7 +475,7 @@ export const marketingContent: MarketingContent = {
         },
       ],
       cta: {
-        label: "Request a call",
+        label: "Request Similar Work",
         href: "#contact",
       },
       images: [
@@ -547,7 +547,7 @@ export const marketingContent: MarketingContent = {
         },
       ],
       cta: {
-        label: "Request a call",
+        label: "Request Similar Work",
         href: "#contact",
       },
       images: [

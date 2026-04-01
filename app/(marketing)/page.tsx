@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { EvimPreview } from "@/components/landing/evim-preview";
 import { Faq } from "@/components/landing/faq";
 import { Footer } from "@/components/landing/footer";
 import { Hero } from "@/components/landing/hero";
@@ -13,7 +12,6 @@ import { Testimonials } from "@/components/landing/testimonials";
 import { UseCases } from "@/components/landing/use-cases";
 import { Work } from "@/components/landing/work";
 import { marketingContent } from "@/lib/marketing-content";
-
 
 const { siteMeta } = marketingContent;
 
@@ -49,21 +47,20 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
+    <div className="relative min-h-screen min-w-0 overflow-x-hidden">
       <div className="pointer-events-none fixed inset-0 -z-20 bg-[radial-gradient(circle_at_20%_-10%,rgba(56,189,248,0.13),transparent_42%),radial-gradient(circle_at_86%_8%,rgba(59,130,246,0.1),transparent_38%)]" />
       <div className="pointer-events-none fixed inset-0 -z-10 landing-grid landing-noise" />
 
       <Navbar />
       <main>
         <Hero />
-        <EvimPreview />
         <UseCases />
-        <Services />
         <Work />
-        <Process />
         <Team />
+        {/* <Process /> */}
+        <Services />
         <Testimonials />
-        <Insights />
+        {/* <Insights /> */}
         <Faq />
       </main>
       <Footer />

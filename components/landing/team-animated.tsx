@@ -25,9 +25,9 @@ export function TeamAnimated({
   const reducedMotion = useReducedMotion() ?? false;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[0.95fr_1.05fr]">
       <motion.aside
-        className="relative overflow-hidden rounded-3xl border border-black/10 bg-gradient-to-br from-white via-slate-50 to-blue-50/80 p-6 shadow-[0_24px_54px_-40px_rgba(15,23,42,0.45)]"
+        className="relative min-w-0 overflow-hidden rounded-3xl border border-black/10 bg-gradient-to-br from-white via-slate-50 to-blue-50/80 p-6 shadow-[0_24px_54px_-40px_rgba(15,23,42,0.45)]"
         variants={getRevealVariants(reducedMotion)}
         initial="hidden"
         whileInView="visible"
@@ -76,11 +76,11 @@ export function TeamAnimated({
         </div>
       </motion.aside>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         {members.map((member, index) => (
           <motion.article
             key={member.name}
-            className="rounded-3xl border border-black/10 bg-white/90 p-5 shadow-[0_16px_36px_-30px_rgba(15,23,42,0.4)]"
+            className="min-w-0 rounded-3xl border border-black/10 bg-white/90 p-5 shadow-[0_16px_36px_-30px_rgba(15,23,42,0.4)]"
             variants={getRevealVariants(reducedMotion, { yOffset: 12, blur: 6 })}
             initial="hidden"
             whileInView="visible"
@@ -98,7 +98,7 @@ export function TeamAnimated({
                   {member.initials}
                 </AvatarFallback>
               </Avatar>
-              <div>
+              <div className="min-w-0">
                 <h4 className="font-semibold tracking-tight text-foreground">{member.name}</h4>
                 <p className="text-xs text-muted-foreground">{member.role}</p>
               </div>

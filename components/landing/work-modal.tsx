@@ -104,7 +104,7 @@ export function WorkModal({ item, reducedMotion, onClose }: WorkModalProps) {
             >
               <motion.div
                 layoutId={reducedMotion ? undefined : `work-card-${item.id}`}
-                className="fixed inset-2 z-50 flex flex-col overflow-hidden rounded-[1.75rem] border border-black/10 bg-white/95 shadow-[0_34px_90px_-38px_rgba(2,6,23,0.7)] sm:inset-x-8 sm:inset-y-6 lg:inset-auto lg:left-1/2 lg:top-1/2 lg:h-[min(88svh,54rem)] lg:w-[min(92vw,72rem)] lg:-translate-x-1/2 lg:-translate-y-1/2"
+                className="fixed inset-x-2 inset-y-3 z-50 flex max-h-[85svh] min-w-0 flex-col overflow-hidden rounded-[1.75rem] border border-black/10 bg-white/95 shadow-[0_34px_90px_-38px_rgba(2,6,23,0.7)] sm:inset-x-8 sm:inset-y-6 sm:max-h-[90svh] lg:inset-auto lg:left-1/2 lg:top-1/2 lg:h-[min(88svh,54rem)] lg:max-h-[min(88svh,54rem)] lg:w-[min(92vw,72rem)] lg:-translate-x-1/2 lg:-translate-y-1/2"
                 initial={reducedMotion ? { opacity: 0, scale: 0.995 } : { opacity: 0, y: 14, scale: 0.985 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={reducedMotion ? { opacity: 0, scale: 0.995 } : { opacity: 0, y: 14, scale: 0.985 }}
@@ -118,7 +118,7 @@ export function WorkModal({ item, reducedMotion, onClose }: WorkModalProps) {
                   {item.summary}
                 </DialogPrimitive.Description>
 
-                <div className="relative h-[34svh] min-h-56 max-h-[30rem] overflow-hidden border-b border-black/10">
+                <div className="relative h-[30svh] min-h-44 max-h-[26rem] overflow-hidden border-b border-black/10 sm:h-[34svh] sm:min-h-56 sm:max-h-[30rem]">
                   <motion.div
                     layoutId={reducedMotion ? undefined : `work-card-image-${item.id}`}
                     className="absolute inset-0"
@@ -136,7 +136,7 @@ export function WorkModal({ item, reducedMotion, onClose }: WorkModalProps) {
                       ref={closeButtonRef}
                       type="button"
                       aria-label="Close work details"
-                      className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-full border border-white/50 bg-white/88 text-slate-700 shadow-[0_12px_30px_-20px_rgba(15,23,42,0.8)] backdrop-blur-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                      className="absolute right-3 top-3 inline-flex size-11 items-center justify-center rounded-full border border-white/50 bg-white/88 text-slate-700 shadow-[0_12px_30px_-20px_rgba(15,23,42,0.8)] backdrop-blur-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-4 sm:top-4"
                     >
                       <XIcon className="size-5" />
                     </button>
@@ -144,25 +144,32 @@ export function WorkModal({ item, reducedMotion, onClose }: WorkModalProps) {
                 </div>
 
                 <motion.div
-                  className="flex-1 overflow-y-auto p-5 sm:p-7"
+                  className="flex-1 overflow-y-auto p-4 sm:p-7"
                   variants={detailsContainerVariants}
                   initial="hidden"
                   animate="visible"
                   exit="hidden"
                 >
                   <motion.header className="space-y-4" variants={detailItemVariants}>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary" className="rounded-full px-3 py-1 text-[11px]">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <Badge
+                        variant="secondary"
+                        title={item.industry}
+                        className="max-w-full truncate rounded-full px-3 py-1 text-[11px]"
+                      >
                         {item.industry}
                       </Badge>
-                      <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
+                      <span
+                        title={item.outcome}
+                        className="inline-flex max-w-full truncate rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800"
+                      >
                         {item.outcome}
                       </span>
                     </div>
-                    <h3 className="text-balance font-display text-2xl leading-tight font-semibold tracking-tight text-foreground sm:text-3xl">
+                    <h3 className="max-w-prose text-balance font-display text-2xl leading-tight font-semibold tracking-tight text-foreground sm:text-3xl">
                       {item.title}
                     </h3>
-                    <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+                    <p className="max-w-prose text-sm leading-relaxed text-muted-foreground sm:max-w-3xl sm:text-base">
                       {item.summary}
                     </p>
                   </motion.header>
@@ -192,7 +199,7 @@ export function WorkModal({ item, reducedMotion, onClose }: WorkModalProps) {
                       </ul>
                     </section>
 
-                    <aside className="space-y-6">
+                    <aside className="min-w-0 space-y-6">
                       <section className="space-y-3">
                         <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                           Tags
@@ -230,7 +237,7 @@ export function WorkModal({ item, reducedMotion, onClose }: WorkModalProps) {
                         <section>
                           <Button
                             asChild
-                            className="h-10 rounded-full bg-slate-900 px-5 text-sm text-white hover:bg-slate-800"
+                            className="h-11 w-full rounded-full bg-slate-900 px-5 text-sm text-white hover:bg-slate-800 sm:w-auto"
                           >
                             <a href={item.cta.href}>{item.cta.label}</a>
                           </Button>

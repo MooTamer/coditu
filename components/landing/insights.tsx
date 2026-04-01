@@ -16,9 +16,9 @@ export function Insights() {
         description={sections.insights.description}
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-3">
         {insights.map((item, index) => (
-          <RevealAnimated key={item.title} delayMs={index * 70}>
+          <RevealAnimated key={item.title} delayMs={index * 70} className="min-w-0">
             <Card className="h-full rounded-3xl border-black/10 bg-white/85 shadow-[0_18px_34px_-30px_rgba(15,23,42,0.38)] transition-transform duration-300 hover:-translate-y-1">
               <CardHeader className="space-y-3">
                 <div className="flex items-center justify-between gap-2">

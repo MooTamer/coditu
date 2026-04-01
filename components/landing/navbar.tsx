@@ -9,8 +9,8 @@ import { marketingContent } from "@/lib/marketing-content";
 export function Navbar() {
   return (
     <header className="sticky top-0 z-50 py-4 backdrop-blur-xl">
-      <Container className="flex h-[--navbar-height] items-center justify-between gap-6">
-        <Link href="/" className="flex items-center gap-4">
+      <Container className="flex h-[--navbar-height] min-w-0 items-center justify-between gap-3 sm:gap-6">
+        <Link href="/" className="flex min-w-0 items-center gap-3 sm:gap-4">
           <Image
             src="/logo.png"
             alt="Strukture Digital logo"
@@ -20,7 +20,7 @@ export function Navbar() {
             className="size-10 rounded-xl object-cover shadow-[0_8px_18px_-14px_rgba(15,23,42,0.55)]"
             priority
           />
-          <span className="font-display text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+          <span className="max-w-[11rem] truncate font-display text-base font-semibold tracking-tight text-foreground sm:max-w-none sm:text-xl">
             {marketingContent.siteMeta.siteName}
           </span>
         </Link>

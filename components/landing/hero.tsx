@@ -13,7 +13,7 @@ export function Hero() {
   return (
     <section id="top" className="relative overflow-hidden pb-16 pt-8 sm:pb-24 sm:pt-12">
       <Container>
-        <div className="mx-auto flex max-w-5xl flex-col items-center text-center">
+        <div className="mx-auto flex min-w-0 max-w-5xl flex-col items-center text-center">
           <RevealAnimated>
             <Badge
               variant="secondary"
@@ -28,13 +28,13 @@ export function Hero() {
           </RevealAnimated>
 
           <RevealAnimated delayMs={150} className="mt-10">
-            <h1 className="text-balance font-display text-4xl leading-[1.04] font-semibold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+            <h1 className="max-w-prose text-balance font-display text-3xl leading-[1.06] font-semibold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
               {hero.title}
             </h1>
           </RevealAnimated>
 
           <RevealAnimated delayMs={220}>
-            <p className="mx-auto mt-5 max-w-3xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+            <p className="mx-auto mt-5 max-w-prose text-base leading-relaxed text-muted-foreground sm:max-w-3xl sm:text-lg">
               {hero.description}
             </p>
           </RevealAnimated>
@@ -58,7 +58,7 @@ export function Hero() {
 
           <RevealAnimated
             delayMs={320}
-            className="mt-5 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/75 px-4 py-2 text-xs font-medium text-muted-foreground"
+            className="mt-5 inline-flex max-w-full items-center gap-2 rounded-full border border-black/10 bg-white/75 px-4 py-2 text-xs font-medium text-muted-foreground"
           >
             <Globe2 className="size-3.5 text-foreground" />
             {hero.footnote}

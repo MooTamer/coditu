@@ -13,11 +13,11 @@ export function ProcessAnimated({ items }: ProcessAnimatedProps) {
   const reducedMotion = useReducedMotion() ?? false;
 
   return (
-    <ol className="grid gap-4 lg:grid-cols-5">
+    <ol className="grid min-w-0 gap-4 lg:grid-cols-5">
       {items.map((item, index) => (
         <motion.li
           key={item.step}
-          className="relative overflow-hidden rounded-3xl border border-black/10 bg-white/85 p-6 shadow-[0_18px_38px_-30px_rgba(15,23,42,0.45)]"
+          className="relative min-w-0 overflow-hidden rounded-3xl border border-black/10 bg-white/85 p-6 shadow-[0_18px_38px_-30px_rgba(15,23,42,0.45)]"
           variants={getRevealVariants(reducedMotion, { yOffset: 14, blur: 7 })}
           initial="hidden"
           whileInView="visible"

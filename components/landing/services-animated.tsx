@@ -16,13 +16,14 @@ export function ServicesAnimated({ items }: ServicesAnimatedProps) {
   const reducedMotion = useReducedMotion() ?? false;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {items.map((item, index) => {
         const Icon = iconMap[item.icon];
 
         return (
           <motion.div
             key={item.title}
+            className="min-w-0"
             variants={getRevealVariants(reducedMotion)}
             initial="hidden"
             whileInView="visible"
