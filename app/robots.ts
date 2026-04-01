@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-import { marketingContent } from "@/lib/marketing-content";
+import { getAbsoluteUrl, getSiteOrigin } from "@/lib/site-url";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: `${marketingContent.siteMeta.siteUrl}/sitemap.xml`,
-    host: marketingContent.siteMeta.siteUrl,
+    sitemap: getAbsoluteUrl("/sitemap.xml"),
+    host: getSiteOrigin(),
   };
 }

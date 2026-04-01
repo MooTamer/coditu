@@ -114,7 +114,8 @@ npm run lint
 │   └── utils.ts
 ├── public
 │   ├── logo.png
-│   ├── og.png
+│   ├── og/
+│   │   └── og.png
 │   └── work/
 ├── components.json
 ├── next.config.ts
@@ -133,7 +134,9 @@ npm run lint
   - [`app/(marketing)/page.tsx`](./app/(marketing)/page.tsx)
 
 ### Environment variables
-- No runtime environment variables are currently required for local development.
+- `NEXT_PUBLIC_SITE_URL` (recommended in production): absolute site URL used for canonical, Open Graph, Twitter metadata, robots host, and sitemap URLs.
+  - Example: `NEXT_PUBLIC_SITE_URL=https://strukturedigital.com`
+  - Local fallback (when unset): `http://localhost:3000`
 
 ---
 

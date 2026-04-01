@@ -172,10 +172,10 @@ export const marketingContent: MarketingContent = {
     pageTitle: "Distributed software house for AI, portals, and web systems",
     description:
       "Strukture Digital is a distributed software house across Germany and Egypt delivering tailored, all-in-one solutions including RAG assistants, Microsoft SPFx portals, custom web apps, SEO and performance work, and internal business systems.",
-    ogTitle: "Strukture Digital | Germany + Egypt software delivery",
+    ogTitle: "Strukture Digital | All-in-one software solutions",
     ogDescription:
-      "Tailored all-in-one solutions for AI assistants, Microsoft SPFx portals, web apps, performance, and internal systems.",
-    ogImage: "/og.png",
+      "Distributed team across Germany and Egypt delivering tailored RAG assistants, Microsoft SPFx portals, web apps, SEO and performance work, and internal systems.",
+    ogImage: "/og/og.png",
   },
   navItems: [
     { label: "Work", href: "#work" },

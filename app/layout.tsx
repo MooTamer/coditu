@@ -3,11 +3,12 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/theme-provider";
 import { display, inter } from "@/lib/fonts";
 import { marketingContent } from "@/lib/marketing-content";
+import { getSiteUrl } from "@/lib/site-url";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(marketingContent.siteMeta.siteUrl),
+  metadataBase: getSiteUrl(),
   title: {
     default: marketingContent.siteMeta.defaultTitle,
     template: "%s | Strukture Digital",

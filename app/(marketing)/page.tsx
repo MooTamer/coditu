@@ -9,28 +9,31 @@ import { Testimonials } from "@/components/landing/testimonials";
 import { UseCases } from "@/components/landing/use-cases";
 import { Work } from "@/components/landing/work";
 import { marketingContent } from "@/lib/marketing-content";
- 
+import { getAbsoluteUrl } from "@/lib/site-url";
+
 const { siteMeta } = marketingContent;
+const canonicalUrl = getAbsoluteUrl("/");
+const ogImageUrl = getAbsoluteUrl(siteMeta.ogImage);
 
 export const metadata: Metadata = {
   title: siteMeta.pageTitle,
   description: siteMeta.description,
   alternates: {
-    canonical: "/",
+    canonical: canonicalUrl,
   },
   openGraph: {
     title: siteMeta.ogTitle,
     description: siteMeta.ogDescription,
-    url: "/",
+    url: canonicalUrl,
     siteName: siteMeta.siteName,
     type: "website",
     locale: "en_US",
     images: [
       {
-        url: siteMeta.ogImage,
+        url: ogImageUrl,
         width: 1200,
         height: 630,
-        alt: siteMeta.siteName,
+        alt: `${siteMeta.siteName} - All-in-one software solutions`,
       },
     ],
   },
@@ -38,7 +41,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: siteMeta.ogTitle,
     description: siteMeta.ogDescription,
-    images: [siteMeta.ogImage],
+    images: [ogImageUrl],
   },
 };
 
