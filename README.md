@@ -1,7 +1,7 @@
 <p align="center">
   <img src="./public/logo.png" alt="Strukture Digital logo" width="88" />
 </p>
-
+ 
 <h1 align="center">Strukture Digital</h1>
 
 <p align="center">
