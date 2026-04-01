@@ -9,7 +9,7 @@ import { Testimonials } from "@/components/landing/testimonials";
 import { UseCases } from "@/components/landing/use-cases";
 import { Work } from "@/components/landing/work";
 import { marketingContent } from "@/lib/marketing-content";
-
+ 
 const { siteMeta } = marketingContent;
 
 export const metadata: Metadata = {
