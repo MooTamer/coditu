@@ -16,8 +16,8 @@ export function Footer() {
       className="pb-10 pt-14"
       containerClassName="rounded-[2rem] border border-black/10 bg-white/90 p-6 shadow-[0_24px_54px_-42px_rgba(15,23,42,0.4)] sm:p-10"
     >
-      <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
-        <div className="space-y-5">
+      <div className="grid min-w-0 gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+        <div className="min-w-0 space-y-5">
           <div className="flex items-center gap-3">
             <Image
               src="/logo.png"
@@ -29,7 +29,7 @@ export function Footer() {
             />
             <p className="font-display text-xl font-semibold tracking-tight">{siteMeta.siteName}</p>
           </div>
-          <h2 className="font-display text-3xl leading-tight tracking-tight text-foreground sm:text-4xl">
+          <h2 className="max-w-prose font-display text-3xl leading-tight tracking-tight text-foreground sm:text-4xl">
             {footer.title}
           </h2>
           <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
@@ -40,7 +40,7 @@ export function Footer() {
           </Button>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-5 sm:grid-cols-2">
           <div>
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Navigate

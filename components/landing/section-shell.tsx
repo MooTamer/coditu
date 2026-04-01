@@ -26,7 +26,7 @@ export function SectionShell({
       className={cn("section-anchor py-16 sm:py-24 focus:outline-none", className)}
       {...props}
     >
-      <Container className={containerClassName}>{children}</Container>
+      <Container className={cn("min-w-0", containerClassName)}>{children}</Container>
     </Component>
   );
 }

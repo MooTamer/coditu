@@ -60,7 +60,7 @@ export function MobileNav({ navItems }: MobileNavProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="size-10 rounded-full border border-black/10 bg-white/78 backdrop-blur"
+            className="size-11 rounded-full border border-black/10 bg-white/78 backdrop-blur"
             aria-label="Open navigation menu"
           >
             <Menu className="size-5" />

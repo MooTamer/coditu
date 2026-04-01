@@ -552,7 +552,7 @@ export const marketingContent: MarketingContent = {
       },
       images: [
         {
-          src: "/work/converso.webp",
+          src: "/work/Converso.webp",
           alt: "Ops Console bento-grid infrastructure dashboard",
           objectPosition: "50% 0%",
         },
