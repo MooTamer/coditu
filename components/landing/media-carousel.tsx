@@ -197,6 +197,7 @@ export function MediaCarousel({
             src={currentImage.src}
             alt={currentImage.alt}
             fill
+            suppressHydrationWarning
             sizes="(min-width: 1280px) 38rem, (min-width: 1024px) 44vw, 92vw"
             className="object-cover select-none"
             style={{ objectPosition: currentImage.objectPosition ?? "50% 50%" }}

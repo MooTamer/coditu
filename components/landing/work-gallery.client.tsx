@@ -58,6 +58,7 @@ export function WorkGalleryClient({ items, cardLabel = defaultCardLabel }: WorkG
                         src={previewImage.src}
                         alt={previewImage.alt}
                         fill
+                        suppressHydrationWarning
                         sizes="(min-width: 1280px) 38rem, (min-width: 1024px) 44vw, 92vw"
                         className="object-cover"
                         style={{ objectPosition: previewImage.objectPosition ?? "50% 50%" }}
