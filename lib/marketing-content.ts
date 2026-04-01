@@ -483,12 +483,12 @@ export const marketingContent: MarketingContent = {
       },
       images: [
         {
-          src: "/work/Banner and News.webp",
+          src: "/work/banner-and-news.webp",
           alt: "EVIM SharePoint banner and news module",
           objectPosition: "50% 0%",
         },
         {
-          src: "/work/orgChart.png",
+          src: "/work/org-chart.webp",
           alt: "EVIM SharePoint internal portal banner",
           objectPosition: "50% 0%",
         },
@@ -522,7 +522,7 @@ export const marketingContent: MarketingContent = {
       ],
       images: [
         {
-          src: "/work/NileAtelier.webp",
+          src: "/work/nile-atelier.webp",
           alt: "Nile Atelier Egypt: Clothing Manufacturer Portal",
           objectPosition: "50% 0%",
         },
@@ -533,9 +533,9 @@ export const marketingContent: MarketingContent = {
       title: "Ops Console: Unified Infrastructure Dashboard",
       summary:
         "A single-page operations dashboard that centralizes monitoring and management of Redis, Pinecone, S3, PostgreSQL, and AI services through a modern, real-time interface.",
-      industry: "DevOps / Infrastructure / AI Platforms",
+      industry: "DevOps / Infrastructure ",
       outcome:
-        "Improved visibility across multiple services with a unified interface, enabling faster debugging, monitoring, and operational decision-making",
+        "Improved visibility across multiple services with a unified interface",
       tags: ["Vue 3", "TypeScript", "DevOps Dashboard", "Monitoring"],
       stack: ["Vue 3", "TypeScript", "Redis", "PostgreSQL", "Pinecone", "S3"],
       highlights: [
@@ -561,7 +561,7 @@ export const marketingContent: MarketingContent = {
       },
       images: [
         {
-          src: "/work/Converso.webp",
+          src: "/work/converso.webp",
           alt: "Ops Console bento-grid infrastructure dashboard",
           objectPosition: "50% 0%",
         },

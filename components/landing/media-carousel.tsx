@@ -200,15 +200,11 @@ export function MediaCarousel({
             suppressHydrationWarning
             sizes="(min-width: 1280px) 38rem, (min-width: 1024px) 44vw, 92vw"
             className="object-cover select-none"
-            style={{ objectPosition: currentImage.objectPosition ?? "50% 50%" }}
+            style={{ objectPosition: "0% 10%" }}
             draggable={false}
           />
         </motion.div>
       </AnimatePresence>
-
-
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-linear-to-b from-neutral-600 to-transparent" />
-      <div className="pointer-events-none absolute inset-0 " />
 
       {canCycle ? (
         <>

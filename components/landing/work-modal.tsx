@@ -118,7 +118,7 @@ export function WorkModal({ item, reducedMotion, onClose }: WorkModalProps) {
                   {item.summary}
                 </DialogPrimitive.Description>
 
-                <div className="relative h-[30svh] min-h-44 max-h-[26rem] overflow-hidden border-b border-black/10 sm:h-[34svh] sm:min-h-56 sm:max-h-[30rem]">
+                <div className="relative  min-h-56  overflow-hidden border-b border-black/10 sm:h-[50svh] sm:min-h-72 ">
                   <motion.div
                     layoutId={reducedMotion ? undefined : `work-card-image-${item.id}`}
                     className="absolute inset-0"
@@ -155,13 +155,13 @@ export function WorkModal({ item, reducedMotion, onClose }: WorkModalProps) {
                       <Badge
                         variant="secondary"
                         title={item.industry}
-                        className="max-w-full truncate rounded-full px-3 py-1 text-[11px]"
+                        className="max-w-full rounded-full px-3 py-1 text-[11px]"
                       >
                         {item.industry}
                       </Badge>
                       <span
                         title={item.outcome}
-                        className="inline-flex max-w-full truncate rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800"
+                        className="inline-flex max-w-full whitespace-normal rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs leading-[1.32] font-medium text-emerald-800"
                       >
                         {item.outcome}
                       </span>
