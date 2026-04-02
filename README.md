@@ -1,7 +1,6 @@
 <p align="center">
   <img src="./public/logo.svg" alt="Strukture Digital logo" width="88" />
 </p>
-
 <h1 align="center">Strukture Digital</h1>
 
 <p align="center">
