@@ -15,7 +15,7 @@ interface WorkGalleryClientProps {
   cardLabel?: string;
 }
 
-const defaultCardLabel = "View details";
+const defaultCardLabel = "View work";
 
 export function WorkGalleryClient({ items, cardLabel = defaultCardLabel }: WorkGalleryClientProps) {
   const reducedMotion = useReducedMotion() ?? false;

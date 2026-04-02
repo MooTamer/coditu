@@ -13,6 +13,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import type { NavItem } from "@/lib/marketing-content";
+import { marketingContent } from "@/lib/marketing-content";
 
 interface MobileNavProps {
   navItems: NavItem[];
@@ -70,7 +71,7 @@ export function MobileNav({ navItems }: MobileNavProps) {
           <SheetHeader className="border-b border-black/10 pb-5">
             <SheetTitle className="font-display text-xl">Navigate</SheetTitle>
             <SheetDescription>
-              Explore work, services, process, team, insights, and contact.
+              Jump to work, team, use cases, testimonials, FAQ, and contact.
             </SheetDescription>
           </SheetHeader>
           <nav className="mt-8 flex flex-col gap-2 px-4">
@@ -97,7 +98,7 @@ export function MobileNav({ navItems }: MobileNavProps) {
                   handleNavigate("#contact");
                 }}
               >
-                Start a conversation
+                {marketingContent.hero.secondaryCtaLabel}
               </a>
             </Button>
           </div>

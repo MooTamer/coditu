@@ -32,7 +32,7 @@ export const metadata: Metadata = {
         url: ogImageUrl,
         width: 1200,
         height: 630,
-        alt: `${siteMeta.siteName} - All-in-one software solutions`,
+        alt: `${siteMeta.siteName} - Portals, systems, and AI workflows`,
       },
     ],
   },

@@ -39,7 +39,18 @@ export function Hero() {
             </p>
           </RevealAnimated>
 
-          <RevealAnimated delayMs={280} className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <RevealAnimated delayMs={250} className="w-full">
+            <ul className="mx-auto mt-5 flex w-full max-w-prose flex-col gap-2 text-left text-sm text-muted-foreground sm:text-base">
+              {hero.highlights.map((highlight) => (
+                <li key={highlight} className="inline-flex min-w-0 items-start gap-2">
+                  <span className="mt-2 size-1.5 shrink-0 rounded-full bg-foreground/70" />
+                  <span className="min-w-0">{highlight}</span>
+                </li>
+              ))}
+            </ul>
+          </RevealAnimated>
+
+          <RevealAnimated delayMs={290} className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" className="h-11 rounded-full px-6 text-sm font-semibold">
               <a href={hero.primaryCtaHref} className="inline-flex items-center gap-2">
                 {hero.primaryCtaLabel}
@@ -57,7 +68,7 @@ export function Hero() {
           </RevealAnimated>
 
           <RevealAnimated
-            delayMs={320}
+            delayMs={330}
             className="mt-5 inline-flex max-w-full items-center gap-2 rounded-full border border-black/10 bg-white/75 px-4 py-2 text-xs font-medium text-muted-foreground"
           >
             <Globe2 className="size-3.5 text-foreground" />
