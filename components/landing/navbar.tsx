@@ -16,12 +16,12 @@ export function Navbar() {
           className="flex min-w-0 items-center"
         >
           <Image
-            src="/logo.svg"
+            src="/logo-stripped.svg"
             alt="Strukture Digital logo"
             width={252}
             height={74}
             suppressHydrationWarning
-            className="h-12 w-auto object-contain drop-shadow-[0_10px_20px_rgba(15,23,42,0.18)] sm:h-14"
+            className="h-20 w-auto object-contain drop-shadow-[0_10px_20px_rgba(15,23,42,0.18)] sm:h-[4.75rem]"
             priority
           />
         </Link>

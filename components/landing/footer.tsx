@@ -25,7 +25,7 @@ export function Footer() {
               width={252}
               height={74}
               suppressHydrationWarning
-              className="h-12 w-auto object-contain drop-shadow-[0_10px_20px_rgba(15,23,42,0.18)] sm:h-14"
+              className="h-17 w-auto object-contain drop-shadow-[0_10px_20px_rgba(15,23,42,0.18)] sm:h-32"
             />
           </div>
           <h2 className="max-w-prose font-display text-3xl leading-tight tracking-tight text-foreground sm:text-4xl">
