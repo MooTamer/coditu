@@ -18,16 +18,15 @@ export function Footer() {
     >
       <div className="grid min-w-0 gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
         <div className="min-w-0 space-y-5">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center">
             <Image
-              src="/logo.png"
+              src="/logo.svg"
               alt="Strukture Digital logo"
-              width={42}
-              height={42}
+              width={252}
+              height={74}
               suppressHydrationWarning
-              className="rounded-xl object-cover"
+              className="h-12 w-auto object-contain drop-shadow-[0_10px_20px_rgba(15,23,42,0.18)] sm:h-14"
             />
-            <p className="font-display text-xl font-semibold tracking-tight">{siteMeta.siteName}</p>
           </div>
           <h2 className="max-w-prose font-display text-3xl leading-tight tracking-tight text-foreground sm:text-4xl">
             {footer.title}
@@ -35,7 +34,11 @@ export function Footer() {
           <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
             {footer.description}
           </p>
-          <Button asChild size="lg" className="h-11 rounded-full px-6 text-sm font-semibold">
+          <Button
+            asChild
+            size="lg"
+            className="h-11 rounded-full px-6 text-sm font-semibold"
+          >
             <a href={`mailto:${footer.email}`}>{footer.emailCtaLabel}</a>
           </Button>
         </div>
@@ -74,9 +77,11 @@ export function Footer() {
 
       <Separator className="my-6" />
       <p className="text-xs text-muted-foreground">
-        © <time dateTime={String(currentYear)} suppressHydrationWarning>{currentYear}</time>{" "}
-        {siteMeta.siteName}.{" "}
-        {footer.copyright}
+        ©{" "}
+        <time dateTime={String(currentYear)} suppressHydrationWarning>
+          {currentYear}
+        </time>{" "}
+        {siteMeta.siteName}. {footer.copyright}
       </p>
     </SectionShell>
   );

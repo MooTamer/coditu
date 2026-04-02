@@ -3,7 +3,6 @@ import { Faq } from "@/components/landing/faq";
 import { Footer } from "@/components/landing/footer";
 import { Hero } from "@/components/landing/hero";
 import { Navbar } from "@/components/landing/navbar";
-import { Services } from "@/components/landing/services";
 import { Team } from "@/components/landing/team";
 import { Testimonials } from "@/components/landing/testimonials";
 import { UseCases } from "@/components/landing/use-cases";

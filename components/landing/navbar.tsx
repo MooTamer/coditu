@@ -1,8 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { MobileNav } from "@/components/landing/mobile-nav";
 import { Container } from "@/components/landing/container";
+import { MobileNav } from "@/components/landing/mobile-nav";
 import { Button } from "@/components/ui/button";
 import { marketingContent } from "@/lib/marketing-content";
 
@@ -10,19 +10,20 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 py-4 backdrop-blur-xl">
       <Container className="flex h-[--navbar-height] min-w-0 items-center justify-between gap-3 sm:gap-6">
-        <Link href="/" className="flex min-w-0 items-center gap-3 sm:gap-4">
+        <Link
+          href="/"
+          aria-label={marketingContent.siteMeta.siteName}
+          className="flex min-w-0 items-center"
+        >
           <Image
-            src="/logo.png"
+            src="/logo.svg"
             alt="Strukture Digital logo"
-            width={42}
-            height={42}
+            width={252}
+            height={74}
             suppressHydrationWarning
-            className="size-10 rounded-xl object-cover shadow-[0_8px_18px_-14px_rgba(15,23,42,0.55)]"
+            className="h-12 w-auto object-contain drop-shadow-[0_10px_20px_rgba(15,23,42,0.18)] sm:h-14"
             priority
           />
-          <span className="max-w-44 truncate font-display text-base font-semibold tracking-tight text-foreground sm:max-w-none sm:text-xl">
-            {marketingContent.siteMeta.siteName}
-          </span>
         </Link>
 
         <nav className="hidden items-center gap-2 rounded-full border border-black/10 bg-white/92 px-4 py-2.5 shadow-[0_14px_28px_-20px_rgba(15,23,42,0.42)] md:flex">

@@ -14,8 +14,9 @@ export const metadata: Metadata = {
     template: "%s | Strukture Digital",
   },
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: [{ url: "/logo.svg", type: "image/svg+xml" }],
+    shortcut: [{ url: "/logo.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 
@@ -26,8 +27,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="overflow-x-clip">
-      <body className={`${inter.variable} ${display.variable} min-w-0 overflow-x-clip font-sans antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+      <body
+        className={`${inter.variable} ${display.variable} min-w-0 overflow-x-clip font-sans antialiased`}
+      >
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+        >
           {children}
         </ThemeProvider>
       </body>

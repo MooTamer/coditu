@@ -175,7 +175,7 @@ export const marketingContent: MarketingContent = {
     ogTitle: "Strukture Digital | All-in-one software solutions",
     ogDescription:
       "Distributed team across Germany and Egypt delivering tailored RAG assistants, Microsoft SPFx portals, web apps, SEO and performance work, and internal systems.",
-    ogImage: "/og/og.png",
+    ogImage: "/og/og-whatsapp.jpg",
   },
   navItems: [
     { label: "Work", href: "#work" },

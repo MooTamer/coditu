@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/logo.png" alt="Strukture Digital logo" width="88" />
+  <img src="./public/logo.svg" alt="Strukture Digital logo" width="88" />
 </p>
 
 <h1 align="center">Strukture Digital</h1>
@@ -20,6 +20,7 @@
 ---
 
 ## 📚 Contents
+
 - [Overview](#-overview)
 - [Key Features](#-key-features)
 - [Tech Stack](#-tech-stack)
@@ -34,11 +35,13 @@
 ---
 
 ## 🔎 Overview
+
 This repository contains a marketing site for **Strukture Digital**. It uses the App Router with mostly server-rendered sections, while keeping interactive and animated pieces as focused client components.
 
 ---
 
 ## ✨ Key Features
+
 - App Router architecture with server-first section composition.
 - Typed, centralized copy/content model in [`lib/marketing-content.ts`](./lib/marketing-content.ts).
 - Dedicated animation islands using Framer Motion (`hero`, cards, modal, carousel).
@@ -50,41 +53,48 @@ This repository contains a marketing site for **Strukture Digital**. It uses the
 ---
 
 ## 🧰 Tech Stack
-| Area | Tools in this repo |
-| --- | --- |
-| Framework | Next.js `16.1.6` (App Router) |
-| UI | React `19.2.3`, shadcn/ui, Radix UI primitives, Lucide icons |
-| Styling | Tailwind CSS `4`, `tw-animate-css`, CSS variables in `app/globals.css` |
-| Motion | Framer Motion `12.34.3` |
-| Language | TypeScript `5` |
-| Quality | ESLint `9` + `eslint-config-next` |
+
+| Area      | Tools in this repo                                                     |
+| --------- | ---------------------------------------------------------------------- |
+| Framework | Next.js `16.1.6` (App Router)                                          |
+| UI        | React `19.2.3`, shadcn/ui, Radix UI primitives, Lucide icons           |
+| Styling   | Tailwind CSS `4`, `tw-animate-css`, CSS variables in `app/globals.css` |
+| Motion    | Framer Motion `12.34.3`                                                |
+| Language  | TypeScript `5`                                                         |
+| Quality   | ESLint `9` + `eslint-config-next`                                      |
 
 ---
 
 ## 🚀 Quickstart
+
 > This repo uses **npm** (`package-lock.json` is present).
 
 ### 1) Install dependencies
+
 ```bash
 npm install
 ```
 
 ### 2) Run in development
+
 ```bash
 npm run dev
 ```
 
 ### 3) Build for production
+
 ```bash
 npm run build
 ```
 
 ### 4) Start production server
+
 ```bash
 npm run start
 ```
 
 ### 5) Run lint checks
+
 ```bash
 npm run lint
 ```
@@ -92,6 +102,7 @@ npm run lint
 ---
 
 ## 🗂️ Project Structure
+
 ```text
 .
 ├── app
@@ -113,7 +124,7 @@ npm run lint
 │   ├── motion.ts
 │   └── utils.ts
 ├── public
-│   ├── logo.png
+│   ├── logo.svg
 │   ├── og/
 │   │   └── og.png
 │   └── work/
@@ -127,13 +138,16 @@ npm run lint
 ---
 
 ## ⚙️ Configuration
+
 ### Content and copy
+
 - Main marketing copy, section data, and work items: [`lib/marketing-content.ts`](./lib/marketing-content.ts)
 - Site metadata base/title/image values: [`lib/marketing-content.ts`](./lib/marketing-content.ts), consumed in:
   - [`app/layout.tsx`](./app/layout.tsx)
-  - [`app/(marketing)/page.tsx`](./app/(marketing)/page.tsx)
+  - [`app/(marketing)/page.tsx`](<./app/(marketing)/page.tsx>)
 
 ### Environment variables
+
 - `NEXT_PUBLIC_SITE_URL` (recommended in production): absolute site URL used for canonical, Open Graph, Twitter metadata, robots host, and sitemap URLs.
   - Example: `NEXT_PUBLIC_SITE_URL=https://strukturedigital.com`
   - Local fallback (when unset): `http://localhost:3000`
@@ -141,6 +155,7 @@ npm run lint
 ---
 
 ## 🎛️ UI/UX Notes
+
 - **Motion + accessibility:** reduced motion is respected through:
   - `useReducedMotion()` checks in animated client components
   - a global `@media (prefers-reduced-motion: reduce)` fallback in [`app/globals.css`](./app/globals.css)
@@ -153,9 +168,11 @@ npm run lint
 ---
 
 ## 📦 Deployment
+
 No provider-specific deployment config is committed (for example, no `vercel.json` or Docker setup).
 
 Deploy as a standard Next.js app:
+
 ```bash
 npm run build
 npm run start
@@ -164,12 +181,15 @@ npm run start
 ---
 
 ## 🖼️ Screenshots / Preview
+
 Add screenshots to [`docs/preview`](./docs/preview) using these filenames:
+
 - `home-desktop.png`
 - `home-mobile.png`
 - `work-modal.png`
 
 Then reference them here:
+
 ```md
 ![Home Desktop](./docs/preview/home-desktop.png)
 ![Home Mobile](./docs/preview/home-mobile.png)
@@ -179,6 +199,7 @@ Then reference them here:
 ---
 
 ## 🤝 Contributing
+
 1. Create a branch from `main`.
 2. Keep server components server-first; add client boundaries only where interaction is required.
 3. Keep content/schema changes in sync with types in [`lib/marketing-content.ts`](./lib/marketing-content.ts).
