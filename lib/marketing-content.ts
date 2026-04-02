@@ -180,8 +180,9 @@ export const marketingContent: MarketingContent = {
   navItems: [
     { label: "Work", href: "#work" },
     { label: "Team", href: "#team" },
+    {label: "Use Cases", href: "#use-cases"},
     // { label: "Process", href: "#process" },
-    { label: "Services", href: "#services" },
+    // { label: "Services", href: "#services" },
     // { label: "Insights", href: "#insights" },
     { label: "Contact", href: "#contact" },
   ],
@@ -568,36 +569,48 @@ export const marketingContent: MarketingContent = {
       ],
     },
     {
-      id: "nvr-miss-product-experience",
-      title: "NVR Miss: Smart Cat Litter Box Experience",
+      id: "nvrmiss-ai-receptionist-landing",
+      title: "NVRMiss: AI Receptionist for Service Professionals",
       summary:
-        "A product-focused web application showcasing an ergonomically designed cat litter box that improves cleanliness, reduces waste, and enhances usability for both pets and owners.",
-      industry: "E-commerce / Pet Products",
-      outcome:
-        "Clear product positioning with emphasis on usability, hygiene, and simplified purchasing flow",
-      tags: ["Next.js", "Landing page", "Product showcase"],
-      stack: ["Next.js", "TypeScript", "Motion design", "Product storytelling"],
+        "A product landing experience for a 24/7 AI receptionist that answers calls, qualifies leads, and books jobs automatically—helping service businesses stop losing work after hours.",
+      industry: "B2B SaaS / Field Services",
+      outcome: "Clear positioning + smoother demo conversion flow",
+      tags: [
+        "Next.js",
+        "Landing page",
+        "SaaS",
+        "AI receptionist",
+        "Conversion-focused",
+      ],
+      stack: [
+        "Next.js",
+        "TypeScript",
+        "Motion design",
+        "Product storytelling",
+        "Pricing & FAQ sections",
+      ],
       highlights: [
         {
           label: "Problem",
           detail:
-            "The product needed clearer value communication and a cleaner conversion path.",
+            "Service businesses miss calls after hours, losing qualified jobs and wasting time on unstructured lead intake.",
         },
         {
           label: "Solution",
           detail:
-            "A focused landing experience that leads users from pain points to product benefits.",
+            "A focused landing that sells a 24/7 AI receptionist with lead qualification, smart booking, call logs/analytics, and calendar sync (Google/Outlook), plus a simple 3-step onboarding flow.",
         },
         {
           label: "Impact",
           detail:
-            "Improved product clarity and a simpler purchase journey for target users.",
+            "Stronger conversion path to beta/demo and clearer value communication for HVAC, plumbing, roofing, contractors, and cleaning services.",
         },
       ],
       images: [
         {
+          // Your local asset path is fine to keep here (site scanning won’t reveal your repo asset paths).
           src: "/work/NVRMiss.webp",
-          alt: "Product design showcasing high walls and center entrance",
+          alt: "NVRMiss landing preview showing product value proposition and booking/call dashboard visuals",
           objectPosition: "50% 0%",
         },
       ],

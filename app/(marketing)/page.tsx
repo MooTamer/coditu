@@ -54,11 +54,11 @@ export default function Home() {
       <Navbar />
       <main>
         <Hero />
-        <UseCases />
         <Work />
         <Team />
+        <UseCases />
         {/* <Process /> */}
-        <Services />
+        {/* <Services /> */}
         <Testimonials />
         {/* <Insights /> */}
         <Faq />
