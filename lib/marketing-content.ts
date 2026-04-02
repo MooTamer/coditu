@@ -180,7 +180,7 @@ export const marketingContent: MarketingContent = {
   navItems: [
     { label: "Work", href: "#work" },
     { label: "Team", href: "#team" },
-    {label: "Use Cases", href: "#use-cases"},
+    { label: "Use Cases", href: "#use-cases" },
     // { label: "Process", href: "#process" },
     // { label: "Services", href: "#services" },
     // { label: "Insights", href: "#insights" },
@@ -657,51 +657,56 @@ export const marketingContent: MarketingContent = {
       { label: "Germany", className: "left-[34%] top-[30%]", delay: 0.16 },
       { label: "Egypt", className: "left-[55%] top-[48%]", delay: 0.24 },
     ],
-    members: [
-      {
-        name: "Mohamed Tamer",
-        role: "Software Engineer",
-        location: "Cairo, Egypt",
-        initials: "MT",
-        specialties: [
-          "Full-stack development",
-          "UI/UX design",
-          "Microsoft SPFx",
-          "Digital Transformation",
-        ],
-      },
-      {
-        name: "Adam Nafie",
-        role: "Business Systems Lead",
-        location: "Munich, Germany",
-        initials: "AN",
-        specialties: [
-          "Discovery",
-          "Roadmapping",
-          "Core Web Vitals",
-          "Technical SEO",
-        ],
-      },
-      {
-        name: "Abdelrahman Elkhateeb",
-        role: "Software Engineer",
-        location: "Cairo, Egypt",
-        initials: "AE",
-        specialties: ["Performance", "SEO", "Architecture"],
-      },
-      {
-        name: "Ahmed Yehia",
-        role: "Software Engineer",
-        location: "Ulm, Germany",
-        initials: "AY",
-        specialties: [
-          "RAG systems",
-          "Prompt design",
-          "AI features",
-          "optimisation",
-        ],
-      },
+   members: [
+  {
+    name: "Mohamed Tamer",
+    role: "Frontend Lead",
+    location: "Cairo, Egypt",
+    initials: "MT",
+    specialties: [
+      "UI/UX & interaction design",
+      "Motion & micro-animations",
+      "Design systems (shadcn/Tailwind)",
+      "Frontend architecture",
     ],
+  },
+  {
+    name: "Adam Nafie",
+    role: "Client Partnerships Lead",
+    location: "Munich, Germany",
+    initials: "AN",
+    specialties: [
+      "Client discovery & requirements",
+      "Solution design & roadmapping",
+      "Relationship management",
+      "Hands-on QA & release testing",
+    ],
+  },
+  {
+    name: "Abdelrahman Elkhateeb",
+    role: "Frontend Engineer, Performance & SEO",
+    location: "Cairo, Egypt",
+    initials: "AE",
+    specialties: [
+      "Web performance (Core Web Vitals)",
+      "Technical SEO",
+      "Frontend optimization",
+      "Scalable UI architecture",
+    ],
+  },
+  {
+    name: "Ahmed Yehia",
+    role: "Backend & DevOps Engineer",
+    location: "Ulm, Germany",
+    initials: "AY",
+    specialties: [
+      "Backend systems & APIs",
+      "DevOps & CI/CD",
+      "Databases & infrastructure",
+      "RAG pipelines & AI features",
+    ],
+  },
+],
   },
   testimonials: [
     {
