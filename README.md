@@ -8,6 +8,7 @@
   Distributed software house website for Strukture Digital, built with Next.js App Router and a typed marketing content model.
 </p>
 
+
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-16.1.6-111111?logo=nextdotjs" alt="Next.js 16.1.6" />
   <img src="https://img.shields.io/badge/React-19.2.3-149ECA?logo=react&logoColor=white" alt="React 19.2.3" />
