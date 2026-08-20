@@ -21,8 +21,8 @@ real work, which is what the rule is protecting against.
 | 3 | **Tokens and primitives** — `globals.css`, Tailwind theme, fonts, `<Reveal>`, `<StatusChip>`, `<Mono>`, `<CoditusMark />` | `done` | `7b72821` | `npm run lint && npm run typecheck && npm run build && ./scripts/verify-tokens.sh`; `/dev/tokens` in both themes |
 | 3b | **Legacy asset deletion** — `public/logo*.svg`, `logo-wordmark.*`, `design/project/assets/legacy/*`. Deferred by §1 to *after* the Coditu marks are wired in | `todo` | — | zero references to `logo.svg` / `logo-stripped.svg` / `logo-wordmark.*`; files gone |
 | 4 | **Supabase** — migrations, enums, triggers, views, indexes, RLS, `allowed_emails`, auth, middleware | `done` | `7835f6e` | `npm run db:test` (40 assertions) + `npm run test` |
-| 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `done` | pending | `npm run db:test` — `supabase/tests/seed.sql`, 20 assertions incl. **16.0 / 46.0** |
-| 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `todo` | — | `npm run build`; no-sprint empty state renders with Export disabled + tooltip |
+| 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `done` | `f0aecc4` | `npm run db:test` — `supabase/tests/seed.sql`, 20 assertions incl. **16.0 / 46.0** |
+| 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `done` | pending | full gate; `/app` redirects to the active sprint and renders 16.0 / 46.0; no-sprint state renders with Export `disabled` + tooltip |
 | 7 | **Sprint table** — columns, chips, sticky, grouping, sum row, URL filters, mobile cards | `todo` | — | sum-equals-database test; container-query test at 320px |
 | 8 | **Item detail** — intercepting route, properties, criteria ring, log time, activity | `todo` | — | `npm run test`; hard navigation renders the full page |
 | 9 | **Comment thread** — composer, code, images, mentions, notifications, server-side JSON rendering | `todo` | — | XSS test: a comment whose JSON carries a hostile node renders inert |
@@ -122,3 +122,20 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   absolute. Fixture rows are now `RLS-*` / `@rls.test`, counts are scoped, and the test no longer calls
   `setval` (sequences are not transactional, so it would have survived the rollback).
   **Next: step 6 — app shell: rail, topbar, project switcher, routing, theme, empty states.**
+- **2026-08-20** — Step 6 done. `/login` (split layout, password + magic-link fallback, both through
+  Server Actions), the `/app` shell (72→240px pinned rail, 60px topbar, project switcher, theme
+  toggle), `/app` routing to the active sprint, `/app/projects`, `/app/projects/[slug]`, and the
+  no-sprint empty state. Remaining views are placeholders that name step 10 rather than 404.
+  Data reads go through `lib/data/projects.ts` (React `cache`d) and `lib/format.ts`, where invariants 2
+  and 5 are actually enforced — `tests/format.test.ts` covers both. `npm run test` is at **27**.
+
+  Verified end to end against the real database: `/app` 307s to
+  `/app/projects/meinevim/sprints/17`, which server-renders **16.0 / 46.0 h** across 12 items, and
+  `/app/projects/nile-atelier` renders the no-sprint screen with Export carrying `disabled` and
+  `title="No sprint to export for Nile Atelier"`.
+
+  Two bugs found by verifying rather than assuming: seeding `auth.users` without the token columns
+  makes **every sign-in** fail with a misleading "Database error querying schema"; and the EVIM mark
+  was invisible because an `<img>`-loaded SVG cannot inherit `currentColor` and that file's `<defs>` is
+  empty. Both in `05-DECISIONS.md`.
+  **Next: step 7 — the sprint table.**

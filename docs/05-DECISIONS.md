@@ -235,3 +235,50 @@ for a test to assert they agree. Querying a live database would make the test re
 and a test that skips itself when the database is absent is worse than no test — it reports green
 exactly when it has checked nothing. Parsing the migration is deterministic, runs anywhere, and fails
 on the drift that actually matters.
+
+---
+
+## 2026-08-20 · Seeding `auth.users` by hand requires empty-string token columns
+
+**Decision.** Both `supabase/seed.sql` and the RLS fixture set `confirmation_token`, `recovery_token`,
+`email_change_token_new`, `email_change`, `email_change_token_current`, `phone_change`,
+`phone_change_token`, and `reauthentication_token` to `''`, and insert a matching `auth.identities` row
+per user.
+
+**Why.** GoTrue scans those columns into Go strings. Left NULL — which is what happens when you insert
+into `auth.users` without naming them — **every sign-in fails** with
+`500 "Database error querying schema"`, an error that names the schema and says nothing about the
+column. The real message is only in the auth container's log:
+`Scan error on column index 3, name "confirmation_token": converting NULL to string is unsupported`.
+
+**How it was found.** Minting a session against the local auth API as part of verifying the shell. Had
+the shell been checked only by clicking around a page that was already logged in, this would have
+shipped and broken sign-in for everyone.
+
+---
+
+## 2026-08-20 · Third-party client marks are inlined, not loaded through `<img>`
+
+**Decision.** `components/app/client-marks.tsx` holds the EVIM mark's paths, keyed by the
+`clients.logo_path` stored in the database, and renders it inline tinted with the client's accent.
+
+**Why.** `public/clients/evim.svg` ships an empty `<defs>`, so its `st*` classes resolve to nothing and
+every path falls back to black. An SVG loaded through `<img>` is an isolated document besides, so it
+cannot inherit `currentColor` from the page. Either way the mark was invisible on the dark canvas —
+which is exactly how it rendered in the switcher before this change. Inlining also matches the design
+bundle, which uses a `<symbol>` with `fill="currentColor"`.
+
+The `logo_path` column stays as the identifier; it is a key into the registry rather than a URL now.
+
+---
+
+## 2026-08-20 · `useSyncExternalStore` instead of `useState` + `useEffect` for browser state
+
+**Decision.** `lib/hooks/use-client-state.ts` provides `useMounted()` and `usePersistentFlag()`, both
+built on `useSyncExternalStore`. The reduced-motion hook uses the same primitive.
+
+**Why.** `matchMedia`, `localStorage`, and "has the client taken over yet" are all external stores.
+Reading them with an effect that calls `setState` schedules a second render pass for a value that was
+knowable on the first, and React's `react-hooks/set-state-in-effect` rule flags it. `usePersistentFlag`
+also dispatches a same-tab event on write, because the browser fires `storage` only for *other* tabs —
+without it, two components reading the same key disagree until something else re-renders them.

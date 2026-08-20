@@ -22,22 +22,39 @@ insert into public.allowed_emails (email, note) values
   ('abdelrahman@coditu.com', 'Frontend Engineer'),
   ('ahmed@coditu.com',       'Backend & DevOps');
 
+-- The token columns are set to '' rather than left NULL on purpose. GoTrue
+-- scans them into Go strings, and a NULL there fails EVERY sign-in with
+-- "Database error querying schema" — an error that names the schema and says
+-- nothing about the actual column. Seeding auth.users by hand means supplying
+-- them.
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                         email_confirmed_at, created_at, updated_at,
-                        raw_app_meta_data, raw_user_meta_data)
+                        raw_app_meta_data, raw_user_meta_data,
+                        confirmation_token, recovery_token, email_change_token_new, email_change,
+                        email_change_token_current, phone_change, phone_change_token, reauthentication_token)
 values
   ('a0000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
    'mohamed@coditu.com', crypt('coditu', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}'::jsonb,
-   '{"full_name":"Mohamed Tamer","role":"admin"}'::jsonb),
+   '{"full_name":"Mohamed Tamer","role":"admin"}'::jsonb, '', '', '', '', '', '', '', ''),
   ('a0000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
    'adam@coditu.com', crypt('coditu', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}'::jsonb,
-   '{"full_name":"Adam Nafie","role":"lead"}'::jsonb),
+   '{"full_name":"Adam Nafie","role":"lead"}'::jsonb, '', '', '', '', '', '', '', ''),
   ('a0000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
    'abdelrahman@coditu.com', crypt('coditu', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}'::jsonb,
-   '{"full_name":"Abdelrahman Elkhateeb","role":"engineer"}'::jsonb),
+   '{"full_name":"Abdelrahman Elkhateeb","role":"engineer"}'::jsonb, '', '', '', '', '', '', '', ''),
   ('a0000000-0000-4000-8000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
    'ahmed@coditu.com', crypt('coditu', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}'::jsonb,
-   '{"full_name":"Ahmed Yehia","role":"engineer"}'::jsonb);
+   '{"full_name":"Ahmed Yehia","role":"engineer"}'::jsonb, '', '', '', '', '', '', '', '');
+
+-- GoTrue expects an `identities` row per provider. Without it the user exists
+-- but has no email identity, and some flows (magic link, identity linking)
+-- refuse to run.
+insert into auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+select u.id, u.id, u.id::text,
+       json_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true, 'phone_verified', false)::jsonb,
+       'email', now(), now(), now()
+from auth.users u
+where u.email like '%@coditu.com';
 
 -- The auth trigger derives initials from the display name; the bundle's People
 -- view spells them out, so set them explicitly. Adam is part-time on delivery

@@ -42,12 +42,17 @@ create or replace function pg_temp.make_user(uid uuid, addr text, nm text, r pub
 language plpgsql as $$
 begin
   insert into public.allowed_emails (email) values (addr);
+  -- Empty strings, not NULL, on the token columns: GoTrue scans them into Go
+  -- strings and a NULL breaks every sign-in. See supabase/seed.sql.
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           email_confirmed_at, created_at, updated_at,
-                          raw_app_meta_data, raw_user_meta_data)
+                          raw_app_meta_data, raw_user_meta_data,
+                          confirmation_token, recovery_token, email_change_token_new, email_change,
+                          email_change_token_current, phone_change, phone_change_token, reauthentication_token)
   values (uid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
           addr, crypt('password', gen_salt('bf')), now(), now(), now(), '{}'::jsonb,
-          json_build_object('full_name', nm, 'role', r)::jsonb);
+          json_build_object('full_name', nm, 'role', r)::jsonb,
+          '', '', '', '', '', '', '', '');
 end;
 $$;
 
