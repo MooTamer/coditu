@@ -163,5 +163,22 @@ test.describe("sprint table", () => {
 
     const burn = page.getByRole("img", { name: /Cumulative hours logged/ });
     await expect(burn).toHaveAttribute("aria-label", /against 46\.0 estimated/);
+
+    // ...and the estimate label is fully inside the viewBox. It sits above the
+    // dashed line, and at 8px type a baseline four units below the line puts
+    // its ascenders outside the box — which renders as a label sliced in half,
+    // with nothing in the DOM to say so.
+    const inside = await burn.evaluate((svg) => {
+      const label = Array.from(svg.querySelectorAll("text")).find((t) =>
+        /est$/.test(t.textContent ?? "")
+      );
+      if (!label) return "no estimate label";
+      const box = (label as SVGTextElement).getBBox();
+      const view = (svg as SVGSVGElement).viewBox.baseVal;
+      return box.y >= view.y && box.y + box.height <= view.y + view.height
+        ? "inside"
+        : `clipped: y=${box.y.toFixed(1)} h=${box.height.toFixed(1)} viewBox=${view.y}..${view.y + view.height}`;
+    });
+    expect(inside).toBe("inside");
   });
 });

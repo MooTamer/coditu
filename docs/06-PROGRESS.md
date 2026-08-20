@@ -339,4 +339,15 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   and the budget check. Lighthouse reports rather than gates, for the reason in `05-DECISIONS.md`.
 
   **The fourteen steps of §13 are complete.**
+- **2026-08-21** — Final pass. One last defect, caught by looking at the rendered page rather than the
+  tests: the burn-up's "46.0 est" label was drawn four units above the estimate line, which at 8px
+  type puts its ascenders outside the viewBox — it rendered sliced in half, in both the app header and
+  the client PDF, with nothing in the DOM to suggest anything was wrong. The estimate line now leaves
+  the label headroom, and `sprint-table.spec.ts` measures the label's `getBBox()` against the viewBox
+  so it cannot come back.
+
+  Full gate green from a clean tree: lint, typecheck, 86 unit, 63 pgTAP, build, `verify-tokens.sh`,
+  88 e2e against dev, 89 against production, budgets OK. The client PDF re-read with `pdftotext`:
+  three pages, correct running header and footer, humanised statuses, and no `COD-` key, reviewer
+  name, per-person hour or internal comment anywhere in it.
 

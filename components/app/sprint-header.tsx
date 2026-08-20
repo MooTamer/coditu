@@ -215,7 +215,11 @@ function BurnUp({ points, estimateMinutes }: { points: BurnPoint[]; estimateMinu
   }
 
   const width = 300;
-  const top = 8;
+  // `top` is the estimate line, not the top of the box. It leaves headroom for
+  // the "46.0 est" label that sits above it — at 8px type the ascenders need
+  // ~6px, and a baseline any higher renders the label half-clipped by the
+  // viewBox with nothing in the DOM to suggest anything is wrong.
+  const top = 14;
   const baseline = 96;
   const ceiling = Math.max(estimateMinutes, ...points.map((p) => p.cumulativeMinutes), 1);
 
