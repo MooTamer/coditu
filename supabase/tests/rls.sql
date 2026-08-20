@@ -56,11 +56,11 @@ $$;
 -- must never surface under another's" has something to actually leak.
 -- ---------------------------------------------------------------------------
 
-select pg_temp.make_user('11111111-1111-1111-1111-111111111111', 'admin@coditu.com',    'Ada Admin',      'admin');
-select pg_temp.make_user('22222222-2222-2222-2222-222222222222', 'lead@coditu.com',     'Leo Lead',       'lead');
-select pg_temp.make_user('33333333-3333-3333-3333-333333333333', 'eng@coditu.com',      'Eve Engineer',   'engineer');
-select pg_temp.make_user('44444444-4444-4444-4444-444444444444', 'other@coditu.com',    'Otto Other',     'engineer');
-select pg_temp.make_user('55555555-5555-5555-5555-555555555555', 'inactive@coditu.com', 'Ivy Inactive',   'engineer');
+select pg_temp.make_user('11111111-1111-1111-1111-111111111111', 'admin@rls.test',    'Ada Admin',      'admin');
+select pg_temp.make_user('22222222-2222-2222-2222-222222222222', 'lead@rls.test',     'Leo Lead',       'lead');
+select pg_temp.make_user('33333333-3333-3333-3333-333333333333', 'eng@rls.test',      'Eve Engineer',   'engineer');
+select pg_temp.make_user('44444444-4444-4444-4444-444444444444', 'other@rls.test',    'Otto Other',     'engineer');
+select pg_temp.make_user('55555555-5555-5555-5555-555555555555', 'inactive@rls.test', 'Ivy Inactive',   'engineer');
 
 update public.profiles set is_active = false where id = '55555555-5555-5555-5555-555555555555';
 
@@ -69,22 +69,22 @@ insert into public.clients (id, name, website_url) values
   ('c2000000-0000-0000-0000-000000000002', 'Nile Atelier', 'https://nileatelier.com');
 
 insert into public.projects (id, client_id, name, slug) values
-  ('40000000-0000-0000-0000-000000000001', 'c1000000-0000-0000-0000-000000000001', 'MEINEvim components', 'meinevim'),
-  ('40000000-0000-0000-0000-000000000002', 'c2000000-0000-0000-0000-000000000002', 'Partner portal',      'nile-portal');
+  ('40000000-0000-0000-0000-000000000001', 'c1000000-0000-0000-0000-000000000001', 'MEINEvim components', 'rls-meinevim'),
+  ('40000000-0000-0000-0000-000000000002', 'c2000000-0000-0000-0000-000000000002', 'Partner portal',      'rls-nile-portal');
 
 insert into public.sprints (id, project_id, number, name, status, starts_on, ends_on) values
   ('50000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', 17, 'Sprint — Week 17', 'active', '2026-08-17', '2026-08-23'),
   ('50000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002',  1, 'Sprint — Week 1',  'active', '2026-08-17', '2026-08-23');
 
 insert into public.work_items (id, sprint_id, key, title, status, assignee_id, reviewer_id, estimate_minutes, order_index) values
-  ('60000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'COD-140', 'EVIM item, Eve assigned',  'dev_started', '33333333-3333-3333-3333-333333333333', '22222222-2222-2222-2222-222222222222', 480, 0),
-  ('60000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000001', 'COD-141', 'EVIM item, Eve uninvolved', 'todo',       '44444444-4444-4444-4444-444444444444', null,                                   60,  1),
-  ('60000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000002', 'COD-900', 'Nile item',                 'todo',       null,                                   null,                                   120, 0);
+  ('60000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'RLS-140', 'EVIM item, Eve assigned',  'dev_started', '33333333-3333-3333-3333-333333333333', '22222222-2222-2222-2222-222222222222', 480, 0),
+  ('60000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000001', 'RLS-141', 'EVIM item, Eve uninvolved', 'todo',       '44444444-4444-4444-4444-444444444444', null,                                   60,  1),
+  ('60000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000002', 'RLS-900', 'Nile item',                 'todo',       null,                                   null,                                   120, 0);
 
--- The fixtures above supply explicit keys, which does NOT advance the sequence.
--- Any seed that transcribes real keys has to do this or the first generated key
--- collides with one it just inserted. Step 5's seed does the same.
-select setval('public.work_item_key_seq', 900, true);
+-- NOTE: no setval here. Fixture keys are RLS-* so they cannot collide with the
+-- seed's COD-*, and sequences are not transactional — a setval would survive
+-- this test's rollback and permanently advance the real sequence. The lesson
+-- about seeds needing setval is real; it belongs in the seed, not here.
 
 insert into public.acceptance_criteria (id, work_item_id, body, order_index) values
   ('70000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000001', 'Toggle sits at the top of settings', 0);
@@ -160,7 +160,7 @@ select is(
   (select count(*)::int from public.work_items w
    join public.sprints s on s.id = w.sprint_id
    where s.project_id = '40000000-0000-0000-0000-000000000001'
-     and w.key = 'COD-900'),
+     and w.key = 'RLS-900'),
   0,
   'negative: another client''s item cannot be reached through a project-scoped query'
 );
@@ -196,12 +196,19 @@ select pg_temp.act_as_owner();
 -- =========================================================================
 
 select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
-select is((select count(*)::int from public.work_items), 3, 'positive: an active engineer reads every item');
-select is((select count(*)::int from public.clients),    2, 'positive: an active engineer reads every client');
+-- Scoped to the fixtures: the seed puts real rows in these tables too, and an
+-- absolute count would turn this into a test of the seed's size.
+select is(
+  (select count(*)::int from public.work_items where key like 'RLS-%'),
+  3, 'positive: an active engineer reads every item, including other projects''');
+select is(
+  (select count(*)::int from public.clients
+   where id in ('c1000000-0000-0000-0000-000000000001','c2000000-0000-0000-0000-000000000002')),
+  2, 'positive: an active engineer reads every client');
 select pg_temp.act_as_owner();
 
 select pg_temp.act_as('55555555-5555-5555-5555-555555555555');
-select is((select count(*)::int from public.work_items), 0, 'negative: a DEACTIVATED profile reads nothing');
+select is((select count(*)::int from public.work_items), 0, 'negative: a DEACTIVATED profile reads nothing at all');
 select pg_temp.act_as_owner();
 
 -- =========================================================================
@@ -388,6 +395,8 @@ select is(
 
 select pg_temp.act_as('44444444-4444-4444-4444-444444444444');
 select is((select count(*)::int from public.notifications), 0, 'negative: a profile cannot read another''s notifications');
+-- (Otto is mentioned by nobody; if this ever returns >0 it means the own-rows
+--  policy stopped filtering, not that the fixture changed.)
 select pg_temp.act_as_owner();
 
 select pg_temp.act_as('22222222-2222-2222-2222-222222222222');

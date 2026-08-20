@@ -20,8 +20,8 @@ real work, which is what the rule is protecting against.
 | 2 | **Import the design** — asset migration to `public/`, `docs/01-DESIGN-SYSTEM.md` filled from the bundle | `done` | `bb987e7` | `./scripts/verify-assets.sh` |
 | 3 | **Tokens and primitives** — `globals.css`, Tailwind theme, fonts, `<Reveal>`, `<StatusChip>`, `<Mono>`, `<CoditusMark />` | `done` | `7b72821` | `npm run lint && npm run typecheck && npm run build && ./scripts/verify-tokens.sh`; `/dev/tokens` in both themes |
 | 3b | **Legacy asset deletion** — `public/logo*.svg`, `logo-wordmark.*`, `design/project/assets/legacy/*`. Deferred by §1 to *after* the Coditu marks are wired in | `todo` | — | zero references to `logo.svg` / `logo-stripped.svg` / `logo-wordmark.*`; files gone |
-| 4 | **Supabase** — migrations, enums, triggers, views, indexes, RLS, `allowed_emails`, auth, middleware | `done` | pending | `npm run db:test` (40 assertions) + `npm run test` |
-| 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `todo` | — | test asserts the footer sum reads **16.0 / 46.0** |
+| 4 | **Supabase** — migrations, enums, triggers, views, indexes, RLS, `allowed_emails`, auth, middleware | `done` | `7835f6e` | `npm run db:test` (40 assertions) + `npm run test` |
+| 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `done` | pending | `npm run db:test` — `supabase/tests/seed.sql`, 20 assertions incl. **16.0 / 46.0** |
 | 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `todo` | — | `npm run build`; no-sprint empty state renders with Export disabled + tooltip |
 | 7 | **Sprint table** — columns, chips, sticky, grouping, sum row, URL filters, mobile cards | `todo` | — | sum-equals-database test; container-query test at 320px |
 | 8 | **Item detail** — intercepting route, properties, criteria ring, log time, activity | `todo` | — | `npm run test`; hard navigation renders the full page |
@@ -106,3 +106,19 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   Supabase project holds those; analytics is disabled because its log container needs a host
   `docker.sock` that Colima cannot provide.
   **Next: step 5 — seed EVIM Week 17 (COD-140…151) and a closed Week 16, asserting 16.0 / 46.0.**
+- **2026-08-20** — Step 5 done. `supabase/seed.sql` transcribes EVIM Week 17 from the bundle:
+  12 items `COD-140`…`COD-151` with their statuses, types, groupings, estimates, deadlines,
+  14 acceptance criteria, 4 comments and 7 time entries, plus the sprint notes attributed to Adam.
+  Four clients and four projects — only EVIM has a sprint, so the no-sprint empty state has something
+  real to show. Week 16 is nine synthetic closed items, labelled as synthetic in the file.
+  `supabase/tests/seed.sql` adds 20 assertions; `npm run db:test` now runs **60**.
+
+  The bundle contradicts itself on per-person hours: attributing every entry to its item's assignee
+  gives Mohamed 13.0h while the avatar tooltips say 12.5 / 3 / 0.5. Attributing COD-141's half hour to
+  Ahmed reconciles per-item sums *and* per-person totals, and it is the only assignment that does.
+  Both totals still land on 16.0 / 46.0.
+
+  The RLS suite had to be made self-scoped — its fixtures collided with the seed and its counts were
+  absolute. Fixture rows are now `RLS-*` / `@rls.test`, counts are scoped, and the test no longer calls
+  `setval` (sequences are not transactional, so it would have survived the rollback).
+  **Next: step 6 — app shell: rail, topbar, project switcher, routing, theme, empty states.**
