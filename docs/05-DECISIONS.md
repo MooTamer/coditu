@@ -601,3 +601,75 @@ browser already knows the answer exactly.
 step, which looked exactly like Tailwind pruning the rule — the failure mode step 3 already hit. It
 was a cache. After any change to `globals.css`, restart the dev server before concluding a rule was
 dropped, and confirm against the built stylesheet with `scripts/verify-tokens.sh`.
+
+---
+
+## 2026-08-21 · `data-reveal-flat` — the same tier, minus the part we cannot afford
+
+**Decision.** A `flat` modifier on `<Reveal>` keeps a tier's travel and fade and drops its blur. It is
+on exactly one thing: the sprint table's group reveal.
+
+**Why.** §4 gives two rules that a real table cannot both obey. *Never blur-animate an element taller
+than ~40vh* — the sprint body is 720px against a 360px ceiling at 900px tall. And *blur-reveal the
+`<tbody>` once on mount as a single group, never per-row* — because per-row is where a table visibly
+hitches on every filter and sort.
+
+The remedy §4 offers for the first rule, "blur its container's children in a stagger", is precisely
+what the second rule forbids here. So the group stays one group and loses the blur: one composite
+pass, once, with no offscreen blur over 720px of table every frame. It is not a fourth tier — it is
+the section tier with the expensive part removed where it is not affordable, and there is a test
+asserting `cd-reveal-flat` never grows a blur.
+
+The sprint header, at 409px, is the case §4's remedy *does* fit: it staggers its three columns at
+`base` instead, and the wrapper reveal is gone.
+
+---
+
+## 2026-08-21 · Backdrops resolve; the panel arrives through them
+
+**Decision.** `[data-scrim]` animates opacity `0 → 1` and `backdrop-filter` `blur(0) → blur(10px)`
+over 240ms. The panel inside carries `animation-delay: 16ms`.
+
+**Why.** §4, and the reason it asks for it: a backdrop that snaps to full blur reads as a layer
+appearing *over* the page, while one that resolves reads as the page receding. The single frame of
+delay on the panel is what makes it arrive *through* the backdrop rather than with it — small enough
+that nobody would name it, large enough that its absence feels flat.
+
+Under reduced motion the backdrop still darkens and blurs; it just arrives in a flat 120ms and the
+panel no longer trails it. The scrim is information, not decoration — removing it would leave a dialog
+floating over live content with nothing separating them.
+
+---
+
+## 2026-08-21 · The `micro` tier is a change, not an arrival
+
+**Decision.** Status chips and criteria ticks use `data-reveal="micro"` keyed on their own value, so a
+*change* remounts and re-runs the animation. Filter pills and row hover use a 200ms transition rather
+than an entrance.
+
+**Why.** §4 assigns all four to `micro`, but they are two different things. A chip whose status just
+changed needs an acknowledgement that something happened — an optimistic write is exactly the moment a
+reader needs one — and `key={status}` is what turns a re-render into a re-animation. A pill being
+toggled is not arriving anywhere; it is changing colour, which is a transition.
+
+`micro` carries no blur by design, and the test asserts `cd-reveal-micro`'s keyframes never gain one.
+There are a dozen chips on a sprint table and blurring each on every write is how a table starts to
+feel bad without anybody being able to say why.
+
+**On hover durations:** §4 puts hover elevation on `micro` (200ms); the bundle specifies 220–240ms for
+the hovers it defines. On a *number* the bundle wins, so those keep the bundle's timing — the tier
+still governs the shape, which is travel with no blur.
+
+---
+
+## 2026-08-21 · Framer Motion is gone
+
+**Decision.** `framer-motion` is uninstalled and the legacy helpers in `lib/motion.ts` are deleted.
+
+**Why.** Every entrance in this app is CSS, for the reason recorded in step 3: a JS-driven reveal has
+to serialise its own hidden state, so the HTML arrives with real content at `opacity: 0` and stays
+invisible until React hydrates. Once the pre-Coditu landing sections went in step 12, the only thing
+left importing Framer was two type-only helpers nothing called.
+
+`scripts/verify-tokens.sh` now treats a prerendered `opacity:0` as a hard failure rather than the
+warning it was while those sections still existed.

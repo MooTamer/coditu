@@ -1,5 +1,3 @@
-import type { Transition, Variants } from "framer-motion";
-
 export type CubicBezier = [number, number, number, number];
 
 /**
@@ -63,25 +61,6 @@ export function tierFor(name: RevealTierName, reducedMotion: boolean): RevealTie
   return reducedMotion ? REDUCED : reveal[name];
 }
 
-export function revealVariants(tier: RevealTier): Variants {
-  return {
-    hidden: {
-      opacity: 0,
-      y: tier.y,
-      ...(tier.blur > 0 ? { filter: `blur(${tier.blur}px)` } : {}),
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      ...(tier.blur > 0 ? { filter: "blur(0px)" } : {}),
-    },
-  };
-}
-
-export function revealTransition(tier: RevealTier, delay = 0): Transition {
-  return { duration: tier.duration, delay, ease: ease.entrance };
-}
-
 export function cssBezier(curve: CubicBezier): string {
   return `cubic-bezier(${curve.join(",")})`;
 }
@@ -101,75 +80,3 @@ export function willChangeFor(tier: RevealTier): string {
  * blur-animated as a single block; stagger its children instead.
  */
 export const MAX_BLUR_VIEWPORT_FRACTION = 0.4;
-
-/* ------------------------------------------------------------------------
- * Legacy helpers, still imported by the pre-Coditu landing components.
- * Step 12 rewrites those sections and deletes everything below.
- * ---------------------------------------------------------------------- */
-
-/** @deprecated Use `ease`, `reveal`, and `stagger`. Removed in step 12. */
-export const motionTokens = {
-  easing: { smooth: ease.entrance, snappy: ease.entrance, gentle: ease.drift },
-  duration: { quick: 0.24, normal: 0.42, slow: 0.72, float: 6 },
-  reveal: { yOffset: reveal.section.y, blur: reveal.section.blur, scale: 0.985 },
-  stagger: { tight: stagger.tight, normal: stagger.base },
-};
-
-export interface RevealOptions {
-  delay?: number;
-  duration?: number;
-  yOffset?: number;
-  blur?: number;
-  scale?: number;
-}
-
-/** @deprecated Use `<Reveal>`. Removed in step 12. */
-export function getRevealVariants(reducedMotion: boolean, options: RevealOptions = {}): Variants {
-  if (reducedMotion) {
-    return {
-      hidden: { opacity: 1, y: 0, filter: "blur(0px)", scale: 1 },
-      visible: { opacity: 1, y: 0, filter: "blur(0px)", scale: 1 },
-    };
-  }
-  return {
-    hidden: {
-      opacity: 0,
-      y: options.yOffset ?? motionTokens.reveal.yOffset,
-      filter: `blur(${options.blur ?? motionTokens.reveal.blur}px)`,
-      scale: options.scale ?? motionTokens.reveal.scale,
-    },
-    visible: { opacity: 1, y: 0, filter: "blur(0px)", scale: 1 },
-  };
-}
-
-/** @deprecated Use `<Reveal>`. Removed in step 12. */
-export function getRevealTransition(reducedMotion: boolean, options: RevealOptions = {}): Transition {
-  if (reducedMotion) return { duration: 0 };
-  return {
-    duration: options.duration ?? motionTokens.duration.normal,
-    delay: options.delay ?? 0,
-    ease: ease.entrance,
-  };
-}
-
-/** @deprecated Removed in step 12. */
-export function getFloatTransition(
-  reducedMotion: boolean,
-  delay = 0,
-  duration = motionTokens.duration.float
-): Transition {
-  if (reducedMotion) return { duration: 0 };
-  return {
-    duration,
-    delay,
-    repeat: Number.POSITIVE_INFINITY,
-    repeatType: "loop",
-    ease: ease.drift,
-  };
-}
-
-/** @deprecated Use `useReveal`, which reacts to changes. Removed in step 12. */
-export function prefersReducedMotionFromMediaQuery(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}

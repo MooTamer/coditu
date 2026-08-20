@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import { siteMeta, type WorkItem } from "@/lib/marketing-content";
+import { staggerDelay } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /**
@@ -96,16 +97,21 @@ export function WorkGallery({ items }: { items: readonly WorkItem[] }) {
   return (
     <>
       <div className="mt-8 grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(330px,100%),1fr))]">
-        {items.map((entry) => (
+        {items.map((entry, index) => (
           <button
             key={entry.id}
             type="button"
             onClick={(event) => open(entry, event.currentTarget)}
             aria-haspopup="dialog"
-            data-reveal="surface"
+            data-reveal="section"
             data-reveal-on-view
+            style={{ animationDelay: `${staggerDelay(index, items.length) * 1000}ms` }}
             className={cn(
               "group flex cursor-pointer flex-col overflow-hidden rounded-section border border-hairline bg-raised p-0 text-left text-inherit",
+              // 240ms is the bundle's number for this hover. §4 assigns hover
+              // elevation to the `micro` tier, whose duration is 200ms — and on a
+              // NUMBER the bundle wins. The tier still governs the shape: travel
+              // and no blur.
               "transition-[border-color,transform] duration-[240ms] ease-[var(--ease-entrance)]",
               "hover:-translate-y-[3px] hover:border-hairline-strong",
               entry.wide && "xl:col-span-2"
@@ -183,7 +189,8 @@ function WorkModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-60 flex items-start justify-center overflow-y-auto bg-scrim px-5 py-[clamp(16px,4vh,56px)] backdrop-blur-[12px]"
+      data-scrim
+      className="fixed inset-0 z-60 flex items-start justify-center overflow-y-auto px-5 py-[clamp(16px,4vh,56px)]"
     >
       <div
         ref={ref}
@@ -191,7 +198,8 @@ function WorkModal({
         aria-modal="true"
         aria-labelledby="work-modal-title"
         onClick={(event) => event.stopPropagation()}
-        className="cd-rise w-full max-w-[1000px] overflow-hidden rounded-section border border-hairline-strong bg-overlay shadow-overlay"
+        data-reveal="surface"
+        className="w-full max-w-[1000px] overflow-hidden rounded-section border border-hairline-strong bg-overlay shadow-overlay"
       >
         <div className="relative aspect-[16/8] border-b border-hairline bg-[var(--canvas)]">
           <Image

@@ -65,23 +65,26 @@ export default async function SprintPage({
     // `@container` so the table can switch to cards on its OWN width. The rail
     // pinning open changes that width without the viewport moving at all.
     <main className="@container flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
-      <Reveal tier="section">
-        <SprintHeader
-          project={project}
-          sprint={sprint}
-          burn={burn}
-          daysLeft={daysRemaining(sprint.endsOn)}
-          members={members}
-        />
-      </Reveal>
+      {/* No wrapper reveal: as one block the header clears §4's ~40vh blur
+          ceiling, so it staggers its own three columns instead — which is the
+          remedy §4 gives for exactly this case. */}
+      <SprintHeader
+        project={project}
+        sprint={sprint}
+        burn={burn}
+        daysLeft={daysRemaining(sprint.endsOn)}
+        members={members}
+      />
 
       <Reveal tier="section" delay={0.06}>
         <FilterBar availableStatuses={[...new Set(sprint.items.map((item) => item.status))]} />
       </Reveal>
 
-      {/* The body blur-reveals once, as a single group. Never per row on a
-          filter or sort — that is where a table visibly hitches. */}
-      <Reveal tier="section" delay={0.12}>
+      {/* The body reveals once, as a single group — never per row on a filter
+          or sort, which is where a table visibly hitches. `flat` because the
+          group clears the ~40vh ceiling and blurring it would cost an
+          offscreen composite pass over the whole table every frame. */}
+      <Reveal tier="section" delay={0.12} flat>
         {isBoard ? (
           <SprintBoard rows={visible} basePath={basePath} />
         ) : (

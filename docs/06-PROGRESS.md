@@ -19,7 +19,7 @@ real work, which is what the rule is protecting against.
 | 1 | **Bootstrap** — `CLAUDE.md`, `docs/*`, `design/` committed, `._*` junk removed, `.gitignore` fixed | `done` | `5e7d53e` | `git status --porcelain` clean, no `error:` lines |
 | 2 | **Import the design** — asset migration to `public/`, `docs/01-DESIGN-SYSTEM.md` filled from the bundle | `done` | `bb987e7` | `./scripts/verify-assets.sh` |
 | 3 | **Tokens and primitives** — `globals.css`, Tailwind theme, fonts, `<Reveal>`, `<StatusChip>`, `<Mono>`, `<CoditusMark />` | `done` | `7b72821` | `npm run lint && npm run typecheck && npm run build && ./scripts/verify-tokens.sh`; `/dev/tokens` in both themes |
-| 3b | **Legacy asset deletion** — `public/logo*.svg`, `logo-wordmark.*`, the Strukture `og/` set. Deferred by §1 to *after* the Coditu marks are wired in | `done` | pending | files gone; zero references repo-wide; every raster re-rendered from `public/brand/` by `npm run brand:assets` |
+| 3b | **Legacy asset deletion** — `public/logo*.svg`, `logo-wordmark.*`, the Strukture `og/` set. Deferred by §1 to *after* the Coditu marks are wired in | `done` | `fd49508` | files gone; zero references repo-wide; every raster re-rendered from `public/brand/` by `npm run brand:assets` |
 | 4 | **Supabase** — migrations, enums, triggers, views, indexes, RLS, `allowed_emails`, auth, middleware | `done` | `7835f6e` | `npm run db:test` (40 assertions) + `npm run test` |
 | 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `done` | `f0aecc4` | `npm run db:test` — `supabase/tests/seed.sql`, 20 assertions incl. **16.0 / 46.0** |
 | 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `done` | `acc2b54` | full gate; `/app` redirects to the active sprint and renders 16.0 / 46.0; no-sprint state renders with Export `disabled` + tooltip |
@@ -28,8 +28,8 @@ real work, which is what the rule is protecting against.
 | 9 | **Comment thread** — composer, code, images, mentions, notifications, server-side JSON rendering | `done` | `34d54c9` | `npm run test` (43) + `npm run e2e` (31) — 10 hostile-JSON specs and 6 composer specs |
 | 10 | **Board, My work, People, Import** | `done` | `d5ebdba` | `npm run test` (68) + `npm run db:test` (63) + `npm run e2e` (37) — importer flags `"1a"` before writing anything |
 | 11 | **Export** — CSV, Markdown, PDF, item selection, persistence | `done` | `5dce4f9` | `npm run test` (86) + `npm run e2e` (50, twice back to back) — golden-file CSV and Markdown; scoping proven at three levels; a real 3-page PDF read back with `pdftotext` |
-| 12 | **Marketing site** — sections, trace, work modal, metadata, brand assets | `done` | pending | `npm run e2e` — 15 marketing specs: section order, heading order, nothing invented, JSON-LD matches the page, focus trap, no-JS, reduced motion, **axe clean in both themes**; zero horizontal overflow at all 13 widths |
-| 13 | **Motion pass** — every tier applied, reduced-motion verified, no `will-change` left pinned | `todo` | — | reduced-motion e2e; no persistent `will-change` after animation completion |
+| 12 | **Marketing site** — sections, trace, work modal, metadata, brand assets | `done` | `fd49508` | `npm run e2e` — 15 marketing specs: section order, heading order, nothing invented, JSON-LD matches the page, focus trap, no-JS, reduced motion, **axe clean in both themes**; zero horizontal overflow at all 13 widths |
+| 13 | **Motion pass** — every tier applied, reduced-motion verified, no `will-change` left pinned | `done` | pending | `npm run e2e` — 9 motion specs asserting computed style: no pinned `will-change` on either surface, nothing blur-animated past 40vh, no per-row blur on filter, the scrim resolves and the panel trails it, reduced motion complete; `./scripts/verify-tokens.sh` greps the built CSS for all of it |
 | 14 | **Performance and a11y pass** — budgets asserted in CI, Lighthouse ≥ 95, axe clean | `todo` | — | Lighthouse CI ≥ 95 × 4; axe clean on table, detail, composer, export dialog |
 
 ---
@@ -267,4 +267,28 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   **Needs attention:** this checkout's directory is still literally named `Strukture-Digital`, which
   the dev server leaks into React owner stacks. Nothing ships with it, but the repository should be
   renamed. **Next: step 13 — the motion pass.**
+- **2026-08-21** — Step 13 done. Every tier is now actually applied, and asserted against **computed
+  style** rather than source — the failures in this area are all silent ones.
+
+  The `micro` tier had been defined and used nowhere. Status chips and criteria ticks now carry it,
+  keyed on their own value so a *change* re-runs the animation: an optimistic status write is exactly
+  the moment a reader needs an acknowledgement, and without the key the new colour just appears.
+  Filter pills and row hover got a 200ms transition instead, because a pill is not arriving anywhere.
+
+  Backdrops resolve rather than snap — `[data-scrim]` takes opacity 0→1 and `backdrop-filter`
+  blur(0)→blur(10px) over 240ms, with the panel one frame behind so it reads as arriving *through* the
+  backdrop. All three dialogs share it.
+
+  Two real §4 violations, found by measuring: the sprint header (409px) and the table group (720px)
+  were both blur-animating past the ~40vh ceiling. The header now staggers its three columns, which is
+  §4's own remedy. The table cannot — §4 also forbids per-row reveals — so it keeps its single group
+  and drops the blur via `data-reveal-flat`. Both are in `05-DECISIONS.md`.
+
+  Framer Motion is uninstalled: every entrance here is CSS, and the last two importers were type-only
+  helpers nothing called. `verify-tokens.sh` now fails, rather than warns, on prerendered `opacity:0`,
+  and greps the built CSS for the flat variant, the scrim, and all four reduced-motion rules — the
+  reduced-motion block being where a dropped rule is least likely to be noticed, since nobody testing
+  on a normal machine ever sees it.
+
+  **Next: step 14 — performance and accessibility.**
 

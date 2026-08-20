@@ -49,7 +49,17 @@ export interface StatusChipProps extends HTMLAttributes<HTMLSpanElement> {
 export function StatusChip({ status, label, className, style, children, ...props }: StatusChipProps) {
   const vars = CHIP_VARS[status];
   return (
+    // `key` on the status is what makes a CHANGE visible: React remounts the
+    // span, which restarts the `micro` animation. Without it the chip's new
+    // colour appears with no acknowledgement that anything happened — and an
+    // optimistic status write is exactly the moment a reader needs one.
+    //
+    // `micro` is 4px and 200ms with NO blur. A chip is small, there are a dozen
+    // on screen, and blurring them on every write is how a table starts to
+    // hitch.
     <span
+      key={status}
+      data-reveal="micro"
       className={cn(CHIP_BASE, className)}
       style={{ color: vars.fg, backgroundColor: vars.bg, ...style }}
       {...props}

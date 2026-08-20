@@ -87,13 +87,19 @@ export function CriteriaList({ criteria, canToggle }: { criteria: Criterion[]; c
               >
                 <span
                   aria-hidden
-                  className="mt-px flex size-[17px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px]"
+                  className="mt-px flex size-[17px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-[background-color,border-color] duration-[var(--dur-micro)] ease-[var(--ease-entrance)]"
                   style={{
                     borderColor: criterion.isDone ? "#21E2C6" : "var(--hairline-strong)",
                     background: criterion.isDone ? "#21E2C6" : "transparent",
                   }}
                 >
-                  <Check size={10} strokeWidth={3.4} color="#07090E" style={{ opacity: criterion.isDone ? 1 : 0 }} />
+                  {/* The tick arrives on the `micro` tier — 4px, 200ms, no
+                      blur. Keyed on the state so ticking again re-runs it;
+                      un-ticking simply removes it, because the tier is for
+                      entrances and nothing here should animate on exit. */}
+                  {criterion.isDone ? (
+                    <Check key="done" data-reveal="micro" size={10} strokeWidth={3.4} color="#07090E" />
+                  ) : null}
                 </span>
                 <span
                   className="text-[14px] leading-[1.5]"

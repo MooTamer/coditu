@@ -1,3 +1,4 @@
+import { staggerDelay } from "@/lib/motion";
 import { SectionHead, SiteSection } from "@/components/site/shell";
 import { deliveryNotes, process, services, team, useCases } from "@/lib/marketing-content";
 
@@ -8,6 +9,13 @@ import { deliveryNotes, process, services, team, useCases } from "@/lib/marketin
  * the reader a byte of JavaScript. They share one file because they share one
  * shape — a numbered rule, then a grid — and splitting five twenty-line
  * components across five files makes the shape harder to see, not easier.
+ *
+ * Motion is the `section` tier — 18px, 14px blur, 520ms — applied to the grid
+ * CHILDREN in a stagger rather than to the section as one block. §4's blur rule
+ * is the reason: `filter: blur()` costs an offscreen composite pass every
+ * frame, and a section is far taller than the 40vh ceiling for blurring a
+ * single element. `staggerDelay` caps the whole sequence at 600ms no matter how
+ * many children there are.
  */
 
 export function Services() {
@@ -16,11 +24,12 @@ export function Services() {
       <SectionHead id="services-title" n="02" title="What we build" meta="Discovery → iteration" />
 
       <div className="mt-8 grid gap-px overflow-hidden rounded-section border border-hairline bg-hairline [grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))]">
-        {services.map((service) => (
+        {services.map((service, index) => (
           <div
             key={service.n}
-            data-reveal="surface"
+            data-reveal="section"
             data-reveal-on-view
+            style={{ animationDelay: `${staggerDelay(index, services.length) * 1000}ms` }}
             className="flex min-h-[216px] flex-col gap-4 bg-raised p-7 transition-colors duration-[220ms] hover:bg-overlay"
           >
             <div className="font-mono text-[11px] text-ink-faint">{service.n}</div>
@@ -73,11 +82,12 @@ export function Process() {
         </svg>
 
         <ol className="flex flex-col">
-          {process.map((step) => (
+          {process.map((step, index) => (
             <li
               key={step.n}
-              data-reveal="surface"
+              data-reveal="section"
               data-reveal-on-view
+              style={{ animationDelay: `${staggerDelay(index, process.length) * 1000}ms` }}
               className="relative grid gap-2 border-b border-hairline py-[22px] sm:grid-cols-[minmax(0,320px)_minmax(0,1fr)] sm:gap-6"
             >
               <span
@@ -105,11 +115,12 @@ export function UseCases() {
       <SectionHead id="use-cases-title" n="04" title="Who we work with" />
 
       <div className="mt-7 grid gap-x-8 gap-y-5 [grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))]">
-        {useCases.map((useCase) => (
+        {useCases.map((useCase, index) => (
           <div
             key={useCase.title}
-            data-reveal="surface"
+            data-reveal="section"
             data-reveal-on-view
+            style={{ animationDelay: `${staggerDelay(index, useCases.length) * 1000}ms` }}
             className="flex flex-col gap-2 border-t border-hairline pt-[18px]"
           >
             <h3 className="text-base font-bold">{useCase.title}</h3>
@@ -175,11 +186,12 @@ export function Team() {
           </svg>
         </div>
 
-        {team.map((member) => (
+        {team.map((member, index) => (
           <div
             key={member.name}
-            data-reveal="surface"
+            data-reveal="section"
             data-reveal-on-view
+            style={{ animationDelay: `${staggerDelay(index + 1, team.length + 1) * 1000}ms` }}
             className="flex flex-col gap-4 rounded-section border border-hairline bg-raised p-[26px] transition-colors duration-[220ms] hover:border-hairline-strong"
           >
             <div className="flex items-center justify-between gap-3">
@@ -222,11 +234,12 @@ export function DeliveryNotes() {
       <SectionHead id="insights-title" n="06" title="Delivery notes" />
 
       <div className="mt-8 grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))]">
-        {deliveryNotes.map((note) => (
+        {deliveryNotes.map((note, index) => (
           <article
             key={note.title}
-            data-reveal="surface"
+            data-reveal="section"
             data-reveal-on-view
+            style={{ animationDelay: `${staggerDelay(index, deliveryNotes.length) * 1000}ms` }}
             className="flex flex-col gap-3.5 border-t border-hairline-strong pt-5"
           >
             <p className="flex items-center gap-2.5 font-mono text-[11px] tracking-[0.06em] text-ink-faint uppercase">

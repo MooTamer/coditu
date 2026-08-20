@@ -105,8 +105,8 @@ export function ItemModal({ itemKey, children }: { itemKey: string; children: Re
   return (
     <div
       onClick={close}
+      data-scrim
       className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto px-4 py-[clamp(12px,3vh,40px)]"
-      style={{ background: "var(--scrim)", backdropFilter: "blur(10px)" }}
     >
       <div
         ref={panelRef}

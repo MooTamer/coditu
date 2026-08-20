@@ -279,7 +279,7 @@ function Row({
         transition,
         opacity: isDragging ? 0.5 : 1,
       }}
-      className="border-b border-[var(--hairline)] hover:bg-[var(--canvas)]"
+      className="border-b border-[var(--hairline)] hover:bg-[var(--canvas)] transition-[background-color,border-color,color] duration-[var(--dur-micro)] ease-[var(--ease-entrance)]"
     >
       <td
         className={cn("sticky left-0 border-l-[3px]", CELL)}

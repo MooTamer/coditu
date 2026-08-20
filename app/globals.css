@@ -367,6 +367,23 @@
   }
 }
 
+/* A backdrop resolves; it does not snap. The scrim fades 0 -> 1 while its
+   blur goes 0 -> 10px over 240ms, and the panel inside enters ONE FRAME behind
+   it — so the panel reads as arriving *through* the backdrop rather than
+   pasted on top of it. */
+@keyframes cd-scrim {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+}
+
 @keyframes cd-draw {
   from {
     stroke-dashoffset: var(--len, 1200);
@@ -536,6 +553,33 @@
   transform-origin: 16px 16px;
 }
 
+/* --- past the blur ceiling ------------------------------------------------
+   `filter: blur()` costs an offscreen composite pass every frame, so §4 sets a
+   hard ceiling: never blur-animate an element taller than ~40vh. Its remedy —
+   stagger the container's children instead — does not apply to a table, where
+   §4 is equally explicit that the body reveals once as ONE group and never per
+   row.
+
+   Both hold at the same time if the group keeps its tier's travel and fade and
+   simply drops the blur. That is what `data-reveal-flat` is: not a fourth tier,
+   the same tier with the expensive part removed where it is not affordable.
+   -------------------------------------------------------------------------- */
+
+@keyframes cd-reveal-flat {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+[data-reveal][data-reveal-flat] {
+  animation-name: cd-reveal-flat;
+}
+
 [data-reveal="micro"] {
   animation: cd-reveal-micro var(--dur-micro) var(--ease-entrance) both;
 }
@@ -552,6 +596,18 @@
    them — but ONLY when JS is actually running. Without the `js` class on
    <html> the animation simply plays on parse, so a reader with a broken
    bundle sees the content rather than an empty page. */
+[data-scrim] {
+  background: var(--scrim);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: cd-scrim 240ms var(--ease-entrance) both;
+}
+
+/* One frame, so the panel trails the backdrop it arrives through. */
+[data-scrim] > [data-reveal] {
+  animation-delay: 16ms;
+}
+
 .js [data-reveal-on-view] {
   animation-play-state: paused;
 }
@@ -628,6 +684,24 @@
      frame zero by a paused animation is invisible if the observer never fires. */
   .js [data-reveal-on-view] {
     animation-play-state: running !important;
+  }
+
+  /* The backdrop still darkens and blurs; it arrives in 120ms instead of
+     resolving, and the panel no longer trails it. */
+  [data-scrim] {
+    animation: cd-fade 120ms linear both !important;
+  }
+
+  [data-scrim] > [data-reveal] {
+    animation-delay: 0ms !important;
+  }
+
+  /* Staggering IS motion. A reduced-motion reader gets the whole section at
+     once rather than a 600ms sequence. */
+  [data-reveal],
+  .cd-word,
+  .cd-rise {
+    animation-delay: 0ms !important;
   }
 }
 

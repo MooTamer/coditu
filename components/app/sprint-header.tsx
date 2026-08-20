@@ -55,8 +55,12 @@ export function SprintHeader({
         // container width where it does not.
         className="grid gap-7 p-6 [grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))]"
       >
+        {/* Each column carries the `section` tier and its own stagger step.
+            The card as a whole clears §4's ~40vh blur ceiling, and the remedy
+            §4 gives for that is exactly this: blur the container's children in
+            a stagger rather than the whole block. */}
         {/* ---- identity ---- */}
-        <div className="min-w-0">
+        <div data-reveal="section" className="min-w-0">
           <div className="flex flex-wrap items-center gap-[10px]">
             {project.clientUrl ? (
               <a
@@ -122,7 +126,7 @@ export function SprintHeader({
         </div>
 
         {/* ---- status distribution ---- */}
-        <div className="min-w-0">
+        <div data-reveal="section" style={{ animationDelay: "75ms" }} className="min-w-0">
           <div className="flex items-baseline justify-between gap-3">
             <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
               Status distribution
@@ -170,7 +174,7 @@ export function SprintHeader({
         </div>
 
         {/* ---- burn-up ---- */}
-        <div className="min-w-0">
+        <div data-reveal="section" style={{ animationDelay: "150ms" }} className="min-w-0">
           <div className="flex items-baseline justify-between gap-3">
             <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
               Burn-up · hours logged

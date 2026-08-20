@@ -218,8 +218,8 @@ export function ExportDialog({
   return (
     <div
       onClick={onClose}
+      data-scrim
       className="fixed inset-0 z-[65] flex items-start justify-center overflow-y-auto px-4 py-[clamp(12px,4vh,48px)]"
-      style={{ background: "var(--scrim)", backdropFilter: "blur(10px)" }}
     >
       <div
         ref={panelRef}

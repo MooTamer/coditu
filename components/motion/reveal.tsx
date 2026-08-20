@@ -18,6 +18,12 @@ export interface RevealProps {
   count?: number;
   /** Stagger step. Defaults to `base` (0.075s). */
   step?: number;
+  /**
+   * Drop the tier's blur, keeping its travel and fade. For a group past the
+   * ~40vh ceiling that cannot be split into staggered children — a table body,
+   * which §4 requires to reveal as one group and never per row.
+   */
+  flat?: boolean;
   /** Hold until scrolled into view instead of animating on parse. */
   onView?: boolean;
   /** Re-animate on scroll-back. Off by default — reveals fire once. */
@@ -55,6 +61,7 @@ export function Reveal({
   index,
   count,
   step = staggerTokens.base,
+  flat = false,
   onView = false,
   repeat = false,
   className,
@@ -69,6 +76,7 @@ export function Reveal({
   const content = (
     <Component
       data-reveal={tier}
+      data-reveal-flat={flat ? "" : undefined}
       data-reveal-on-view={onView ? "" : undefined}
       className={cn(className)}
       style={computedDelay ? { animationDelay: `${computedDelay}s`, ...style } : style}

@@ -73,19 +73,33 @@ need "spinner"             "cd-spin"
 need "mark draw-on"        "cd-mark-draw"
 need "mark node overshoot" "cd-mark-node-in"
 need "mark hover travel"   "cd-mark-node-travel"
+need "flat variant"        "[data-reveal-flat]"
+need "flat keyframes"      "cd-reveal-flat"
+need "scrim"               "[data-scrim]"
+need "scrim keyframes"     "cd-scrim"
+need "panel trails scrim"  "[data-scrim]>[data-reveal]"
 need "reduced motion"      "prefers-reduced-motion"
+
+# The reduced-motion block is where a dropped rule is least likely to be
+# noticed, because nobody testing on a normal machine ever sees it.
+need "rm: reveal collapses"   "animation-name:cd-fade!important"
+need "rm: no scroll gate"     ".js[data-reveal-on-view]{animation-play-state:running!important}"
+# Lightning CSS normalises `0ms` to `0s`, so match what actually ships.
+need "rm: no stagger"         "animation-delay:0s!important"
+need "rm: trace frozen"       "stroke-dashoffset:0!important"
 
 echo
 echo "server-rendered content must never ship hidden"
 # A JS-driven reveal serialises its own hidden state, so the HTML arrives with
 # real content at opacity 0 and stays invisible until React hydrates. `<Reveal>`
-# is CSS-driven precisely to avoid that. The pre-Coditu landing sections still
-# use the old Framer reveal and still do it — step 12 replaces them.
+# is CSS-driven precisely to avoid that. Since step 12 there is no Framer reveal
+# left anywhere, so this is a hard failure rather than a warning.
 offenders=$(grep -lF 'opacity:0' .next/server/app/*.html 2>/dev/null || true)
 if [ -n "$offenders" ]; then
   for f in $offenders; do
-    echo "  WARN $f prerenders content at opacity:0 (expected until step 12 — legacy landing reveals)"
+    echo "  FAIL $f prerenders content at opacity:0"
   done
+  fail=1
 else
   echo "  ok   no prerendered content shipped hidden"
 fi

@@ -73,6 +73,9 @@ export function FilterBar({ availableStatuses }: { availableStatuses: WorkItemSt
             aria-pressed={view === mode}
             className={cn(
               "h-[30px] rounded-[7px] px-[14px] text-[13px] font-semibold capitalize",
+              // Filter pills are the `micro` tier: 200ms, no blur. A pill does
+              // not arrive, it changes — so this is a transition, not an entrance.
+              "transition-[background-color,border-color,color] duration-[var(--dur-micro)] ease-[var(--ease-entrance)]",
               view === mode ? "bg-[var(--canvas)] text-[var(--ink)]" : "text-[var(--ink-muted)]"
             )}
           >
@@ -93,6 +96,7 @@ export function FilterBar({ availableStatuses }: { availableStatuses: WorkItemSt
             aria-pressed={on}
             className={cn(
               "flex h-8 items-center gap-2 rounded-pill border px-3 text-[13px]",
+              "transition-[background-color,border-color,color] duration-[var(--dur-micro)] ease-[var(--ease-entrance)]",
               on
                 ? "border-[var(--hairline-strong)] bg-[var(--canvas)] text-[var(--ink)]"
                 : "border-[var(--hairline)] text-[var(--ink-muted)]"
