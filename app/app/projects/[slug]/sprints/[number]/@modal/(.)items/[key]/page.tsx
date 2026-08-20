@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ItemDetailBody } from "@/components/app/item-detail";
 import { ItemModal } from "@/components/app/item-modal.client";
 import { todayInCairo } from "@/lib/data/sprint";
+import { listActiveProfiles } from "@/lib/data/profiles";
 import { getWorkItem } from "@/lib/data/work-item";
 import { getCurrentProfile } from "@/lib/supabase/server";
 
@@ -18,7 +19,7 @@ export default async function InterceptedItemPage({
   const item = await getWorkItem(slug, Number(number), key);
   if (!item) notFound();
 
-  const profile = await getCurrentProfile();
+  const [profile, people] = await Promise.all([getCurrentProfile(), listActiveProfiles()]);
   if (!profile) notFound();
 
   const canToggle =
@@ -28,7 +29,12 @@ export default async function InterceptedItemPage({
 
   return (
     <ItemModal itemKey={item.key}>
-      <ItemDetailBody item={item} today={todayInCairo()} canToggleCriteria={canToggle} />
+      <ItemDetailBody
+          item={item}
+          today={todayInCairo()}
+          canToggleCriteria={canToggle}
+          people={people}
+        />
     </ItemModal>
   );
 }

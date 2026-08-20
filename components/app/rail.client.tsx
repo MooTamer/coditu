@@ -26,7 +26,16 @@ const NAV = [
 
 const PIN_KEY = "coditu.rail.pinned";
 
-export function Rail({ profileName, role }: { profileName: string; role: string }) {
+export function Rail({
+  profileName,
+  role,
+  unreadCount,
+}: {
+  profileName: string;
+  role: string;
+  /** Unread notifications. Surfaces as a dot on My work. */
+  unreadCount: number;
+}) {
   const pathname = usePathname();
   const [pinned, setPinned] = usePersistentFlag(PIN_KEY);
   const [hovered, setHovered] = useState(false);
@@ -74,14 +83,26 @@ export function Rail({ profileName, role }: { profileName: string; role: string 
                 active ? "bg-[var(--canvas)] text-[var(--ink)]" : "text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
               )}
             >
-              <span className="flex size-[18px] shrink-0 items-center justify-center">
+              <span className="relative flex size-[18px] shrink-0 items-center justify-center">
                 <Icon size={18} strokeWidth={1.7} aria-hidden />
+                {/* The dot is decorative; the count is announced in the label
+                    below so it is not colour-only information. */}
+                {id === "my-work" && unreadCount > 0 ? (
+                  <span
+                    aria-hidden
+                    className="absolute -right-1 -top-1 size-[7px] rounded-pill"
+                    style={{ background: "var(--accent)" }}
+                  />
+                ) : null}
               </span>
               <span
                 className="text-[14.5px] font-medium"
                 style={{ opacity: open ? 1 : 0, transition: "opacity 160ms" }}
               >
                 {label}
+                {id === "my-work" && unreadCount > 0 ? (
+                  <span className="sr-only">{` — ${unreadCount} unread`}</span>
+                ) : null}
               </span>
             </Link>
           );

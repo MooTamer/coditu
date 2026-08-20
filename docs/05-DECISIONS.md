@@ -322,3 +322,51 @@ which pushed the Export and theme controls past the right edge. `overflow-x: cli
 this did not show up as a scrollbar — it showed up as controls that were simply unreachable, which is
 worse. Zero horizontal scroll is necessary but not sufficient; the e2e suite asserts the controls are
 inside the viewport, not just that nothing scrolls.
+
+---
+
+## 2026-08-21 · ProseMirror documents are normalised before crossing to a Server Action
+
+**Decision.** `CommentEditor` runs `editor.getJSON()` through `JSON.parse(JSON.stringify(...))` before
+handing it to `onChange`.
+
+**Why.** ProseMirror builds every node's `attrs` with `Object.create(null)`, and React's Server Action
+serializer only handles objects inheriting from `Object.prototype`. A null-prototype object is dropped
+**silently** — no error, no warning. A mention arrived at the server as `{"type":"mention"}` with the
+profile id gone, so `comment_mentions` was never populated, no notification was created, and the chip
+rendered as "@someone".
+
+Nothing about this is visible from either end: `getJSON()` in the browser has the attrs, the action
+receives a document without them, and every layer in between reports success. It was found by logging
+the same document on both sides of the call.
+
+**Rejected.** A zod transform to rebuild the tree — same cost, but it hides the reason in a schema
+rather than saying it at the boundary where it happens.
+
+---
+
+## 2026-08-21 · The comment schema is validated one node at a time
+
+**Decision.** `documentSchema` describes a SINGLE node, with `content: z.array(z.unknown())`. Every
+walker parses one level and recurses itself, counting depth against `MAX_DEPTH`.
+
+**Why.** The first version used `z.lazy` to describe the whole tree. `safeParse` then walks the entire
+document before returning, so a deeply nested `body_json` overflows the stack **inside zod**, before
+any depth guard runs. `body_json` is a jsonb column that will happily store 5,000 nested paragraphs, so
+that is a denial of service available to anyone with a comment box. A unit test with 5,000 levels
+found it; an e2e test now stores 3,000 levels and asserts the page still returns 200.
+
+---
+
+## 2026-08-21 · A composer opens on activation, never on focus
+
+**Decision.** The collapsed composer opens on click/Enter, not on `onFocus`. When it opens, the shell
+takes focus until the dynamically imported editor is ready.
+
+**Why.** Opening on focus swaps the focused button out of the tree, and the browser drops focus to
+`<body>` — so tabbing through the item detail fell out of the dialog entirely, defeating the focus
+trap. The focus-trap selector was also missing `[contenteditable]`, which is tabbable without a
+`tabindex`, so it computed the wrong "last" element; and it used `offsetParent !== null` as a
+visibility test, which reports every `position: fixed` element as hidden.
+
+Three small bugs, one symptom: keyboard users leaving the dialog without meaning to.

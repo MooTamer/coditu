@@ -7,6 +7,7 @@ import { Mono } from "@/components/coditu/mono";
 import { StatusChipDot } from "@/components/app/status-popover.client";
 import { Reveal } from "@/components/motion/reveal";
 import { todayInCairo } from "@/lib/data/sprint";
+import { listActiveProfiles } from "@/lib/data/profiles";
 import { getWorkItem } from "@/lib/data/work-item";
 import { getCurrentProfile } from "@/lib/supabase/server";
 
@@ -34,7 +35,7 @@ export default async function ItemPage({
   const item = await getWorkItem(slug, Number(number), key);
   if (!item) notFound();
 
-  const profile = await getCurrentProfile();
+  const [profile, people] = await Promise.all([getCurrentProfile(), listActiveProfiles()]);
   if (!profile) notFound();
 
   const canToggle =
@@ -66,7 +67,12 @@ export default async function ItemPage({
         delay={0.06}
         className="overflow-hidden rounded-section border border-[var(--hairline)] bg-[var(--overlay)]"
       >
-        <ItemDetailBody item={item} today={todayInCairo()} canToggleCriteria={canToggle} />
+        <ItemDetailBody
+          item={item}
+          today={todayInCairo()}
+          canToggleCriteria={canToggle}
+          people={people}
+        />
       </Reveal>
     </main>
   );

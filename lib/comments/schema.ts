@@ -1,0 +1,183 @@
+import { z } from "zod";
+
+/**
+ * The comment document schema.
+ *
+ * This is the security boundary, and it is an ALLOWLIST. `comments.body_json`
+ * is user-supplied and stored verbatim; anything not named here is not rendered.
+ * A hostile document does not have to be rejected at write time to be safe —
+ * the renderer walks known node types only, so an unknown node has nothing to
+ * render it and falls through to its text content, or to nothing.
+ *
+ * See docs/05-DECISIONS.md — "Comment rendering: walk the JSON, never inject HTML".
+ */
+
+/** Marks we render. Anything else on a text node is dropped. */
+export const ALLOWED_MARKS = ["bold", "italic", "strike", "code", "link"] as const;
+export type AllowedMark = (typeof ALLOWED_MARKS)[number];
+
+/** Node types we render. Anything else renders as its text content, or nothing. */
+export const ALLOWED_NODES = [
+  "doc",
+  "paragraph",
+  "text",
+  "hardBreak",
+  "heading",
+  "bulletList",
+  "orderedList",
+  "listItem",
+  "blockquote",
+  "horizontalRule",
+  "codeBlock",
+  "image",
+  "mention",
+] as const;
+export type AllowedNode = (typeof ALLOWED_NODES)[number];
+
+/** Languages the code block will highlight. Anything else renders unhighlighted. */
+export const CODE_LANGUAGES = [
+  "ts",
+  "tsx",
+  "js",
+  "json",
+  "sql",
+  "bash",
+  "css",
+  "html",
+  "python",
+  "diff",
+] as const;
+export type CodeLanguage = (typeof CODE_LANGUAGES)[number];
+
+export interface ProseMirrorNode {
+  type: string;
+  text?: string;
+  attrs?: Record<string, unknown>;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
+  content?: ProseMirrorNode[];
+}
+
+const markSchema = z.object({
+  type: z.string(),
+  attrs: z.record(z.string(), z.unknown()).optional(),
+});
+
+/**
+ * Validates ONE node, not the tree.
+ *
+ * This is deliberately shallow. A recursive `z.lazy` schema walks the entire
+ * document during `safeParse`, so a deeply nested `body_json` overflows the
+ * stack *inside zod* — before any depth guard of ours gets a chance to run.
+ * `body_json` is a jsonb column that will happily store 5,000 nested
+ * paragraphs, so that is a denial of service anybody with a comment box can
+ * trigger.
+ *
+ * Every walker below parses one level and recurses itself, counting depth as it
+ * goes. Cheaper, and the guard actually guards.
+ */
+const nodeSchema = z.object({
+  type: z.string(),
+  text: z.string().optional(),
+  attrs: z.record(z.string(), z.unknown()).optional(),
+  marks: z.array(markSchema).optional(),
+  content: z.array(z.unknown()).optional(),
+});
+
+export const documentSchema = nodeSchema;
+
+/** Depth limit. A deeply nested document is a denial of service, not a comment. */
+export const MAX_DEPTH = 24;
+
+/**
+ * Parse a single node. Returns null when the value is not node-shaped at all,
+ * which every caller treats as "render nothing" rather than as an error.
+ */
+export function parseNode(value: unknown): ProseMirrorNode | null {
+  const parsed = nodeSchema.safeParse(value);
+  if (!parsed.success) return null;
+  return parsed.data as ProseMirrorNode;
+}
+
+/**
+ * Flattens a document to plain text for `comments.body_text` — search, export,
+ * and notification previews all read that column rather than walking jsonb.
+ *
+ * Written in the same transaction as `body_json`, and derived from the same
+ * parsed value, so the two can never describe different comments.
+ */
+export function flattenToText(node: unknown, depth = 0): string {
+  if (depth > MAX_DEPTH) return "";
+  const current = parseNode(node);
+  if (!current) return "";
+
+  if (current.type === "text") return current.text ?? "";
+  if (current.type === "hardBreak") return "\n";
+  if (current.type === "mention") {
+    const label = current.attrs?.label;
+    return typeof label === "string" ? `@${label}` : "@someone";
+  }
+  if (current.type === "image") {
+    const alt = current.attrs?.alt;
+    return typeof alt === "string" && alt ? `[image: ${alt}]` : "[image]";
+  }
+
+  const inner = (current.content ?? []).map((child) => flattenToText(child, depth + 1)).join("");
+
+  // Block-level nodes get a trailing newline, so the flattened text still reads
+  // as paragraphs inside a CSV cell or a Markdown export.
+  const blocks = ["paragraph", "heading", "listItem", "blockquote", "codeBlock", "horizontalRule"];
+  return blocks.includes(current.type) ? `${inner}\n` : inner;
+}
+
+/** True when the document has no renderable text at all. */
+export function isEmptyDocument(node: unknown): boolean {
+  return flattenToText(node).trim().length === 0;
+}
+
+/** Extract mentioned profile ids. Mirrors what the database trigger does. */
+export function collectMentionIds(node: unknown, depth = 0, found = new Set<string>()): string[] {
+  if (depth > MAX_DEPTH) return [...found];
+  const current = parseNode(node);
+  if (!current) return [...found];
+  if (current.type === "mention") {
+    const id = current.attrs?.id;
+    if (typeof id === "string" && UUID_RE.test(id)) found.add(id);
+  }
+  for (const child of current.content ?? []) collectMentionIds(child, depth + 1, found);
+  return [...found];
+}
+
+const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+/**
+ * Whitespace and control characters, which are how `java\tscript:` and friends
+ * slip past a naive prefix check — browsers strip them before resolving a URL.
+ */
+const UNSAFE_URL_CHARS = /[\s\u0000-\u001F\u007F]/;
+
+/**
+ * Is this a link we are willing to make clickable?
+ *
+ * `javascript:` and `data:` hrefs are script execution with extra steps, and a
+ * stored comment is exactly where somebody would put one. Allowlist the three
+ * schemes that make sense in a work thread and refuse everything else.
+ */
+export function isSafeHref(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (UNSAFE_URL_CHARS.test(trimmed)) return false;
+  return /^(https?:\/\/|mailto:|\/)/i.test(trimmed);
+}
+
+/**
+ * Is this an image source we are willing to render?
+ *
+ * Same-origin paths and http(s) URLs only. No `data:` URIs — they are a way to
+ * smuggle an SVG, and an SVG is a document that can carry script.
+ */
+export function isSafeImageSrc(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (UNSAFE_URL_CHARS.test(trimmed)) return false;
+  return /^\//.test(trimmed) || /^https?:\/\//i.test(trimmed);
+}

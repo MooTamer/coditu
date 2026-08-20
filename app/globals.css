@@ -624,3 +624,132 @@
   }
 }
 
+
+/* ==========================================================================
+   The comment editor and the rendered thread.
+
+   ProseMirror owns its own DOM inside `.coditu-prose`, so these are plain
+   descendant rules rather than Tailwind classes on elements we do not render.
+   ========================================================================== */
+
+.coditu-prose p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.coditu-prose p + p,
+.coditu-prose ul,
+.coditu-prose ol,
+.coditu-prose blockquote,
+.coditu-prose pre {
+  margin-top: 8px;
+}
+
+.coditu-prose ul,
+.coditu-prose ol {
+  padding-left: 20px;
+}
+
+.coditu-prose ul {
+  list-style: disc;
+}
+
+.coditu-prose ol {
+  list-style: decimal;
+}
+
+.coditu-prose blockquote {
+  border-left: 2px solid var(--hairline-strong);
+  padding-left: 12px;
+}
+
+.coditu-prose code {
+  background: var(--canvas);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+
+.coditu-prose pre {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 12px;
+  /* A long line scrolls inside the block, so the thread itself never scrolls
+     sideways. */
+  overflow-x: auto;
+}
+
+.coditu-prose pre code {
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.coditu-prose .coditu-mention,
+.coditu-prose [data-type="mention"] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-weight: 500;
+}
+
+/* TipTap's placeholder. `is-editor-empty` is set on the first node only. */
+.coditu-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   Syntax highlighting.
+
+   Hues are drawn from the functional palette rather than a stock highlight.js
+   theme, so a code block reads as part of this design and not as a screenshot
+   from a different one.
+   ========================================================================== */
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section {
+  color: var(--chip-dev-started-fg);
+}
+
+.hljs-string,
+.hljs-attr,
+.hljs-addition {
+  color: var(--tone-jade-fg);
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+  color: var(--tone-amber-fg);
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-meta {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.hljs-title,
+.hljs-name,
+.hljs-type {
+  color: var(--accent);
+}
+
+.hljs-deletion {
+  color: var(--chip-blocked-fg);
+}

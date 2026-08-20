@@ -24,8 +24,8 @@ real work, which is what the rule is protecting against.
 | 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `done` | `f0aecc4` | `npm run db:test` — `supabase/tests/seed.sql`, 20 assertions incl. **16.0 / 46.0** |
 | 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `done` | `acc2b54` | full gate; `/app` redirects to the active sprint and renders 16.0 / 46.0; no-sprint state renders with Export `disabled` + tooltip |
 | 7 | **Sprint table** — columns, chips, sticky, grouping, sum row, URL filters, mobile cards | `todo` | — | sum-equals-database test; container-query test at 320px |
-| 8 | **Item detail** — intercepting route, properties, criteria ring, log time, activity | `done` | pending | `npm run e2e` — 9 specs: interception, focus trap, focus return, ring ratio, criterion write, time-log round trip, cross-project 404 |
-| 9 | **Comment thread** — composer, code, images, mentions, notifications, server-side JSON rendering | `todo` | — | XSS test: a comment whose JSON carries a hostile node renders inert |
+| 8 | **Item detail** — intercepting route, properties, criteria ring, log time, activity | `done` | `0631a5f` | `npm run e2e` — 9 specs: interception, focus trap, focus return, ring ratio, criterion write, time-log round trip, cross-project 404 |
+| 9 | **Comment thread** — composer, code, images, mentions, notifications, server-side JSON rendering | `done` | pending | `npm run test` (43) + `npm run e2e` (31) — 10 hostile-JSON specs and 6 composer specs |
 | 10 | **Board, My work, People, Import** | `todo` | — | `npm run test`; importer flags the `"1a"` grouping case before committing |
 | 11 | **Export** — CSV, Markdown, PDF, item selection, persistence | `todo` | — | golden-file tests for CSV and Markdown; scoping test proving cross-project leakage is impossible |
 | 12 | **Marketing site** — sections, trace, work modal, metadata, brand assets | `todo` | — | `npm run build`; zero "Strukture" matches repo-wide |
@@ -174,3 +174,19 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   One bug: item links were relative (`items/COD-140`), which resolves against the parent directory and
   404'd on every row. They are absolute now.
   **Next: step 9 — the comment thread.**
+- **2026-08-21** — Step 9 done. `components/app/comment-body.tsx` renders stored comments by walking
+  the ProseMirror JSON into React elements — no HTML string, no `dangerouslySetInnerHTML`, fail-closed
+  on unknown nodes. Code blocks are highlighted server-side with lowlight, whose hast output is walked
+  the same way rather than serialised. TipTap is dynamically imported, verified against a **production**
+  build (`npm run e2e:prod`) since the dev server eagerly loads dynamic chunks.
+
+  `e2e/comments.spec.ts` attacks the renderer with documents written straight into `body_json`: a
+  script node, markup as text, a `javascript:` link, a `data:` image, event-handler attributes, 3,000
+  levels of nesting, and a malformed document. All ten pass.
+
+  Four real bugs, all caught by tests rather than review:
+  a recursive zod schema overflowed the stack **before** the depth guard ran (a DoS from a comment box);
+  ProseMirror's null-prototype `attrs` are dropped silently by React's Server Action serializer, so
+  every mention lost its profile id; the focus trap missed `[contenteditable]` and used `offsetParent`
+  as a visibility test; and the composer opened on `onFocus`, dropping focus to `<body>` mid-tab.
+  **Next: step 10 — Board, My work, People, Import.**

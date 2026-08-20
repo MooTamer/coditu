@@ -6,8 +6,33 @@ import { X } from "lucide-react";
 
 import { Mono } from "@/components/coditu/mono";
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+/**
+ * Everything the browser will Tab to.
+ *
+ * `[contenteditable]` is on the list because ProseMirror's editing surface is
+ * tabbable without carrying a `tabindex`, and a trap that does not know about
+ * it computes the wrong "last" element — Tab then walks straight past the
+ * editor and out of the dialog into the page behind.
+ */
+const FOCUSABLE = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[contenteditable]:not([contenteditable="false"])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(", ");
+
+/**
+ * `offsetParent` is null for anything `position: fixed`, so it reports plenty of
+ * visible elements as hidden. Measure instead.
+ */
+function isVisible(element: HTMLElement): boolean {
+  if (element.hasAttribute("hidden") || element.getAttribute("aria-hidden") === "true") return false;
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
 
 /**
  * The item detail modal.
@@ -48,7 +73,7 @@ export function ItemModal({ itemKey, children }: { itemKey: string; children: Re
       if (event.key !== "Tab") return;
 
       const focusable = [...(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])].filter(
-        (el) => el.offsetParent !== null
+        isVisible
       );
       if (focusable.length === 0) return;
 

@@ -1,0 +1,269 @@
+import { Fragment, type ReactNode } from "react";
+import { common, createLowlight } from "lowlight";
+
+import { CommentImage } from "@/components/app/comment-image.client";
+import {
+  ALLOWED_MARKS,
+  CODE_LANGUAGES,
+  MAX_DEPTH,
+  isSafeHref,
+  isSafeImageSrc,
+  parseNode,
+  type ProseMirrorNode,
+} from "@/lib/comments/schema";
+import { cn } from "@/lib/utils";
+
+/**
+ * Renders a stored comment.
+ *
+ * THIS IS THE SECURITY BOUNDARY. It walks the ProseMirror JSON and emits React
+ * elements for node types it recognises. There is no HTML string anywhere in
+ * this file, and no `dangerouslySetInnerHTML` — React escapes every text node
+ * it renders, so a `<script>` in a comment is characters on a page, not a tag.
+ *
+ * The rule is fail-closed: an unrecognised node renders its text content, or
+ * nothing. That is why a hostile document does not need to be rejected at write
+ * time — there is nothing here that could execute it. See docs/05-DECISIONS.md.
+ */
+
+const lowlight = createLowlight(common);
+
+export function CommentBody({ doc }: { doc: unknown }) {
+  const root = parseNode(doc);
+  if (!root) {
+    // Malformed JSON is a rendering problem, not a reason to break the thread.
+    return <p className="text-[13.5px] italic text-[var(--ink-faint)]">This comment could not be displayed.</p>;
+  }
+
+  return <div className="flex flex-col gap-2 text-[14px] leading-[1.55]">{renderNode(root, "0", 0)}</div>;
+}
+
+function renderChildren(node: ProseMirrorNode, key: string, depth: number): ReactNode {
+  // Children arrive as `unknown` — the schema is shallow on purpose — so each
+  // one is parsed as it is reached, with the depth counted here.
+  return (node.content ?? []).map((child, index) => {
+    const parsed = parseNode(child);
+    return parsed ? renderNode(parsed, `${key}.${index}`, depth + 1) : null;
+  });
+}
+
+function renderNode(node: ProseMirrorNode, key: string, depth: number): ReactNode {
+  // A document nested deeper than this is not a comment somebody wrote.
+  if (depth > MAX_DEPTH) return null;
+
+  switch (node.type) {
+    case "doc":
+      return <Fragment key={key}>{renderChildren(node, key, depth)}</Fragment>;
+
+    case "text":
+      return applyMarks(node, key);
+
+    case "hardBreak":
+      return <br key={key} />;
+
+    case "paragraph":
+      return (
+        <p key={key} className="whitespace-pre-wrap break-words text-[var(--ink-muted)]">
+          {renderChildren(node, key, depth)}
+        </p>
+      );
+
+    case "heading": {
+      // Headings inside a comment are capped at h4 — a comment must not
+      // introduce an h1 and wreck the page's heading order.
+      const level = Math.min(Math.max(Number(node.attrs?.level ?? 3), 3), 4);
+      const Tag = (level === 3 ? "h3" : "h4") as "h3" | "h4";
+      return (
+        <Tag key={key} className="mt-1 text-[15px] font-semibold text-[var(--ink)]">
+          {renderChildren(node, key, depth)}
+        </Tag>
+      );
+    }
+
+    case "bulletList":
+      return (
+        <ul key={key} className="ml-5 list-disc text-[var(--ink-muted)]">
+          {renderChildren(node, key, depth)}
+        </ul>
+      );
+
+    case "orderedList":
+      return (
+        <ol key={key} className="ml-5 list-decimal text-[var(--ink-muted)]">
+          {renderChildren(node, key, depth)}
+        </ol>
+      );
+
+    case "listItem":
+      return (
+        <li key={key} className="my-[2px]">
+          {renderChildren(node, key, depth)}
+        </li>
+      );
+
+    case "blockquote":
+      return (
+        <blockquote
+          key={key}
+          className="border-l-2 pl-3 text-[var(--ink-muted)]"
+          style={{ borderColor: "var(--hairline-strong)" }}
+        >
+          {renderChildren(node, key, depth)}
+        </blockquote>
+      );
+
+    case "horizontalRule":
+      return <hr key={key} className="border-[var(--hairline)]" />;
+
+    case "codeBlock":
+      return <CodeBlock key={key} node={node} />;
+
+    case "image":
+      return <ImageNode key={key} node={node} />;
+
+    case "mention":
+      return <MentionNode key={key} node={node} />;
+
+    default:
+      // Fail closed. An unknown node contributes its text content and nothing
+      // else — no tag, no attributes, no behaviour.
+      return <Fragment key={key}>{renderChildren(node, key, depth)}</Fragment>;
+  }
+}
+
+/**
+ * Text marks. Only the five in the allowlist are honoured; anything else on the
+ * node is ignored, including marks that would carry a style or an event.
+ */
+function applyMarks(node: ProseMirrorNode, key: string): ReactNode {
+  let element: ReactNode = node.text ?? "";
+
+  for (const mark of node.marks ?? []) {
+    if (!(ALLOWED_MARKS as readonly string[]).includes(mark.type)) continue;
+
+    if (mark.type === "bold") element = <strong className="font-semibold text-[var(--ink)]">{element}</strong>;
+    else if (mark.type === "italic") element = <em>{element}</em>;
+    else if (mark.type === "strike") element = <s>{element}</s>;
+    else if (mark.type === "code") {
+      element = (
+        <code className="rounded-[4px] bg-[var(--canvas)] px-[5px] py-[1px] font-mono text-[12.5px] text-[var(--ink)]">
+          {element}
+        </code>
+      );
+    } else if (mark.type === "link") {
+      const href = mark.attrs?.href;
+      // An unsafe href does not become an un-clickable link — it stays plain
+      // text, so nothing about the rendering suggests it is followable.
+      element = isSafeHref(href) ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer nofollow ugc"
+          className="text-[var(--accent)] underline underline-offset-2"
+        >
+          {element}
+        </a>
+      ) : (
+        element
+      );
+    }
+  }
+
+  return <Fragment key={key}>{element}</Fragment>;
+}
+
+/**
+ * A code block, highlighted server-side with lowlight.
+ *
+ * lowlight returns a hast tree, which is walked into React elements the same
+ * way the document is. It is never serialised to an HTML string — the point is
+ * that no path in this file produces markup that has to be trusted.
+ */
+function CodeBlock({ node }: { node: ProseMirrorNode }) {
+  const raw = (node.content ?? [])
+    .map((child) => parseNode(child)?.text ?? "")
+    .join("");
+  const requested = node.attrs?.language;
+  const language =
+    typeof requested === "string" && (CODE_LANGUAGES as readonly string[]).includes(requested)
+      ? requested
+      : null;
+
+  let highlighted: ReactNode = raw;
+  if (language) {
+    try {
+      highlighted = renderHast(lowlight.highlight(language, raw), "hl");
+    } catch {
+      // An unregistered grammar or a malformed snippet renders unhighlighted.
+      highlighted = raw;
+    }
+  }
+
+  return (
+    <div className="relative overflow-hidden rounded-inner border border-[var(--hairline)] bg-[var(--canvas)]">
+      {language ? (
+        <span className="absolute right-2 top-2 font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+          {language}
+        </span>
+      ) : null}
+      {/* The block scrolls, so a long line never makes the whole thread scroll
+          sideways. */}
+      <pre className="overflow-x-auto p-3 pr-14">
+        <code className="font-mono text-[12.5px] leading-[1.6] text-[var(--ink)]">{highlighted}</code>
+      </pre>
+    </div>
+  );
+}
+
+interface HastNode {
+  type: string;
+  tagName?: string;
+  value?: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
+}
+
+/** Walks lowlight's hast output into spans. Only class names survive. */
+function renderHast(node: HastNode, key: string): ReactNode {
+  if (node.type === "text") return node.value ?? "";
+  if (node.type === "root" || node.tagName === "span") {
+    const className = node.properties?.className;
+    const classes = Array.isArray(className) ? className.join(" ") : undefined;
+    const children = (node.children ?? []).map((child, index) => renderHast(child, `${key}.${index}`));
+    return node.type === "root" ? (
+      <Fragment key={key}>{children}</Fragment>
+    ) : (
+      <span key={key} className={cn(classes && `hljs-${classes.replace(/^hljs-/, "")}`)}>
+        {children}
+      </span>
+    );
+  }
+  return (node.children ?? []).map((child, index) => renderHast(child, `${key}.${index}`));
+}
+
+function ImageNode({ node }: { node: ProseMirrorNode }) {
+  const src = node.attrs?.src;
+  const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt : "";
+  if (!isSafeImageSrc(src)) return null;
+  return <CommentImage src={src} alt={alt} />;
+}
+
+/**
+ * A mention renders as a chip, not a link.
+ *
+ * The stored node carries the profile UUID; the label is only what the author
+ * saw when they typed it. Rendering the label as text means a later rename
+ * shows the old name — which is correct for a historical record — while the id
+ * is what `comment_mentions` and the notification were built from.
+ */
+function MentionNode({ node }: { node: ProseMirrorNode }) {
+  const label = node.attrs?.label;
+  return (
+    <span
+      className="rounded-[4px] px-[4px] py-[1px] font-medium"
+      style={{ color: "var(--accent)", background: "color-mix(in srgb, var(--accent) 12%, transparent)" }}
+    >
+      @{typeof label === "string" && label ? label : "someone"}
+    </span>
+  );
+}

@@ -1,8 +1,11 @@
+import { CommentBody } from "@/components/app/comment-body";
+import { CommentComposer } from "@/components/app/comment-composer.client";
 import { CriteriaList } from "@/components/app/criteria-list.client";
 import { LogTime } from "@/components/app/log-time.client";
 import { StatusChipDot } from "@/components/app/status-popover.client";
 import { Mono } from "@/components/coditu/mono";
 import { calendarDate, hours, timestamp } from "@/lib/format";
+import type { ProfileRef } from "@/lib/data/profiles";
 import type { WorkItemDetail } from "@/lib/data/work-item";
 import { groupingHue, TYPE_LABEL } from "@/lib/work-items";
 
@@ -18,10 +21,13 @@ export function ItemDetailBody({
   item,
   today,
   canToggleCriteria,
+  people,
 }: {
   item: WorkItemDetail;
   today: string;
   canToggleCriteria: boolean;
+  /** Active profiles, for the mention list. */
+  people: ProfileRef[];
 }) {
   const properties: Array<{ label: string; value: string; color?: string }> = [
     { label: "type", value: TYPE_LABEL[item.type] },
@@ -99,12 +105,11 @@ export function ItemDetailBody({
                       </Mono>
                     ) : null}
                   </div>
-                  {/* Step 9 replaces this with the server-side JSON walker.
-                      Until then the flattened projection renders as plain text,
-                      which is inert by construction. */}
-                  <p className="mt-1 whitespace-pre-wrap text-[14px] leading-[1.55] text-[var(--ink-muted)]">
-                    {comment.bodyText}
-                  </p>
+                  {/* Rendered by walking the stored JSON server-side. Never
+                      injected as HTML — see components/app/comment-body.tsx. */}
+                  <div className="mt-1">
+                    <CommentBody doc={comment.bodyJson} />
+                  </div>
                 </div>
               </article>
             ))}
@@ -114,13 +119,8 @@ export function ItemDetailBody({
             ) : null}
           </div>
 
-          <div className="mt-4 flex items-center gap-[10px] rounded-control border border-[var(--hairline)] bg-[var(--raised)] px-[14px] py-[10px]">
-            <span className="flex-1 text-[13.5px] text-[var(--ink-faint)]">
-              Write a comment — @ to mention
-            </span>
-            <Mono size="eyebrow" className="normal-case tracking-normal text-[var(--ink-faint)]">
-              step 9
-            </Mono>
+          <div className="mt-4">
+            <CommentComposer itemId={item.id} itemKey={item.key} people={people} />
           </div>
         </section>
 
