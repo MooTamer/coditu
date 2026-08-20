@@ -60,7 +60,7 @@ export function HeroTiles() {
     <div
       ref={host}
       className="cd-rise relative mt-[clamp(40px,5vw,72px)] h-[220px] overflow-hidden rounded-section border border-hairline bg-raised"
-      style={{ animationDelay: "420ms" }}
+      style={{ animationDelay: "150ms" }}
     >
       <svg
         viewBox="0 0 1200 220"

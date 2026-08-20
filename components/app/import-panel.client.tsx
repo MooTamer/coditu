@@ -116,10 +116,14 @@ export function ImportPanel({
           )}
         </span>
 
+        {/* Same shape as the composer's image input: named, and out of the
+            tab order, because the visible button is the real control. */}
         <input
           ref={inputRef}
           type="file"
           accept=".csv,text/csv"
+          aria-label="Choose a Notion CSV export"
+          tabIndex={-1}
           className="sr-only"
           onChange={(event) => {
             const file = event.target.files?.[0];

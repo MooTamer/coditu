@@ -219,7 +219,8 @@ export function ExportDialog({
     <div
       onClick={onClose}
       data-scrim
-      className="fixed inset-0 z-[65] flex items-start justify-center overflow-y-auto px-4 py-[clamp(12px,4vh,48px)]"
+      style={{ paddingBottom: "max(clamp(12px, 4vh, 48px), env(safe-area-inset-bottom))" }}
+      className="fixed inset-0 z-[65] flex items-start justify-center overflow-y-auto px-4 pt-[clamp(12px,4vh,48px)]"
     >
       <div
         ref={panelRef}
@@ -484,7 +485,14 @@ export function ExportDialog({
               </div>
             ) : (
               <>
+                {/* The preview scrolls, so it has to be reachable by keyboard —
+                    otherwise a keyboard-only reader can see the first screen of
+                    the export and no more. `role="region"` with a name is what
+                    makes the tab stop mean something when it is announced. */}
                 <pre
+                  tabIndex={0}
+                  role="region"
+                  aria-label={`${format === "csv" ? "CSV" : "Markdown"} preview`}
                   aria-busy={pending}
                   className="max-h-[420px] min-h-[280px] flex-1 overflow-auto whitespace-pre rounded-inner border border-[var(--hairline)] bg-[var(--canvas)] p-4 font-mono text-[11px] leading-[1.6] text-[var(--ink)]"
                   style={{ tabSize: 2 }}

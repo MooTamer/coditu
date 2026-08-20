@@ -128,10 +128,17 @@ test.describe("sprint table", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(SPRINT);
 
+    // The drag path lives on a handle, not on the row. A `<tr>` carrying
+    // dnd-kit's `role="button"` while containing a link and a status popover is
+    // `nested-interactive` — a screen reader announces the row as a button and
+    // everything inside it becomes noise.
     const row = page.locator("tbody tr").first();
-    await expect(row).toHaveAttribute("aria-roledescription", "sortable");
+    await expect(row).not.toHaveAttribute("role", "button");
 
-    const describedBy = await row.getAttribute("aria-describedby");
+    const handle = row.getByRole("button", { name: /^Reorder COD-/ });
+    await expect(handle).toHaveAttribute("aria-roledescription", "sortable");
+
+    const describedBy = await handle.getAttribute("aria-describedby");
     expect(describedBy).toBeTruthy();
 
     const instructions = page.locator(`#${describedBy}`);

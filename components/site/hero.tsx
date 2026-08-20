@@ -45,7 +45,13 @@ export function Hero() {
         </h1>
 
         <div className="mt-10 grid items-start gap-[clamp(24px,4vw,64px)] [grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))]">
-          <div className="cd-rise" style={{ animationDelay: "280ms" }}>
+          {/* §4's stagger scale is `base` = 75ms, total capped at 0.6s. The
+              bundle's absolute 280/340/420ms delays conflict with it, and above
+              the fold that conflict is measurable: holding the lede at
+              `opacity: 0` for 280ms + 520ms pushes LCP from 1.1s to 2.6s on a
+              mid-tier Android over 4G, against §5's 2.0s budget. On behaviour
+              the brief wins, so these run on the brief's own scale. */}
+          <div className="cd-rise" style={{ animationDelay: "0ms" }}>
             <p className="max-w-[46ch] text-body leading-[1.6] text-ink-muted">{hero.lede}</p>
 
             <div className="mt-7 flex flex-wrap gap-3">
@@ -67,7 +73,7 @@ export function Hero() {
 
           <ul
             className="cd-rise flex flex-col border-t border-hairline"
-            style={{ animationDelay: "340ms" }}
+            style={{ animationDelay: "75ms" }}
           >
             {hero.points.map((point, index) => (
               <li key={point} className="flex gap-4 border-b border-hairline py-4">

@@ -21,6 +21,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
 
 import { StatusPopover } from "@/components/app/status-popover.client";
 import { useToast } from "@/components/app/toast.client";
@@ -256,10 +257,15 @@ function Row({
   rowHeight: number;
   onToast: (message: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: row.id,
-    disabled: !canReorder,
-  });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: row.id, disabled: !canReorder });
 
   const hue = groupingHue(row.grouping);
   const over = row.minutesLogged > row.estimateMinutes && row.estimateMinutes > 0;
@@ -268,10 +274,14 @@ function Row({
     canAssign || row.assignee?.id === currentProfileId || row.reviewer?.id === currentProfileId;
 
   return (
+    // The drag affordance is a real handle, not the row. dnd-kit puts
+    // `role="button"` on whatever it is spread onto, and a button containing a
+    // link and a status popover is `nested-interactive`: a screen reader
+    // announces the row as a button and the controls inside it become noise.
+    // `setActivatorNodeRef` exists for exactly this — the row keeps its `row`
+    // role and the handle carries the keyboard drag path.
     <tr
       ref={setNodeRef}
-      {...attributes}
-      {...listeners}
       style={{
         height: rowHeight,
         background: groupingTint(row.grouping),
@@ -279,20 +289,34 @@ function Row({
         transition,
         opacity: isDragging ? 0.5 : 1,
       }}
-      className="border-b border-[var(--hairline)] hover:bg-[var(--canvas)] transition-[background-color,border-color,color] duration-[var(--dur-micro)] ease-[var(--ease-entrance)]"
+      className="group/row border-b border-[var(--hairline)] hover:bg-[var(--canvas)] transition-[background-color,border-color,color] duration-[var(--dur-micro)] ease-[var(--ease-entrance)]"
     >
       <td
         className={cn("sticky left-0 border-l-[3px]", CELL)}
         style={{ background: groupingStickyBg(row.grouping), borderLeftColor: hue ?? "transparent" }}
       >
-        <span className="flex min-w-0 items-center gap-3">
+        <span className="flex min-w-0 items-center gap-2">
+          {canReorder ? (
+            <button
+              ref={setActivatorNodeRef}
+              {...attributes}
+              {...listeners}
+              type="button"
+              aria-label={`Reorder ${row.key} — ${row.title}`}
+              className="-ml-1 flex size-6 shrink-0 cursor-grab items-center justify-center rounded-[5px] text-[var(--ink-faint)] opacity-0 transition-opacity duration-[var(--dur-micro)] group-hover/row:opacity-100 hover:bg-[var(--canvas)] focus-visible:opacity-100"
+            >
+              <GripVertical size={13} strokeWidth={1.8} aria-hidden />
+            </button>
+          ) : null}
           <Mono size="meta" className="shrink-0 text-[var(--ink-faint)]">
             {row.key}
           </Mono>
+          {/* `min-h-6` so the link clears WCAG 2.5.8's 24px target minimum —
+              a 14.5px line box on its own is 20px and fails. */}
           <Link
             href={`${basePath}/items/${row.key}`}
             title={row.title}
-            className="truncate text-[14.5px] font-medium hover:text-[var(--accent)]"
+            className="flex min-h-6 min-w-0 items-center truncate text-[14.5px] font-medium hover:text-[var(--accent)]"
           >
             {row.title}
           </Link>

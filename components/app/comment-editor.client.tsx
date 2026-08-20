@@ -250,10 +250,17 @@ export function CommentEditor({
           </Mono>
         ) : null}
 
+        {/* The visible "Image" button is the real control; this is the
+            mechanism behind it. It stays named in case a reader lands on it,
+            and out of the tab order so it is not a second stop for the same
+            action. `aria-hidden` is not an option — hiding a focusable element
+            is its own violation. */}
         <input
           ref={fileInputRef}
           type="file"
           accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+          aria-label="Attach an image to this comment"
+          tabIndex={-1}
           className="sr-only"
           onChange={(event) => {
             const file = event.target.files?.[0];

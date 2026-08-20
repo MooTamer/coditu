@@ -79,7 +79,7 @@ export function SiteNav({ email }: { email: string }) {
         <Link
           href="#top"
           aria-label="Coditu — back to top"
-          className="flex min-w-0 shrink-0 items-center rounded-control"
+          className="flex min-h-11 min-w-0 shrink-0 items-center rounded-control"
         >
           <CoditusLockup markSize={30} className="cd-mark-hover" />
         </Link>
@@ -122,7 +122,14 @@ export function SiteNav({ email }: { email: string }) {
       {open ? (
         <div
           id="site-nav-sheet"
-          className="border-t border-hairline bg-[var(--canvas)] px-[var(--site-gutter)] py-4 md:hidden"
+          // The sheet reaches the bottom of the screen on a phone, so its last
+          // link must clear the home indicator.
+          style={{
+            paddingLeft: "max(var(--site-gutter), env(safe-area-inset-left))",
+            paddingRight: "max(var(--site-gutter), env(safe-area-inset-right))",
+            paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+          }}
+          className="border-t border-hairline bg-[var(--canvas)] pt-4 md:hidden"
         >
           <nav aria-label="Sections" className="flex flex-col">
             {nav.map((item) => (
