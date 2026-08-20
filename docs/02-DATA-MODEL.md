@@ -154,3 +154,39 @@ Every policy asserts a **positive and a negative** case. The negatives that must
 - a user cannot delete another's time entry
 - a member of one project cannot read another project's items through a crafted filter
 - an anonymous session reads nothing
+
+---
+
+## Seed source
+
+Step 5's seed is not invented. It is transcribed from `design/project/Coditu App.dc.html`, which holds
+the real Week 17 data as executable constants:
+
+| Constant | What it seeds |
+|---|---|
+| `P` | the three engineers referenced by initials — MT, AE, AY (Adam Nafie, `AN`, appears in `activity` strings and in the People view) |
+| `PROJECTS` | four projects: `evim`, `nile`, `ops`, `nvrmiss` — with client, url, accent, scope, sprint count, hours. **Only EVIM runs a sprint.** |
+| `SPRINTS` | EVIM Week 17 (`active`, 12 items) and Week 16 (`closed`, 9 items) |
+| `ITEMS` | `COD-140` … `COD-151` — status, type, grouping, logged, estimate, assignee, reviewer, deadline, description, highlight, criteria, comments, activity, time entries |
+| `MAPPING` | the Notion importer's column map, including the `"1a"` grouping row that must render as `unmatched` |
+
+**The sums the seed must produce:** logged **16.0**, estimate **46.0**, across 12 items. That is the
+assertion in step 5, and the same number the table footer must show in step 7.
+
+Groupings in the seed: `1` on `COD-142` and `COD-143`; `2` on `COD-144` and `COD-145`. Everything else
+is null.
+
+**Sprint notes** (verbatim, from `exportMd()`):
+
+> Please work this sprint on the issues in the order they are sorted in. Stories with the same grouping
+> are preferred to be implemented by the same developer because they overlap in some logic/UI.
+>
+> **In the stories, there are highlighted sections, which means you need to discuss something before
+> implementing — please reach out.**
+
+Two items carry a `highlight`: `COD-140` (the Events webpart toggle default) and `COD-145` (which news
+source wins when both a page and a list item are pinned).
+
+Week 16 has no item-level data in the bundle. Seed it with nine closed items so the sprint list and the
+burn-up have history, and mark them clearly as synthetic history in the seed script — they are not
+transcribed facts.

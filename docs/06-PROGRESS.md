@@ -16,9 +16,10 @@ real work, which is what the rule is protecting against.
 
 | # | Step | Status | Commit | Verification |
 |---|---|---|---|---|
-| 1 | **Bootstrap** — `CLAUDE.md`, `docs/*`, `design/` committed, `._*` junk removed, `.gitignore` fixed | `done` | pending | `git status --porcelain` clean, no `error:` lines |
-| 2 | **Import the design** — asset migration to `public/`, `docs/01-DESIGN-SYSTEM.md` filled from the bundle | `todo` | — | every asset in §1's move table present under `public/`; legacy assets gone |
+| 1 | **Bootstrap** — `CLAUDE.md`, `docs/*`, `design/` committed, `._*` junk removed, `.gitignore` fixed | `done` | `5e7d53e` | `git status --porcelain` clean, no `error:` lines |
+| 2 | **Import the design** — asset migration to `public/`, `docs/01-DESIGN-SYSTEM.md` filled from the bundle | `done` | pending | `./scripts/verify-assets.sh` |
 | 3 | **Tokens and primitives** — `globals.css`, Tailwind theme, fonts, `<Reveal>`, `<StatusChip>`, `<Mono>`, `<CoditusMark />` | `todo` | — | `/dev/tokens` renders every token and motion tier in both themes; `npm run build` |
+| 3b | **Legacy asset deletion** — `public/logo*.svg`, `logo-wordmark.*`, `design/project/assets/legacy/*`. Deferred by §1 to *after* the Coditu marks are wired in | `todo` | — | zero references to `logo.svg` / `logo-stripped.svg` / `logo-wordmark.*`; files gone |
 | 4 | **Supabase** — migrations, enums, triggers, views, indexes, RLS, `allowed_emails`, auth, middleware | `todo` | — | `npm run db:test` green, positive **and** negative RLS cases |
 | 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `todo` | — | test asserts the footer sum reads **16.0 / 46.0** |
 | 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `todo` | — | `npm run build`; no-sprint empty state renders with Export disabled + tooltip |
@@ -58,6 +59,14 @@ real work, which is what the rule is protecting against.
 
 Newest at the bottom. One line per session: what moved, and what the next session should pick up.
 
-- **2026-08-20** — Step 1 started. Repo housekeeping done (661 AppleDouble files and `.DS_Store`
+- **2026-08-20** — Steps 1 and 2 done. Repo housekeeping done (661 AppleDouble files and `.DS_Store`
   removed, `.gitignore` extended). Design bundle extracted to `design/` and verified byte-identical to
   a fresh handoff export and to the live project's file list. Durable docs written.
+  Step 2: brand and client assets migrated to `public/brand/` and `public/clients/`; the bundle's work
+  webps were already byte-identical to `public/work/` so that move was a verified no-op.
+  `docs/01-DESIGN-SYSTEM.md` written in full from the bundle — two drifts between the bundle's brand
+  README and its executable `palette()` are recorded there, and `palette()` wins. Legacy Strukture
+  assets are still in place and still referenced by 4 files; §1 defers their deletion until the Coditu
+  marks are wired in, so they are tracked as step 3b. 13 "Strukture" strings remain across
+  `app/layout.tsx`, `components/landing/{navbar,footer}.tsx`, `lib/marketing-content.ts`, `README.md`.
+  **Next: step 3 — tokens and primitives.**
