@@ -22,7 +22,7 @@ real work, which is what the rule is protecting against.
 | 3b | **Legacy asset deletion** — `public/logo*.svg`, `logo-wordmark.*`, `design/project/assets/legacy/*`. Deferred by §1 to *after* the Coditu marks are wired in | `todo` | — | zero references to `logo.svg` / `logo-stripped.svg` / `logo-wordmark.*`; files gone |
 | 4 | **Supabase** — migrations, enums, triggers, views, indexes, RLS, `allowed_emails`, auth, middleware | `done` | `7835f6e` | `npm run db:test` (40 assertions) + `npm run test` |
 | 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `done` | `f0aecc4` | `npm run db:test` — `supabase/tests/seed.sql`, 20 assertions incl. **16.0 / 46.0** |
-| 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `done` | pending | full gate; `/app` redirects to the active sprint and renders 16.0 / 46.0; no-sprint state renders with Export `disabled` + tooltip |
+| 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `done` | `acc2b54` | full gate; `/app` redirects to the active sprint and renders 16.0 / 46.0; no-sprint state renders with Export `disabled` + tooltip |
 | 7 | **Sprint table** — columns, chips, sticky, grouping, sum row, URL filters, mobile cards | `todo` | — | sum-equals-database test; container-query test at 320px |
 | 8 | **Item detail** — intercepting route, properties, criteria ring, log time, activity | `todo` | — | `npm run test`; hard navigation renders the full page |
 | 9 | **Comment thread** — composer, code, images, mentions, notifications, server-side JSON rendering | `todo` | — | XSS test: a comment whose JSON carries a hostile node renders inert |
@@ -139,3 +139,21 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   was invisible because an `<img>`-loaded SVG cannot inherit `currentColor` and that file's `<defs>` is
   empty. Both in `05-DECISIONS.md`.
   **Next: step 7 — the sprint table.**
+- **2026-08-21** — Step 7 done. The sprint header (client pill, status distribution with a real
+  `aria-label`, burn-up computed from actual time entries, collapsible attributed notes with the amber
+  highlight rule), the filter bar with view mode and status held in the URL, the full table (sticky
+  header and task column, opaque per-group sticky backgrounds, grouping border and tint, optimistic
+  status popover, pinned sum row), the container-query card layout, and the board.
+
+  Mutations land in `lib/actions/work-items.ts` — zod, a server-side authorization re-check, then the
+  write, with the project re-derived from the item's own sprint every time. The reorder action also
+  verifies every id in the payload belongs to the same sprint, since `order_index` is one of the two
+  columns an engineer may write.
+
+  Playwright is set up (`npm run e2e`) with 7 specs. The headline one reads the totals out of Postgres
+  and compares them to what the browser rendered, so nothing between the two can drift unnoticed.
+
+  Three bugs found and fixed: dnd-kit put `<div>`s inside `<table>` and mismatched ids across
+  hydration; `minmax(280px, 1fr)` overflowed at 320px; and the topbar's right-hand controls were
+  pushed off-screen and *clipped* — no scrollbar, just unreachable buttons.
+  **Next: step 8 — item detail as an intercepting route.**

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { Rail } from "@/components/app/rail.client";
+import { ToastProvider } from "@/components/app/toast.client";
 import { Topbar } from "@/components/app/topbar.client";
 import { listProjects } from "@/lib/data/projects";
 import { getCurrentProfile } from "@/lib/supabase/server";
@@ -25,12 +26,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const projects = await listProjects();
 
   return (
-    <div className="flex min-h-dvh bg-[var(--canvas)] text-[var(--ink)]">
-      <Rail profileName={profile.full_name} role={profile.role} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar projects={projects} />
-        {children}
+    <ToastProvider>
+      <div className="flex min-h-dvh bg-[var(--canvas)] text-[var(--ink)]">
+        <Rail profileName={profile.full_name} role={profile.role} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar projects={projects} />
+          {children}
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }

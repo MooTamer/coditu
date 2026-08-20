@@ -1,13 +1,22 @@
 import { notFound } from "next/navigation";
 
+import { FilterBar } from "@/components/app/filter-bar.client";
 import { NoSprint } from "@/components/app/no-sprint";
-import { Mono } from "@/components/coditu/mono";
-import { StatusChip } from "@/components/coditu/status-chip";
+import { SprintBoard } from "@/components/app/sprint-board";
+import { SprintCards } from "@/components/app/sprint-cards";
+import { SprintHeader } from "@/components/app/sprint-header";
+import { SprintTable } from "@/components/app/sprint-table.client";
 import { Reveal } from "@/components/motion/reveal";
-import { getProjectBySlug, listSprintsForProject } from "@/lib/data/projects";
-import { hours } from "@/lib/format";
+import { getProjectBySlug } from "@/lib/data/projects";
+import { daysRemaining, getBurnUp, getSprint, getSprintMembers } from "@/lib/data/sprint";
+import { getCurrentProfile } from "@/lib/supabase/server";
+import { WORK_ITEM_STATUSES, type WorkItemStatus } from "@/lib/work-items";
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string; number: string }> }) {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string; number: string }>;
+}) {
   const { slug, number } = await params;
   const project = await getProjectBySlug(slug);
   return { title: project ? `${project.clientName} · Sprint ${number}` : "Sprint" };
@@ -15,60 +24,78 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function SprintPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string; number: string }>;
+  searchParams: Promise<{ status?: string; view?: string; density?: string }>;
 }) {
-  const { slug, number } = await params;
+  const [{ slug, number }, query] = await Promise.all([params, searchParams]);
+
   const project = await getProjectBySlug(slug);
   if (!project) notFound();
 
-  const sprints = await listSprintsForProject(project.id);
-  const sprint = sprints.find((s) => s.number === Number(number));
-
+  const sprint = await getSprint(project.id, Number(number));
   // A real screen, not a spinner: the project exists, this sprint does not.
   if (!sprint) return <NoSprint project={project} />;
 
+  const profile = await getCurrentProfile();
+  if (!profile) notFound();
+
+  const [burn, members] = await Promise.all([
+    getBurnUp(sprint.id, sprint.startsOn, sprint.endsOn),
+    getSprintMembers(sprint.id),
+  ]);
+
+  // Filters are read from the URL and validated against the enum, so a
+  // hand-edited query string cannot smuggle in a status that does not exist.
+  const requested = (query.status ?? "")
+    .split(",")
+    .filter((value): value is WorkItemStatus => WORK_ITEM_STATUSES.includes(value as WorkItemStatus));
+
+  const visible = requested.length
+    ? sprint.items.filter((item) => requested.includes(item.status))
+    : sprint.items;
+
+  const isBoard = query.view === "board";
+  const rowHeight = query.density === "compact" ? 44 : 52;
+  const canAssign = profile.role === "admin" || profile.role === "lead";
+
   return (
-    <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
-      <Reveal
-        tier="section"
-        as="section"
-        className="overflow-hidden rounded-section border border-[var(--hairline)] bg-[var(--raised)] p-6"
-      >
-        <div className="flex flex-wrap items-center gap-[10px]">
-          <Mono size="eyebrow" className="text-[var(--ink-faint)]">
-            sprint {sprint.number} · {sprint.status}
-          </Mono>
-        </div>
-        <h1 className="mt-[10px] text-[26px] font-bold tracking-[-0.024em]">{sprint.name}</h1>
-        <Mono size="key" className="mt-[10px] block text-[var(--ink-muted)]">
-          {sprint.startsOn} → {sprint.endsOn}
-        </Mono>
-        <Mono size="metric" className="mt-5 block">
-          {hours(sprint.minutesLogged)} / {hours(sprint.estimateMinutes)} h
-        </Mono>
-        <Mono size="meta" className="mt-2 block text-[var(--ink-faint)]">
-          {sprint.itemCount} items
-        </Mono>
+    // `@container` so the table can switch to cards on its OWN width. The rail
+    // pinning open changes that width without the viewport moving at all.
+    <main className="@container flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+      <Reveal tier="section">
+        <SprintHeader
+          project={project}
+          sprint={sprint}
+          burn={burn}
+          daysLeft={daysRemaining(sprint.endsOn)}
+          members={members}
+        />
       </Reveal>
 
-      {/* Step 7 replaces this with the real table. */}
-      <Reveal
-        tier="section"
-        delay={0.075}
-        className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusChip status="dev_started" />
-          <StatusChip status="ready_for_peer_review" />
-          <StatusChip status="todo" />
-          <StatusChip status="draft" />
-        </div>
-        <p className="mt-4 max-w-[68ch] text-[13.5px] text-[var(--ink-muted)]">
-          The sprint table lands in step 7 — columns, sticky header and task column, grouping
-          treatment, the pinned sum row, URL-held filters, and the container-query card layout below
-          900px.
-        </p>
+      <Reveal tier="section" delay={0.06}>
+        <FilterBar availableStatuses={[...new Set(sprint.items.map((item) => item.status))]} />
+      </Reveal>
+
+      {/* The body blur-reveals once, as a single group. Never per row on a
+          filter or sort — that is where a table visibly hitches. */}
+      <Reveal tier="section" delay={0.12}>
+        {isBoard ? (
+          <SprintBoard rows={visible} />
+        ) : (
+          <>
+            <SprintTable
+              rows={visible}
+              allRows={sprint.items}
+              canReorder={canAssign}
+              currentProfileId={profile.id}
+              canAssign={canAssign}
+              rowHeight={rowHeight}
+            />
+            <SprintCards rows={visible} allRows={sprint.items} />
+          </>
+        )}
       </Reveal>
     </main>
   );

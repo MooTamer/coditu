@@ -63,22 +63,22 @@ export function ProjectSwitcher({
   const clientName = activeProject?.clientName ?? "No project";
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative min-w-0">
       <button
         type="button"
         onClick={() => setOpen((was) => !was)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex h-[34px] items-center gap-[10px] rounded-control border border-[var(--hairline)] bg-[var(--canvas)] px-3"
+        className="flex h-[34px] min-w-0 max-w-full items-center gap-[10px] rounded-control border border-[var(--hairline)] bg-[var(--canvas)] px-3"
       >
         <ClientMark logoPath={activeProject?.clientLogoPath ?? null} accentHex={activeProject?.accentHex ?? null} />
-        <Mono size="meta" className="whitespace-nowrap text-[var(--accent)]">
+        <Mono size="meta" className="truncate whitespace-nowrap text-[var(--accent)]">
           {clientName}
         </Mono>
-        <span aria-hidden className="h-[14px] w-px bg-[var(--hairline-strong)]" />
+        <span aria-hidden className="hidden h-[14px] w-px bg-[var(--hairline-strong)] sm:block" />
         <span
           className={cn(
-            "whitespace-nowrap text-[13.5px] font-medium",
+            "hidden truncate whitespace-nowrap text-[13.5px] font-medium sm:block",
             activeSprintName ? "text-[var(--ink)]" : "text-[var(--ink-faint)]"
           )}
         >
@@ -91,7 +91,7 @@ export function ProjectSwitcher({
         <div
           data-reveal="surface"
           role="menu"
-          className="absolute left-0 top-[42px] z-50 w-[340px] overflow-hidden rounded-card border border-[var(--hairline-strong)] bg-[var(--overlay)]"
+          className="absolute left-0 top-[42px] z-50 w-[min(340px,calc(100vw-2rem))] overflow-hidden rounded-card border border-[var(--hairline-strong)] bg-[var(--overlay)]"
           style={{ boxShadow: "var(--shadow-overlay)" }}
         >
           <Mono size="eyebrow" className="block px-[14px] pb-[6px] pt-[10px] text-[var(--ink-faint)]">

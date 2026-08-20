@@ -17,7 +17,17 @@ const eslintConfig = defineConfig([
     // and never shipped, so linting them only produces noise about someone
     // else's code.
     "design/**",
+    // Playwright output. Regenerated every run, never reviewed.
+    "test-results/**",
+    "playwright-report/**",
   ]),
+  {
+    // Playwright's fixture callback is named `use`, and the React hooks rule
+    // reads any `use(...)` as a hook call. It is not one — these files contain
+    // no React at all. Everything else still applies here.
+    files: ["e2e/**/*.ts"],
+    rules: { "react-hooks/rules-of-hooks": "off" },
+  },
 ]);
 
 export default eslintConfig;

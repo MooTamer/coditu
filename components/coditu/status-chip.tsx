@@ -40,13 +40,13 @@ const TONE_VARS: Record<ChipTone, { fg: string; bg: string }> = {
 const CHIP_BASE =
   "inline-flex items-center rounded-chip px-2 py-[3px] font-mono text-[11px] leading-none tabular-nums whitespace-nowrap";
 
-export interface StatusChipProps extends Omit<HTMLAttributes<HTMLSpanElement>, "children"> {
+export interface StatusChipProps extends HTMLAttributes<HTMLSpanElement> {
   status: WorkItemStatus;
   /** Override the label. The PDF uses `STATUS_LABEL_CLIENT` instead. */
   label?: string;
 }
 
-export function StatusChip({ status, label, className, style, ...props }: StatusChipProps) {
+export function StatusChip({ status, label, className, style, children, ...props }: StatusChipProps) {
   const vars = CHIP_VARS[status];
   return (
     <span
@@ -54,7 +54,7 @@ export function StatusChip({ status, label, className, style, ...props }: Status
       style={{ color: vars.fg, backgroundColor: vars.bg, ...style }}
       {...props}
     >
-      {label ?? STATUS_LABEL[status]}
+      {children ?? label ?? STATUS_LABEL[status]}
     </span>
   );
 }

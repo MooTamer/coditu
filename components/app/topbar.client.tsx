@@ -41,15 +41,21 @@ export function Topbar({ projects }: { projects: ProjectSummary[] }) {
 
   return (
     <header
-      className="sticky top-0 z-30 flex items-center gap-4 border-b border-[var(--hairline)] bg-[var(--raised)] px-[var(--app-gutter)]"
-      style={{ height: "var(--topbar-h)" }}
+      // `min-w-0` on the flex parent AND on the switcher below: without it a
+      // flex child refuses to shrink past its content and the whole right-hand
+      // cluster is pushed off a 320px screen — clipped, so the Export button
+      // is not just cramped, it is unreachable.
+      className="sticky top-0 z-30 flex min-w-0 items-center gap-2 border-b border-[var(--hairline)] bg-[var(--raised)] px-[var(--app-gutter)] sm:gap-4"
+      style={{ height: "var(--topbar-h)", paddingRight: "max(var(--app-gutter), env(safe-area-inset-right))" }}
     >
-      <ProjectSwitcher
-        projects={projects}
-        activeProject={activeProject}
-        activeSprintName={activeSprint?.name ?? null}
-        sprints={activeProject?.sprints ?? []}
-      />
+      <div className="min-w-0 shrink">
+        <ProjectSwitcher
+          projects={projects}
+          activeProject={activeProject}
+          activeSprintName={activeSprint?.name ?? null}
+          sprints={activeProject?.sprints ?? []}
+        />
+      </div>
 
       <button
         type="button"
@@ -62,7 +68,7 @@ export function Topbar({ projects }: { projects: ProjectSummary[] }) {
         </Mono>
       </button>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         <ThemeToggle />
 
         {/* Disabled with a tooltip, never hidden. A control that disappears

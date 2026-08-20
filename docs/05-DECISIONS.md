@@ -282,3 +282,43 @@ Reading them with an effect that calls `setState` schedules a second render pass
 knowable on the first, and React's `react-hooks/set-state-in-effect` rule flags it. `usePersistentFlag`
 also dispatches a same-tab event on write, because the browser fires `storage` only for *other* tabs —
 without it, two components reading the same key disagree until something else re-renders them.
+
+---
+
+## 2026-08-21 · `DndContext` sits outside `<table>`, and the sprint table is a client component
+
+**Decision.** `components/app/sprint-table.client.tsx` renders the whole table, with `DndContext`
+wrapping the `<section>` rather than living inside `<table>`. When nobody can reorder — an engineer
+viewing someone else's sprint — no `DndContext` is mounted at all.
+
+**Why.** dnd-kit renders its live region and its hidden keyboard-instruction text as plain `<div>`s.
+Inside `<table>` that is invalid HTML, and the browser silently reparents them out during parsing — so
+the server markup and the client tree disagree and **every row** reports a hydration mismatch. It also
+needs a stable `id`, because the ids dnd-kit derives for those elements come from an internal counter
+that starts fresh on each render pass: `DndDescribedBy-0` on the server, `-1` or `-2` on the client.
+
+Making the table a client component is not a concession — the brief lists drag-and-drop among the
+sanctioned client boundaries. The static markup still server-renders; only the JavaScript is
+conditional.
+
+**Rejected.** `accessibility.container` to portal the elements out — it fixes the final DOM but the
+server still emits a `<div>` inside `<table>`, so the mismatch survives.
+
+---
+
+## 2026-08-21 · `minmax(280px, 1fr)` is wrapped in `min()`
+
+**Decision.** The sprint header grid is `repeat(auto-fit, minmax(min(280px, 100%), 1fr))`. The board
+does the same with its 240px.
+
+**Why.** The bundle's number is 280px and it is right wherever there is room. But a bare `minmax(280px,
+1fr)` cannot go below its floor, and at a 320px viewport with the 72px rail showing there are about
+230px of container — so the header pushed itself off the screen. `min(280px, 100%)` keeps the bundle's
+number where it fits and collapses to the container width where it does not. The design bundle simply
+never had a 320px artboard.
+
+Same class of bug in the topbar: a flex child will not shrink below its content without `min-width: 0`,
+which pushed the Export and theme controls past the right edge. `overflow-x: clip` on the body meant
+this did not show up as a scrollbar — it showed up as controls that were simply unreachable, which is
+worse. Zero horizontal scroll is necessary but not sufficient; the e2e suite asserts the controls are
+inside the viewport, not just that nothing scrolls.
