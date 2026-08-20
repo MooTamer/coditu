@@ -171,3 +171,67 @@ explicit light ground. The file is deleted in step 12.
 so the old light-only sections render dark text on a dark canvas. The alternative is a visibly broken
 homepage for the nine steps it takes to build the app. The file names itself as temporary and says what
 removes it.
+
+---
+
+## 2026-08-20 · Local Supabase runs on the 544xx port block, with analytics off
+
+**Decision.** `supabase/config.toml` uses ports 54421–54429 instead of the default 54321–54329, and
+`[analytics] enabled = false`.
+
+**Why.** Another Supabase project on this machine already holds the default block, and the two need to
+run at the same time; the alternative was stopping the other project on every session. Analytics is off
+because its log-collection container mounts the host `docker.sock`, which Colima on macOS cannot provide
+(`operation not supported`) — the `vector` container refuses to start and takes the whole stack down
+with it. Nothing here reads local analytics.
+
+**Rejected.** Stopping the other project (breaks someone else's work); Docker Desktop instead of Colima
+(a machine-wide change to fix one container we do not need).
+
+---
+
+## 2026-08-20 · RLS is tested with pgTAP, and every policy gets a negative case
+
+**Decision.** `supabase/tests/rls.sql` runs under `supabase test db` with 40 assertions. Every policy
+has a positive **and** a negative case.
+
+**Why.** A suite that only proves the allowed thing works passes just as happily against
+`using (true)`. The negatives are the test. Writing them immediately paid for itself: the suite caught
+`handle_new_user` casting to an unqualified `app_role` under `search_path = ''` — every sign-up would
+have failed in production — and the `work_item_key_seq` collision with explicitly-seeded keys.
+
+Two assertion styles, deliberately different:
+- A **row-filtering** policy denies by matching nothing, so the statement succeeds and changes nothing.
+  Those assert the *outcome* — the row is unchanged, the row is still there — not a row count.
+- A **WITH CHECK** violation, a column-guard trigger, or a missing grant **raises**. Those use
+  `throws_ok` with the specific SQLSTATE, so a test cannot pass because of some unrelated error.
+
+**Rejected.** Testing RLS through the PostgREST API (slower, and it conflates policy failures with HTTP
+and client-library behaviour); testing only the happy path.
+
+---
+
+## 2026-08-20 · `middleware.ts` is a gate, not the authorization model
+
+**Decision.** The middleware answers one question — is there a valid session — and redirects
+`/app/*` to `/login?next=…` when there is not. It reads no roles. Every role decision happens
+server-side against `profiles`, in the page or action that needs it.
+
+**Why.** Invariant 3: a client-held role is never trusted. A middleware that read a role would be
+reading it from a token the client holds. It also calls `getUser()` rather than `getSession()` —
+`getSession()` reads the cookie and believes it, `getUser()` revalidates against the auth server, and on
+a gate that difference is the entire point.
+
+---
+
+## 2026-08-20 · Vitest tests the SQL/TypeScript agreement by reading the migration
+
+**Decision.** `tests/status-order.test.ts` parses
+`supabase/migrations/20260820120000_enums.sql` and compares the `work_item_status_rank` ordering and the
+enum members against `lib/work-items.ts`.
+
+**Why.** The brief requires the display order to be defined once in Postgres and once in TypeScript and
+for a test to assert they agree. Querying a live database would make the test require Postgres in CI,
+and a test that skips itself when the database is absent is worse than no test — it reports green
+exactly when it has checked nothing. Parsing the migration is deterministic, runs anywhere, and fails
+on the drift that actually matters.

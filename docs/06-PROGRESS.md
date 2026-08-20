@@ -18,9 +18,9 @@ real work, which is what the rule is protecting against.
 |---|---|---|---|---|
 | 1 | **Bootstrap** — `CLAUDE.md`, `docs/*`, `design/` committed, `._*` junk removed, `.gitignore` fixed | `done` | `5e7d53e` | `git status --porcelain` clean, no `error:` lines |
 | 2 | **Import the design** — asset migration to `public/`, `docs/01-DESIGN-SYSTEM.md` filled from the bundle | `done` | `bb987e7` | `./scripts/verify-assets.sh` |
-| 3 | **Tokens and primitives** — `globals.css`, Tailwind theme, fonts, `<Reveal>`, `<StatusChip>`, `<Mono>`, `<CoditusMark />` | `done` | pending | `npm run lint && npm run typecheck && npm run build && ./scripts/verify-tokens.sh`; `/dev/tokens` in both themes |
+| 3 | **Tokens and primitives** — `globals.css`, Tailwind theme, fonts, `<Reveal>`, `<StatusChip>`, `<Mono>`, `<CoditusMark />` | `done` | `7b72821` | `npm run lint && npm run typecheck && npm run build && ./scripts/verify-tokens.sh`; `/dev/tokens` in both themes |
 | 3b | **Legacy asset deletion** — `public/logo*.svg`, `logo-wordmark.*`, `design/project/assets/legacy/*`. Deferred by §1 to *after* the Coditu marks are wired in | `todo` | — | zero references to `logo.svg` / `logo-stripped.svg` / `logo-wordmark.*`; files gone |
-| 4 | **Supabase** — migrations, enums, triggers, views, indexes, RLS, `allowed_emails`, auth, middleware | `todo` | — | `npm run db:test` green, positive **and** negative RLS cases |
+| 4 | **Supabase** — migrations, enums, triggers, views, indexes, RLS, `allowed_emails`, auth, middleware | `done` | pending | `npm run db:test` (40 assertions) + `npm run test` |
 | 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `todo` | — | test asserts the footer sum reads **16.0 / 46.0** |
 | 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `todo` | — | `npm run build`; no-sprint empty state renders with Export disabled + tooltip |
 | 7 | **Sprint table** — columns, chips, sticky, grouping, sum row, URL filters, mobile cards | `todo` | — | sum-equals-database test; container-query test at 320px |
@@ -87,3 +87,22 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   still prerender at `opacity: 0` via the legacy Framer reveal and leave `will-change` pinned. Both go
   away in step 12/13; `verify-tokens.sh` reports it as a WARN, not a failure.
   **Next: step 4 — Supabase schema, triggers, views, indexes, RLS, auth, middleware.**
+- **2026-08-20** — Step 4 done. Eight migrations under `supabase/migrations/`: enums and the fixed
+  display order, profiles + the `auth.users` allowlist trigger, the client→project→sprint scope chain,
+  work items with the minutes rollup, the comment thread with mention materialisation and the activity
+  triggers, indexes and two `security_invoker` views, the authorization helpers, and RLS.
+  `supabase/tests/rls.sql` holds **40 pgTAP assertions, positive and negative for every policy** —
+  `npm run db:test` is green. `tests/status-order.test.ts` (12 Vitest assertions) proves the SQL and
+  TypeScript status vocabularies agree by reading the migration, so it runs without a database.
+  `lib/supabase/{server,client,admin,env}.ts` and `middleware.ts` are in; `.env.example` documents
+  everything and `.env.local` is gitignored.
+
+  Two real bugs caught by the negative tests, both of which would have shipped:
+  `handle_new_user` cast to an unqualified `app_role` under `search_path = ''`, which breaks **every
+  sign-up**; and `work_item_key_seq` collides with explicitly-seeded keys unless the seed `setval`s.
+  Both are written up in `02-DATA-MODEL.md`.
+
+  Local stack note: this project runs on ports **544xx**, not the default 543xx, because another local
+  Supabase project holds those; analytics is disabled because its log container needs a host
+  `docker.sock` that Colima cannot provide.
+  **Next: step 5 — seed EVIM Week 17 (COD-140…151) and a closed Week 16, asserting 16.0 / 46.0.**

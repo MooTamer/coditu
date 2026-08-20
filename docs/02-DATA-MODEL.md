@@ -190,3 +190,40 @@ source wins when both a page and a list item are pinned).
 Week 16 has no item-level data in the bundle. Seed it with nine closed items so the sprint list and the
 burn-up have history, and mark them clearly as synthetic history in the seed script — they are not
 transcribed facts.
+
+---
+
+## Things the migrations know that the schema diagram does not
+
+**The key sequence must be `setval`'d after any seed that supplies explicit keys.**
+`work_item_key_seq` starts at 140 and `work_items.key` defaults to `'COD-' || nextval(...)`. Inserting
+`COD-140` explicitly does **not** advance the sequence, so the next generated key collides with one you
+just wrote. Step 5's seed ends with `select setval('public.work_item_key_seq', <highest>, true);`, and
+`supabase/tests/rls.sql` does the same. This is a caught bug, not a hypothetical.
+
+**Definer functions need schema-qualified types, not just tables.** Every `security definer` function
+sets `search_path = ''` so a caller cannot shadow `public` with a schema they control. That also means
+`::app_role` does not resolve — it has to be `::public.app_role`. `handle_new_user` shipped with the
+unqualified cast and every sign-up failed; the RLS suite caught it.
+
+**Views are `security_invoker = on`.** A normal view runs with its owner's rights, which would make
+`v_sprint_summary` and `v_person_load` a way around RLS. With `security_invoker` the underlying tables'
+policies apply to whoever is querying.
+
+**Grants are not optional.** Tables created by `postgres` give `authenticated` only
+TRUNCATE/REFERENCES/TRIGGER/MAINTAIN by default — no DML. A flawless set of policies on a table with no
+grant returns "permission denied" for everything, and the error points at the wrong layer. Every table
+carries an explicit `grant`. `anon` is revoked everywhere, which is why the anonymous tests assert a
+raised `42501` rather than an empty result: anon is stopped one layer below RLS.
+
+**The two-part rule for `work_items` and `acceptance_criteria`.** RLS cannot express a per-column
+restriction. The policy decides **which rows** an engineer may touch (theirs to own or review); a
+`before update` trigger decides **which columns** (`status` and `order_index`; `is_done` on a
+criterion). Both are required — either alone is a hole.
+
+**`closed_at` is trigger-maintained.** It follows `status = 'done'` so the two can never disagree; a
+done item with a null `closed_at` makes every cycle-time figure wrong.
+
+**The rollup recomputes, it does not increment.** `refresh_minutes_logged` re-sums the entries for the
+affected item. An increment that misses one event drifts silently and permanently, and this is the
+number the client sees. It also fixes both sides when an entry moves between items.
