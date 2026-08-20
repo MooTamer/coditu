@@ -19,7 +19,7 @@ real work, which is what the rule is protecting against.
 | 1 | **Bootstrap** — `CLAUDE.md`, `docs/*`, `design/` committed, `._*` junk removed, `.gitignore` fixed | `done` | `5e7d53e` | `git status --porcelain` clean, no `error:` lines |
 | 2 | **Import the design** — asset migration to `public/`, `docs/01-DESIGN-SYSTEM.md` filled from the bundle | `done` | `bb987e7` | `./scripts/verify-assets.sh` |
 | 3 | **Tokens and primitives** — `globals.css`, Tailwind theme, fonts, `<Reveal>`, `<StatusChip>`, `<Mono>`, `<CoditusMark />` | `done` | `7b72821` | `npm run lint && npm run typecheck && npm run build && ./scripts/verify-tokens.sh`; `/dev/tokens` in both themes |
-| 3b | **Legacy asset deletion** — `public/logo*.svg`, `logo-wordmark.*`, `design/project/assets/legacy/*`. Deferred by §1 to *after* the Coditu marks are wired in | `todo` | — | zero references to `logo.svg` / `logo-stripped.svg` / `logo-wordmark.*`; files gone |
+| 3b | **Legacy asset deletion** — `public/logo*.svg`, `logo-wordmark.*`, the Strukture `og/` set. Deferred by §1 to *after* the Coditu marks are wired in | `done` | pending | files gone; zero references repo-wide; every raster re-rendered from `public/brand/` by `npm run brand:assets` |
 | 4 | **Supabase** — migrations, enums, triggers, views, indexes, RLS, `allowed_emails`, auth, middleware | `done` | `7835f6e` | `npm run db:test` (40 assertions) + `npm run test` |
 | 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `done` | `f0aecc4` | `npm run db:test` — `supabase/tests/seed.sql`, 20 assertions incl. **16.0 / 46.0** |
 | 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `done` | `acc2b54` | full gate; `/app` redirects to the active sprint and renders 16.0 / 46.0; no-sprint state renders with Export `disabled` + tooltip |
@@ -27,8 +27,8 @@ real work, which is what the rule is protecting against.
 | 8 | **Item detail** — intercepting route, properties, criteria ring, log time, activity | `done` | `0631a5f` | `npm run e2e` — 9 specs: interception, focus trap, focus return, ring ratio, criterion write, time-log round trip, cross-project 404 |
 | 9 | **Comment thread** — composer, code, images, mentions, notifications, server-side JSON rendering | `done` | `34d54c9` | `npm run test` (43) + `npm run e2e` (31) — 10 hostile-JSON specs and 6 composer specs |
 | 10 | **Board, My work, People, Import** | `done` | `d5ebdba` | `npm run test` (68) + `npm run db:test` (63) + `npm run e2e` (37) — importer flags `"1a"` before writing anything |
-| 11 | **Export** — CSV, Markdown, PDF, item selection, persistence | `done` | pending | `npm run test` (86) + `npm run e2e` (50, twice back to back) — golden-file CSV and Markdown; scoping proven at three levels; a real 3-page PDF read back with `pdftotext` |
-| 12 | **Marketing site** — sections, trace, work modal, metadata, brand assets | `todo` | — | `npm run build`; zero "Strukture" matches repo-wide |
+| 11 | **Export** — CSV, Markdown, PDF, item selection, persistence | `done` | `5dce4f9` | `npm run test` (86) + `npm run e2e` (50, twice back to back) — golden-file CSV and Markdown; scoping proven at three levels; a real 3-page PDF read back with `pdftotext` |
+| 12 | **Marketing site** — sections, trace, work modal, metadata, brand assets | `done` | pending | `npm run e2e` — 15 marketing specs: section order, heading order, nothing invented, JSON-LD matches the page, focus trap, no-JS, reduced motion, **axe clean in both themes**; zero horizontal overflow at all 13 widths |
 | 13 | **Motion pass** — every tier applied, reduced-motion verified, no `will-change` left pinned | `todo` | — | reduced-motion e2e; no persistent `will-change` after animation completion |
 | 14 | **Performance and a11y pass** — budgets asserted in CI, Lighthouse ≥ 95, axe clean | `todo` | — | Lighthouse CI ≥ 95 × 4; axe clean on table, detail, composer, export dialog |
 
@@ -229,4 +229,42 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   a sprint total now take a Postgres advisory lock exclusively and readers take it shared. Verified by
   running the suite twice back to back — 50 passed, 50 passed, database back at its seed values.
   **Next: step 12 — the marketing site, and with it the last 13 "Strukture" strings.**
+- **2026-08-21** — Steps 12 and 3b done. The marketing site is rewritten under Coditu from
+  `Coditu Site.dc.html`: hero with the per-word entrance and the routed-signal panel, the work gallery
+  with a shared-element case-study modal, services, process, use cases, team, delivery notes, FAQ, and
+  the contact block. Sections run in the **brief's** order, not the bundle's, and the rule numbers
+  follow. `components/landing/` (2,658 lines of pre-Coditu code) and `lib/icon-map.ts` are deleted.
+
+  The signature device is `components/site/signal-trace.client.tsx` — a scroll-linked path in the left
+  gutter that threads the page and doubles as reading progress. It renders only at ≥1420px, because
+  below that there is no gutter and a rail crossing body copy reads as a fault. Its section nodes are
+  placed with `getPointAtLength` on the path, so they sit *on* the curve where it weaves.
+
+  Everything else about the page is a Server Component. The only client code is the nav, the trace, the
+  hero's pointer drift, the work modal, the FAQ, and one page-level `<RevealScope>` observer.
+
+  `app/(marketing)/layout.tsx` is gone: the site follows the reader's theme like the rest of the
+  product, verified in both. Metadata, JSON-LD (`Organization` + `WebSite` + `FAQPage`), `robots.ts`
+  and `sitemap.ts` are Coditu's, and a test asserts that every person and question in the structured
+  data is also visible on the page — marking up what a reader cannot see is how structured data turns
+  into a lie.
+
+  `npm run brand:assets` renders `favicon.ico` (16/32/48), `apple-touch-icon.png`, `icon-192`,
+  `icon-512`, `icon-maskable-512`, `og.png` and `og-square.jpg` from `public/brand/` — in headless
+  Chromium, because Satoshi is self-hosted and an SVG rasteriser would silently substitute a system
+  sans. Every legacy Strukture asset is deleted and the README is rewritten.
+
+  Four bugs, three of them mine and one inherited: the per-word headline spans swallowed their own
+  trailing whitespace and rendered "Webuildportals"; `[data-reveal-on-view]` had nothing to release it
+  on this page, so 28 elements would have stayed invisible; reduced motion still gated content behind a
+  scroll, which is the wrong risk to hand that reader; and axe sampled a headline word mid-fade and
+  reported a contrast failure that does not exist.
+
+  One false alarm worth remembering: a `globals.css` rule appeared to have been pruned from the served
+  stylesheet, exactly like step 3. It was a stale Turbopack dev cache. Restart the dev server before
+  concluding a rule was dropped.
+
+  **Needs attention:** this checkout's directory is still literally named `Strukture-Digital`, which
+  the dev server leaks into React owner stacks. Nothing ships with it, but the repository should be
+  renamed. **Next: step 13 — the motion pass.**
 

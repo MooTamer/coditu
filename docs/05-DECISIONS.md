@@ -499,3 +499,105 @@ writer stops the world.
 
 Mutating tests also restore what they wrote — without that the *second* run of the day fails on a
 database the first one left dirty, which is how this was found.
+
+---
+
+## 2026-08-21 · The marketing sections run in the brief's order, not the bundle's
+
+**Decision.** `#work → #services → #process → #use-cases → #team → #insights → #faq → #contact`,
+numbered 01–07 in that order.
+
+**Why.** `Coditu Site.dc.html` puts use cases before process and numbers them accordingly. §11 of the
+brief lists the order explicitly, with process third. Order is structure, not a measurement — on
+behaviour the brief wins — so the sections follow the brief and the numbers follow the sections.
+
+Renumbering rather than keeping the bundle's labels matters: a reader uses `04` to know where they
+are, and a rule numbered `04` sitting fifth is worse than either arrangement on its own.
+
+---
+
+## 2026-08-21 · The marketing site follows the reader's theme
+
+**Decision.** `app/(marketing)/layout.tsx` is deleted. `/` uses the same token layer and the same
+`next-themes` toggle as `/app`, dark by default.
+
+**Why.** The bundle's site artboard opens light and its app artboard opens dark, and the site carries
+a working dark palette plus a theme toggle in its own nav — so building the site for both themes is
+what the bundle does, and only the default differs.
+
+Pinning `/` to light would mean the toggle in the site header either does nothing or flips a theme the
+page cannot render, and following a link from `/` into `/app` would change the interface out from
+under the reader. One product, one theme, and the token layer already made it free. The temporary pin
+that kept the pre-Coditu sections legible through steps 4–11 is gone with the sections it protected.
+
+---
+
+## 2026-08-21 · Nothing on the site claims something we cannot show
+
+**Decision.** The three testimonials are gone — `TESTIMONIALS_ENABLED = false` and a typed empty
+array, with the reason next to it. Delivery notes render as cards, not links.
+
+**Why.** The testimonials were placeholders attributed to named people at named companies who never
+said them. §11 is explicit, and the flag is kept rather than the concept deleted so the next person
+who reaches for one finds the reason instead of an empty file.
+
+The delivery notes are positions we hold, and they are ours to publish. What we do not have is the
+articles. Linking them would promise a page nobody has written — the same category of thing as an
+invented quote, just quieter — so they are cards, and there is a test that the page contains no
+invented metric, no client count, and nobody in Berlin.
+
+---
+
+## 2026-08-21 · The brand rasters are rendered by a browser, not a rasteriser
+
+**Decision.** `scripts/generate-brand-assets.mjs` renders `og.png` and `og-square.jpg` in headless
+Chromium; `sharp` handles the icon sizes and writes the `.ico` container by hand.
+
+**Why.** The wordmark is Satoshi, and Satoshi is self-hosted in `lib/fonts/files/` rather than
+installed on the machine. An SVG rasteriser resolves `font-family: Satoshi` against system fonts,
+finds nothing, and silently substitutes a system sans — a social card that looks fine until somebody
+who knows the brand sees it. Chromium loads the real `.woff2` as a data URI.
+
+`sharp` has no `.ico` encoder, and the format needs no library: a six-byte header, a sixteen-byte
+directory entry per size, and the PNGs concatenated.
+
+One deliberate deviation from the bundle: on the wide card the trace passes through the headline, so
+it runs at half opacity. The brand sheet's own rule is that the gradient never sits behind text, and
+between the composition and the rule the rule wins. The square card's trace clears the wordmark and
+stays at full strength.
+
+---
+
+## 2026-08-21 · Reduced motion never gates content on a scroll
+
+**Decision.** Under `prefers-reduced-motion: reduce`, `.js [data-reveal-on-view]` is forced back to
+`animation-play-state: running`.
+
+**Why.** The reveal tiers hold at frame zero until an observer releases them. Under reduced motion the
+tier is already just a 120ms opacity fade, so the scroll gate buys nothing — and it costs a failure
+mode, because content held at frame zero is *invisible* if the observer never fires. Handing that
+risk specifically to the readers who asked for less motion is backwards.
+
+The page-level `<RevealScope>` replaces one `<RevealObserver>` per element: a long marketing page has
+28 of them, and 28 component instances with 28 observers is a cost with no benefit over one observer
+holding 28 targets.
+
+---
+
+## 2026-08-21 · The signal trace is absent, not clipped, without a gutter
+
+**Decision.** The scroll-linked rail renders only at ≥1420px. Its section nodes are positioned with
+`getPointAtLength` on the path itself.
+
+**Why.** The rail lives in the gutter beside the 1240px measure. Below 1240 + 2×90 there is no gutter,
+and a rail crossing body copy reads as a rendering fault rather than a device — so it is not rendered
+at all rather than faded or clipped.
+
+The nodes are placed by arc length because the path weaves between two columns. Computing `x` from a
+document position means approximating a cubic Bézier, and a node 28px off the line looks broken. The
+browser already knows the answer exactly.
+
+**Worth knowing.** Turbopack's dev server served a stale `globals.css` for a CSS edit during this
+step, which looked exactly like Tailwind pruning the rule — the failure mode step 3 already hit. It
+was a cache. After any change to `globals.css`, restart the dev server before concluding a rule was
+dropped, and confirm against the built stylesheet with `scripts/verify-tokens.sh`.

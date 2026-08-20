@@ -1,210 +1,92 @@
 <p align="center">
-  <img src="./public/logo.svg" alt="Strukture Digital logo" width="88" />
+  <img src="./public/brand/lockup-horizontal.svg" alt="Coditu" width="180" />
 </p>
-<h1 align="center">Strukture Digital</h1>
 
 <p align="center">
-  Distributed software house website for Strukture Digital, built with Next.js App Router and a typed marketing content model.
-</p>
-
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Next.js-16.1.6-111111?logo=nextdotjs" alt="Next.js 16.1.6" />
-  <img src="https://img.shields.io/badge/React-19.2.3-149ECA?logo=react&logoColor=white" alt="React 19.2.3" />
-  <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5" />
-  <img src="https://img.shields.io/badge/Tailwind_CSS-4.x-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind CSS 4" />
-  <img src="https://img.shields.io/badge/shadcn%2Fui-New_York-18181B" alt="shadcn/ui" />
-  <img src="https://img.shields.io/badge/Framer_Motion-12.34.3-0F172A" alt="Framer Motion 12.34.3" />
+  Coditu's whole software surface: the public site at <code>/</code> and the internal delivery app at <code>/app</code>.
+  One Next.js project, one design system, one deployment.
 </p>
 
 ---
 
-## 📚 Contents
+## What this is
 
-- [Overview](#-overview)
-- [Key Features](#-key-features)
-- [Tech Stack](#-tech-stack)
-- [Quickstart](#-quickstart)
-- [Project Structure](#-project-structure)
-- [Configuration](#-configuration)
-- [UI/UX Notes](#-uiux-notes)
-- [Deployment](#-deployment)
-- [Screenshots / Preview](#-screenshots--preview)
-- [Contributing](#-contributing)
+Two things that share a codebase because they share a brand and a token layer:
 
----
+- **`/`** — the marketing site. Server-rendered sections, one scroll-linked
+  client component for the signal trace, one for the work modal.
+- **`/app`** — the authenticated app the team runs its own sprints in. Sprint
+  table, item detail, comment thread, board, my work, people, Notion import,
+  and the client-facing export.
 
-## 🔎 Overview
+Everything durable is written down in [`docs/`](./docs). Start with
+[`docs/06-PROGRESS.md`](./docs/06-PROGRESS.md) — it is the ledger, and it is
+accurate; then [`CLAUDE.md`](./CLAUDE.md) for the five invariants the app is
+built around.
 
-This repository contains a marketing site for **Strukture Digital**. It uses the App Router with mostly server-rendered sections, while keeping interactive and animated pieces as focused client components.
-
----
-
-## ✨ Key Features
-
-- App Router architecture with server-first section composition.
-- Typed, centralized copy/content model in [`lib/marketing-content.ts`](./lib/marketing-content.ts).
-- Dedicated animation islands using Framer Motion (`hero`, cards, modal, carousel).
-- Shared-layout Work card to modal transition via `layoutId`.
-- Responsive container and section system built around reusable primitives.
-- SEO setup via route metadata, Open Graph/Twitter cards, `robots.ts`, and `sitemap.ts`.
-- Image optimization with `next/image` and explicit responsive `sizes` values.
-
----
-
-## 🧰 Tech Stack
-
-| Area      | Tools in this repo                                                     |
-| --------- | ---------------------------------------------------------------------- |
-| Framework | Next.js `16.1.6` (App Router)                                          |
-| UI        | React `19.2.3`, shadcn/ui, Radix UI primitives, Lucide icons           |
-| Styling   | Tailwind CSS `4`, `tw-animate-css`, CSS variables in `app/globals.css` |
-| Motion    | Framer Motion `12.34.3`                                                |
-| Language  | TypeScript `5`                                                         |
-| Quality   | ESLint `9` + `eslint-config-next`                                      |
-
----
-
-## 🚀 Quickstart
-
-> This repo uses **npm** (`package-lock.json` is present).
-
-### 1) Install dependencies
+## Getting it running
 
 ```bash
 npm install
-```
-
-### 2) Run in development
-
-```bash
+cp .env.example .env.local     # fill in the Supabase values
+npm run db:start               # local Supabase (Docker)
+npm run db:seed                # migrations + EVIM Week 17
 npm run dev
 ```
 
-### 3) Build for production
+Sign in with a seeded account — `mohamed@coditu.com` / `coditu`. Only addresses
+in `allowed_emails` can create an account at all; see
+[`docs/02-DATA-MODEL.md`](./docs/02-DATA-MODEL.md).
 
-```bash
-npm run build
+## Commands
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Next dev server |
+| `npm run build` | Production build |
+| `npm run lint` / `npm run typecheck` | ESLint / `tsc --noEmit` |
+| `npm run test` | Vitest unit suite |
+| `npm run db:test` | pgTAP — RLS and seed assertions, positive and negative |
+| `npm run e2e` | Playwright, against the dev server and the local database |
+| `npm run e2e:prod` | The subset that only means anything against a production build |
+| `npm run brand:assets` | Re-renders every raster icon and social card from `public/brand/` |
+
+## Layout
+
+```
+app/
+  (marketing)/          the public site
+  app/                  the delivery app, behind auth
+  robots.ts sitemap.ts
+components/
+  site/                 marketing sections
+  app/                  app screens and their client islands
+  coditu/               the mark, the lockup, chips, mono
+  motion/               reveal tiers and their observers
+lib/
+  actions/              server actions — every mutation lives here
+  data/                 server-side reads
+  export/               CSV, Markdown, and the export payload
+  supabase/             server, client, admin, env
+design/                 the approved design bundle, committed verbatim
+docs/                   context, design system, data model, spec, decisions, ledger
+supabase/               migrations, seed, pgTAP tests
 ```
 
-### 4) Start production server
+## Stack
 
-```bash
-npm run start
-```
+Next.js 16 (App Router, Turbopack) · React 19 · TypeScript 5 strict ·
+Tailwind CSS 4 · Supabase (Postgres, Auth, Storage, RLS) · Vitest · pgTAP ·
+Playwright.
 
-### 5) Run lint checks
+## Conventions
 
-```bash
-npm run lint
-```
+- Every mutation is a Server Action: zod-validate → re-check authorization
+  server-side → write → revalidate. The browser never holds a privileged key.
+- Time is stored as integer minutes. Hours are a presentation concern.
+- A work item belongs to a sprint, which belongs to a project, which belongs to
+  a client. Nothing is global, and every action re-derives the project from the
+  item's own sprint rather than from anything the client sent.
 
----
-
-## 🗂️ Project Structure
-
-```text
-.
-├── app
-│   ├── (marketing)/page.tsx
-│   ├── globals.css
-│   ├── layout.tsx
-│   ├── robots.ts
-│   └── sitemap.ts
-├── components
-│   ├── landing/
-│   ├── theme-provider.tsx
-│   └── ui/
-├── docs
-│   └── preview/
-├── lib
-│   ├── fonts.ts
-│   ├── icon-map.ts
-│   ├── marketing-content.ts
-│   ├── motion.ts
-│   └── utils.ts
-├── public
-│   ├── logo.svg
-│   ├── og/
-│   │   └── og.png
-│   └── work/
-├── components.json
-├── next.config.ts
-├── package.json
-├── postcss.config.mjs
-└── tsconfig.json
-```
-
----
-
-## ⚙️ Configuration
-
-### Content and copy
-
-- Main marketing copy, section data, and work items: [`lib/marketing-content.ts`](./lib/marketing-content.ts)
-- Site metadata base/title/image values: [`lib/marketing-content.ts`](./lib/marketing-content.ts), consumed in:
-  - [`app/layout.tsx`](./app/layout.tsx)
-  - [`app/(marketing)/page.tsx`](<./app/(marketing)/page.tsx>)
-
-### Environment variables
-
-- `NEXT_PUBLIC_SITE_URL` (recommended in production): absolute site URL used for canonical, Open Graph, Twitter metadata, robots host, and sitemap URLs.
-  - Example: `NEXT_PUBLIC_SITE_URL=https://strukturedigital.com`
-  - Local fallback (when unset): `http://localhost:3000`
-
----
-
-## 🎛️ UI/UX Notes
-
-- **Motion + accessibility:** reduced motion is respected through:
-  - `useReducedMotion()` checks in animated client components
-  - a global `@media (prefers-reduced-motion: reduce)` fallback in [`app/globals.css`](./app/globals.css)
-- **Server-first rendering:** section wrappers and page composition are server components by default; client boundaries are localized to interaction-heavy parts.
-- **Minimal client surface area:** key interactive islands include:
-  - [`components/landing/work-gallery.client.tsx`](./components/landing/work-gallery.client.tsx)
-  - [`components/landing/work-modal.tsx`](./components/landing/work-modal.tsx)
-  - [`components/landing/media-carousel.tsx`](./components/landing/media-carousel.tsx)
-
----
-
-## 📦 Deployment
-
-No provider-specific deployment config is committed (for example, no `vercel.json` or Docker setup).
-
-Deploy as a standard Next.js app:
-
-```bash
-npm run build
-npm run start
-```
-
----
-
-## 🖼️ Screenshots / Preview
-
-Add screenshots to [`docs/preview`](./docs/preview) using these filenames:
-
-- `home-desktop.png`
-- `home-mobile.png`
-- `work-modal.png`
-
-Then reference them here:
-
-```md
-![Home Desktop](./docs/preview/home-desktop.png)
-![Home Mobile](./docs/preview/home-mobile.png)
-![Work Modal](./docs/preview/work-modal.png)
-```
-
----
-
-## 🤝 Contributing
-
-1. Create a branch from `main`.
-2. Keep server components server-first; add client boundaries only where interaction is required.
-3. Keep content/schema changes in sync with types in [`lib/marketing-content.ts`](./lib/marketing-content.ts).
-4. Run before opening a PR:
-   ```bash
-   npm run lint
-   npm run build
-   ```
+The rest, including why each call was made, is in
+[`docs/05-DECISIONS.md`](./docs/05-DECISIONS.md).

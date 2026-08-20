@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 
 import { CoditusMarkDefs } from "@/components/coditu/coditus-mark";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -12,13 +12,32 @@ export const metadata: Metadata = {
   metadataBase: getSiteUrl(),
   title: {
     default: marketingContent.siteMeta.defaultTitle,
-    template: "%s | Strukture Digital",
+    template: marketingContent.siteMeta.titleTemplate,
   },
+  description: marketingContent.siteMeta.description,
+  applicationName: marketingContent.siteMeta.siteName,
+  // Every one of these is rendered from `public/brand/` by
+  // `npm run brand:assets`. Nothing here is hand-exported.
   icons: {
-    icon: [{ url: "/logo.svg", type: "image/svg+xml" }],
-    shortcut: [{ url: "/logo.svg", type: "image/svg+xml" }],
+    icon: [
+      { url: "/favicon.ico", sizes: "16x16 32x32 48x48" },
+      { url: "/brand/mark.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: [{ url: "/favicon.ico" }],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
+  manifest: "/site.webmanifest",
+};
+
+export const viewport: Viewport = {
+  // Matches `--canvas` in each theme, so the mobile browser chrome does not
+  // sit against a colour the page never uses.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ebeff6" },
+    { media: "(prefers-color-scheme: dark)", color: "#07090e" },
+  ],
 };
 
 export default function RootLayout({

@@ -622,6 +622,13 @@
     animation-duration: 120ms !important;
     animation-timing-function: linear !important;
   }
+
+  /* Nothing waits for a scroll. A reduced-motion reader gets the page, not a
+     sequence — and it removes an entire failure mode, because content held at
+     frame zero by a paused animation is invisible if the observer never fires. */
+  .js [data-reveal-on-view] {
+    animation-play-state: running !important;
+  }
 }
 
 
