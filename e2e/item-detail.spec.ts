@@ -119,40 +119,47 @@ test.describe("item detail", () => {
     await expect(page.getByText(/Confirm with EVIM whether the toggle default/)).toBeVisible();
   });
 
-  test("logging time updates the item and the sprint sum", async ({ adminPage: page }) => {
-    const before = await query<{ minutes: string }>(
-      `select minutes_logged::text as minutes from work_items where key = 'COD-147'`
-    );
-    const start = Number(before[0].minutes);
+  test.describe("logging time", () => {
+    // This is the only test that moves the sprint's totals. It takes the
+    // write lock so no test asserting "16.0 / 46.0" can observe the hour
+    // between the write and the cleanup below.
+    test.use({ sprintTotals: "write" });
 
-    await page.goto(`${SPRINT}/items/COD-147`);
-    // Default is 1.5h; step down once to log 1.0h.
-    await page.getByRole("button", { name: "Half an hour less" }).click();
-    await page.getByRole("button", { name: /^Log 1\.0 h$/ }).click();
+    test("logging time updates the item and the sprint sum", async ({ adminPage: page }) => {
+      const before = await query<{ minutes: string }>(
+        `select minutes_logged::text as minutes from work_items where key = 'COD-147'`
+      );
+      const start = Number(before[0].minutes);
 
-    await expect
-      .poll(async () => {
-        const [row] = await query<{ minutes: string }>(
-          `select minutes_logged::text as minutes from work_items where key = 'COD-147'`
-        );
-        return Number(row.minutes);
-      }, { timeout: 8000 })
-      .toBe(start + 60);
+      await page.goto(`${SPRINT}/items/COD-147`);
+      // Default is 1.5h; step down once to log 1.0h.
+      await page.getByRole("button", { name: "Half an hour less" }).click();
+      await page.getByRole("button", { name: /^Log 1\.0 h$/ }).click();
 
-    // Clean up so the 16.0 / 46.0 assertion elsewhere keeps holding.
-    await query(
-      `delete from time_entries where id in (
-         select t.id from time_entries t join work_items w on w.id = t.work_item_id
-         where w.key = 'COD-147' order by t.created_at desc limit 1)`
-    );
-    await expect
-      .poll(async () => {
-        const [row] = await query<{ minutes: string }>(
-          `select minutes_logged::text as minutes from work_items where key = 'COD-147'`
-        );
-        return Number(row.minutes);
-      }, { timeout: 5000 })
-      .toBe(start);
+      await expect
+        .poll(async () => {
+          const [row] = await query<{ minutes: string }>(
+            `select minutes_logged::text as minutes from work_items where key = 'COD-147'`
+          );
+          return Number(row.minutes);
+        }, { timeout: 8000 })
+        .toBe(start + 60);
+
+      // Clean up so the 16.0 / 46.0 assertion elsewhere keeps holding.
+      await query(
+        `delete from time_entries where id in (
+           select t.id from time_entries t join work_items w on w.id = t.work_item_id
+           where w.key = 'COD-147' order by t.created_at desc limit 1)`
+      );
+      await expect
+        .poll(async () => {
+          const [row] = await query<{ minutes: string }>(
+            `select minutes_logged::text as minutes from work_items where key = 'COD-147'`
+          );
+          return Number(row.minutes);
+        }, { timeout: 5000 })
+        .toBe(start);
+    });
   });
 
   test("an item cannot be reached under another client's URL", async ({ adminPage: page }) => {

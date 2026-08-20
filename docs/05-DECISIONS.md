@@ -405,3 +405,97 @@ and skipped, but the column above it still read "mapped". A reader would have fi
 known which column to look at.
 
 Recording the origin makes it a fact rather than a guess.
+
+---
+
+## 2026-08-21 · The client PDF carries no work-item keys
+
+**Decision.** `COD-140` and its siblings appear in the CSV and the Markdown, and nowhere in the PDF.
+Statuses in the PDF are humanised too — "In peer review", not `ready_for_peer_review`.
+
+**Why.** The design bundle's report artboard shows the keys in a mono column, so on a *number* the
+bundle would win. This is not a number, it is behaviour, and §4 of the brief is explicit that the
+client-facing export carries no internal identifiers, no reviewer names, no per-person hours and no
+internal comments. On behaviour the brief wins.
+
+The keys are also useless to the reader: they address rows in a database the client cannot open. A
+client reading `ready_for_peer_review` in a document prepared for them is a mistake, not a house style.
+
+**Rejected.** Keeping the keys behind an Include toggle. A toggle that leaks a client's report the one
+time somebody forgets is worse than not having the option.
+
+---
+
+## 2026-08-21 · The report page *is* the PDF
+
+**Decision.** `…/sprints/[number]/report` renders the document, and `…/report/pdf` drives headless
+Chromium over that same URL. There is no second template.
+
+**Why.** Two templates drift. The whole point of the preview is that what was approved on screen is
+what the client receives, and that guarantee is only real if there is one layout.
+
+Two consequences worth writing down, because both cost an afternoon:
+
+`counter(page)` inside a `position: fixed` element is **not populated** during print — the running
+footer rendered "Page 0 of 0". Page numbers come from Chromium's own `headerTemplate` /
+`footerTemplate` instead, which are the only place `pageNumber` and `totalPages` exist. The DOM header
+and footer stay for the screen preview and are hidden in `@media print` so nothing prints twice.
+
+`await page.evaluate(() => document.fonts.ready)` **never waits.** It resolves to a `FontFaceSet`,
+which is not serialisable, so the call fails at the boundary rather than blocking — and Chromium lays
+out the page with fallback metrics, moving every line break. The callback has to be `async` and return
+a plain value.
+
+Print CSS hides the app chrome by name (`[data-app-chrome]`) rather than `body > *:not(.report-root)`,
+because the report is nested inside the shell and the sibling selector can never match.
+
+---
+
+## 2026-08-21 · A selection can only narrow an export, never widen it
+
+**Decision.** `buildExportPayload(slug, sprintNumber, selectedKeys)` resolves the sprint from
+`slug` + `number` first, loads that sprint's items, and only then filters by `selectedKeys`. No
+parameter of any export path admits a key from outside.
+
+**Why.** Invariant 1, at the one place where a leak is not a rendering bug but a breach of confidence
+between two of our clients. Asking for `…/sprints/17/report?items=COD-900` under EVIM produces an
+empty report headed "Prepared for EVIM" — never Nile Atelier's item under EVIM's name. There is a test
+that enumerates every work item *outside* the sprint and asserts none of them appears in the rendered
+export.
+
+The PDF route is a second visitor to our own server with no session, so it carries a 60-second
+HMAC-signed token naming exactly which slug and sprint it may render. A leaked token is worth one
+report, once.
+
+---
+
+## 2026-08-21 · The export dialog has no state for "probably twelve items"
+
+**Decision.** `items` is `ExportItemSummary[] | null` and `selectedKeys` stays `null` until the list
+arrives. The quick actions are disabled and no preview renders until then.
+
+**Why.** The list is fetched after the dialog opens. The first version seeded the selection with an
+empty array, so clicking "drop drafts" in that window silently did nothing — no error, no spinner,
+just a button that did not work if you were fast. Modelling "not loaded yet" as a distinct state
+rather than as an empty one makes that unrepresentable.
+
+---
+
+## 2026-08-21 · The e2e suite takes a reader/writer lock on sprint totals
+
+**Decision.** `e2e/fixtures.ts` exposes a `sprintTotals` option. A test that moves a sprint-wide total
+declares `"write"` and takes a Postgres advisory lock exclusively; a test that asserts one declares
+`"read"` and takes it shared.
+
+**Why.** The suite runs in parallel against one seeded database. Logging an hour into `COD-147` and
+committing an imported row both move EVIM Week 17's totals for a few seconds, and half a dozen tests
+assert `16.0 / 46.0` against a live database read. The suite passed, then failed, then passed — the
+worst possible signal, because the natural reading is "flaky test, re-run it" when the actual finding
+is that the tests were never isolated.
+
+`pg_advisory_lock` / `pg_advisory_lock_shared` is exactly the primitive, and it is session-scoped, so
+ending the connection releases it even when a test throws. Readers still run concurrently; only a
+writer stops the world.
+
+Mutating tests also restore what they wrote — without that the *second* run of the day fails on a
+database the first one left dirty, which is how this was found.

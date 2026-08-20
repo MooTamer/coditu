@@ -44,6 +44,7 @@ export function Rail({
 
   return (
     <aside
+      data-app-chrome
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className="sticky top-0 flex h-dvh shrink-0 flex-col gap-1 overflow-hidden border-r border-[var(--hairline)] bg-[var(--raised)] p-3 pl-[max(0.75rem,env(safe-area-inset-left))]"

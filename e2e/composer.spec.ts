@@ -93,8 +93,14 @@ test.describe("comment composer", () => {
       }, { timeout: 8000 })
       .toBe(1);
 
-    const draft = await page.evaluate(() => window.localStorage.getItem("coditu.draft.COD-149"));
-    expect(draft, "the draft is cleared once the comment is posted").toBeNull();
+    // The database poll above can win the race against the browser's own state:
+    // the row lands before the client's await resolves and clears the draft. So
+    // the draft is polled too, rather than read once at the wrong moment.
+    await expect
+      .poll(() => page.evaluate(() => window.localStorage.getItem("coditu.draft.COD-149")), {
+        timeout: 5000,
+      })
+      .toBeNull();
   });
 
   test("@ opens the mention list and stores the profile id, not the name", async ({ adminPage: page }) => {

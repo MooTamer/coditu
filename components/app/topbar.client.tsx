@@ -1,8 +1,10 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { Download, Plus, Search } from "lucide-react";
 
+import { ExportDialog } from "@/components/app/export-dialog.client";
 import { ProjectSwitcher } from "@/components/app/project-switcher.client";
 import { ThemeToggle } from "@/components/app/theme-toggle.client";
 import { Mono } from "@/components/coditu/mono";
@@ -20,6 +22,7 @@ import { cn } from "@/lib/utils";
  */
 export function Topbar({ projects }: { projects: ProjectSummary[] }) {
   const pathname = usePathname();
+  const [exportOpen, setExportOpen] = useState(false);
 
   const match = /^\/app\/projects\/([^/]+)(?:\/sprints\/(\d+))?/.exec(pathname);
   const slug = match?.[1];
@@ -36,11 +39,13 @@ export function Topbar({ projects }: { projects: ProjectSummary[] }) {
       sprintNumber !== null ? sprint.number === sprintNumber : sprint.status === "active"
     ) ?? null;
 
-  const canExport = Boolean(activeSprint);
+  const exportSlugName = slug ?? activeProject?.slug ?? null;
+  const canExport = Boolean(activeSprint) && Boolean(exportSlugName);
   const clientName = activeProject?.clientName ?? "no project";
 
   return (
     <header
+      data-app-chrome
       // `min-w-0` on the flex parent AND on the switcher below: without it a
       // flex child refuses to shrink past its content and the whole right-hand
       // cluster is pushed off a 320px screen — clipped, so the Export button
@@ -76,6 +81,7 @@ export function Topbar({ projects }: { projects: ProjectSummary[] }) {
             answer. */}
         <button
           type="button"
+          onClick={() => setExportOpen(true)}
           disabled={!canExport}
           title={
             canExport
@@ -101,6 +107,16 @@ export function Topbar({ projects }: { projects: ProjectSummary[] }) {
           <span className="hidden sm:inline">New item</span>
         </button>
       </div>
+
+      {exportOpen && activeSprint && exportSlugName ? (
+        <ExportDialog
+          slug={exportSlugName}
+          sprintNumber={activeSprint.number}
+          sprintName={activeSprint.name}
+          clientName={clientName}
+          onClose={() => setExportOpen(false)}
+        />
+      ) : null}
     </header>
   );
 }

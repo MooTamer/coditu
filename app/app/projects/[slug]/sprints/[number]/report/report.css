@@ -1,0 +1,377 @@
+/*
+ * The client sprint report.
+ *
+ * Screen and print are the SAME layout — `…/report/pdf` prints this exact page,
+ * so a rule that only exists in one of the two would let the file drift from
+ * the preview. Only page furniture differs: the running header and footer are
+ * `position: fixed`, which a browser repeats on every printed page.
+ *
+ * Colours are literal rather than tokens on purpose. This document is always on
+ * white paper, and it must not follow the reader's theme — a client opening a
+ * dark-mode PDF is a bug that only appears at the moment it matters.
+ */
+
+.report {
+  --paper: #ffffff;
+  --report-ink: #0b0e14;
+  --report-muted: #52607a;
+  --report-faint: #5f6b80;
+  --report-rule: rgba(11, 14, 20, 0.14);
+  --report-hairline: rgba(11, 14, 20, 0.08);
+
+  background: var(--paper);
+  color: var(--report-ink);
+  font-family: var(--font-satoshi), "Instrument Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+/* On screen the report sits on a letter-width sheet so what you see is what
+   prints; in print the @page margin does the same job. */
+.report-body {
+  box-sizing: border-box;
+  margin: 0 auto;
+  max-width: 7.1in;
+  padding: 0.7in 0 1in;
+}
+
+.report-header,
+.report-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 7.1in;
+  margin: 0 auto;
+}
+
+.report-header {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--report-rule);
+}
+
+.report-footer {
+  padding-top: 10px;
+  border-top: 1px solid var(--report-rule);
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 9.5px;
+  color: var(--report-faint);
+}
+
+.report-wordmark {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.report-header-meta {
+  margin-left: auto;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--report-faint);
+}
+
+.report-page-number {
+  margin-left: auto;
+}
+
+/* --- cover ---------------------------------------------------------------- */
+
+.report-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.report-eyebrow-text {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1e4ae0;
+}
+
+.report-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, #2b57ff, #21e2c6, rgba(33, 226, 198, 0));
+}
+
+.report-prepared {
+  margin-top: 20px;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--report-muted);
+}
+
+.report-title {
+  margin-top: 14px;
+  font-size: 40px;
+  line-height: 1.04;
+  letter-spacing: -0.032em;
+  font-weight: 700;
+}
+
+.report-intro {
+  margin-top: 14px;
+  max-width: 62ch;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--report-muted);
+}
+
+.report-stats {
+  margin-top: 26px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.report-stat {
+  border: 1px solid rgba(11, 14, 20, 0.12);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.report-stat-label {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--report-faint);
+}
+
+.report-stat-value {
+  margin-top: 8px;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-stat-value.is-small {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* --- sections ------------------------------------------------------------- */
+
+.report-section {
+  margin-top: 28px;
+}
+
+.report-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.report-section h2,
+.report-heading {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.018em;
+}
+
+.report-heading {
+  margin-top: 34px;
+}
+
+.report-note {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--report-faint);
+}
+
+.report-bar {
+  margin-top: 12px;
+  display: flex;
+  height: 9px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #edf1f7;
+}
+
+.report-legend {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--report-muted);
+}
+
+.report-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.report-swatch {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.report-chart {
+  margin-top: 22px;
+  width: 100%;
+  height: auto;
+}
+
+/* --- items ---------------------------------------------------------------- */
+
+.report-group {
+  margin-top: 22px;
+}
+
+.report-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--report-rule);
+}
+
+.report-group-label {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.report-group-head .report-note {
+  margin-left: auto;
+}
+
+.report-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--report-hairline);
+}
+
+.report-item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.report-item-head h3 {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+.report-item-body {
+  margin-top: 8px;
+  max-width: 78ch;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--report-muted);
+}
+
+.report-criteria {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  list-style: none;
+  padding: 0;
+}
+
+.report-criteria li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--report-ink);
+}
+
+.report-criteria li.is-done {
+  color: var(--report-muted);
+}
+
+.report-check {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 10px;
+  color: #1e4ae0;
+  flex-shrink: 0;
+}
+
+.report a {
+  color: #1e4ae0;
+  text-decoration: none;
+}
+
+/* --- print ---------------------------------------------------------------- */
+
+@page {
+  size: letter portrait;
+  margin: 0.7in;
+}
+
+@media print {
+  /* The report is nested inside the app shell, so "hide everything that is not
+     the report" cannot be written as a sibling rule — `.report-root` is not a
+     child of body. Drop the chrome by name instead, and flatten the layout the
+     shell established so the document starts at the page edge. */
+  [data-app-chrome] {
+    display: none !important;
+  }
+
+  .report-root {
+    display: block !important;
+  }
+
+  .report-root,
+  .report-root * {
+    box-shadow: none !important;
+  }
+
+  .report {
+    min-height: 0;
+  }
+
+  .report-body {
+    max-width: none;
+    padding: 0.55in 0 0.5in;
+  }
+
+  /* The printed header and footer come from Chromium's own templates, which
+     are the only place `pageNumber` and `totalPages` are populated —
+     `counter(page)` inside a fixed element renders "Page 0 of 0". The DOM ones
+     are the screen preview, so they are hidden here to avoid printing twice. */
+  .report-header,
+  .report-footer {
+    display: none !important;
+  }
+
+  /* No item's heading orphans from its criteria. */
+  .keep,
+  .report-item,
+  .report-group-head {
+    break-inside: avoid;
+    orphans: 3;
+    widows: 3;
+  }
+
+  .report-heading,
+  .report-section h2 {
+    break-after: avoid;
+  }
+
+  /* Backgrounds carry meaning here — the distribution bar is the section. */
+  .report-bar,
+  .report-bar > span,
+  .report-swatch,
+  .report-rule {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

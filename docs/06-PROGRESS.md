@@ -23,11 +23,11 @@ real work, which is what the rule is protecting against.
 | 4 | **Supabase** — migrations, enums, triggers, views, indexes, RLS, `allowed_emails`, auth, middleware | `done` | `7835f6e` | `npm run db:test` (40 assertions) + `npm run test` |
 | 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `done` | `f0aecc4` | `npm run db:test` — `supabase/tests/seed.sql`, 20 assertions incl. **16.0 / 46.0** |
 | 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `done` | `acc2b54` | full gate; `/app` redirects to the active sprint and renders 16.0 / 46.0; no-sprint state renders with Export `disabled` + tooltip |
-| 7 | **Sprint table** — columns, chips, sticky, grouping, sum row, URL filters, mobile cards | `todo` | — | sum-equals-database test; container-query test at 320px |
+| 7 | **Sprint table** — columns, chips, sticky, grouping, sum row, URL filters, mobile cards | `done` | `69a77bd` | sum-equals-database test; container-query test at 320px |
 | 8 | **Item detail** — intercepting route, properties, criteria ring, log time, activity | `done` | `0631a5f` | `npm run e2e` — 9 specs: interception, focus trap, focus return, ring ratio, criterion write, time-log round trip, cross-project 404 |
 | 9 | **Comment thread** — composer, code, images, mentions, notifications, server-side JSON rendering | `done` | `34d54c9` | `npm run test` (43) + `npm run e2e` (31) — 10 hostile-JSON specs and 6 composer specs |
-| 10 | **Board, My work, People, Import** | `done` | pending | `npm run test` (68) + `npm run db:test` (63) + `npm run e2e` (37) — importer flags `"1a"` before writing anything |
-| 11 | **Export** — CSV, Markdown, PDF, item selection, persistence | `todo` | — | golden-file tests for CSV and Markdown; scoping test proving cross-project leakage is impossible |
+| 10 | **Board, My work, People, Import** | `done` | `d5ebdba` | `npm run test` (68) + `npm run db:test` (63) + `npm run e2e` (37) — importer flags `"1a"` before writing anything |
+| 11 | **Export** — CSV, Markdown, PDF, item selection, persistence | `done` | pending | `npm run test` (86) + `npm run e2e` (50, twice back to back) — golden-file CSV and Markdown; scoping proven at three levels; a real 3-page PDF read back with `pdftotext` |
 | 12 | **Marketing site** — sections, trace, work modal, metadata, brand assets | `todo` | — | `npm run build`; zero "Strukture" matches repo-wide |
 | 13 | **Motion pass** — every tier applied, reduced-motion verified, no `will-change` left pinned | `todo` | — | reduced-motion e2e; no persistent `will-change` after animation completion |
 | 14 | **Performance and a11y pass** — budgets asserted in CI, Lighthouse ≥ 95, axe clean | `todo` | — | Lighthouse CI ≥ 95 × 4; axe clean on table, detail, composer, export dialog |
@@ -204,3 +204,29 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   their item count. The counts were fine — they used `count(distinct)` — so only the hours were wrong,
   and wrong by a number that looks like a hard week. Fixed by migration; asserted in both pgTAP and e2e.
   **Next: step 11 — export (CSV, Markdown, PDF).**
+- **2026-08-21** — Step 11 done. Three formats from one payload builder: CSV (RFC 4180, BOM, stable
+  column set — an Include toggle blanks a value rather than dropping a column, so the file stays an
+  import target), Markdown with the facts front-loaded, and a PDF that is the `…/report` route printed
+  by headless Chromium rather than a second template. The dialog previews the real output live,
+  remembers the selection under `coditu.export.v1`, and offers quick actions for the subsets the team
+  actually exports.
+
+  Scoping is proven at three levels: unit (the generators only render what they are handed), route
+  (`?items=COD-900` under EVIM yields an empty report headed "Prepared for EVIM", not Nile's item),
+  and database-driven (every work item outside the sprint is enumerated and asserted absent from the
+  rendered export). A real 112 KB, 3-page PDF was read back with `pdftotext`: running header and
+  footer, "Page 1 of 3 / 2 of 3 / 3 of 3", humanised statuses, German text intact, and no `COD-` keys,
+  reviewer names, per-person hours or internal comments anywhere in it.
+
+  Four bugs, all in `05-DECISIONS.md`: `counter(page)` in a fixed element prints "Page 0 of 0";
+  `document.fonts.ready` cannot cross `page.evaluate`, so the print never waited for fonts; the print
+  rule hid the chrome with a sibling selector that could not match; and the dialog's quick actions
+  silently did nothing if clicked before the item list arrived.
+
+  The e2e suite itself had a defect worth more than any of those: it passed, then failed, then passed.
+  Mutating tests were racing the tests that assert `16.0 / 46.0` against a live database read, and were
+  leaving writes behind so the *second* run failed on a database the first one dirtied. Tests that move
+  a sprint total now take a Postgres advisory lock exclusively and readers take it shared. Verified by
+  running the suite twice back to back — 50 passed, 50 passed, database back at its seed values.
+  **Next: step 12 — the marketing site, and with it the last 13 "Strukture" strings.**
+

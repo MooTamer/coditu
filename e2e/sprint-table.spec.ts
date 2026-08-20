@@ -11,6 +11,9 @@ const SPRINT = "/app/projects/meinevim/sprints/17";
  * the browser rendered — no fixture in the middle that could drift from both.
  */
 test.describe("sprint table", () => {
+  // Asserts sprint-wide totals, so it must not observe a half-applied write.
+  test.use({ sprintTotals: "read" });
+
   test("the footer sum equals the database", async ({ adminPage: page }) => {
     const [totals] = await query<{ logged: string; estimate: string; items: string }>(
       `select coalesce(sum(w.minutes_logged), 0)::text  as logged,

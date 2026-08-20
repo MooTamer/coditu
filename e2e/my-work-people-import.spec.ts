@@ -1,6 +1,9 @@
 import { expect, query, test } from "./fixtures";
 
 test.describe("my work", () => {
+  // Asserts sprint-wide totals, so it must not observe a half-applied write.
+  test.use({ sprintTotals: "read" });
+
   test.beforeEach(async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
   });
@@ -35,6 +38,9 @@ test.describe("my work", () => {
 });
 
 test.describe("people", () => {
+  // Asserts sprint-wide totals, so it must not observe a half-applied write.
+  test.use({ sprintTotals: "read" });
+
   test.beforeEach(async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
   });
@@ -77,6 +83,9 @@ test.describe("people", () => {
 
 test.describe("notion import", () => {
   test.describe.configure({ mode: "serial" });
+  // The commit adds a row to the active sprint, so nothing may read the
+  // sprint's totals while it is in flight.
+  test.use({ sprintTotals: "write" });
 
   const CSV = [
     "Task,Status,Hours Worked,Assignee,Reviewer,Deadline,Story Type,Grouping",

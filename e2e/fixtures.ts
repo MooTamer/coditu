@@ -62,7 +62,53 @@ export async function query<T = Record<string, unknown>>(sql: string, params: un
   }
 }
 
-export const test = base.extend<{ adminPage: Page }>({
+/**
+ * The suite runs in parallel against ONE seeded database, so a test that logs
+ * an hour into the sprint and a test that asserts "16.0 / 46.0" are a race
+ * waiting to happen — and it is the second run that finds it, not the first.
+ *
+ * Postgres already has the right primitive. A test that moves a sprint-wide
+ * total declares `sprintTotals: "write"` and takes the advisory lock
+ * exclusively; a test that asserts one declares `"read"` and takes it shared,
+ * so readers still run together and only a writer stops the world. The lock is
+ * session-scoped: ending the connection releases it even when the test throws,
+ * which an explicit unlock would not.
+ */
+const SPRINT_TOTALS_LOCK = 20260817;
+
+export type SprintTotals = "off" | "read" | "write";
+
+export const test = base.extend<{
+  sprintTotals: SprintTotals;
+  sprintTotalsLock: void;
+  adminPage: Page;
+}>({
+  sprintTotals: ["off", { option: true }],
+
+  sprintTotalsLock: [
+    async ({ sprintTotals }, use) => {
+      if (sprintTotals === "off") {
+        await use();
+        return;
+      }
+
+      const client = new Client({ connectionString: DB_URL });
+      await client.connect();
+      try {
+        await client.query(
+          sprintTotals === "write"
+            ? "select pg_advisory_lock($1::bigint)"
+            : "select pg_advisory_lock_shared($1::bigint)",
+          [SPRINT_TOTALS_LOCK]
+        );
+        await use();
+      } finally {
+        await client.end();
+      }
+    },
+    { auto: true },
+  ],
+
   adminPage: async ({ page }, use) => {
     await signIn(page, SEED_ADMIN);
     await use(page);
