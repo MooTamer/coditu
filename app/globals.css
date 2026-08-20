@@ -4,41 +4,288 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ==========================================================================
+   Coditu design tokens
+   Source: design/project/*.dc.html — see docs/01-DESIGN-SYSTEM.md.
+   Every number here is the spec. No component hardcodes a hex.
+
+   The prototype's `brightness` prop is a design-tool control and does not
+   ship; brightness 0 is the canonical token set.
+   ========================================================================== */
+
+/* `.light` mirrors `:root` so a subtree can be forced light even when `.dark`
+   sits on <html>. Custom properties inherit, so without this a nested light
+   panel silently keeps whatever the document root declared. */
+:root,
+.light {
+  /* --- surfaces: light ------------------------------------------------- */
+  --canvas: #ebeff6;
+  --raised: #f8fafc;
+  --overlay: #ffffff;
+  --hairline: rgba(11, 14, 20, 0.1);
+  --hairline-strong: rgba(11, 14, 20, 0.18);
+
+  /* --- ink: light ------------------------------------------------------ */
+  --ink: #0b0e14;
+  --ink-muted: #52607a;
+  --ink-faint: #5f6b80;
+
+  /* --- action + scrim: light ------------------------------------------- */
+  --accent: #1e4ae0;
+  --scrim: rgba(11, 14, 20, 0.45);
+
+  /* --- brand: identical in both themes --------------------------------- */
+  --signal-from: #2b57ff;
+  --signal-to: #21e2c6;
+  --signal: linear-gradient(135deg, #2b57ff, #21e2c6);
+
+  /* --- functional: identical in both themes ---------------------------- */
+  --amber: #ffb020;
+  --rose: #ff5f6d;
+  --jade: #23c97f;
+  --slate: #6b7a90;
+
+  /* --- standalone amber text (over-estimate, near deadline, days left) -- */
+  --amber-text: #7a4f00;
+
+  /* --- status chips: light. Each is a themed pair — a value tuned for
+         paper drops to ~2.4:1 on the dark canvas. ---------------------- */
+  --chip-draft-fg: #52607a;
+  --chip-draft-bg: rgba(107, 122, 144, 0.14);
+  --chip-todo-fg: #3f4c63;
+  --chip-todo-bg: rgba(107, 122, 144, 0.16);
+  --chip-dev-started-fg: #183fbf;
+  --chip-dev-started-bg: rgba(43, 87, 255, 0.12);
+  --chip-ready-for-peer-review-fg: #7a4f00;
+  --chip-ready-for-peer-review-bg: rgba(255, 176, 32, 0.18);
+  --chip-in-review-fg: #0b6b5c;
+  --chip-in-review-bg: rgba(33, 226, 198, 0.18);
+  --chip-changes-requested-fg: #a81f2c;
+  --chip-changes-requested-bg: rgba(255, 95, 109, 0.14);
+  --chip-done-fg: #0e6b4b;
+  --chip-done-bg: rgba(35, 201, 127, 0.18);
+  --chip-blocked-fg: #a81f2c;
+  --chip-blocked-bg: rgba(255, 95, 109, 0.2);
+
+  /* --- tones: light ---------------------------------------------------- */
+  --tone-amber-fg: #7a4f00;
+  --tone-amber-bg: rgba(255, 176, 32, 0.18);
+  --tone-jade-fg: #0e6b4b;
+  --tone-jade-bg: rgba(35, 201, 127, 0.18);
+  --tone-slate-fg: #3f4c63;
+  --tone-slate-bg: rgba(107, 122, 144, 0.14);
+
+  /* --- grouping: deterministic hue per integer.
+         The hue lives on the 3px left border and the <=6% row tint only —
+         an 11px label in the hue never clears 4.5:1, so the number is ink.
+         Sticky-cell backgrounds are OPAQUE and pre-mixed per group, or the
+         sticky column goes see-through as it scrolls over a tinted row. --- */
+  --group-1: #5b8cff;
+  --group-2: #12a594;
+  --group-1-tint: rgba(91, 140, 255, 0.05);
+  --group-2-tint: rgba(18, 165, 148, 0.05);
+  --group-1-sticky: #f4f7fe;
+  --group-2-sticky: #f2f9f8;
+  --group-chip-bg: rgba(11, 14, 20, 0.04);
+
+  /* --- elevation ------------------------------------------------------- */
+  --shadow-overlay: 0 24px 64px -24px rgba(0, 0, 0, 0.35);
+
+  /* --- geometry -------------------------------------------------------- */
+  --radius-chip: 6px;
+  --radius-control: 10px;
+  --radius-inner: 12px;
+  --radius-card: 14px;
+  --radius-list: 16px;
+  --radius-section: 20px;
+  --radius-pill: 999px;
+
+  --rail-collapsed: 72px;
+  --rail-expanded: 240px;
+  --topbar-h: 60px;
+  --row-h-comfortable: 52px;
+  --row-h-compact: 44px;
+  --app-gutter: clamp(16px, 2vw, 28px);
+
+  /* --- type: marketing, fluid ------------------------------------------ */
+  --text-display: clamp(2.75rem, 1.6rem + 5.2vw, 6rem);
+  --text-h1: clamp(2rem, 1.4rem + 2.2vw, 3rem);
+  --text-h2: clamp(1.75rem, 1.3rem + 1.9vw, 2.5rem);
+  --text-h3: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+  --text-h4: clamp(1.25rem, 1.1rem + 0.7vw, 1.5rem);
+  --text-body: clamp(1rem, 0.96rem + 0.18vw, 1.125rem);
+
+  /* --- section rhythm, also fluid -------------------------------------- */
+  --space-section: clamp(48px, 7vw, 104px);
+  --space-block: clamp(40px, 5vw, 72px);
+  --space-stack: clamp(24px, 4vw, 64px);
+  --site-gutter: clamp(20px, 3vw, 40px);
+
+  /* --- motion ---------------------------------------------------------- */
+  --ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-drift: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-micro: 200ms;
+  --dur-surface: 320ms;
+  --dur-section: 520ms;
+
+  /* --- shadcn/ui semantic layer, mapped onto the Coditu tokens above.
+         `ui-hover` is shadcn's hover surface; it is deliberately NOT the
+         brand action colour, which is --accent. --------------------------- */
+  --radius: 0.875rem;
+  --navbar-height: 5.5rem;
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--raised);
+  --card-foreground: var(--ink);
+  --popover: var(--overlay);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--raised);
+  --secondary-foreground: var(--ink);
+  --muted: var(--raised);
+  --muted-foreground: var(--ink-muted);
+  --ui-hover: rgba(11, 14, 20, 0.045);
+  --ui-hover-foreground: var(--ink);
+  --destructive: var(--rose);
+  --border: var(--hairline);
+  --input: var(--hairline-strong);
+  --ring: var(--accent);
+}
+
+.dark {
+  --canvas: #07090e;
+  --raised: #0c1119;
+  --overlay: #111826;
+  --hairline: rgba(255, 255, 255, 0.07);
+  --hairline-strong: rgba(255, 255, 255, 0.13);
+
+  --ink: #edf1f7;
+  --ink-muted: #93a0b4;
+  --ink-faint: #7c899c;
+
+  --accent: #21e2c6;
+  --scrim: rgba(7, 9, 14, 0.72);
+
+  --amber-text: #ffc24d;
+
+  --chip-draft-fg: #9aa7bb;
+  --chip-draft-bg: rgba(147, 160, 180, 0.16);
+  --chip-todo-fg: #aebacd;
+  --chip-todo-bg: rgba(147, 160, 180, 0.16);
+  --chip-dev-started-fg: #89a7ff;
+  --chip-dev-started-bg: rgba(43, 87, 255, 0.22);
+  --chip-ready-for-peer-review-fg: #ffc24d;
+  --chip-ready-for-peer-review-bg: rgba(255, 176, 32, 0.18);
+  --chip-in-review-fg: #4fe9d2;
+  --chip-in-review-bg: rgba(33, 226, 198, 0.16);
+  --chip-changes-requested-fg: #ff9aa2;
+  --chip-changes-requested-bg: rgba(255, 95, 109, 0.18);
+  --chip-done-fg: #63e3a9;
+  --chip-done-bg: rgba(35, 201, 127, 0.16);
+  --chip-blocked-fg: #ff9aa2;
+  --chip-blocked-bg: rgba(255, 95, 109, 0.22);
+
+  --tone-amber-fg: #ffc24d;
+  --tone-amber-bg: rgba(255, 176, 32, 0.18);
+  --tone-jade-fg: #63e3a9;
+  --tone-jade-bg: rgba(35, 201, 127, 0.16);
+  --tone-slate-fg: #aebacd;
+  --tone-slate-bg: rgba(147, 160, 180, 0.16);
+
+  --group-1-sticky: #111827;
+  --group-2-sticky: #0f1a1c;
+  --group-chip-bg: rgba(255, 255, 255, 0.06);
+
+  --shadow-overlay: 0 24px 64px -24px rgba(0, 0, 0, 0.45);
+
+  --ui-hover: rgba(255, 255, 255, 0.055);
+  --primary-foreground: #07090e;
+}
+
+/* ==========================================================================
+   Tailwind theme — semantic names only. `inline` so utilities reference the
+   custom property rather than copying its value, which is what lets a single
+   `.dark` class re-theme every utility at once.
+   ========================================================================== */
+
 @theme inline {
+  --font-sans: var(--font-satoshi);
+  --font-display: var(--font-satoshi);
+  --font-mono: var(--font-jetbrains);
+
+  --color-canvas: var(--canvas);
+  --color-raised: var(--raised);
+  --color-overlay: var(--overlay);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+
+  --color-accent: var(--accent);
+  --color-scrim: var(--scrim);
+
+  --color-signal-from: var(--signal-from);
+  --color-signal-to: var(--signal-to);
+
+  --color-amber: var(--amber);
+  --color-amber-text: var(--amber-text);
+  --color-rose: var(--rose);
+  --color-jade: var(--jade);
+  --color-slate: var(--slate);
+
+  --color-group-1: var(--group-1);
+  --color-group-2: var(--group-2);
+
+  --radius-chip: var(--radius-chip);
+  --radius-control: var(--radius-control);
+  --radius-inner: var(--radius-inner);
+  --radius-card: var(--radius-card);
+  --radius-list: var(--radius-list);
+  --radius-section: var(--radius-section);
+  --radius-pill: var(--radius-pill);
+
+  --shadow-overlay: var(--shadow-overlay);
+
+  --spacing-rail: var(--rail-collapsed);
+  --spacing-rail-open: var(--rail-expanded);
+  --spacing-topbar: var(--topbar-h);
+  --spacing-row: var(--row-h-comfortable);
+  --spacing-row-compact: var(--row-h-compact);
+
+  --text-display: var(--text-display);
+  --text-h1: var(--text-h1);
+  --text-h2: var(--text-h2);
+  --text-h3: var(--text-h3);
+  --text-h4: var(--text-h4);
+
+  --ease-entrance: var(--ease-entrance);
+  --ease-exit: var(--ease-exit);
+  --ease-drift: var(--ease-drift);
+
+  /* shadcn/ui semantic layer */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-manrope);
-  --font-mono: var(--font-inter);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-ui-hover: var(--ui-hover);
+  --color-ui-hover-foreground: var(--ui-hover-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -48,79 +295,13 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
-:root {
-  --radius: 0.875rem;
-  --navbar-height: 5.5rem;
-  --background: oklch(0.992 0.005 255);
-  --foreground: oklch(0.24 0.022 257);
-  --card: oklch(1 0 0 / 0.92);
-  --card-foreground: oklch(0.24 0.022 257);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.24 0.022 257);
-  --primary: oklch(0.43 0.14 256);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.97 0.008 250);
-  --secondary-foreground: oklch(0.24 0.022 257);
-  --muted: oklch(0.973 0.006 254);
-  --muted-foreground: oklch(0.49 0.026 258);
-  --accent: oklch(0.963 0.018 255);
-  --accent-foreground: oklch(0.26 0.022 257);
-  --destructive: oklch(0.58 0.2 27);
-  --border: oklch(0.905 0.01 253);
-  --input: oklch(0.905 0.01 253);
-  --ring: oklch(0.72 0.035 252);
-  --chart-1: oklch(0.65 0.2 41);
-  --chart-2: oklch(0.6 0.12 184);
-  --chart-3: oklch(0.4 0.08 227);
-  --chart-4: oklch(0.83 0.18 84);
-  --chart-5: oklch(0.77 0.17 70);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.205 0.02 258);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.255 0.02 258 / 0.86);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0.02 258);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.75 0.11 252);
-  --primary-foreground: oklch(0.22 0.02 258);
-  --secondary: oklch(0.29 0.02 258);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.29 0.02 258);
-  --muted-foreground: oklch(0.75 0.02 256);
-  --accent: oklch(0.31 0.03 257);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.65 0.05 252);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
+/* ==========================================================================
+   Base
+   ========================================================================== */
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
 
   html,
@@ -131,58 +312,315 @@
 
   html {
     scroll-behavior: smooth;
+    /* every number that sits in a column or updates in place must not jitter */
+    font-variant-numeric: tabular-nums;
   }
 
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "ss01" 1, "cv02" 1, "cv03" 1;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-satoshi), "Instrument Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
     overflow-x: clip;
   }
 
-  h1,
-  h2,
-  h3,
-  h4 {
-    font-family: var(--font-manrope), var(--font-inter), sans-serif;
+  /* 2px accent ring plus a 2px canvas-coloured offset so it reads on any
+     surface — raised card, overlay, or a tinted table row alike. */
+  *:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 
-@layer utilities {
-  .section-anchor {
-    scroll-margin-top: calc(var(--navbar-height) + 0.75rem);
-  }
+/* ==========================================================================
+   Keyframes — carried over from the bundle verbatim
+   ========================================================================== */
 
-  .landing-grid {
-    background-image:
-      linear-gradient(to right, rgb(15 23 42 / 0.055) 1px, transparent 1px),
-      linear-gradient(to bottom, rgb(15 23 42 / 0.055) 1px, transparent 1px);
-    background-size: 40px 40px;
-    background-position: center;
-  }
-
-  .landing-noise {
-    position: relative;
-    isolation: isolate;
-  }
-
-  .landing-noise::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(rgb(15 23 42 / 0.16) 0.65px, transparent 0.65px);
-    background-size: 3px 3px;
-    opacity: 0.22;
-    mix-blend-mode: multiply;
+@keyframes cd-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
+
+@keyframes cd-word {
+  from {
+    opacity: 0;
+    transform: translateY(0.6em);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes cd-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cd-draw {
+  from {
+    stroke-dashoffset: var(--len, 1200);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes cd-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.35);
+  }
+}
+
+/* --- the mark's three motion states ---------------------------------------
+   The shipped mark is a FILLED tapered path, not a stroked one, so "draw-on
+   via stroke-dashoffset" is done on a mask: a stroked circle on the arc's own
+   radius sweeps open and reveals the fill beneath it. Same mechanism the brief
+   asks for, applied to the object we actually ship. -------------------------- */
+
+@keyframes cd-mark-draw {
+  from {
+    stroke-dashoffset: 69.115;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes cd-mark-node-in {
+  0% {
+    transform: scale(0);
+  }
+  70% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes cd-mark-node-travel {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- the reveal tiers ------------------------------------------------------
+   These are CSS, not JavaScript, and that is the whole point: a server-rendered
+   section must be VISIBLE before hydration. A JS-driven reveal ships its hidden
+   state in the HTML, so a slow or failed hydration leaves real content at
+   opacity 0 — invisible to a reader, and an LCP element that never paints.
+   `animation-fill-mode: both` plus a parse-time start gives the same resolve
+   with none of that exposure. -------------------------------------------- */
+
+@keyframes cd-reveal-micro {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cd-reveal-surface {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes cd-reveal-section {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes cd-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   Animation and helper classes.
+
+   Deliberately NOT inside `@layer utilities`. Tailwind v4 prunes that layer to
+   the utilities it can see used, and an attribute selector like
+   `[data-reveal="section"]` is not a class name — it gets dropped from the
+   build silently, keyframes and all, and the reveal quietly stops animating
+   with nothing in the output to explain why.
+   ========================================================================== */
+
+/* The app's only spinner is the rotating Coditu mark. */
+.cd-spin {
+  animation: cd-spin 1.4s linear infinite;
+  transform-box: view-box;
+  transform-origin: 16px 16px;
+}
+
+.cd-word {
+  display: inline-block;
+  animation: cd-word 620ms var(--ease-entrance) both;
+}
+
+.cd-rise {
+  animation: cd-rise 520ms var(--ease-entrance) both;
+}
+
+.cd-draw {
+  animation: cd-draw 1100ms var(--ease-entrance) both;
+}
+
+.cd-pulse {
+  animation: cd-pulse 3.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Draw-on: the arc resolves over 900ms, then the node overshoots in. Runs
+   once, on first paint of the hero. */
+.cd-mark-draw {
+  animation: cd-mark-draw 900ms var(--ease-entrance) both;
+}
+
+.cd-mark-node-in {
+  animation: cd-mark-node-in 260ms var(--ease-entrance) 900ms both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Hover: the node runs the arc and settles back at the aperture. Rotating
+   about the mark's centre traces the same circle `offset-path` would, with
+   no layout cost and no JS. */
+.cd-mark-hover:hover .cd-mark-node,
+.cd-mark-hover:focus-visible .cd-mark-node {
+  animation: cd-mark-node-travel 600ms var(--ease-entrance);
+  transform-box: view-box;
+  transform-origin: 16px 16px;
+}
+
+[data-reveal="micro"] {
+  animation: cd-reveal-micro var(--dur-micro) var(--ease-entrance) both;
+}
+
+[data-reveal="surface"] {
+  animation: cd-reveal-surface var(--dur-surface) var(--ease-entrance) both;
+}
+
+[data-reveal="section"] {
+  animation: cd-reveal-section var(--dur-section) var(--ease-entrance) both;
+}
+
+/* Scroll-triggered reveals hold at frame zero until an observer releases
+   them — but ONLY when JS is actually running. Without the `js` class on
+   <html> the animation simply plays on parse, so a reader with a broken
+   bundle sees the content rather than an empty page. */
+.js [data-reveal-on-view] {
+  animation-play-state: paused;
+}
+
+.js [data-reveal-on-view][data-revealed] {
+  animation-play-state: running;
+}
+
+.signal-gradient {
+  background-image: var(--signal);
+}
+
+.section-anchor {
+  scroll-margin-top: calc(var(--navbar-height) + 0.75rem);
+}
+
+
+/* ==========================================================================
+   Reduced motion — one check, one place, applied globally.
+   Not "animation-duration: 0.01ms" on everything: the brief asks for a calm
+   but still-animated interface (120ms opacity), with no transforms and no
+   blur, the trace frozen at full draw, and the spinner stopped.
+   ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
+    animation-duration: 120ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 120ms !important;
     scroll-behavior: auto !important;
   }
+
+  /* transform- and blur-carrying entrances degrade to a plain opacity fade */
+  .cd-word,
+  .cd-rise {
+    animation: cd-fade 120ms linear both !important;
+  }
+
+  /* the trace freezes at full draw; the spinner and the trace nodes stop */
+  .cd-draw {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+
+  .cd-spin,
+  .cd-pulse {
+    animation: none !important;
+  }
+
+  /* the mark resolves instantly and its node neither overshoots nor travels */
+  .cd-mark-draw {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+
+  .cd-mark-node-in,
+  .cd-mark-hover:hover .cd-mark-node,
+  .cd-mark-hover:focus-visible .cd-mark-node {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  /* every tier collapses to a plain 120ms opacity fade — no travel, no blur */
+  [data-reveal] {
+    animation-name: cd-fade !important;
+    animation-duration: 120ms !important;
+    animation-timing-function: linear !important;
+  }
 }
+

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 
+import { CoditusMarkDefs } from "@/components/coditu/coditus-mark";
 import { ThemeProvider } from "@/components/theme-provider";
-import { display, inter } from "@/lib/fonts";
+import { fontVariables } from "@/lib/fonts";
 import { marketingContent } from "@/lib/marketing-content";
 import { getSiteUrl } from "@/lib/site-url";
 
@@ -27,14 +28,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="overflow-x-clip">
-      <body
-        className={`${inter.variable} ${display.variable} min-w-0 overflow-x-clip font-sans antialiased`}
-      >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem={false}
-        >
+      <body className={`${fontVariables} min-w-0 overflow-x-clip font-sans antialiased`}>
+        {/* Dark-first: the design is built on the dark canvas and light is the
+            alternate. System preference is deliberately not consulted — see
+            docs/05-DECISIONS.md. */}
+        {/* Marks that JS is running, before first paint. Scroll-triggered
+            reveals only hold their hidden frame when this class is present, so
+            a blocked or broken bundle degrades to content that is simply
+            visible rather than an empty page. */}
+        <script
+          dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }}
+        />
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          {/* One gradient definition per document; every mark references it. */}
+          <CoditusMarkDefs />
           {children}
         </ThemeProvider>
       </body>

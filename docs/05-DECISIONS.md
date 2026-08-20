@@ -70,3 +70,104 @@ by SHA-256, so that half of §1's asset migration is a verified no-op rather tha
 
 **Rejected.** Committing both (permanent duplicate blob); committing only the zip (unreadable to every
 future session without an unzip step).
+
+---
+
+## 2026-08-20 · `<Reveal>` is CSS, not Framer Motion
+
+**Decision.** The entrance primitive is a Server Component driving a CSS keyframe animation
+(`[data-reveal="micro|surface|section"]`). Framer Motion stays available for genuinely orchestrated
+work — the shared-element work modal, drag — via `revealVariants` / `revealTransition` in
+`lib/motion.ts`, and `useReveal` resolves a tier for those client components.
+
+**Why.** The first implementation used Framer Motion and it server-rendered its own hidden state: the
+HTML shipped with real content at `opacity: 0`, verified by grepping the served markup. That is
+invisible content until React hydrates — a blank section for anyone on a slow connection, a completely
+blank one if the bundle fails, and an LCP element that never paints, against a ≥95 Lighthouse target.
+CSS animates at parse and finishes whether or not JS arrives. It also ships zero JavaScript for the
+common case, which the 130KB marketing budget cares about.
+
+Scroll-triggered reveals still need an observer, so `<RevealObserver>` pauses the animation and
+releases it on intersection — but **only while `<html>` carries the `js` class**, added by an inline
+script before first paint. No JS, no `js` class, animation plays on parse. The enhancement can never
+become a gate.
+
+**On `will-change`:** absent from the parse-time path on purpose. Browsers already promote an element
+with a running transform/opacity/filter animation; the hint only earns its keep ahead of an animation
+that has not started. `<RevealObserver>` does set it on release and clear it on `animationend`, because
+there the element really does wait. Nothing is left pinned — `scripts/verify-tokens.sh` and a DOM sweep
+both confirm zero pinned `will-change` on `/dev/tokens`.
+
+**Rejected.** Framer Motion with `initial={false}` (loses the entrance entirely); rendering visible then
+animating on mount (a visible flash of the final state before it animates).
+
+---
+
+## 2026-08-20 · Animation rules live outside `@layer utilities`
+
+**Decision.** All `cd-*` and `[data-reveal]` rules and their `@keyframes` sit in plain, unlayered CSS in
+`app/globals.css`. `scripts/verify-tokens.sh` greps the **built** stylesheet for them.
+
+**Why.** Tailwind v4 prunes `@layer utilities` to the utilities it can see used. An attribute selector
+like `[data-reveal="section"]` is not a class name, so it was dropped from the build — along with its
+keyframes — with nothing in the build log to say so. Everything typechecked, the build passed, and
+every reveal on the site silently stopped animating. This is invisible from the source, which is why
+the check reads the output.
+
+**Rejected.** Safelisting the selectors (couples the build config to every future animation name);
+converting them to class utilities (loses the attribute API and hides the trap rather than catching it).
+
+---
+
+## 2026-08-20 · Dark is the default theme, system preference is not consulted
+
+**Decision.** `next-themes` runs with `defaultTheme="dark"` and `enableSystem={false}`. The theme
+toggle persists an explicit choice.
+
+**Why.** The design is dark-first — the marketing prototype hard-codes a `#07090E` body and the brand
+is built on that canvas — and the earlier brief says to make dark the default. The App prototype's
+`theme: "light"` default is a design-tool preview control, the same kind of thing as its `brightness`
+knob, not a product decision. Consulting the system preference would mean roughly half of first-time
+visitors never see the intended design. It is one prop to change if the team disagrees.
+
+**Rejected.** `enableSystem` with a dark fallback — better UX in the abstract, but it contradicts
+"dark is the default" and makes the first impression a coin flip.
+
+---
+
+## 2026-08-20 · `accent` in Tailwind means the brand action colour
+
+**Decision.** shadcn/ui's `accent` / `accent-foreground` pair — which means "hover surface", not
+"brand" — is renamed to `ui-hover` / `ui-hover-foreground`. `--accent` and the `accent` Tailwind
+utility are Coditu's action colour (`#1E4AE0` light, `#21E2C6` dark), matching the design bundle's own
+use of `var(--accent)`. Four call sites in `badge.tsx` and `button.tsx` were updated.
+
+**Why.** Leaving both would mean `var(--accent)` in raw CSS is aqua while `bg-accent` in Tailwind is a
+4%-opacity grey — a trap that would be tripped repeatedly and produce very wrong-looking UI.
+
+**Rejected.** Naming Coditu's colour `--signal-accent` and leaving shadcn's alone — the design bundle
+says `var(--accent)` everywhere, and renaming it in the code would break the correspondence between
+the spec and the implementation.
+
+---
+
+## 2026-08-20 · The component is `CoditusMark`, spelling and all
+
+**Decision.** `components/coditu/coditus-mark.tsx` exports `CoditusMark`, `CoditusMarkDefs`, and
+`CoditusLockup`.
+
+**Why.** The implementation brief specifies `<CoditusMark />`. It reads like a typo for "Coditu", but it
+is the name in the contract, and a future session searching the brief for `CoditusMark` should find the
+file. Recorded here so nobody "fixes" the spelling and quietly breaks every reference.
+
+---
+
+## 2026-08-20 · The marketing route is pinned to light until step 12
+
+**Decision.** `app/(marketing)/layout.tsx` wraps the pre-Coditu landing sections in `.light` with an
+explicit light ground. The file is deleted in step 12.
+
+**Why.** Step 3 repointed the shadcn semantic tokens at the Coditu palette and made dark the default,
+so the old light-only sections render dark text on a dark canvas. The alternative is a visibly broken
+homepage for the nine steps it takes to build the app. The file names itself as temporary and says what
+removes it.

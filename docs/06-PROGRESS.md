@@ -17,8 +17,8 @@ real work, which is what the rule is protecting against.
 | # | Step | Status | Commit | Verification |
 |---|---|---|---|---|
 | 1 | **Bootstrap** — `CLAUDE.md`, `docs/*`, `design/` committed, `._*` junk removed, `.gitignore` fixed | `done` | `5e7d53e` | `git status --porcelain` clean, no `error:` lines |
-| 2 | **Import the design** — asset migration to `public/`, `docs/01-DESIGN-SYSTEM.md` filled from the bundle | `done` | pending | `./scripts/verify-assets.sh` |
-| 3 | **Tokens and primitives** — `globals.css`, Tailwind theme, fonts, `<Reveal>`, `<StatusChip>`, `<Mono>`, `<CoditusMark />` | `todo` | — | `/dev/tokens` renders every token and motion tier in both themes; `npm run build` |
+| 2 | **Import the design** — asset migration to `public/`, `docs/01-DESIGN-SYSTEM.md` filled from the bundle | `done` | `bb987e7` | `./scripts/verify-assets.sh` |
+| 3 | **Tokens and primitives** — `globals.css`, Tailwind theme, fonts, `<Reveal>`, `<StatusChip>`, `<Mono>`, `<CoditusMark />` | `done` | pending | `npm run lint && npm run typecheck && npm run build && ./scripts/verify-tokens.sh`; `/dev/tokens` in both themes |
 | 3b | **Legacy asset deletion** — `public/logo*.svg`, `logo-wordmark.*`, `design/project/assets/legacy/*`. Deferred by §1 to *after* the Coditu marks are wired in | `todo` | — | zero references to `logo.svg` / `logo-stripped.svg` / `logo-wordmark.*`; files gone |
 | 4 | **Supabase** — migrations, enums, triggers, views, indexes, RLS, `allowed_emails`, auth, middleware | `todo` | — | `npm run db:test` green, positive **and** negative RLS cases |
 | 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `todo` | — | test asserts the footer sum reads **16.0 / 46.0** |
@@ -70,3 +70,20 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   marks are wired in, so they are tracked as step 3b. 13 "Strukture" strings remain across
   `app/layout.tsx`, `components/landing/{navbar,footer}.tsx`, `lib/marketing-content.ts`, `README.md`.
   **Next: step 3 — tokens and primitives.**
+- **2026-08-20** — Step 3 done. Satoshi self-hosted (four weights, ITF Free Font Licence, served by
+  `next/font/local` from `lib/fonts/files/` rather than `public/` so they are not shipped twice);
+  JetBrains Mono via `next/font/google`. `app/globals.css` carries the full token layer for both
+  themes, mirrored into the Tailwind theme. Primitives: `<Reveal>`, `<RevealObserver>`, `useReveal`,
+  `<StatusChip>`, `<ToneChip>`, `<Mono>`, `<CoditusMark>`, `<CoditusLockup>`, plus `lib/work-items.ts`
+  for the status vocabulary and grouping hues. `/dev/tokens` renders everything in both themes.
+
+  Three real defects found and fixed while verifying, all recorded in `05-DECISIONS.md`:
+  the Framer-based `<Reveal>` server-rendered content at `opacity: 0`; Tailwind silently pruned the
+  `[data-reveal]` rules and their keyframes out of the build; and shadcn's `accent` token collided with
+  the brand action colour. `scripts/verify-tokens.sh` greps the **built** CSS so the pruning trap
+  cannot come back unnoticed.
+
+  Known interim state: `app/(marketing)/layout.tsx` pins the old landing sections to light, and they
+  still prerender at `opacity: 0` via the legacy Framer reveal and leave `will-change` pinned. Both go
+  away in step 12/13; `verify-tokens.sh` reports it as a WARN, not a failure.
+  **Next: step 4 — Supabase schema, triggers, views, indexes, RLS, auth, middleware.**
