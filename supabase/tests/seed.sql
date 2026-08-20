@@ -10,7 +10,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(20);
+select plan(23);
 
 -- ---------------------------------------------------------------------------
 -- The headline numbers
@@ -180,6 +180,43 @@ select is(
   (select sum(w.minutes_logged)::int from public.work_items w
    join public.sprints s on s.id = w.sprint_id where s.number = 17),
   'v_sprint_summary agrees with the underlying table'
+);
+
+-- =========================================================================
+-- v_person_load must not multiply hours by item count
+--
+-- Joining work_items and time_entries in one query and then aggregating does
+-- exactly that: Mohamed holds or reviews five items and logged 750 minutes, and
+-- the first version of this view reported 3750. The counts looked right the
+-- whole time, because they used count(distinct).
+-- =========================================================================
+
+select is(
+  (select v.minutes_logged::int from public.v_person_load v
+   join public.profiles p on p.id = v.profile_id
+   join public.sprints s on s.id = v.sprint_id
+   where s.number = 17 and p.initials = 'MT'),
+  750,
+  'person load: Mohamed logged 750 minutes, not a multiple of it'
+);
+
+select is(
+  (select sum(v.minutes_logged)::int from public.v_person_load v
+   join public.sprints s on s.id = v.sprint_id where s.number = 17),
+  (select sum(t.minutes)::int from public.time_entries t
+   join public.work_items w on w.id = t.work_item_id
+   join public.sprints s on s.id = w.sprint_id where s.number = 17),
+  'person load: the per-person hours add up to the sprint total'
+);
+
+select is(
+  (select v.assigned_count::int || '/' || v.review_queue_count::int
+   from public.v_person_load v
+   join public.profiles p on p.id = v.profile_id
+   join public.sprints s on s.id = v.sprint_id
+   where s.number = 17 and p.initials = 'AE'),
+  '1/3',
+  'person load: Abdelrahman has 1 assigned and 3 in his review queue'
 );
 
 select * from finish();

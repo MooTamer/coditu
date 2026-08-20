@@ -370,3 +370,38 @@ trap. The focus-trap selector was also missing `[contenteditable]`, which is tab
 visibility test, which reports every `position: fixed` element as hidden.
 
 Three small bugs, one symptom: keyboard users leaving the dialog without meaning to.
+
+---
+
+## 2026-08-21 · `v_person_load` computes each aggregate independently
+
+**Decision.** Migration `20260821090000_fix_person_load_fanout.sql` rewrites the view so
+`assigned_count`, `review_queue_count`, and `minutes_logged` are three separate scalar subqueries
+rather than one query joining `work_items` and `time_entries` together.
+
+**Why.** Joining two independent one-to-many relations and then aggregating multiplies the rows. Every
+time entry appeared once per work item the person was attached to, so the hours were the real total
+times the item count: Mohamed holds or reviews five Week 17 items and logged 750 minutes, and the view
+reported **3750** — 62.5 hours against a 40-hour capacity, on a sprint whose entire total is 16.
+
+The counts were right the whole time, because they used `count(distinct w.id)` — which is exactly what
+makes this hard to spot. A number that is wrong by a plausible multiple looks like a busy week.
+`supabase/tests/seed.sql` now asserts that the per-person hours sum to the sprint total, and
+`e2e/my-work-people-import.spec.ts` asserts the same thing through the page.
+
+Same family as the `minutes_logged` rollup recomputing instead of incrementing: with sums, a wrong
+answer is indistinguishable from a right one unless something checks.
+
+---
+
+## 2026-08-21 · Every import issue records the column it came from
+
+**Decision.** `ParsedRow.issues` is `{ column, message }[]` rather than `string[]`.
+
+**Why.** The mapping table has to mark a column "unmatched" when any row failed in it. The first
+version matched the issue's *message text* against the column name, which meant
+`No profile named "Nobody Here"` never matched the `Assignee` column — the row was correctly flagged
+and skipped, but the column above it still read "mapped". A reader would have fixed the row and never
+known which column to look at.
+
+Recording the origin makes it a fact rather than a guess.

@@ -25,8 +25,8 @@ real work, which is what the rule is protecting against.
 | 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `done` | `acc2b54` | full gate; `/app` redirects to the active sprint and renders 16.0 / 46.0; no-sprint state renders with Export `disabled` + tooltip |
 | 7 | **Sprint table** — columns, chips, sticky, grouping, sum row, URL filters, mobile cards | `todo` | — | sum-equals-database test; container-query test at 320px |
 | 8 | **Item detail** — intercepting route, properties, criteria ring, log time, activity | `done` | `0631a5f` | `npm run e2e` — 9 specs: interception, focus trap, focus return, ring ratio, criterion write, time-log round trip, cross-project 404 |
-| 9 | **Comment thread** — composer, code, images, mentions, notifications, server-side JSON rendering | `done` | pending | `npm run test` (43) + `npm run e2e` (31) — 10 hostile-JSON specs and 6 composer specs |
-| 10 | **Board, My work, People, Import** | `todo` | — | `npm run test`; importer flags the `"1a"` grouping case before committing |
+| 9 | **Comment thread** — composer, code, images, mentions, notifications, server-side JSON rendering | `done` | `34d54c9` | `npm run test` (43) + `npm run e2e` (31) — 10 hostile-JSON specs and 6 composer specs |
+| 10 | **Board, My work, People, Import** | `done` | pending | `npm run test` (68) + `npm run db:test` (63) + `npm run e2e` (37) — importer flags `"1a"` before writing anything |
 | 11 | **Export** — CSV, Markdown, PDF, item selection, persistence | `todo` | — | golden-file tests for CSV and Markdown; scoping test proving cross-project leakage is impossible |
 | 12 | **Marketing site** — sections, trace, work modal, metadata, brand assets | `todo` | — | `npm run build`; zero "Strukture" matches repo-wide |
 | 13 | **Motion pass** — every tier applied, reduced-motion verified, no `will-change` left pinned | `todo` | — | reduced-motion e2e; no persistent `will-change` after animation completion |
@@ -190,3 +190,17 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   every mention lost its profile id; the focus trap missed `[contenteditable]` and used `offsetParent`
   as a visibility test; and the composer opened on `onFocus`, dropping focus to `<body>` mid-tab.
   **Next: step 10 — Board, My work, People, Import.**
+- **2026-08-21** — Step 10 done. `/app/my-work` (assigned, review queue, mentions with an unread dot
+  in the rail), `/app/people` (load against capacity, framed as capacity rather than a target), and
+  `/app/import` — a Notion CSV importer with a hand-written RFC 4180 parser, preview-then-commit, and
+  the same code running both so what you approve is what gets written. The board landed with step 7.
+
+  The importer refuses to guess: `"1a"` grouping, an ambiguous `04/13/2026`, an unknown assignee, a
+  status it does not recognise — each flags its row, names its column, and skips. Hours convert to
+  integer minutes at the boundary. 25 new unit tests cover the parser and every mapper.
+
+  One real bug: **`v_person_load` reported Mohamed at 62.5 h against a 40 h capacity** on a sprint
+  totalling 16. Joining `work_items` and `time_entries` in one query multiplied each person's hours by
+  their item count. The counts were fine — they used `count(distinct)` — so only the hours were wrong,
+  and wrong by a number that looks like a hard week. Fixed by migration; asserted in both pgTAP and e2e.
+  **Next: step 11 — export (CSV, Markdown, PDF).**
