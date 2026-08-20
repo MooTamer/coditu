@@ -24,7 +24,7 @@ real work, which is what the rule is protecting against.
 | 5 | **Seed** — clients, projects, Week 17 with `COD-140`…`COD-151` exactly as in the bundle, plus a closed Week 16 | `done` | `f0aecc4` | `npm run db:test` — `supabase/tests/seed.sql`, 20 assertions incl. **16.0 / 46.0** |
 | 6 | **App shell** — rail, topbar, project switcher, routing, theme, empty states | `done` | `acc2b54` | full gate; `/app` redirects to the active sprint and renders 16.0 / 46.0; no-sprint state renders with Export `disabled` + tooltip |
 | 7 | **Sprint table** — columns, chips, sticky, grouping, sum row, URL filters, mobile cards | `todo` | — | sum-equals-database test; container-query test at 320px |
-| 8 | **Item detail** — intercepting route, properties, criteria ring, log time, activity | `todo` | — | `npm run test`; hard navigation renders the full page |
+| 8 | **Item detail** — intercepting route, properties, criteria ring, log time, activity | `done` | pending | `npm run e2e` — 9 specs: interception, focus trap, focus return, ring ratio, criterion write, time-log round trip, cross-project 404 |
 | 9 | **Comment thread** — composer, code, images, mentions, notifications, server-side JSON rendering | `todo` | — | XSS test: a comment whose JSON carries a hostile node renders inert |
 | 10 | **Board, My work, People, Import** | `todo` | — | `npm run test`; importer flags the `"1a"` grouping case before committing |
 | 11 | **Export** — CSV, Markdown, PDF, item selection, persistence | `todo` | — | golden-file tests for CSV and Markdown; scoping test proving cross-project leakage is impossible |
@@ -157,3 +157,20 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   hydration; `minmax(280px, 1fr)` overflowed at 320px; and the topbar's right-hand controls were
   pushed off-screen and *clipped* — no scrollbar, just unreachable buttons.
   **Next: step 8 — item detail as an intercepting route.**
+- **2026-08-21** — Step 8 done. `@modal` + `(.)items/[key]` intercepts a soft navigation into a
+  dialog; a hard navigation renders the full page. Both call the same `ItemDetailBody`, so they cannot
+  drift. The modal traps focus, closes on `Esc`, locks body scroll (compensating for the scrollbar so
+  the page does not jump), and **returns focus to the row that opened it**.
+
+  The gradient criteria ring is the bundle's `r=15` / `stroke-dasharray="94.2"`, driven by the real
+  ratio and optimistic on toggle. Log time steps in half hours and posts integer minutes. Properties,
+  comments and the activity feed all render; the comment body is the flattened `body_text` until step 9
+  brings the JSON walker.
+
+  `getWorkItem` looks up by key **and** project slug **and** sprint number together — asking for
+  `/projects/nile-atelier/sprints/1/items/COD-140` 404s rather than rendering EVIM's item under Nile
+  Atelier's heading. There is a test.
+
+  One bug: item links were relative (`items/COD-140`), which resolves against the parent directory and
+  404'd on every row. They are absolute now.
+  **Next: step 9 — the comment thread.**

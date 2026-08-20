@@ -25,7 +25,7 @@ const DOT: Record<WorkItemStatus, string> = {
  * a board that stacks vertically is a list, and the whole point of the board is
  * seeing the columns side by side.
  */
-export function SprintBoard({ rows }: { rows: WorkItemRow[] }) {
+export function SprintBoard({ rows, basePath }: { rows: WorkItemRow[]; basePath: string }) {
   const present = STATUS_DISPLAY_ORDER.filter((status) => rows.some((row) => row.status === status));
 
   return (
@@ -51,7 +51,7 @@ export function SprintBoard({ rows }: { rows: WorkItemRow[] }) {
               {items.map((item) => (
                 <Link
                   key={item.id}
-                  href={`items/${item.key}`}
+                  href={`${basePath}/items/${item.key}`}
                   className="flex flex-col gap-[10px] rounded-inner border border-l-[3px] border-[var(--hairline)] bg-[var(--canvas)] p-3"
                   style={{ borderLeftColor: groupingHue(item.grouping) ?? "transparent" }}
                 >

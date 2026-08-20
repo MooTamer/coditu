@@ -59,6 +59,7 @@ export default async function SprintPage({
   const isBoard = query.view === "board";
   const rowHeight = query.density === "compact" ? 44 : 52;
   const canAssign = profile.role === "admin" || profile.role === "lead";
+  const basePath = `/app/projects/${slug}/sprints/${number}`;
 
   return (
     // `@container` so the table can switch to cards on its OWN width. The rail
@@ -82,18 +83,19 @@ export default async function SprintPage({
           filter or sort — that is where a table visibly hitches. */}
       <Reveal tier="section" delay={0.12}>
         {isBoard ? (
-          <SprintBoard rows={visible} />
+          <SprintBoard rows={visible} basePath={basePath} />
         ) : (
           <>
             <SprintTable
               rows={visible}
               allRows={sprint.items}
+              basePath={basePath}
               canReorder={canAssign}
               currentProfileId={profile.id}
               canAssign={canAssign}
               rowHeight={rowHeight}
             />
-            <SprintCards rows={visible} allRows={sprint.items} />
+            <SprintCards rows={visible} allRows={sprint.items} basePath={basePath} />
           </>
         )}
       </Reveal>

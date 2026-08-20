@@ -1,0 +1,164 @@
+import { expect, query, test } from "./fixtures";
+
+const SPRINT = "/app/projects/meinevim/sprints/17";
+const ITEM = `${SPRINT}/items/COD-140`;
+
+test.describe("item detail", () => {
+  test.beforeEach(async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+  });
+
+  test("a soft navigation intercepts into a modal", async ({ adminPage: page }) => {
+    await page.goto(SPRINT);
+    await page.getByRole("link", { name: "Add optional titles to all webparts" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("Add optional titles to all webparts");
+    // The URL changes even though the sprint stayed rendered underneath.
+    await expect(page).toHaveURL(new RegExp(`${ITEM}$`));
+    await expect(page.locator("table")).toBeVisible();
+  });
+
+  test("a hard navigation to the same URL renders the full page", async ({ adminPage: page }) => {
+    await page.goto(ITEM);
+
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 1, name: "Add optional titles to all webparts" })).toBeVisible();
+    // The full page offers a way back; the modal has a close button instead.
+    await expect(page.getByRole("link", { name: /Sprint — Week 17/ })).toBeVisible();
+  });
+
+  test("Esc closes, unlocks scroll, and returns focus to the row", async ({ adminPage: page }) => {
+    await page.goto(SPRINT);
+
+    const opener = page.getByRole("link", { name: "Add optional titles to all webparts" });
+    await opener.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+
+    await page.keyboard.press("Escape");
+
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`${SPRINT}$`));
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe("");
+
+    // Focus back on the row that opened it — not on <body>, which would send a
+    // keyboard user to the top of the page.
+    const focused = await page.evaluate(() => document.activeElement?.textContent?.trim());
+    expect(focused).toBe("Add optional titles to all webparts");
+  });
+
+  test("focus is trapped inside the dialog", async ({ adminPage: page }) => {
+    await page.goto(SPRINT);
+    await page.getByRole("link", { name: "Add optional titles to all webparts" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    for (let i = 0; i < 25; i += 1) {
+      await page.keyboard.press("Tab");
+      const inside = await page.evaluate(() =>
+        !!document.querySelector('[role="dialog"]')?.contains(document.activeElement)
+      );
+      expect(inside, `focus escaped the dialog after ${i + 1} tabs`).toBe(true);
+    }
+  });
+
+  test("the criteria ring reflects the real ratio", async ({ adminPage: page }) => {
+    const [counts] = await query<{ done: string; total: string }>(
+      `select count(*) filter (where c.is_done)::text as done, count(*)::text as total
+       from acceptance_criteria c
+       join work_items w on w.id = c.work_item_id
+       where w.key = 'COD-140'`
+    );
+
+    await page.goto(ITEM);
+    await expect(page.getByText(`${counts.done} / ${counts.total}`, { exact: true })).toBeVisible();
+
+    // dasharray 94.2 is 2*pi*15 from the bundle; the offset is the undone share.
+    const offset = await page
+      .locator('circle[stroke-dasharray="94.2"]')
+      .getAttribute("stroke-dashoffset");
+    const expected = (94.2 * (Number(counts.total) - Number(counts.done))) / Number(counts.total);
+    expect(Number(offset)).toBeCloseTo(expected, 1);
+  });
+
+  test("ticking a criterion persists, and the ring follows", async ({ adminPage: page }) => {
+    await page.goto(ITEM);
+
+    const criterion = page.getByRole("button", { name: /No min-height/ });
+    await page.goto(`${SPRINT}/items/COD-142`);
+
+    const target = page.getByRole("button", { name: /No min-height/ });
+    const before = await target.getAttribute("aria-pressed");
+    await target.click();
+
+    await expect(target).toHaveAttribute("aria-pressed", before === "true" ? "false" : "true");
+
+    // And in the database, not just on screen.
+    await expect
+      .poll(async () => {
+        const [row] = await query<{ is_done: boolean }>(
+          `select c.is_done from acceptance_criteria c
+           join work_items w on w.id = c.work_item_id
+           where w.key = 'COD-142' and c.body = 'No min-height'`
+        );
+        return String(row.is_done);
+      }, { timeout: 5000 })
+      .toBe(before === "true" ? "false" : "true");
+
+    // Put it back so the suite is re-runnable.
+    await target.click();
+    await expect(target).toHaveAttribute("aria-pressed", before ?? "false");
+    expect(criterion).toBeDefined();
+  });
+
+  test("the highlight is announced, not just coloured", async ({ adminPage: page }) => {
+    await page.goto(ITEM);
+    // The amber rule is invisible to a screen reader, so the meaning is in text.
+    await expect(page.getByText("Discuss before implementing:")).toBeAttached();
+    await expect(page.getByText(/Confirm with EVIM whether the toggle default/)).toBeVisible();
+  });
+
+  test("logging time updates the item and the sprint sum", async ({ adminPage: page }) => {
+    const before = await query<{ minutes: string }>(
+      `select minutes_logged::text as minutes from work_items where key = 'COD-147'`
+    );
+    const start = Number(before[0].minutes);
+
+    await page.goto(`${SPRINT}/items/COD-147`);
+    // Default is 1.5h; step down once to log 1.0h.
+    await page.getByRole("button", { name: "Half an hour less" }).click();
+    await page.getByRole("button", { name: /^Log 1\.0 h$/ }).click();
+
+    await expect
+      .poll(async () => {
+        const [row] = await query<{ minutes: string }>(
+          `select minutes_logged::text as minutes from work_items where key = 'COD-147'`
+        );
+        return Number(row.minutes);
+      }, { timeout: 8000 })
+      .toBe(start + 60);
+
+    // Clean up so the 16.0 / 46.0 assertion elsewhere keeps holding.
+    await query(
+      `delete from time_entries where id in (
+         select t.id from time_entries t join work_items w on w.id = t.work_item_id
+         where w.key = 'COD-147' order by t.created_at desc limit 1)`
+    );
+    await expect
+      .poll(async () => {
+        const [row] = await query<{ minutes: string }>(
+          `select minutes_logged::text as minutes from work_items where key = 'COD-147'`
+        );
+        return Number(row.minutes);
+      }, { timeout: 5000 })
+      .toBe(start);
+  });
+
+  test("an item cannot be reached under another client's URL", async ({ adminPage: page }) => {
+    // Invariant 1. COD-140 is EVIM's; asking for it under Nile Atelier must not
+    // render it with Nile's name in the breadcrumb.
+    const response = await page.goto("/app/projects/nile-atelier/sprints/1/items/COD-140");
+    expect(response?.status()).toBe(404);
+  });
+});

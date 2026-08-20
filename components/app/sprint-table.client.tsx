@@ -57,6 +57,7 @@ const HEAD =
 export function SprintTable({
   rows,
   allRows,
+  basePath,
   canReorder,
   currentProfileId,
   canAssign,
@@ -66,6 +67,9 @@ export function SprintTable({
   rows: WorkItemRow[];
   /** Every row in the sprint, unfiltered — what the sum is computed from. */
   allRows: WorkItemRow[];
+  /** Absolute path of this sprint. Item links are built from it — a relative
+   *  `items/KEY` resolves against the PARENT directory and 404s. */
+  basePath: string;
   canReorder: boolean;
   currentProfileId: string;
   canAssign: boolean;
@@ -170,6 +174,7 @@ export function SprintTable({
             <Row
               key={row.id}
               row={row}
+              basePath={basePath}
               canReorder={canReorder}
               currentProfileId={currentProfileId}
               canAssign={canAssign}
@@ -236,6 +241,7 @@ function indexOf(rows: WorkItemRow[], id: string | number) {
 
 function Row({
   row,
+  basePath,
   canReorder,
   currentProfileId,
   canAssign,
@@ -243,6 +249,7 @@ function Row({
   onToast,
 }: {
   row: WorkItemRow;
+  basePath: string;
   canReorder: boolean;
   currentProfileId: string;
   canAssign: boolean;
@@ -283,7 +290,7 @@ function Row({
             {row.key}
           </Mono>
           <Link
-            href={`items/${row.key}`}
+            href={`${basePath}/items/${row.key}`}
             title={row.title}
             className="truncate text-[14.5px] font-medium hover:text-[var(--accent)]"
           >

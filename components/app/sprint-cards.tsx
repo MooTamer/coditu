@@ -15,7 +15,15 @@ import { groupingHue, groupingTint } from "@/lib/work-items";
  * wide screen with an expanded rail, and switch to cards on a narrow screen
  * where the table would actually have fitted.
  */
-export function SprintCards({ rows, allRows }: { rows: WorkItemRow[]; allRows: WorkItemRow[] }) {
+export function SprintCards({
+  rows,
+  allRows,
+  basePath,
+}: {
+  rows: WorkItemRow[];
+  allRows: WorkItemRow[];
+  basePath: string;
+}) {
   const filtered = rows.length !== allRows.length;
   const summed = filtered ? rows : allRows;
   const logged = summed.reduce((total, row) => total + row.minutesLogged, 0);
@@ -28,7 +36,7 @@ export function SprintCards({ rows, allRows }: { rows: WorkItemRow[]; allRows: W
         return (
           <Link
             key={row.id}
-            href={`items/${row.key}`}
+            href={`${basePath}/items/${row.key}`}
             className="flex flex-col gap-3 rounded-card border border-l-[3px] border-[var(--hairline)] p-4"
             style={{
               borderLeftColor: hue ?? "var(--hairline)",
