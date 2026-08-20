@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #F6F8FB; color: #0B0E14; font-family: Satoshi, "Instrument Sans", sans-serif; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3, h4, p, ul, li, table, figure { margin: 0; }
+  ul { padding: 0; list-style: none; }
+  a { color: inherit; text-decoration: none; }
+  a:hover { color: var(--accent); }
+  button { font: inherit; }
+  table { border-collapse: collapse; width: 100%; }
+  *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  @keyframes cd-spin { to { transform: rotate(360deg); } }
+  @keyframes cd-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .spin { animation: cd-spin 1.4s linear infinite; transform-box: view-box; transform-origin: 16px 16px; }
+  .rise { animation: cd-rise 240ms cubic-bezier(0.16,1,0.3,1) both; }
+  @media (prefers-reduced-motion: reduce) { .spin, .rise { animation: none !important; } }
+</style>
+</helmet>
+
+<svg width="0" height="0" style="position: absolute; overflow: hidden;" aria-hidden="true">
+  <symbol id="evim" viewBox="0 0 134.2 187">
+    <g fill="currentColor">
+      <path d="M102.5,38.8c0-9-7.3-16.3-16.3-16.3s-1.8,0-2.7.2c-2.2,4.9-6.7,8.6-12.2,9.5-.9,2-1.4,4.2-1.4,6.5,0,9,7.3,16.3,16.3,16.3s16.3-7.2,16.3-16.2"></path>
+      <path d="M84.9,16.3c0-9-7.3-16.3-16.3-16.3s-16.3,7.3-16.3,16.3,0,1.8.2,2.7c5,2.1,8.8,6.7,9.7,12.3,1.9.8,4.1,1.3,6.3,1.3,9.1,0,16.4-7.3,16.4-16.3"></path>
+      <path d="M61.2,40.2c.8-1.9,1.3-4.1,1.3-6.3,0-9-7.3-16.3-16.3-16.3s-16.3,7.3-16.3,16.3,7.3,16.3,16.3,16.3,1.7,0,2.6-.2c2.1-5.1,6.8-8.9,12.4-9.8"></path>
+      <path d="M70.2,41.3c-2-.8-4.1-1.3-6.4-1.3-9,0-16.3,7.3-16.3,16.3s7.3,16.3,16.3,16.3,16.3-7.3,16.3-16.3,0-1.7-.2-2.5c-5.1-2.2-8.9-6.9-9.7-12.5"></path>
+      <path d="M0,129.4v37.3h23v-6.3h-14.3v-10.1h13.8v-6.3h-13.8v-8.2h14.3v-6.3H0ZM57.3,129.4l-9.9,25.1h0l-10.7-25.1h-9.3l17,38.3h5.1l17.3-38.3h-9.4ZM71.5,166.7h8.7v-37.3h-8.7v37.3ZM121.5,128.4l-10.5,24.6-11-24.6h-6.1l-7.5,38.3h8.7l3.9-23.2h.1l9.7,23.7h3l10.1-23.7h.1l3.5,23.2h8.7l-6.7-38.3h-6Z"></path>
+      <path d="M113.1,55c.5-3.1-3.9-15.2-6.2-21.1h0c-.3-.9-.9-1.9-1.9-1.7-1.2.2-2.3,2.1-2.2,3.7,0,1,.5,3,1,5.2.9,3.8,2,8.6,1.6,11.3,0,0-.1.4-.4,1h-.1c.5,0,.9,0,1.3,0,.3,0,.5.2.8.3.3,0,.5.3.7.5.8.8.8,2.3.5,3.2-.1.2-.2.5-.3.8-.1.2-.2.4-.2.5l-.4.9c-.1.2-.2.5-.3.7-.2.5-.4.9-.6,1.4-.1.2-.2.5-.3.7l-.4,1.1c-.1.3-.3.7-.4,1l-.2.4c-.1.3-.3.6-.4,1-.2.5-.4.9-.6,1.4-.3.8-.8,1.8-1.3,2.8-.3.5-.5.9-.8,1.3v.2c-.1,0-.4.4-.4.4h-.1q0,0-.1.2h-.1q-.1.2-.2.3t-.2.2h-.1c0,0-.1,0-.1,0,.1,0,.1-.2.2-.3.1,0,.1-.2.2-.2v-.2c.1,0,.4-.5.4-.5.2-.5.4-.9.6-1.4.4-1,.8-2,1.1-2.8s.6-1.6.9-2.4l1-2.6c.1-.2.2-.5.3-.7.2-.5.4-1,.6-1.4.2-.5.4-.9.6-1.4h0c.1-.2.2-.4.3-.7.1-.2.2-.4.3-.7.1-.2.1-.4.1-.7s.3-1.2-.4-1.9c-.1-.2-.3-.3-.5-.4l-.6-.3c-.4,0-1-.3-1.5,0-5.2,2.1-7.8,7.8-9.9,12.4-.2.5-.4,1-.6,1.4l-.4.9c-1.9,4-2.4,5.2-7.2,6.9-4.4,1.5-7.2,3-9.3,4.8-3.4,2.9-5.2,6.4-6.8,9.7-4.4,9.2-2.7,16.5-1.5,18.1,1.2,1.7,2.3,5.4,2.9,8h19c-.7-4.3-1.9-11.9-1.4-14s2.4-4.1,6.2-8c1.5-1.5,3.2-3.3,5.3-5.5l.9-1q6.4-6.9,8.1-11.8c1.4-3.9,2.3-11.7,2.9-16.8.3-1.9.5-3.3.6-4.2"></path>
+      <path d="M63.7,108.1c1.1-1.6,2.9-9-1.5-18.1-1.6-3.3-3.5-6.8-6.8-9.7-2.1-1.8-4.9-3.3-9.3-4.8-4.7-1.6-5.3-2.9-7.2-6.9l-.4-.9c-.2-.5-.4-.9-.6-1.4-2.1-4.6-4.7-10.2-9.9-12.4-.5-.2-1.1,0-1.5,0-.2,0-.5.2-.6.3-.2,0-.4.3-.5.4-.6.8-.4,1.7-.4,1.9s0,.4,0,.7c0,.2.2.5.3.7s.2.4.3.7h0c.2.5.4.9.6,1.4.2.4.4.9.6,1.4,0,.2.2.5.3.7l1,2.6c.3.8.6,1.6.9,2.4.3.8.7,1.8,1.1,2.8.2.4.4.9.6,1.4l.3.5v.2c0,0,.2.2.3.2,0,0,0,.2.2.3h0c0,0,0,0,0,0q0,0-.2-.2t-.2-.2h0q0,0,0-.2h0c0,0-.3-.5-.3-.5v-.2c-.4-.4-.6-.9-.9-1.3-.5-1-1-2-1.3-2.8-.2-.5-.4-.9-.6-1.4,0-.3-.3-.6-.4-1l-.3-.3c0-.3-.3-.7-.4-1l-.4-1.1c0-.2-.2-.5-.3-.7-.2-.4-.4-.9-.6-1.4,0-.2-.2-.5-.3-.7l-.4-.9c0-.2-.2-.3-.2-.5,0-.3-.2-.5-.3-.8-.3-1-.3-2.4.5-3.2.2-.2.4-.4.7-.5.2,0,.5-.2.8-.3.4,0,.8,0,1.3,0h0c-.3-.7-.4-.9-.4-1.1-.4-2.7.7-7.5,1.6-11.3.5-2.2,1-4.2,1-5.2,0-1.5-1.1-3.4-2.2-3.7-.9-.2-1.5.8-1.9,1.7h0c-2.3,6-6.7,18-6.2,21.1,0,1,.3,2.4.5,4,.6,5.1,1.5,12.8,2.9,16.8q1.7,4.9,8.1,11.8l.9,1c2.1,2.2,3.8,4,5.3,5.5,3.8,3.9,5.7,5.9,6.2,8s-.6,9.6-1.4,14h19c.7-2.5,1.8-6.1,3-7.9"></path>
+    </g>
+  </symbol>
+</svg>
+
+<div ref="{{ rootRef }}" style="--canvas: #F1F4F9; --raised: #FCFDFE; --overlay: #FFFFFF; --hairline: rgba(11,14,20,0.09); --hairline-strong: rgba(11,14,20,0.16); --ink: #0B0E14; --ink-muted: #52607A; --ink-faint: #5F6B80; --accent: #1E4AE0; --scrim: rgba(11,14,20,0.45); background: var(--canvas); color: var(--ink); min-height: 100vh; display: flex;">
+
+  <aside onMouseEnter="{{ railOn }}" onMouseLeave="{{ railOff }}" style="width: {{ railWidth }}; flex-shrink: 0; border-right: 1px solid var(--hairline); background: var(--raised); display: flex; flex-direction: column; gap: 4px; padding: 16px 12px; transition: width 220ms cubic-bezier(0.16,1,0.3,1); position: sticky; top: 0; height: 100vh; overflow: hidden;">
+    <div style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 4px; margin-bottom: 12px;">
+      <svg width="26" height="26" viewBox="0 0 32 32" style="flex-shrink: 0;" aria-hidden="true"><path fill="url(#appMark)" d="M26.244 24.004 L25.263 25.089 L24.169 26.055 L22.974 26.89 L21.696 27.585 L20.35 28.13 L18.953 28.52 L17.524 28.75 L16.081 28.818 L14.642 28.723 L13.226 28.468 L11.849 28.055 L10.53 27.492 L9.285 26.785 L8.129 25.944 L7.077 24.98 L6.142 23.905 L5.335 22.735 L4.666 21.484 L4.143 20.167 L3.772 18.803 L3.557 17.408 L3.5 16 L3.602 14.597 L3.86 13.218 L4.271 11.878 L4.83 10.596 L5.527 9.386 L6.355 8.265 L7.301 7.246 L8.355 6.341 L9.501 5.563 L10.725 4.919 L12.012 4.417 L13.344 4.065 L14.705 3.864 L16.077 3.818 L17.444 3.927 L18.786 4.188 L20.089 4.597 L21.335 5.15 L22.508 5.837 L23.595 6.651 L24.582 7.58 L25.456 8.612 A 1 1 0 0 1 23.88 9.843 L23.122 9.012 L22.277 8.274 L21.356 7.636 L20.372 7.108 L19.337 6.694 L18.265 6.4 L17.168 6.229 L16.062 6.182 L14.961 6.26 L13.877 6.461 L12.826 6.781 L11.819 7.217 L10.87 7.762 L9.991 8.409 L9.192 9.148 L8.482 9.971 L7.872 10.867 L7.366 11.823 L6.973 12.828 L6.696 13.867 L6.538 14.93 L6.5 16 L6.583 17.065 L6.784 18.112 L7.102 19.127 L7.53 20.098 L8.064 21.012 L8.695 21.858 L9.416 22.626 L10.217 23.306 L11.087 23.891 L12.015 24.373 L12.988 24.746 L13.996 25.007 L15.023 25.153 L16.058 25.182 L17.087 25.094 L18.098 24.892 L19.076 24.579 L20.011 24.158 L20.891 23.636 L21.704 23.021 L22.44 22.319 L23.092 21.541 A 2 2 0 0 1 26.244 24.004 Z" /><circle cx="26.4" cy="16" r="1.6" fill="#21E2C6" /><defs><linearGradient id="appMark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient></defs></svg>
+      <span style="font-size: 16px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; opacity: {{ railLabel }}; transition: opacity 160ms;">Coditu</span>
+    </div>
+
+    <sc-for list="{{ nav }}" as="n" hint-placeholder-count="5">
+      <button type="button" onClick="{{ n.go }}" title="{{ n.label }}" style="display: flex; align-items: center; gap: 14px; height: 44px; padding: 0 12px; border-radius: 10px; border: none; background: {{ n.bg }}; color: {{ n.color }}; cursor: pointer; white-space: nowrap; overflow: hidden; transition: background 160ms;">
+        <span style="width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="{{ n.icon }}" /></svg>
+        </span>
+        <span style="font-size: 14.5px; font-weight: 500; opacity: {{ railLabel }}; transition: opacity 160ms;">{{ n.label }}</span>
+      </button>
+    </sc-for>
+
+    <div style="margin-top: auto; display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-top: 1px solid var(--hairline);">
+      <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 999px; border: 1px solid var(--hairline-strong); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 10px;">MT</span>
+      <span style="font-size: 13px; color: var(--ink-muted); white-space: nowrap; opacity: {{ railLabel }};">Mohamed · admin</span>
+    </div>
+  </aside>
+
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+
+    <header style="position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 16px; height: 60px; padding: 0 clamp(16px, 2vw, 28px); border-bottom: 1px solid var(--hairline); background: var(--raised);">
+      <div style="position: relative;">
+        <button type="button" onClick="{{ toggleProjectMenu }}" aria-expanded="{{ projectMenuOpen }}" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--hairline); background: var(--canvas); color: var(--ink); cursor: pointer;">
+          <sc-if value="{{ activeHasLogo }}" hint-placeholder-val="{{ true }}">
+            <svg width="11" height="15" viewBox="0 0 134.2 187" style="color: {{ activeAccent }}; flex-shrink: 0;" aria-hidden="true"><use href="#evim" /></svg>
+          </sc-if>
+          <sc-if value="{{ activeNoLogo }}" hint-placeholder-val="{{ false }}">
+            <span style="width: 8px; height: 8px; border-radius: 2px; background: {{ activeAccent }}; flex-shrink: 0;"></span>
+          </sc-if>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); white-space: nowrap;">{{ activeProjectName }}</span>
+          <span style="width: 1px; height: 14px; background: var(--hairline-strong);"></span>
+          <span style="font-size: 13.5px; font-weight: 500; white-space: nowrap; color: {{ sprintLabelColor }};">{{ activeSprintName }}</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--ink-faint);" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+
+        <sc-if value="{{ projectMenuOpen }}" hint-placeholder-val="{{ false }}">
+          <div class="rise" style="position: absolute; top: 42px; left: 0; z-index: 50; width: 340px; border: 1px solid var(--hairline-strong); border-radius: 14px; background: var(--overlay); box-shadow: 0 24px 64px -24px rgba(0,0,0,0.35); overflow: hidden;">
+            <div style="padding: 10px 14px 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-faint);">Projects</div>
+            <sc-for list="{{ projectList }}" as="p" hint-placeholder-count="4">
+              <button type="button" onClick="{{ p.pick }}" style="width: 100%; display: flex; align-items: center; gap: 11px; padding: 10px 14px; border: none; background: {{ p.bg }}; color: inherit; cursor: pointer; text-align: left;" style-hover="background: var(--canvas);">
+                <span style="width: 22px; height: 22px; flex-shrink: 0; border-radius: 6px; border: 1px solid var(--hairline); display: flex; align-items: center; justify-content: center; color: {{ p.accent }};">
+                  <sc-if value="{{ p.hasLogo }}" hint-placeholder-val="{{ false }}">
+                    <svg width="8" height="11" viewBox="0 0 134.2 187" aria-hidden="true"><use href="#evim" /></svg>
+                  </sc-if>
+                  <sc-if value="{{ p.noLogo }}" hint-placeholder-val="{{ true }}">
+                    <span style="width: 7px; height: 7px; border-radius: 2px; background: {{ p.accent }};"></span>
+                  </sc-if>
+                </span>
+                <span style="min-width: 0; flex: 1;">
+                  <span style="display: block; font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.name }}</span>
+                  <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint);">{{ p.client }}</span>
+                </span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: {{ p.stateColor }}; flex-shrink: 0;">{{ p.state }}</span>
+              </button>
+            </sc-for>
+            <div style="padding: 10px 14px 6px; border-top: 1px solid var(--hairline); font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-faint);">{{ sprintListLabel }}</div>
+            <sc-if value="{{ sprintListEmpty }}" hint-placeholder-val="{{ false }}">
+              <p style="padding: 4px 14px 14px; font-size: 12.5px; line-height: 1.5; color: var(--ink-muted);">{{ emptySprintNote }}</p>
+            </sc-if>
+            <sc-for list="{{ sprintList }}" as="s" hint-placeholder-count="2">
+              <button type="button" onClick="{{ s.pick }}" style="width: 100%; display: flex; align-items: center; gap: 11px; padding: 10px 14px; border: none; background: {{ s.bg }}; color: inherit; cursor: pointer; text-align: left;" style-hover="background: var(--canvas);">
+                <span style="width: 7px; height: 7px; border-radius: 999px; background: {{ s.dot }}; flex-shrink: 0;"></span>
+                <span style="font-size: 13.5px; font-weight: 500; flex: 1;">{{ s.name }}</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint);">{{ s.meta }}</span>
+              </button>
+            </sc-for>
+            <button type="button" onClick="{{ goProjects }}" style="width: 100%; display: flex; align-items: center; gap: 8px; padding: 11px 14px; border: none; border-top: 1px solid var(--hairline); background: var(--raised); color: var(--accent); cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-align: left;" style-hover="background: var(--canvas);">
+              Manage projects
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-left: auto;" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" /></svg>
+            </button>
+          </div>
+        </sc-if>
+      </div>
+
+      <button type="button" onClick="{{ openPalette }}" style="flex: 1; max-width: 420px; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--hairline); background: var(--canvas); color: var(--ink-faint); cursor: pointer; text-align: left;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M16.5 16.5L21 21" /></svg>
+        <span style="font-size: 13.5px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Search items, sprints, people</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; border: 1px solid var(--hairline); border-radius: 6px; padding: 2px 6px;">⌘K</span>
+      </button>
+
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+        <sc-if value="{{ syncing }}" hint-placeholder-val="{{ false }}">
+          <span style="display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);">
+            <svg width="16" height="16" viewBox="0 0 32 32" class="spin" aria-hidden="true"><path fill="url(#appMark)" d="M26.244 24.004 L23.092 21.541 A 2 2 0 0 1 26.244 24.004 Z M25.456 8.612 A 1 1 0 0 1 23.88 9.843 L23.122 9.012 L20.372 7.108 L17.168 6.229 L14.961 6.26 L11.819 7.217 L9.192 9.148 L7.366 11.823 L6.5 16 L7.102 19.127 L8.695 21.858 L11.087 23.891 L13.996 25.007 L17.087 25.094 L20.011 24.158 L22.44 22.319 L24.582 7.58 Z" /><circle cx="26.4" cy="16" r="1.6" fill="#21E2C6" /></svg>
+            saving
+          </span>
+        </sc-if>
+        <button type="button" onClick="{{ toggleTheme }}" aria-label="Toggle theme" style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid var(--hairline); background: transparent; color: var(--ink-muted); cursor: pointer;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="4.2" /><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6" /></svg>
+        </button>
+        <button type="button" onClick="{{ openExport }}" disabled="{{ exportDisabled }}" title="{{ exportTip }}" style="display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--hairline-strong); background: transparent; color: {{ exportColor }}; font-size: 13.5px; font-weight: 500; cursor: {{ exportCursor }}; white-space: nowrap; flex-shrink: 0;" style-hover="background: var(--canvas);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 19h16" /></svg>Export
+        </button>
+        <button type="button" onClick="{{ newItem }}" style="display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 10px; border: none; font-size: 13.5px; font-weight: 600; color: #07090E; background: linear-gradient(135deg, #2B57FF, #21E2C6); cursor: pointer; white-space: nowrap; flex-shrink: 0;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>New item
+        </button>
+      </div>
+    </header>
+
+    <sc-if value="{{ sprintEmpty }}" hint-placeholder-val="{{ false }}">
+      <main style="flex: 1; padding: clamp(16px, 2vw, 28px); display: flex; align-items: flex-start;">
+        <section style="width: 100%; max-width: 560px; border: 1px solid var(--hairline); border-radius: 20px; background: var(--raised); padding: 32px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="width: 8px; height: 8px; border-radius: 2px; background: {{ activeAccent }};"></span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-faint);">{{ activeProjectName }}</span>
+          </div>
+          <h1 style="margin-top: 16px; font-size: 22px; font-weight: 700; letter-spacing: -0.022em;">{{ sprintEmptyTitle }}</h1>
+          <p style="margin-top: 12px; font-size: 14px; line-height: 1.6; color: var(--ink-muted);">{{ sprintEmptyBody }}</p>
+          <div style="margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap;">
+            <button type="button" onClick="{{ goProjects }}" style="height: 38px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--hairline-strong); background: transparent; color: var(--ink); font-size: 13.5px; font-weight: 500; cursor: pointer;" style-hover="background: var(--canvas);">See all projects</button>
+            <button type="button" onClick="{{ toggleProjectMenu }}" style="height: 38px; padding: 0 16px; border-radius: 10px; border: none; font-size: 13.5px; font-weight: 600; color: #07090E; background: linear-gradient(135deg, #2B57FF, #21E2C6); cursor: pointer;">Switch project</button>
+          </div>
+        </section>
+      </main>
+    </sc-if>
+
+    <sc-if value="{{ showSprint }}" hint-placeholder-val="{{ true }}">
+      <main style="flex: 1; min-width: 0; padding: clamp(16px, 2vw, 28px); display: flex; flex-direction: column; gap: 20px;">
+
+        <section style="border: 1px solid var(--hairline); border-radius: 20px; background: var(--raised); overflow: hidden;">
+          <div style="padding: 24px 26px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px;">
+            <div style="min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <a href="https://www.evim.de" target="_blank" rel="noreferrer" style="display: inline-flex; align-items: center; gap: 8px; padding: 4px 9px 4px 7px; border: 1px solid var(--hairline); border-radius: 999px; background: var(--canvas);">
+                  <svg width="10" height="14" viewBox="0 0 134.2 187" style="color: #2B57FF;" aria-hidden="true"><use href="#evim" /></svg>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase;">EVIM</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);">evim.de</span>
+                </a>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">sprint 17 · active</span>
+              </div>
+              <h1 style="margin-top: 10px; font-size: 26px; font-weight: 700; letter-spacing: -0.024em;">Sprint — Week 17</h1>
+              <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-muted);">
+                <span>2026-08-17 → 2026-08-23</span>
+                <span style="padding: 2px 8px; border-radius: 6px; background: {{ daysLeftBg }}; color: {{ daysLeftColor }};">3 days left</span>
+              </div>
+              <div style="margin-top: 20px; display: flex; align-items: center; gap: 8px;">
+                <span style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--hairline-strong); background: var(--canvas); font-family: 'JetBrains Mono', monospace; font-size: 10.5px;" title="Mohamed Tamer — 12.5h logged">MT</span>
+                <span style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--hairline-strong); background: var(--canvas); font-family: 'JetBrains Mono', monospace; font-size: 10.5px;" title="Abdelrahman Elkhateeb — 3h logged">AE</span>
+                <span style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--hairline-strong); background: var(--canvas); font-family: 'JetBrains Mono', monospace; font-size: 10.5px;" title="Ahmed Yehia — 0.5h logged">AY</span>
+                <span style="margin-left: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);">hover for per-person load</span>
+              </div>
+            </div>
+
+            <div style="min-width: 0;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Status distribution</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-muted);">12 items</span>
+              </div>
+              <div style="margin-top: 12px; display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--canvas);">
+                <span title="dev started — 1" style="width: 8.33%; background: #2B57FF;"></span>
+                <span title="ready for peer review — 4" style="width: 33.33%; background: #FFB020;"></span>
+                <span title="todo — 5" style="width: 41.67%; background: #6B7A90;"></span>
+                <span title="draft — 2" style="width: 16.67%; background: rgba(107,122,144,0.35);"></span>
+              </div>
+              <div style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-muted);">
+                <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: #2B57FF;"></span>dev started 1</span>
+                <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: #FFB020;"></span>peer review 4</span>
+                <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: #6B7A90;"></span>todo 5</span>
+                <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 8px; height: 8px; border-radius: 2px; background: rgba(107,122,144,0.35);"></span>draft 2</span>
+              </div>
+              <div style="margin-top: 20px; display: flex; align-items: baseline; gap: 10px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 26px; font-variant-numeric: tabular-nums;">16.0</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink-faint);">/ 46.0 h estimated</span>
+              </div>
+            </div>
+
+            <div style="min-width: 0;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Burn-up · hours logged</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);">35%</span>
+              </div>
+              <svg viewBox="0 0 300 108" style="margin-top: 12px; width: 100%; height: auto;" role="img" aria-label="Cumulative hours logged: 0, 3, 7, 12, 16 against 46 estimated">
+                <line x1="0" y1="8" x2="300" y2="8" stroke="var(--hairline)" stroke-width="1" stroke-dasharray="3 4" />
+                <text x="300" y="4" text-anchor="end" fill="var(--ink-faint)" font-family="JetBrains Mono, monospace" font-size="8">46 est</text>
+                <line x1="0" y1="96" x2="300" y2="96" stroke="var(--hairline-strong)" stroke-width="1" />
+                <path d="M0 96 L60 89 L120 79 L180 67 L240 60 L240 96 L0 96 Z" fill="rgba(43,87,255,0.10)" />
+                <path d="M0 96 L60 89 L120 79 L180 67 L240 60" fill="none" stroke="url(#burnGrad)" stroke-width="2" />
+                <circle cx="240" cy="60" r="3" fill="#21E2C6" />
+                <text x="0" y="106" fill="var(--ink-faint)" font-family="JetBrains Mono, monospace" font-size="8">17</text>
+                <text x="60" y="106" fill="var(--ink-faint)" font-family="JetBrains Mono, monospace" font-size="8">18</text>
+                <text x="120" y="106" fill="var(--ink-faint)" font-family="JetBrains Mono, monospace" font-size="8">19</text>
+                <text x="180" y="106" fill="var(--ink-faint)" font-family="JetBrains Mono, monospace" font-size="8">20</text>
+                <text x="240" y="106" fill="var(--ink-faint)" font-family="JetBrains Mono, monospace" font-size="8">21</text>
+                <defs><linearGradient id="burnGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient></defs>
+              </svg>
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid var(--hairline); background: var(--canvas);">
+            <button type="button" onClick="{{ toggleNotes }}" style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 14px 26px; background: none; border: none; color: var(--ink); cursor: pointer; text-align: left;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform: rotate({{ notesRotate }}); transition: transform 200ms;" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Sprint notes</span>
+              <span style="font-size: 13.5px; color: var(--ink-muted);">written by Adam · 2026-08-17</span>
+            </button>
+            <sc-if value="{{ notesOpen }}" hint-placeholder-val="{{ true }}">
+              <div style="padding: 0 26px 24px 50px; max-width: 78ch;">
+                <p style="font-size: 15px; line-height: 1.65; color: var(--ink);">Please work this sprint on the issues in the order they are sorted in. Stories with the same grouping are preferred to be implemented by the same developer because they overlap in some logic/UI.</p>
+                <p style="margin-top: 14px; padding-left: 16px; border-left: 2px solid #FFB020; font-size: 15px; line-height: 1.65; color: var(--ink);">In the stories, there are highlighted sections, which means you need to discuss something before implementing — please reach out.</p>
+              </div>
+            </sc-if>
+          </div>
+        </section>
+
+        <section style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <div style="display: flex; padding: 3px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--raised);">
+            <button type="button" onClick="{{ showTable }}" style="height: 30px; padding: 0 14px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: {{ tableBg }}; color: {{ tableColor }};">Table</button>
+            <button type="button" onClick="{{ showBoard }}" style="height: 30px; padding: 0 14px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: {{ boardBg }}; color: {{ boardColor }};">Board</button>
+          </div>
+          <span style="width: 1px; height: 24px; background: var(--hairline);"></span>
+          <sc-for list="{{ filters }}" as="f" hint-placeholder-count="4">
+            <button type="button" onClick="{{ f.toggle }}" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; color: {{ f.color }}; font-size: 13px; cursor: pointer;">
+              <span style="width: 7px; height: 7px; border-radius: 2px; background: {{ f.dot }};"></span>{{ f.label }}
+            </button>
+          </sc-for>
+          <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);">{{ urlState }}</span>
+        </section>
+
+        <sc-if value="{{ isTable }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ isWide }}" hint-placeholder-val="{{ true }}">
+            <section style="border: 1px solid var(--hairline); border-radius: 20px; background: var(--raised); overflow: auto;">
+              <table>
+                <thead>
+                  <tr style="border-bottom: 1px solid var(--hairline-strong);">
+                    <th scope="col" style="position: sticky; left: 0; z-index: 2; background: var(--raised); text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500; min-width: 340px;">Task</th>
+                    <th scope="col" style="text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Status</th>
+                    <th scope="col" style="text-align: right; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Hours</th>
+                    <th scope="col" style="text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Assignee</th>
+                    <th scope="col" style="text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Reviewer</th>
+                    <th scope="col" style="text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Deadline</th>
+                    <th scope="col" style="text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Type</th>
+                    <th scope="col" style="text-align: right; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Grouping</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ rows }}" as="r" hint-placeholder-count="12">
+                    <tr onClick="{{ r.open }}" style="border-bottom: 1px solid var(--hairline); background: {{ r.tint }}; cursor: pointer; height: {{ rowHeight }};" style-hover="background: var(--canvas);">
+                      <td style="position: sticky; left: 0; background: {{ r.stickyBg }}; padding: 0 16px; border-left: 3px solid {{ r.groupColor }};">
+                        <span style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint); flex-shrink: 0;">{{ r.key }}</span>
+                          <span style="font-size: 14.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ r.title }}">{{ r.title }}</span>
+                          <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; opacity: {{ r.acOpacity }}; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);">{{ r.ac }}</span>
+                        </span>
+                      </td>
+                      <td style="padding: 0 16px;">
+                        <span style="display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 6px; background: {{ r.statusBg }}; color: {{ r.statusColor }}; font-family: 'JetBrains Mono', monospace; font-size: 11px; white-space: nowrap;">
+                          <span style="width: 6px; height: 6px; border-radius: 999px; background: currentColor;"></span>{{ r.status }}
+                        </span>
+                      </td>
+                      <td style="padding: 0 16px; text-align: right; white-space: nowrap;">
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-variant-numeric: tabular-nums; color: {{ r.hoursColor }};">{{ r.logged }}</span>
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-faint);"> / {{ r.estimate }}</span>
+                      </td>
+                      <td style="padding: 0 16px;">
+                        <span style="display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;">
+                          <span style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; border: 1px solid var(--hairline-strong); font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: {{ r.assigneeColor }};">{{ r.assigneeInitials }}</span>
+                          <span style="font-size: 13.5px; color: {{ r.assigneeColor }};">{{ r.assignee }}</span>
+                        </span>
+                      </td>
+                      <td style="padding: 0 16px;">
+                        <span style="display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;">
+                          <span style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; border: 1px solid var(--hairline-strong); font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: {{ r.reviewerColor }};">{{ r.reviewerInitials }}</span>
+                          <span style="font-size: 13.5px; color: {{ r.reviewerColor }};">{{ r.reviewer }}</span>
+                        </span>
+                      </td>
+                      <td style="padding: 0 16px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: {{ r.deadlineColor }}; white-space: nowrap;">{{ r.deadline }}</td>
+                      <td style="padding: 0 16px;">
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-muted); white-space: nowrap;">{{ r.type }}</span>
+                      </td>
+                      <td style="padding: 0 16px; text-align: right;">
+                        <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; padding: 3px 7px; border-radius: 6px; border: 1px solid {{ r.groupBorder }}; background: {{ r.groupBg }}; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {{ r.groupText }};">{{ r.grouping }}</span>
+                      </td>
+                    </tr>
+                  </sc-for>
+                  <tr style="background: var(--canvas);">
+                    <td style="position: sticky; left: 0; background: var(--canvas); padding: 14px 16px; border-left: 3px solid transparent;">
+                      <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Sum · 12 items</span>
+                    </td>
+                    <td></td>
+                    <td style="padding: 14px 16px; text-align: right;">
+                      <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums;">16</span>
+                      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-faint);"> / 46</span>
+                    </td>
+                    <td colspan="5"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+          </sc-if>
+
+          <sc-if value="{{ isNarrow }}" hint-placeholder-val="{{ false }}">
+            <section style="display: flex; flex-direction: column; gap: 10px;">
+              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="12">
+                <button type="button" onClick="{{ r.open }}" style="text-align: left; display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--hairline); border-left: 3px solid {{ r.groupColor }}; border-radius: 14px; background: {{ r.cardBg }}; cursor: pointer; color: inherit;">
+                  <span style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);">{{ r.key }}</span>
+                    <span style="display: inline-flex; align-items: center; gap: 7px; padding: 4px 9px; border-radius: 6px; background: {{ r.statusBg }}; color: {{ r.statusColor }}; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;"><span style="width: 6px; height: 6px; border-radius: 999px; background: currentColor;"></span>{{ r.status }}</span>
+                  </span>
+                  <span style="font-size: 15px; font-weight: 500; line-height: 1.35;">{{ r.title }}</span>
+                  <span style="display: flex; align-items: center; gap: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-muted);">
+                    <span>{{ r.assigneeInitials }} → {{ r.reviewerInitials }}</span>
+                    <span>{{ r.logged }} / {{ r.estimate }}h</span>
+                    <span>{{ r.deadline }}</span>
+                    <span style="margin-left: auto;">{{ r.grouping }}</span>
+                  </span>
+                </button>
+              </sc-for>
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: 1px solid var(--hairline); border-radius: 14px; background: var(--canvas); font-family: 'JetBrains Mono', monospace; font-size: 12px;">
+                <span style="letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Sum</span>
+                <span style="font-size: 15px; font-weight: 600;">16 / 46</span>
+              </div>
+            </section>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ false }}">
+          <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; align-items: start;">
+            <sc-for list="{{ columns }}" as="col" hint-placeholder-count="4">
+              <div style="border: 1px solid var(--hairline); border-radius: 16px; background: var(--raised); overflow: hidden;">
+                <div style="display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--hairline);">
+                  <span style="width: 7px; height: 7px; border-radius: 2px; background: {{ col.color }};"></span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;">{{ col.label }}</span>
+                  <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);">{{ col.count }}</span>
+                </div>
+                <div style="padding: 10px; display: flex; flex-direction: column; gap: 10px; min-height: 120px;">
+                  <sc-for list="{{ col.items }}" as="c" hint-placeholder-count="3">
+                    <button type="button" onClick="{{ c.open }}" style="text-align: left; display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--hairline); border-left: 3px solid {{ c.groupColor }}; border-radius: 12px; background: var(--canvas); cursor: pointer; color: inherit;">
+                      <span style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);"><span>{{ c.key }}</span><span>{{ c.type }}</span></span>
+                      <span style="font-size: 13.5px; font-weight: 500; line-height: 1.35;">{{ c.title }}</span>
+                      <span style="display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-muted);">
+                        <span style="display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 999px; border: 1px solid var(--hairline-strong); font-size: 9px;">{{ c.assigneeInitials }}</span>
+                        <span>{{ c.hours }}</span>
+                        <span style="margin-left: auto;">{{ c.ac }}</span>
+                      </span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </section>
+        </sc-if>
+      </main>
+    </sc-if>
+
+    <sc-if value="{{ isProjects }}" hint-placeholder-val="{{ false }}">
+      <main style="flex: 1; padding: clamp(16px, 2vw, 28px); display: flex; flex-direction: column; gap: 20px;">
+        <div>
+          <h1 style="font-size: 26px; font-weight: 700; letter-spacing: -0.024em;">Projects</h1>
+          <p style="margin-top: 8px; max-width: 74ch; font-size: 14.5px; line-height: 1.55; color: var(--ink-muted);">One row per client engagement. Sprints, work items, and hours all hang off a project, so a second client never means a migration. The accent is the project's own colour, used only in switchers and project chips — never on status.</p>
+        </div>
+
+        <section style="border: 1px solid var(--hairline); border-radius: 16px; background: var(--raised); overflow: auto;">
+          <table>
+            <thead><tr style="border-bottom: 1px solid var(--hairline-strong);">
+              <th scope="col" style="text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Project</th>
+              <th scope="col" style="text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Client</th>
+              <th scope="col" style="text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Scope</th>
+              <th scope="col" style="text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Active sprint</th>
+              <th scope="col" style="text-align: right; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Sprints</th>
+              <th scope="col" style="text-align: right; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Hours</th>
+              <th scope="col" style="text-align: right; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Accent</th>
+            </tr></thead>
+            <tbody>
+              <sc-for list="{{ projectRows }}" as="p" hint-placeholder-count="4">
+                <tr onClick="{{ p.pick }}" style="border-bottom: 1px solid var(--hairline); background: {{ p.bg }}; cursor: pointer; height: 60px;" style-hover="background: var(--canvas);">
+                  <td style="padding: 0 16px;">
+                    <span style="display: flex; align-items: center; gap: 11px;">
+                      <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 7px; border: 1px solid var(--hairline); display: flex; align-items: center; justify-content: center; color: {{ p.accent }};">
+                        <sc-if value="{{ p.hasLogo }}" hint-placeholder-val="{{ false }}">
+                          <svg width="10" height="13" viewBox="0 0 134.2 187" aria-hidden="true"><use href="#evim" /></svg>
+                        </sc-if>
+                        <sc-if value="{{ p.noLogo }}" hint-placeholder-val="{{ true }}">
+                          <span style="width: 8px; height: 8px; border-radius: 2px; background: {{ p.accent }};"></span>
+                        </sc-if>
+                      </span>
+                      <span style="font-size: 14.5px; font-weight: 500; white-space: nowrap;">{{ p.name }}</span>
+                    </span>
+                  </td>
+                  <td style="padding: 0 16px; white-space: nowrap;">
+                    <span style="display: block; font-size: 13.5px;">{{ p.client }}</span>
+                    <a href="{{ p.href }}" target="_blank" rel="noreferrer" style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--accent);">{{ p.url }}</a>
+                  </td>
+                  <td style="padding: 0 16px; font-size: 12.5px; line-height: 1.45; color: var(--ink-muted); min-width: 250px;">{{ p.scope }}</td>
+                  <td style="padding: 0 16px;">
+                    <span style="display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 6px; background: {{ p.sprintBg }}; color: {{ p.sprintColor }}; font-family: 'JetBrains Mono', monospace; font-size: 11px; white-space: nowrap;">{{ p.sprint }}</span>
+                  </td>
+                  <td style="padding: 0 16px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-variant-numeric: tabular-nums;">{{ p.sprints }}</td>
+                  <td style="padding: 0 16px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-variant-numeric: tabular-nums;">{{ p.hours }}</td>
+                  <td style="padding: 0 16px; text-align: right;">
+                    <span style="display: inline-flex; align-items: center; gap: 7px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);">
+                      {{ p.accent }}<span style="width: 14px; height: 14px; border-radius: 4px; background: {{ p.accent }};"></span>
+                    </span>
+                  </td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </section>
+
+        <p style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);">Only EVIM runs on a weekly sprint cadence today — the other engagements have no open sprint, so the board shows nothing rather than inventing one.</p>
+      </main>
+    </sc-if>
+
+    <sc-if value="{{ isMyWork }}" hint-placeholder-val="{{ false }}">
+      <main style="flex: 1; padding: clamp(16px, 2vw, 28px); display: flex; flex-direction: column; gap: 20px;">
+        <div>
+          <h1 style="font-size: 26px; font-weight: 700; letter-spacing: -0.024em;">My work</h1>
+          <p style="margin-top: 8px; font-size: 14.5px; color: var(--ink-muted);">Mohamed Tamer · 12.5 h logged this week against 40 h capacity</p>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+          <sc-for list="{{ myWork }}" as="grp" hint-placeholder-count="3">
+            <section style="border: 1px solid var(--hairline); border-radius: 16px; background: var(--raised); overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--hairline);">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">{{ grp.label }}</span>
+                <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px;">{{ grp.count }}</span>
+              </div>
+              <ul style="display: flex; flex-direction: column;">
+                <sc-for list="{{ grp.items }}" as="i" hint-placeholder-count="3">
+                  <li>
+                    <button type="button" onClick="{{ i.open }}" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: none; border-bottom: 1px solid var(--hairline); background: none; color: inherit; cursor: pointer;" style-hover="background: var(--canvas);">
+                      <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);">{{ i.key }}</span>
+                      <span style="font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ i.title }}</span>
+                      <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-muted);">{{ i.meta }}</span>
+                    </button>
+                  </li>
+                </sc-for>
+              </ul>
+            </section>
+          </sc-for>
+        </div>
+      </main>
+    </sc-if>
+
+    <sc-if value="{{ isPeople }}" hint-placeholder-val="{{ false }}">
+      <main style="flex: 1; padding: clamp(16px, 2vw, 28px); display: flex; flex-direction: column; gap: 20px;">
+        <div>
+          <h1 style="font-size: 26px; font-weight: 700; letter-spacing: -0.024em;">People</h1>
+          <p style="margin-top: 8px; font-size: 14.5px; color: var(--ink-muted);">Load for Sprint — Week 17. Capacity is weekly, not a target.</p>
+        </div>
+        <section style="border: 1px solid var(--hairline); border-radius: 16px; background: var(--raised); overflow: hidden;">
+          <sc-for list="{{ people }}" as="p" hint-placeholder-count="4">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--hairline);">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--hairline-strong); font-family: 'JetBrains Mono', monospace; font-size: 11px;">{{ p.initials }}</span>
+                <span>
+                  <span style="display: block; font-size: 15px; font-weight: 600;">{{ p.name }}</span>
+                  <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);">{{ p.role }}</span>
+                </span>
+              </div>
+              <div>
+                <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);">assigned</span>
+                <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 15px;">{{ p.assigned }}</span>
+              </div>
+              <div>
+                <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);">review queue</span>
+                <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 15px;">{{ p.review }}</span>
+              </div>
+              <div>
+                <span style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);"><span>logged / capacity</span><span style="color: var(--ink);">{{ p.hours }}</span></span>
+                <span style="display: block; margin-top: 8px; height: 6px; border-radius: 999px; background: var(--canvas); overflow: hidden;">
+                  <span style="display: block; height: 100%; width: {{ p.pct }}; background: linear-gradient(90deg, #2B57FF, #21E2C6);"></span>
+                </span>
+              </div>
+            </div>
+          </sc-for>
+        </section>
+      </main>
+    </sc-if>
+
+    <sc-if value="{{ isImport }}" hint-placeholder-val="{{ false }}">
+      <main style="flex: 1; padding: clamp(16px, 2vw, 28px); display: flex; flex-direction: column; gap: 20px;">
+        <div>
+          <h1 style="font-size: 26px; font-weight: 700; letter-spacing: -0.024em;">Import from Notion</h1>
+          <p style="margin-top: 8px; max-width: 70ch; font-size: 14.5px; line-height: 1.55; color: var(--ink-muted);">Drop the CSV export. Columns are mapped below; anything unmatched is flagged and skipped until you fix it. Nothing is written until you commit.</p>
+        </div>
+        <section style="border: 1px dashed var(--hairline-strong); border-radius: 16px; background: var(--raised); padding: 28px; display: flex; align-items: center; gap: 16px;">
+          <span style="display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--hairline); color: var(--accent);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 18v2h16v-2" /></svg>
+          </span>
+          <span>
+            <span style="display: block; font-size: 15px; font-weight: 600;">Week 17.csv</span>
+            <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-faint);">12 rows · 8 columns · parsed 2026-08-20 09:14</span>
+          </span>
+          <button type="button" style="margin-left: auto; height: 36px; padding: 0 16px; border-radius: 10px; border: none; font-size: 13.5px; font-weight: 600; color: #07090E; background: linear-gradient(135deg, #2B57FF, #21E2C6); cursor: pointer;">Commit 11 rows</button>
+        </section>
+        <section style="border: 1px solid var(--hairline); border-radius: 16px; background: var(--raised); overflow: auto;">
+          <table>
+            <thead><tr style="border-bottom: 1px solid var(--hairline-strong);">
+              <th scope="col" style="text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Notion column</th>
+              <th scope="col" style="text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Maps to</th>
+              <th scope="col" style="text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">Sample</th>
+              <th scope="col" style="text-align: right; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500;">State</th>
+            </tr></thead>
+            <tbody>
+              <sc-for list="{{ mapping }}" as="m" hint-placeholder-count="8">
+                <tr style="border-bottom: 1px solid var(--hairline);">
+                  <td style="padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">{{ m.from }}</td>
+                  <td style="padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--accent);">{{ m.to }}</td>
+                  <td style="padding: 12px 16px; font-size: 13.5px; color: var(--ink-muted);">{{ m.sample }}</td>
+                  <td style="padding: 12px 16px; text-align: right;"><span style="display: inline-flex; padding: 4px 9px; border-radius: 6px; background: {{ m.bg }}; color: {{ m.color }}; font-family: 'JetBrains Mono', monospace; font-size: 11px;">{{ m.state }}</span></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ detail }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDetail }}" style="position: fixed; inset: 0; z-index: 60; background: var(--scrim); backdrop-filter: blur(10px); display: flex; align-items: flex-start; justify-content: center; padding: clamp(12px, 3vh, 40px) 16px; overflow-y: auto;">
+      <div onClick="{{ stop }}" role="dialog" aria-modal="true" class="rise" style="width: 100%; max-width: 1080px; border: 1px solid var(--hairline-strong); border-radius: 20px; background: var(--overlay); box-shadow: 0 24px 64px -24px rgba(0,0,0,0.45); overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--hairline); background: var(--raised);">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent);">{{ detail.key }}</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint); border: 1px solid var(--hairline); border-radius: 6px; padding: 3px 8px;">@modal · hard nav renders the full page</span>
+          <button type="button" onClick="{{ closeDetail }}" aria-label="Close" style="margin-left: auto; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid var(--hairline); background: transparent; color: var(--ink-muted); cursor: pointer;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0;">
+          <div style="padding: 24px; display: flex; flex-direction: column; gap: 24px; min-width: 0;">
+            <h2 style="font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25;">{{ detail.title }}</h2>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <p style="font-size: 14.5px; line-height: 1.6; color: var(--ink-muted);">{{ detail.description }}</p>
+              <sc-if value="{{ detail.highlight }}" hint-placeholder-val="{{ false }}">
+                <p style="padding-left: 14px; border-left: 2px solid #FFB020; font-size: 14.5px; line-height: 1.6; color: var(--ink);">{{ detail.highlight }}</p>
+              </sc-if>
+            </div>
+
+            <div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <svg width="34" height="34" viewBox="0 0 36 36" aria-hidden="true">
+                  <circle cx="18" cy="18" r="15" fill="none" stroke="var(--hairline)" stroke-width="3" />
+                  <circle cx="18" cy="18" r="15" fill="none" stroke="url(#ringGrad)" stroke-width="3" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="{{ detail.ringOffset }}" transform="rotate(-90 18 18)" />
+                  <defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient></defs>
+                </svg>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Acceptance criteria</span>
+                <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px;">{{ detail.acLabel }}</span>
+              </div>
+              <ul style="margin-top: 14px; display: flex; flex-direction: column;">
+                <sc-for list="{{ detail.criteria }}" as="c" hint-placeholder-count="4">
+                  <li>
+                    <button type="button" onClick="{{ c.toggle }}" style="width: 100%; text-align: left; display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border: none; border-bottom: 1px solid var(--hairline); background: none; color: inherit; cursor: pointer;">
+                      <span style="flex-shrink: 0; width: 17px; height: 17px; margin-top: 1px; border-radius: 5px; border: 1.5px solid {{ c.boxBorder }}; background: {{ c.boxBg }}; display: flex; align-items: center; justify-content: center;">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#07090E" stroke-width="3.4" style="opacity: {{ c.tickOpacity }};" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+                      </span>
+                      <span style="font-size: 14px; line-height: 1.5; color: {{ c.textColor }}; text-decoration: {{ c.strike }};">{{ c.body }}</span>
+                    </button>
+                  </li>
+                </sc-for>
+              </ul>
+            </div>
+
+            <div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Comments</div>
+              <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 14px;">
+                <sc-for list="{{ detail.comments }}" as="cm" hint-placeholder-count="2">
+                  <div style="display: flex; gap: 12px;">
+                    <span style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 999px; border: 1px solid var(--hairline-strong); font-family: 'JetBrains Mono', monospace; font-size: 10px;">{{ cm.initials }}</span>
+                    <div style="min-width: 0;">
+                      <div style="display: flex; align-items: baseline; gap: 8px;">
+                        <span style="font-size: 13.5px; font-weight: 600;">{{ cm.author }}</span>
+                        <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);">{{ cm.when }}</span>
+                      </div>
+                      <p style="margin-top: 4px; font-size: 14px; line-height: 1.55; color: var(--ink-muted);">{{ cm.body }}</p>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="margin-top: 16px; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--raised);">
+                <span style="font-size: 13.5px; color: var(--ink-faint); flex: 1;">Write a comment — @ to mention</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);">markdown</span>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Activity</div>
+              <ul style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <sc-for list="{{ detail.activity }}" as="a" hint-placeholder-count="3">
+                  <li style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-faint);">{{ a }}</li>
+                </sc-for>
+              </ul>
+            </div>
+          </div>
+
+          <div style="border-left: 1px solid var(--hairline); background: var(--raised); padding: 24px; display: flex; flex-direction: column; gap: 20px; min-width: 0;">
+            <sc-for list="{{ detail.properties }}" as="p" hint-placeholder-count="7">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--hairline);">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint);">{{ p.label }}</span>
+                <span style="font-size: 13.5px; font-weight: 500; color: {{ p.color }};">{{ p.value }}</span>
+              </div>
+            </sc-for>
+
+            <div style="border: 1px solid var(--hairline); border-radius: 14px; background: var(--overlay); padding: 16px;">
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Log time</div>
+              <div style="margin-top: 14px; display: flex; align-items: center; gap: 8px;">
+                <button type="button" onClick="{{ hoursDown }}" aria-label="Less hours" style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--hairline); background: var(--canvas); color: var(--ink); cursor: pointer;">−</button>
+                <span style="flex: 1; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 18px; font-variant-numeric: tabular-nums;">{{ logHours }}</span>
+                <button type="button" onClick="{{ hoursUp }}" aria-label="More hours" style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--hairline); background: var(--canvas); color: var(--ink); cursor: pointer;">+</button>
+              </div>
+              <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);">
+                <span>2026-08-20</span><span>0.5 h steps</span>
+              </div>
+              <button type="button" onClick="{{ logTime }}" style="margin-top: 14px; width: 100%; height: 38px; border-radius: 10px; border: none; font-size: 13.5px; font-weight: 600; color: #07090E; background: linear-gradient(135deg, #2B57FF, #21E2C6); cursor: pointer;">Log {{ logHours }} h</button>
+              <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px;">
+                <sc-for list="{{ detail.entries }}" as="e" hint-placeholder-count="2">
+                  <div style="display: flex; align-items: center; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-muted);"><span>{{ e.when }}</span><span>{{ e.hours }}</span></div>
+                </sc-for>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--hairline); font-family: 'JetBrains Mono', monospace; font-size: 12px;"><span>total</span><span style="font-weight: 600;">{{ detail.totalHours }}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ exportOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeExport }}" style="position: fixed; inset: 0; z-index: 65; background: var(--scrim); backdrop-filter: blur(10px); display: flex; align-items: flex-start; justify-content: center; padding: clamp(12px, 4vh, 48px) 16px; overflow-y: auto;">
+      <div onClick="{{ stop }}" role="dialog" aria-modal="true" aria-label="Export sprint" class="rise" style="width: 100%; max-width: 1000px; border: 1px solid var(--hairline-strong); border-radius: 20px; background: var(--overlay); box-shadow: 0 24px 64px -24px rgba(0,0,0,0.45); overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--hairline); background: var(--raised);">
+          <span style="font-size: 15.5px; font-weight: 700; letter-spacing: -0.018em;">{{ exportTitle }}</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);">{{ exportCount }}</span>
+          <button type="button" onClick="{{ closeExport }}" aria-label="Close" style="margin-left: auto; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid var(--hairline); background: transparent; color: var(--ink-muted); cursor: pointer;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 18px; border-right: 1px solid var(--hairline); min-width: 0;">
+            <div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Format</div>
+              <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                <sc-for list="{{ formats }}" as="f" hint-placeholder-count="3">
+                  <button type="button" onClick="{{ f.pick }}" style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; color: inherit; cursor: pointer; text-align: left;">
+                    <span style="margin-top: 2px; width: 15px; height: 15px; flex-shrink: 0; border-radius: 999px; border: 1.5px solid {{ f.dotBorder }}; background: {{ f.dotBg }};"></span>
+                    <span style="min-width: 0;">
+                      <span style="display: block; font-size: 14px; font-weight: 600;">{{ f.title }}</span>
+                      <span style="display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.45; color: var(--ink-muted);">{{ f.body }}</span>
+                    </span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Include</div>
+              <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px;">
+                <sc-for list="{{ exportOptions }}" as="o" hint-placeholder-count="4">
+                  <button type="button" onClick="{{ o.toggle }}" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid {{ o.border }}; background: {{ o.bg }}; color: {{ o.color }}; font-size: 13px; cursor: pointer;">
+                    <span style="width: 13px; height: 13px; border-radius: 4px; border: 1.5px solid {{ o.boxBorder }}; background: {{ o.boxBg }};"></span>{{ o.label }}
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Items</span>
+                <button type="button" onClick="{{ selectAll }}" style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--accent); background: none; border: none; cursor: pointer;">all</button>
+                <button type="button" onClick="{{ selectNone }}" style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--accent); background: none; border: none; cursor: pointer;">none</button>
+                <button type="button" onClick="{{ selectActive }}" style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--accent); background: none; border: none; cursor: pointer;">drop drafts</button>
+              </div>
+              <ul style="border: 1px solid var(--hairline); border-radius: 12px; overflow: hidden; max-height: 300px; overflow-y: auto;">
+                <sc-for list="{{ exportItems }}" as="i" hint-placeholder-count="12">
+                  <li>
+                    <button type="button" onClick="{{ i.toggle }}" style="width: 100%; display: flex; align-items: center; gap: 11px; padding: 10px 12px; border: none; border-bottom: 1px solid var(--hairline); background: {{ i.bg }}; color: inherit; cursor: pointer; text-align: left;">
+                      <span style="width: 15px; height: 15px; flex-shrink: 0; border-radius: 5px; border: 1.5px solid {{ i.boxBorder }}; background: {{ i.boxBg }}; display: flex; align-items: center; justify-content: center;">
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#07090E" stroke-width="3.6" style="opacity: {{ i.tick }};" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg>
+                      </span>
+                      <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint); flex-shrink: 0;">{{ i.key }}</span>
+                      <span style="font-size: 13px; color: {{ i.color }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ i.title }}</span>
+                      <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint); flex-shrink: 0;">{{ i.hours }}</span>
+                    </button>
+                  </li>
+                </sc-for>
+              </ul>
+            </div>
+          </div>
+
+          <div style="padding: 20px; display: flex; flex-direction: column; gap: 14px; background: var(--raised); min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">{{ previewLabel }}</span>
+              <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);">{{ previewMeta }}</span>
+            </div>
+
+            <sc-if value="{{ isPdf }}" hint-placeholder-val="{{ false }}">
+              <div style="border: 1px solid var(--hairline); border-radius: 12px; background: var(--overlay); padding: 22px; display: flex; flex-direction: column; gap: 14px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="width: 8px; height: 8px; border-radius: 999px; background: linear-gradient(135deg, #2B57FF, #21E2C6);"></span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent);">Sprint report</span>
+                </div>
+                <div style="font-size: 19px; font-weight: 700; letter-spacing: -0.022em;">Sprint — Week 17</div>
+                <p style="font-size: 12.5px; line-height: 1.55; color: var(--ink-muted);">A client-facing document: cover summary, status distribution, burn-up, then every included item with its acceptance criteria as written. No internal comments, no activity log, no keys the client has no use for.</p>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);">
+                  <span style="padding: 4px 8px; border: 1px solid var(--hairline); border-radius: 6px;">Letter · portrait</span>
+                  <span style="padding: 4px 8px; border: 1px solid var(--hairline); border-radius: 6px;">running header + footer</span>
+                  <span style="padding: 4px 8px; border: 1px solid var(--hairline); border-radius: 6px;">{{ exportCount }}</span>
+                </div>
+                <a href="Coditu Sprint Report.dc.html" onClick="{{ saveSelection }}" style="margin-top: 4px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 42px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #07090E; background: linear-gradient(135deg, #2B57FF, #21E2C6);">
+                  Open report to print
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" /></svg>
+                </a>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint);">your selection travels with it · export to PDF from there</span>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isText }}" hint-placeholder-val="{{ true }}">
+              <pre style="margin: 0; flex: 1; min-height: 280px; max-height: 420px; overflow: auto; padding: 16px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--canvas); font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.6; color: var(--ink); white-space: pre; tab-size: 2;">{{ preview }}</pre>
+              <div style="display: flex; gap: 10px;">
+                <button type="button" onClick="{{ copyText }}" style="flex: 1; height: 42px; border-radius: 10px; border: 1px solid var(--hairline-strong); background: transparent; color: var(--ink); font-size: 14px; font-weight: 500; cursor: pointer;" style-hover="background: var(--canvas);">{{ copyLabel }}</button>
+                <button type="button" onClick="{{ downloadText }}" style="flex: 1; height: 42px; border-radius: 10px; border: none; font-size: 14px; font-weight: 600; color: #07090E; background: linear-gradient(135deg, #2B57FF, #21E2C6); cursor: pointer;">{{ downloadLabel }}</button>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ paletteOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closePalette }}" style="position: fixed; inset: 0; z-index: 70; background: var(--scrim); backdrop-filter: blur(10px); display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px;">
+      <div onClick="{{ stop }}" class="rise" role="dialog" aria-modal="true" style="width: 100%; max-width: 620px; border: 1px solid var(--hairline-strong); border-radius: 20px; background: var(--overlay); box-shadow: 0 24px 64px -24px rgba(0,0,0,0.45); overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--hairline);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color: var(--ink-faint);" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M16.5 16.5L21 21" /></svg>
+          <input value="{{ query }}" onChange="{{ onQuery }}" autoFocus="{{ true }}" placeholder="Jump to item, change status, log time…" style="flex: 1; border: none; outline: none; background: transparent; color: var(--ink); font-size: 15.5px; font-family: inherit;" />
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; border: 1px solid var(--hairline); border-radius: 6px; padding: 2px 6px; color: var(--ink-faint);">esc</span>
+        </div>
+        <ul style="max-height: 420px; overflow-y: auto;">
+          <sc-for list="{{ paletteResults }}" as="p" hint-placeholder-count="6">
+            <li>
+              <button type="button" onClick="{{ p.run }}" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 14px; padding: 13px 18px; border: none; border-bottom: 1px solid var(--hairline); background: none; color: inherit; cursor: pointer;" style-hover="background: var(--canvas);">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--accent); min-width: 58px;">{{ p.kind }}</span>
+                <span style="font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.label }}</span>
+                <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);">{{ p.hint }}</span>
+              </button>
+            </li>
+          </sc-for>
+        </ul>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;\&quot;light\&quot; | \&quot;dark\&quot;&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;brightness&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;min&quot;:0,&quot;max&quot;:100,&quot;step&quot;:5,&quot;default&quot;:0,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;comfortable&quot;,&quot;compact&quot;],&quot;default&quot;:&quot;comfortable&quot;,&quot;tsType&quot;:&quot;\&quot;comfortable\&quot; | \&quot;compact\&quot;&quot;,&quot;section&quot;:&quot;Table&quot;},&quot;mobileLayout&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Table&quot;}}">
+const P = {
+  MT: { name: "Mohamed Tamer", initials: "MT" },
+  AE: { name: "Abdelrahman Elkhateeb", initials: "AE" },
+  AY: { name: "Ahmed Yehia", initials: "AY" },
+};
+
+// chip text is a themed pair, not one hue: a value tuned for paper drops to
+// ~2.4:1 on the dark canvas, so each status carries a light and a dark ink
+const STATUS = {
+  draft: { label: "draft", light: { fg: "#52607A", bg: "rgba(107,122,144,0.14)" }, dark: { fg: "#9AA7BB", bg: "rgba(147,160,180,0.16)" } },
+  todo: { label: "todo", light: { fg: "#3F4C63", bg: "rgba(107,122,144,0.16)" }, dark: { fg: "#AEBACD", bg: "rgba(147,160,180,0.16)" } },
+  dev_started: { label: "dev started", light: { fg: "#183FBF", bg: "rgba(43,87,255,0.12)" }, dark: { fg: "#89A7FF", bg: "rgba(43,87,255,0.22)" } },
+  ready_for_peer_review: { label: "peer review", light: { fg: "#7A4F00", bg: "rgba(255,176,32,0.18)" }, dark: { fg: "#FFC24D", bg: "rgba(255,176,32,0.18)" } },
+  in_review: { label: "in review", light: { fg: "#0B6B5C", bg: "rgba(33,226,198,0.18)" }, dark: { fg: "#4FE9D2", bg: "rgba(33,226,198,0.16)" } },
+  changes_requested: { label: "changes req.", light: { fg: "#A81F2C", bg: "rgba(255,95,109,0.14)" }, dark: { fg: "#FF9AA2", bg: "rgba(255,95,109,0.18)" } },
+  done: { label: "done", light: { fg: "#0E6B4B", bg: "rgba(35,201,127,0.18)" }, dark: { fg: "#63E3A9", bg: "rgba(35,201,127,0.16)" } },
+  blocked: { label: "blocked", light: { fg: "#A81F2C", bg: "rgba(255,95,109,0.20)" }, dark: { fg: "#FF9AA2", bg: "rgba(255,95,109,0.22)" } },
+};
+
+const AMBER_TEXT = { light: "#7A4F00", dark: "#FFC24D" };
+
+// every functional tone used as chip text carries the same light/dark pair
+const TONE = {
+  amber: { light: { fg: "#7A4F00", bg: "rgba(255,176,32,0.18)" }, dark: { fg: "#FFC24D", bg: "rgba(255,176,32,0.18)" } },
+  jade: { light: { fg: "#0E6B4B", bg: "rgba(35,201,127,0.18)" }, dark: { fg: "#63E3A9", bg: "rgba(35,201,127,0.16)" } },
+  slate: { light: { fg: "#3F4C63", bg: "rgba(107,122,144,0.14)" }, dark: { fg: "#AEBACD", bg: "rgba(147,160,180,0.16)" } },
+};
+
+// deterministic hue per grouping value — same integer always reads the same
+const GROUPS = { 1: "#5B8CFF", 2: "#12A594" };
+
+const ITEMS = [
+  { key: "COD-140", title: "Add optional titles to all webparts", status: "dev_started", type: "story", grouping: null, logged: 7.5, estimate: 8, assignee: "MT", reviewer: "AE", deadline: "2026-08-21",
+    description: "A unified optional title field on all webparts.",
+    highlight: "Confirm with EVIM whether the toggle default should differ for the Events webpart before implementing.",
+    criteria: [
+      { body: "Each webpart has a \"Show Title\" (\"Überschrift anzeigen\") toggle at the very top of its settings", done: true },
+      { body: "The toggle is on by default", done: true },
+      { body: "When on, the title renders directly above the webpart", done: true },
+      { body: "When ?Mode=Edit, the title is editable inline from the webpart with the same options", done: false },
+      { body: "Behaviour matches the standard SharePoint \"Events\" webpart title exactly", done: false },
+    ],
+    comments: [
+      { initials: "AE", author: "Abdelrahman Elkhateeb", when: "2026-08-19 14:02", body: "Inline edit needs the same field ordering as the panel, otherwise editors lose the toggle when they switch modes." },
+      { initials: "MT", author: "Mohamed Tamer", when: "2026-08-19 16:40", body: "Agreed. Panel order is the source of truth; I mirror it in the inline editor." },
+    ],
+    activity: ["MT changed status todo → dev_started · 2026-08-18 09:12", "MT set reviewer → Abdelrahman Elkhateeb · 2026-08-18 09:12", "AN set deadline → 2026-08-21 · 2026-08-17 11:40"],
+    entries: [{ when: "2026-08-18", hours: "3.0 h" }, { when: "2026-08-19", hours: "4.5 h" }],
+  },
+  { key: "COD-141", title: "Tabs with Cards", status: "ready_for_peer_review", type: "change_request", grouping: null, logged: 0.5, estimate: 1, assignee: "MT", reviewer: "AE", deadline: "2026-08-20",
+    description: "Card variant for the tabs webpart, matching the link tile spacing.",
+    criteria: [{ body: "Card variant available as a tab layout option", done: true }, { body: "Spacing matches Link Kachel at all breakpoints", done: true }],
+    comments: [{ initials: "AE", author: "Abdelrahman Elkhateeb", when: "2026-08-19 09:20", body: "Reviewing after COD-142, they touch the same layout code." }],
+    activity: ["MT changed status dev_started → ready_for_peer_review · 2026-08-19 08:55"],
+    entries: [{ when: "2026-08-19", hours: "0.5 h" }],
+  },
+  { key: "COD-142", title: "Tabs with Cards: height logic fix", status: "ready_for_peer_review", type: "bug_fix", grouping: 1, logged: 2, estimate: 2, assignee: "MT", reviewer: "AE", deadline: "2026-08-21",
+    description: "When a 4th card has no description it wraps to a new row at a different height.",
+    criteria: [
+      { body: "All Link Kachels share the same height, even across rows", done: true },
+      { body: "Height is set by the Kachel with the most text", done: true },
+      { body: "No min-height", done: false },
+    ],
+    comments: [{ initials: "MT", author: "Mohamed Tamer", when: "2026-08-19 17:10", body: "Removed the min-height entirely; row height now comes from the tallest card in the grid." }],
+    activity: ["MT changed status dev_started → ready_for_peer_review · 2026-08-19 17:05"],
+    entries: [{ when: "2026-08-19", hours: "2.0 h" }],
+  },
+  { key: "COD-143", title: "Link Kachel changes", status: "ready_for_peer_review", type: "change_request", grouping: 1, logged: 3, estimate: 3, assignee: "MT", reviewer: "AE", deadline: "2026-08-22",
+    description: "Icon slot, hover treatment, and description truncation for the link tiles.",
+    criteria: [{ body: "Icon slot supports SVG and Fluent icon names", done: true }, { body: "Description truncates at two lines with a title attribute", done: true }],
+    comments: [], activity: ["MT changed status dev_started → ready_for_peer_review · 2026-08-20 08:30"],
+    entries: [{ when: "2026-08-20", hours: "3.0 h" }],
+  },
+  { key: "COD-144", title: "Newspart changes", status: "todo", type: "change_request", grouping: 2, logged: 0, estimate: 3, assignee: null, reviewer: null, deadline: "2026-08-23",
+    description: "Layout and metadata changes to the news webpart.", criteria: [], comments: [], activity: [], entries: [] },
+  { key: "COD-145", title: "Banner News Mode", status: "todo", type: "change_request", grouping: 2, logged: 0, estimate: 5, assignee: null, reviewer: null, deadline: "2026-08-23",
+    description: "Banner renders the latest news item with an image and headline.",
+    highlight: "Needs a decision on which news source wins when both a page and a list item are pinned.",
+    criteria: [], comments: [], activity: [], entries: [] },
+  { key: "COD-146", title: "Responsiveness for Link Kachel, Tabs with Cards, Newspart", status: "ready_for_peer_review", type: "story", grouping: null, logged: 3, estimate: 4, assignee: "AE", reviewer: "MT", deadline: "2026-08-22",
+    description: "One responsive pass across the three webparts, driven by container width.",
+    criteria: [{ body: "No horizontal overflow at 320px inside the SharePoint canvas", done: true }, { body: "Container queries, not viewport breakpoints", done: true }],
+    comments: [], activity: ["AE changed status dev_started → ready_for_peer_review · 2026-08-20 07:45"],
+    entries: [{ when: "2026-08-19", hours: "1.5 h" }, { when: "2026-08-20", hours: "1.5 h" }],
+  },
+  { key: "COD-147", title: "Unifying pill button: arrow and animation", status: "todo", type: "story", grouping: null, logged: 0, estimate: 2, assignee: null, reviewer: null, deadline: "2026-08-23", description: "One pill button across the component set.", criteria: [], comments: [], activity: [], entries: [] },
+  { key: "COD-148", title: "Banner Intranet Mode", status: "todo", type: "change_request", grouping: null, logged: 0, estimate: 3, assignee: null, reviewer: null, deadline: "2026-08-23", description: "Banner variant for intranet landing pages.", criteria: [], comments: [], activity: [], entries: [] },
+  { key: "COD-149", title: "Rollover Contact Cards", status: "todo", type: "change_request", grouping: null, logged: 0, estimate: 2, assignee: null, reviewer: null, deadline: "2026-08-23", description: "Contact card reveals details on hover and focus.", criteria: [], comments: [], activity: [], entries: [] },
+  { key: "COD-150", title: "Calendar", status: "draft", type: "story", grouping: null, logged: 0, estimate: 8, assignee: null, reviewer: null, deadline: null, description: "Calendar webpart — scope not agreed yet.", criteria: [], comments: [], activity: [], entries: [] },
+  { key: "COD-151", title: "[React] Redakteurseite", status: "draft", type: "change_request", grouping: null, logged: 0, estimate: 5, assignee: null, reviewer: null, deadline: null, description: "Editor landing page rebuilt in React.", criteria: [], comments: [], activity: [], entries: [] },
+];
+
+// projects are real Coditu engagements; only EVIM runs a weekly sprint today
+const PROJECTS = [
+  { id: "evim", name: "MEINEvim components", client: "EVIM", url: "www.evim.de", href: "https://www.evim.de", accent: "#2B57FF", logo: true, scope: "SPFx component set inside SharePoint Online governance", sprint: "Week 17", sprints: 8, hours: "196.5" },
+  { id: "nile", name: "Nile Atelier partner portal", client: "Nile Atelier", url: "nileatelier.com", href: "#", accent: "#12A594", logo: false, scope: "Partner onboarding and document routing", sprint: null, sprints: 0, hours: "—" },
+  { id: "ops", name: "Ops Console", client: "Internal · DevOps", url: "—", href: "#", accent: "#5B8CFF", logo: false, scope: "Unified dashboard over Redis, Pinecone, S3, PostgreSQL", sprint: null, sprints: 0, hours: "—" },
+  { id: "nvrmiss", name: "NVRMiss landing", client: "NVRMiss", url: "nvrmiss.com", href: "#", accent: "#FFB020", logo: false, scope: "AI receptionist product landing and pricing", sprint: null, sprints: 0, hours: "—" },
+];
+
+// sprints belong to a project — a sprint list is never global
+const SPRINTS = [
+  { project: "evim", id: 17, name: "Sprint — Week 17", meta: "active · 12 items", dot: "#23C97F" },
+  { project: "evim", id: 16, name: "Sprint — Week 16", meta: "closed · 9 items", dot: "rgba(107,122,144,0.5)" },
+];
+
+const NAV = [
+  { id: "sprint", label: "Sprint", icon: "M4 6h16M4 12h16M4 18h10" },
+  { id: "projects", label: "Projects", icon: "M4 7h6l2 2h8v9H4zM4 7V5h5l2 2" },
+  { id: "my-work", label: "My work", icon: "M5 12l4 4L19 6" },
+  { id: "people", label: "People", icon: "M16 19v-1a4 4 0 00-4-4H7a4 4 0 00-4 4v1M9.5 7.5a3 3 0 100 5 3 3 0 000-5M21 19v-1a4 4 0 00-3-3.9" },
+  { id: "import", label: "Import", icon: "M12 16V4M7 9l5-5 5 5M4 18v2h16v-2" },
+];
+
+const MAPPING = [
+  { from: "Task", to: "title", sample: "Add optional titles to all webparts", state: "mapped" },
+  { from: "Status", to: "status", sample: "Dev Started → dev_started", state: "mapped" },
+  { from: "Hours Worked", to: "time_entries", sample: "7.5 → one entry, 2026-08-20", state: "mapped" },
+  { from: "Assignee", to: "assignee_id", sample: "Mohamed Tamer", state: "mapped" },
+  { from: "Reviewer", to: "reviewer_id", sample: "Abdelrahman Elkhateeb", state: "mapped" },
+  { from: "Deadline", to: "deadline", sample: "23/08/2026 → 2026-08-23", state: "mapped" },
+  { from: "Story Type", to: "type", sample: "CR: Change Request → change_request", state: "mapped" },
+  { from: "Grouping", to: "grouping", sample: "\"1a\" — not an integer", state: "unmatched" },
+];
+
+function palette(theme, brightness) {
+  const mix = (a, b, t) => {
+    const p = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+    const A = p(a), B = p(b);
+    return "#" + [0, 1, 2].map((i) => Math.round(A[i] + (B[i] - A[i]) * t).toString(16).padStart(2, "0")).join("");
+  };
+  const t = Math.max(0, Math.min(1, brightness / 100));
+  if (theme === "dark") {
+    return {
+      "--canvas": mix("#07090E", "#141B27", t), "--raised": mix("#0C1119", "#1B2432", t), "--overlay": mix("#111826", "#212C3F", t),
+      "--hairline": "rgba(255,255,255," + (0.07 + 0.03 * t).toFixed(3) + ")", "--hairline-strong": "rgba(255,255,255," + (0.13 + 0.04 * t).toFixed(3) + ")",
+      "--ink": "#EDF1F7", "--ink-muted": "#93A0B4", "--ink-faint": "#7C899C", "--accent": "#21E2C6", "--scrim": "rgba(7,9,14,0.72)",
+    };
+  }
+  return {
+    "--canvas": mix("#EBEFF6", "#F8FAFC", t), "--raised": mix("#F8FAFC", "#FFFFFF", t), "--overlay": "#FFFFFF",
+    "--hairline": "rgba(11,14,20," + (0.10 - 0.02 * t).toFixed(3) + ")", "--hairline-strong": "rgba(11,14,20," + (0.18 - 0.03 * t).toFixed(3) + ")",
+    "--ink": "#0B0E14", "--ink-muted": "#52607A", "--ink-faint": "#5F6B80", "--accent": "#1E4AE0", "--scrim": "rgba(11,14,20,0.45)",
+  };
+}
+
+const EXPORT_STORE = "coditu.export.v1";
+
+function csvCell(v) {
+  const s = v === null || v === undefined ? "" : String(v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+class Component extends DCLogic {
+  state = {
+    view: "sprint", mode: "table", railOpen: false, notesOpen: true,
+    openKey: null, paletteOpen: false, query: "", logHours: 1.5,
+    themeOverride: null, filters: [], checked: {}, width: 1440,
+    exportOpen: false, format: "md", excluded: [], copied: false,
+    project: "evim", sprint: 17, projectMenuOpen: false,
+    exportOpts: { criteria: true, comments: true, hours: true, owners: true },
+  };
+
+  proj() { return PROJECTS.find((p) => p.id === this.state.project) || PROJECTS[0]; }
+  projSprints() { return SPRINTS.filter((s) => s.project === this.proj().id); }
+  sprintObj() {
+    const own = this.projSprints();
+    return own.find((s) => s.id === this.state.sprint) || own[0] || null;
+  }
+
+  // items belong to a sprint, which belongs to a project — never export
+  // another client's work under the active project's name
+  exportItems() {
+    if (!this.sprintObj()) return [];
+    return ITEMS.filter((i) => this.state.excluded.indexOf(i.key) === -1);
+  }
+
+  exportCsv() {
+    const o = this.state.exportOpts;
+    const head = ["key", "title", "status", "type", "grouping", "assignee", "reviewer", "deadline", "estimate_hours", "hours_logged"];
+    if (o.criteria) head.push("acceptance_criteria_done", "acceptance_criteria_total", "acceptance_criteria");
+    if (o.comments) head.push("comments", "activity");
+    if (o.hours) head.push("time_entries");
+    const rows = this.exportItems().map((i) => {
+      const done = i.criteria.filter((c) => c.done).length;
+      const cells = [
+        i.key, i.title, i.status, i.type, i.grouping || "",
+        i.assignee ? P[i.assignee].name : "", i.reviewer ? P[i.reviewer].name : "",
+        i.deadline || "", i.estimate.toFixed(2), i.logged.toFixed(2),
+      ];
+      if (o.criteria) cells.push(String(done), String(i.criteria.length), i.criteria.map((c) => (c.done ? "[x] " : "[ ] ") + c.body).join(" | "));
+      if (o.comments) cells.push(i.comments.map((c) => c.author + " (" + c.when + "): " + c.body).join(" | "), i.activity.join(" | "));
+      if (o.hours) cells.push(i.entries.map((e) => e.when + " " + e.hours).join(" | "));
+      return cells.map(csvCell).join(",");
+    });
+    return head.join(",") + "\n" + rows.join("\n") + "\n";
+  }
+
+  exportMd() {
+    const o = this.state.exportOpts;
+    const items = this.exportItems();
+    const logged = items.reduce((s, i) => s + i.logged, 0);
+    const est = items.reduce((s, i) => s + i.estimate, 0);
+    const p = this.proj();
+    const sp = this.sprintObj();
+    const L = [];
+    L.push("# " + p.client + " — " + (sp ? sp.name : "no sprint"));
+    L.push("");
+    L.push("- project: " + p.name + " (" + p.client + (p.url && p.url !== "—" ? ", " + p.url : "") + ")");
+    L.push("- window: 2026-08-17 → 2026-08-23 (3 days remaining as of 2026-08-20)");
+    L.push("- items in export: " + items.length + " of " + ITEMS.length);
+    L.push("- hours: " + logged.toFixed(1) + " logged / " + est.toFixed(1) + " estimated");
+    L.push("- statuses used: draft, todo, dev_started, ready_for_peer_review, in_review, changes_requested, done, blocked");
+    L.push("- convention: items sharing a `grouping` integer overlap in logic/UI and are taken by one developer");
+    L.push("- convention: a highlighted block means discuss before implementing");
+    L.push("");
+    L.push("## Sprint notes");
+    L.push("");
+    L.push("> Please work this sprint on the issues in the order they are sorted in. Stories with the same grouping are preferred to be implemented by the same developer because they overlap in some logic/UI.");
+    L.push(">");
+    L.push("> **In the stories, there are highlighted sections, which means you need to discuss something before implementing — please reach out.**");
+    L.push("");
+    L.push("## Items");
+    items.forEach((i, n) => {
+      L.push("");
+      L.push("### " + (n + 1) + ". " + i.key + " — " + i.title);
+      L.push("");
+      L.push("| field | value |");
+      L.push("| --- | --- |");
+      L.push("| status | `" + i.status + "` |");
+      L.push("| type | `" + i.type + "` |");
+      L.push("| grouping | " + (i.grouping ? "`" + i.grouping + "`" : "—") + " |");
+      if (o.owners) {
+        L.push("| assignee | " + (i.assignee ? P[i.assignee].name : "unassigned") + " |");
+        L.push("| reviewer | " + (i.reviewer ? P[i.reviewer].name : "—") + " |");
+      }
+      L.push("| deadline | " + (i.deadline || "—") + " |");
+      if (o.hours) L.push("| hours | " + i.logged.toFixed(1) + " logged / " + i.estimate.toFixed(1) + " estimated |");
+      L.push("");
+      if (i.description) L.push(i.description);
+      if (i.highlight) {
+        L.push("");
+        L.push("> **Discuss before implementing:** " + i.highlight);
+      }
+      if (o.criteria && i.criteria.length) {
+        L.push("");
+        L.push("**Acceptance criteria**");
+        L.push("");
+        i.criteria.forEach((c) => L.push("- [" + (c.done ? "x" : " ") + "] " + c.body));
+      }
+      if (o.comments && i.comments.length) {
+        L.push("");
+        L.push("**Discussion**");
+        L.push("");
+        i.comments.forEach((c) => L.push("- " + c.author + " (" + c.when + "): " + c.body));
+      }
+      if (o.comments && i.activity.length) {
+        L.push("");
+        L.push("**Activity**");
+        L.push("");
+        i.activity.forEach((a) => L.push("- " + a));
+      }
+      if (o.hours && i.entries.length) {
+        L.push("");
+        L.push("**Time entries**");
+        L.push("");
+        i.entries.forEach((e) => L.push("- " + e.when + " — " + e.hours));
+      }
+    });
+    L.push("");
+    return L.join("\n");
+  }
+
+  exportText() {
+    return this.state.format === "csv" ? this.exportCsv() : this.exportMd();
+  }
+
+  saveSelection() {
+    const o = this.state.exportOpts;
+    try {
+      window.localStorage.setItem(EXPORT_STORE, JSON.stringify({
+        excluded: this.state.excluded, criteria: o.criteria, hours: o.hours, owners: o.owners,
+      }));
+    } catch (e) { /* selection just falls back to everything */ }
+  }
+
+  download() {
+    const csv = this.state.format === "csv";
+    const sp = this.sprintObj();
+    if (!sp) return;
+    const slug = this.proj().client.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-sprint-" + sp.id;
+    const blob = new Blob([this.exportText()], { type: csv ? "text/csv;charset=utf-8" : "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = csv ? slug + ".csv" : slug + ".md";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  constructor(props) {
+    super(props);
+    this.rootRef = React.createRef();
+    this.onKey = this.onKey.bind(this);
+    this.onResize = this.onResize.bind(this);
+  }
+
+  componentDidMount() {
+    window.addEventListener("keydown", this.onKey);
+    window.addEventListener("resize", this.onResize);
+    this.onResize();
+    this.applySettings();
+  }
+
+  componentDidUpdate(prev) {
+    if (prev.theme !== this.props.theme || prev.brightness !== this.props.brightness) this.applySettings();
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("keydown", this.onKey);
+    window.removeEventListener("resize", this.onResize);
+  }
+
+  onResize() { this.setState({ width: window.innerWidth }); }
+
+  onKey(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      this.setState((s) => ({ paletteOpen: !s.paletteOpen, query: "" }));
+    }
+    if (e.key === "Escape") this.setState({ paletteOpen: false, openKey: null, exportOpen: false, projectMenuOpen: false });
+  }
+
+  theme() { return this.state.themeOverride || this.props.theme || "light"; }
+
+  applySettings() {
+    const root = this.rootRef.current;
+    if (!root) return;
+    const vars = palette(this.theme(), this.props.brightness ?? 65);
+    Object.keys(vars).forEach((k) => root.style.setProperty(k, vars[k]));
+  }
+
+  visible() {
+    const f = this.state.filters;
+    return f.length === 0 ? ITEMS : ITEMS.filter((i) => f.indexOf(i.status) > -1);
+  }
+
+  acCount(item) {
+    const done = item.criteria.filter((c, n) => this.isChecked(item.key, n, c)).length;
+    return { done, total: item.criteria.length };
+  }
+
+  isChecked(key, n, c) {
+    const k = key + ":" + n;
+    return this.state.checked[k] === undefined ? c.done : this.state.checked[k];
+  }
+
+  chip(key) {
+    const s = STATUS[key];
+    const t = this.theme() === "dark" ? s.dark : s.light;
+    return { label: s.label, fg: t.fg, bg: t.bg };
+  }
+
+  tone(name) {
+    const t = TONE[name] || TONE.slate;
+    return this.theme() === "dark" ? t.dark : t.light;
+  }
+
+  row(i) {
+    const st = this.chip(i.status);
+    const g = i.grouping ? GROUPS[i.grouping] : "transparent";
+    const ac = this.acCount(i);
+    const over = i.logged > i.estimate;
+    const dark = this.theme() === "dark";
+    const amber = dark ? AMBER_TEXT.dark : AMBER_TEXT.light;
+    return {
+      key: i.key, title: i.title, status: st.label, statusBg: st.bg, statusColor: st.fg,
+      logged: i.logged ? i.logged.toFixed(1) : "—", estimate: i.estimate.toFixed(1),
+      hoursColor: over ? amber : "var(--ink)",
+      assignee: i.assignee ? P[i.assignee].name.split(" ")[0] : "unassigned",
+      assigneeInitials: i.assignee ? P[i.assignee].initials : "··",
+      assigneeColor: i.assignee ? "var(--ink)" : "var(--ink-faint)",
+      reviewer: i.reviewer ? P[i.reviewer].name.split(" ")[0] : "—",
+      reviewerInitials: i.reviewer ? P[i.reviewer].initials : "··",
+      reviewerColor: i.reviewer ? "var(--ink)" : "var(--ink-faint)",
+      deadline: i.deadline || "—",
+      deadlineColor: i.deadline === "2026-08-20" ? amber : "var(--ink-muted)",
+      type: i.type, grouping: i.grouping || "—",
+      groupColor: g,
+      // the grouping hue stays on the border and tint; the number is ink,
+      // because an 11px label in the hue itself never clears 4.5:1
+      groupBg: i.grouping ? (dark ? "rgba(255,255,255,0.06)" : "rgba(11,14,20,0.04)") : "transparent",
+      groupBorder: i.grouping ? g : "var(--hairline)",
+      groupText: i.grouping ? "var(--ink)" : "var(--ink-faint)",
+      tint: i.grouping ? (i.grouping === 1 ? "rgba(91,140,255,0.05)" : "rgba(18,165,148,0.05)") : "transparent",
+      stickyBg: i.grouping ? (i.grouping === 1 ? (dark ? "#111827" : "#F4F7FE") : (dark ? "#0F1A1C" : "#F2F9F8")) : "var(--raised)",
+      cardBg: i.grouping ? (i.grouping === 1 ? "rgba(91,140,255,0.05)" : "rgba(18,165,148,0.05)") : "var(--raised)",
+      ac: ac.total ? ac.done + "/" + ac.total : "",
+      acOpacity: ac.total ? 1 : 0,
+      open: () => this.setState({ openKey: i.key }),
+    };
+  }
+
+  renderVals() {
+    const view = this.state.view;
+    const wide = this.props.mobileLayout === true ? false : this.state.width >= 900;
+    const item = ITEMS.find((i) => i.key === this.state.openKey) || null;
+    const rows = this.visible().map((i) => this.row(i));
+    const boardCols = [
+      { id: "draft", label: "draft", color: "rgba(107,122,144,0.4)" },
+      { id: "todo", label: "todo", color: "#6B7A90" },
+      { id: "dev_started", label: "dev started", color: "#2B57FF" },
+      { id: "ready_for_peer_review", label: "peer review", color: "#FFB020" },
+    ];
+    const q = this.state.query.toLowerCase();
+    const results = [
+      { kind: "action", label: "Log time on the focused item", hint: "L", run: () => this.setState({ paletteOpen: false }) },
+      { kind: "action", label: "Toggle theme", hint: "T", run: () => this.setState((s) => ({ paletteOpen: false, themeOverride: this.theme() === "dark" ? "light" : "dark" }), () => this.applySettings()) },
+      { kind: "sprint", label: "EVIM · Sprint — Week 17", hint: "active", run: () => this.setState({ paletteOpen: false, view: "sprint" }) },
+      { kind: "sprint", label: "EVIM · Sprint — Week 16", hint: "closed", run: () => this.setState({ paletteOpen: false, view: "sprint" }) },
+    ].concat(ITEMS.map((i) => ({ kind: i.key, label: i.title, hint: STATUS[i.status].label, run: () => this.setState({ paletteOpen: false, openKey: i.key }) })))
+     .filter((r) => !q || (r.label + " " + r.kind).toLowerCase().indexOf(q) > -1);
+
+    const filterDefs = [
+      { id: "dev_started", label: "dev started", dot: "#2B57FF" },
+      { id: "ready_for_peer_review", label: "peer review", dot: "#FFB020" },
+      { id: "todo", label: "todo", dot: "#6B7A90" },
+      { id: "draft", label: "draft", dot: "rgba(107,122,144,0.45)" },
+    ];
+
+    const active = this.proj();
+    const ownSprints = this.projSprints();
+    const activeSprint = this.sprintObj();
+
+    const mine = ITEMS.filter((i) => i.assignee === "MT");
+    const toReview = ITEMS.filter((i) => i.reviewer === "MT" && i.status === "ready_for_peer_review");
+
+    return {
+      rootRef: this.rootRef,
+      railWidth: this.state.railOpen ? "240px" : "72px",
+      railLabel: this.state.railOpen ? 1 : 0,
+      railOn: () => this.setState({ railOpen: true }),
+      railOff: () => this.setState({ railOpen: false }),
+      nav: NAV.map((n) => ({
+        label: n.label, icon: n.icon,
+        bg: view === n.id ? "var(--canvas)" : "transparent",
+        color: view === n.id ? "var(--ink)" : "var(--ink-muted)",
+        go: () => this.setState({ view: n.id }),
+      })),
+      showSprint: view === "sprint" && !!activeSprint,
+      sprintEmpty: view === "sprint" && !activeSprint,
+      sprintEmptyTitle: active.client + " has no open sprint",
+      sprintEmptyBody: active.name + " is not on a sprint cadence yet. Pick a project with an active sprint, or create the first sprint for this one — items, hours, and reviews all hang off it.",
+      isProjects: view === "projects", isMyWork: view === "my-work", isPeople: view === "people", isImport: view === "import",
+
+      projectMenuOpen: this.state.projectMenuOpen,
+      toggleProjectMenu: () => this.setState((s) => ({ projectMenuOpen: !s.projectMenuOpen })),
+      activeProjectName: active.client,
+      activeAccent: active.accent,
+      activeHasLogo: active.logo === true,
+      activeNoLogo: active.logo !== true,
+      activeHasSprint: ownSprints.length > 0,
+      activeSprintName: activeSprint ? activeSprint.name : "no active sprint",
+      sprintLabelColor: activeSprint ? "var(--ink)" : "var(--ink-faint)",
+      sprintListLabel: "Sprints in " + active.client,
+      sprintListEmpty: ownSprints.length === 0,
+      emptySprintNote: active.client + " is not on a sprint cadence yet — no sprints exist for this project.",
+      goProjects: () => this.setState({ view: "projects", projectMenuOpen: false }),
+      projectList: PROJECTS.map((p) => {
+        const on = this.state.project === p.id;
+        return {
+          name: p.name, client: p.client, accent: p.accent,
+          hasLogo: p.logo, noLogo: !p.logo,
+          state: p.sprint ? p.sprint : "no sprint",
+          stateColor: p.sprint ? "#12805A" : "var(--ink-faint)",
+          bg: on ? "var(--canvas)" : "transparent",
+          pick: () => this.setState({ project: p.id, projectMenuOpen: false, view: p.sprint ? "sprint" : "projects" }),
+        };
+      }),
+      sprintList: ownSprints.map((s) => ({
+        name: s.name, meta: s.meta, dot: s.dot,
+        bg: this.state.sprint === s.id ? "var(--canvas)" : "transparent",
+        pick: () => this.setState({ sprint: s.id, projectMenuOpen: false, view: "sprint" }),
+      })),
+      projectRows: PROJECTS.map((p) => ({
+        name: p.name, client: p.client, url: p.url, href: p.href, accent: p.accent, scope: p.scope,
+        hasLogo: p.logo, noLogo: !p.logo,
+        sprint: p.sprint || "no open sprint",
+        sprintBg: this.tone(p.sprint ? "jade" : "slate").bg,
+        sprintColor: p.sprint ? this.tone("jade").fg : "var(--ink-muted)",
+        sprints: String(p.sprints || "—"),
+        hours: p.hours,
+        bg: this.state.project === p.id ? "var(--canvas)" : "transparent",
+        pick: () => this.setState({ project: p.id, view: p.sprint ? "sprint" : "projects" }),
+      })),
+      isTable: this.state.mode === "table", isBoard: this.state.mode === "board",
+      isWide: wide, isNarrow: !wide,
+      rowHeight: this.props.density === "compact" ? "44px" : "52px",
+      showTable: () => this.setState({ mode: "table" }),
+      showBoard: () => this.setState({ mode: "board" }),
+      tableBg: this.state.mode === "table" ? "var(--canvas)" : "transparent",
+      tableColor: this.state.mode === "table" ? "var(--ink)" : "var(--ink-muted)",
+      boardBg: this.state.mode === "board" ? "var(--canvas)" : "transparent",
+      boardColor: this.state.mode === "board" ? "var(--ink)" : "var(--ink-muted)",
+      filters: filterDefs.map((f) => {
+        const on = this.state.filters.indexOf(f.id) > -1;
+        return {
+          label: f.label, dot: f.dot,
+          bg: on ? "var(--canvas)" : "transparent",
+          border: on ? "var(--hairline-strong)" : "var(--hairline)",
+          color: on ? "var(--ink)" : "var(--ink-muted)",
+          toggle: () => this.setState((s) => ({ filters: on ? s.filters.filter((x) => x !== f.id) : s.filters.concat([f.id]) })),
+        };
+      }),
+      urlState: this.state.filters.length ? "?status=" + this.state.filters.join(",") : "?sort=order_index",
+      rows,
+      columns: boardCols.map((c) => {
+        const items = this.visible().filter((i) => i.status === c.id);
+        return {
+          label: c.label, color: c.color, count: items.length,
+          items: items.map((i) => {
+            const ac = this.acCount(i);
+            return {
+              key: i.key, title: i.title, type: i.type,
+              groupColor: i.grouping ? GROUPS[i.grouping] : "transparent",
+              assigneeInitials: i.assignee ? P[i.assignee].initials : "··",
+              hours: i.logged ? i.logged.toFixed(1) + "h" : "—",
+              ac: ac.total ? ac.done + "/" + ac.total : "",
+              open: () => this.setState({ openKey: i.key }),
+            };
+          }),
+        };
+      }),
+      daysLeftColor: this.tone("amber").fg,
+      daysLeftBg: this.tone("amber").bg,
+      notesOpen: this.state.notesOpen,
+      notesRotate: this.state.notesOpen ? "90deg" : "0deg",
+      toggleNotes: () => this.setState((s) => ({ notesOpen: !s.notesOpen })),
+      syncing: false,
+      newItem: () => this.setState({ paletteOpen: true, query: "" }),
+      toggleTheme: () => this.setState({ themeOverride: this.theme() === "dark" ? "light" : "dark" }, () => this.applySettings()),
+      openPalette: () => this.setState({ paletteOpen: true, query: "" }),
+      closePalette: () => this.setState({ paletteOpen: false }),
+      paletteOpen: this.state.paletteOpen,
+      query: this.state.query,
+      onQuery: (e) => this.setState({ query: e.target.value }),
+      paletteResults: results.slice(0, 8),
+      myWork: [
+        { label: "Assigned to me", count: mine.length, items: mine.map((i) => ({ key: i.key, title: i.title, meta: STATUS[i.status].label, open: () => this.setState({ openKey: i.key }) })) },
+        { label: "Awaiting my review", count: toReview.length, items: toReview.map((i) => ({ key: i.key, title: i.title, meta: (i.logged || 0) + "h logged", open: () => this.setState({ openKey: i.key }) })) },
+      ],
+      people: [
+        { initials: "MT", name: "Mohamed Tamer", role: "frontend lead · admin", assigned: "4", review: "1", hours: "12.5 / 40", pct: "31%" },
+        { initials: "AE", name: "Abdelrahman Elkhateeb", role: "frontend engineer", assigned: "1", review: "3", hours: "3.0 / 40", pct: "8%" },
+        { initials: "AY", name: "Ahmed Yehia", role: "backend & devops", assigned: "0", review: "0", hours: "0.5 / 40", pct: "2%" },
+        { initials: "AN", name: "Adam Nafie", role: "partnerships · lead", assigned: "0", review: "0", hours: "0.0 / 20", pct: "0%" },
+      ],
+      mapping: MAPPING.map((m) => {
+        const t = this.tone(m.state === "mapped" ? "jade" : "amber");
+        return { from: m.from, to: m.to, sample: m.sample, state: m.state, bg: t.bg, color: t.fg };
+      }),
+      logHours: this.state.logHours.toFixed(1),
+      hoursUp: () => this.setState((s) => ({ logHours: Math.min(24, s.logHours + 0.5) })),
+      hoursDown: () => this.setState((s) => ({ logHours: Math.max(0.5, s.logHours - 0.5) })),
+      logTime: () => this.setState({ openKey: this.state.openKey }),
+      detail: item ? (() => {
+        const ac = this.acCount(item);
+        const pct = ac.total ? ac.done / ac.total : 0;
+        const st = this.chip(item.status);
+        return {
+          key: item.key, title: item.title, description: item.description, highlight: item.highlight || null,
+          acLabel: ac.total ? ac.done + " / " + ac.total : "none yet",
+          ringOffset: String(94.2 * (1 - pct)),
+          criteria: item.criteria.map((c, n) => {
+            const on = this.isChecked(item.key, n, c);
+            return {
+              body: c.body,
+              boxBorder: on ? "#21E2C6" : "var(--hairline-strong)",
+              boxBg: on ? "#21E2C6" : "transparent",
+              tickOpacity: on ? 1 : 0,
+              textColor: on ? "var(--ink-muted)" : "var(--ink)",
+              strike: on ? "line-through" : "none",
+              toggle: () => this.setState((s) => {
+                const next = Object.assign({}, s.checked);
+                next[item.key + ":" + n] = !on;
+                return { checked: next };
+              }),
+            };
+          }),
+          comments: item.comments, activity: item.activity.length ? item.activity : ["no activity yet"],
+          entries: item.entries.length ? item.entries : [{ when: "no entries", hours: "0.0 h" }],
+          totalHours: (item.logged || 0).toFixed(1) + " h",
+          properties: [
+            { label: "status", value: st.label, color: st.fg },
+            { label: "type", value: item.type, color: "var(--ink)" },
+            { label: "assignee", value: item.assignee ? P[item.assignee].name : "unassigned", color: item.assignee ? "var(--ink)" : "var(--ink-faint)" },
+            { label: "reviewer", value: item.reviewer ? P[item.reviewer].name : "—", color: item.reviewer ? "var(--ink)" : "var(--ink-faint)" },
+            { label: "deadline", value: item.deadline || "—", color: "var(--ink)" },
+            { label: "estimate", value: item.estimate.toFixed(1) + " h", color: "var(--ink)" },
+            { label: "grouping", value: item.grouping ? String(item.grouping) : "—", color: item.grouping ? GROUPS[item.grouping] : "var(--ink-faint)" },
+          ],
+        };
+      })() : null,
+      closeDetail: () => this.setState({ openKey: null }),
+      stop: (e) => e.stopPropagation(),
+
+      exportOpen: this.state.exportOpen,
+      exportDisabled: !activeSprint,
+      exportColor: activeSprint ? "var(--ink)" : "var(--ink-faint)",
+      exportCursor: activeSprint ? "pointer" : "not-allowed",
+      exportTip: activeSprint ? "Export " + active.client + " · " + activeSprint.name : "No sprint to export for " + active.client,
+      exportTitle: "Export " + active.client + " · " + (activeSprint ? activeSprint.name : "no sprint"),
+      openExport: () => { if (activeSprint) this.setState({ exportOpen: true, copied: false }); },
+      closeExport: () => this.setState({ exportOpen: false }),
+      exportCount: this.exportItems().length + " of " + ITEMS.length + " items",
+      isPdf: this.state.format === "pdf",
+      isText: this.state.format !== "pdf",
+      previewLabel: this.state.format === "csv" ? "CSV preview" : this.state.format === "md" ? "Markdown preview" : "Client report",
+      previewMeta: this.state.format === "pdf" ? "print-ready" : this.exportText().split("\n").length + " lines",
+      preview: this.state.format === "pdf" ? "" : this.exportText(),
+      copyLabel: this.state.copied ? "Copied" : "Copy to clipboard",
+      downloadLabel: this.state.format === "csv" ? "Download .csv" : "Download .md",
+      copyText: () => {
+        const text = this.exportText();
+        if (navigator.clipboard) navigator.clipboard.writeText(text);
+        this.setState({ copied: true });
+        setTimeout(() => this.setState({ copied: false }), 1600);
+      },
+      downloadText: () => this.download(),
+      saveSelection: () => this.saveSelection(),
+      formats: [
+        { id: "md", title: "Markdown — for an AI agent", body: "Front-matter facts, sprint notes, then every item with criteria, discussion, activity and time entries." },
+        { id: "csv", title: "CSV — detailed", body: "One row per item, every column including criteria and time entries. Opens in Sheets or Excel." },
+        { id: "pdf", title: "PDF — for the client", body: "A typeset sprint report: summary, burn-up, and each item with its acceptance criteria." },
+      ].map((f) => {
+        const on = this.state.format === f.id;
+        return {
+          title: f.title, body: f.body,
+          bg: on ? "var(--canvas)" : "transparent",
+          border: on ? "var(--hairline-strong)" : "var(--hairline)",
+          dotBorder: on ? "#21E2C6" : "var(--hairline-strong)",
+          dotBg: on ? "linear-gradient(135deg, #2B57FF, #21E2C6)" : "transparent",
+          pick: () => this.setState({ format: f.id, copied: false }),
+        };
+      }),
+      exportOptions: [
+        { id: "criteria", label: "Acceptance criteria" },
+        { id: "hours", label: "Hours & time entries" },
+        { id: "comments", label: "Comments & activity" },
+        { id: "owners", label: "Assignee & reviewer" },
+      ].map((o) => {
+        const on = this.state.exportOpts[o.id];
+        return {
+          label: o.label,
+          bg: on ? "var(--canvas)" : "transparent",
+          border: on ? "var(--hairline-strong)" : "var(--hairline)",
+          color: on ? "var(--ink)" : "var(--ink-muted)",
+          boxBorder: on ? "#21E2C6" : "var(--hairline-strong)",
+          boxBg: on ? "#21E2C6" : "transparent",
+          toggle: () => this.setState((s) => {
+            const next = Object.assign({}, s.exportOpts);
+            next[o.id] = !next[o.id];
+            return { exportOpts: next, copied: false };
+          }),
+        };
+      }),
+      exportItems: ITEMS.map((i) => {
+        const on = this.state.excluded.indexOf(i.key) === -1;
+        return {
+          key: i.key, title: i.title,
+          hours: i.logged ? i.logged.toFixed(1) + "h" : "—",
+          bg: on ? "transparent" : "var(--canvas)",
+          color: on ? "var(--ink)" : "var(--ink-faint)",
+          boxBorder: on ? "#21E2C6" : "var(--hairline-strong)",
+          boxBg: on ? "#21E2C6" : "transparent",
+          tick: on ? 1 : 0,
+          toggle: () => this.setState((s) => ({
+            excluded: on ? s.excluded.concat([i.key]) : s.excluded.filter((k) => k !== i.key),
+            copied: false,
+          })),
+        };
+      }),
+      selectAll: () => this.setState({ excluded: [], copied: false }),
+      selectNone: () => this.setState({ excluded: ITEMS.map((i) => i.key), copied: false }),
+      selectActive: () => this.setState({ excluded: ITEMS.filter((i) => i.status === "draft").map((i) => i.key), copied: false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

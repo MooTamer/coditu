@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #07090E; color: #EDF1F7; font-family: Satoshi, "Instrument Sans", sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  h1, h2, h3, h4, p, ul, li, figure { margin: 0; }
+  ul { padding: 0; list-style: none; }
+  a { color: inherit; text-decoration: none; }
+  a:hover { color: var(--accent); }
+  button { font: inherit; }
+  *:focus-visible { outline: 2px solid #21E2C6; outline-offset: 2px; border-radius: 4px; }
+  @keyframes cd-word { from { opacity: 0; transform: translateY(0.6em); filter: blur(8px); } to { opacity: 1; transform: none; filter: none; } }
+  @keyframes cd-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes cd-draw { from { stroke-dashoffset: var(--len, 1200); } to { stroke-dashoffset: 0; } }
+  @keyframes cd-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(1.35); } }
+  @keyframes cd-spin { to { transform: rotate(360deg); } }
+  .w { display: inline-block; animation: cd-word 620ms cubic-bezier(0.16,1,0.3,1) both; }
+  .r { animation: cd-rise 520ms cubic-bezier(0.16,1,0.3,1) both; }
+  .d { animation: cd-draw 1100ms cubic-bezier(0.16,1,0.3,1) both; }
+  .p { animation: cd-pulse 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @media (prefers-reduced-motion: reduce) {
+    .w, .r, .d, .p { animation: none !important; stroke-dashoffset: 0 !important; }
+  }
+</style>
+</helmet>
+
+<div ref="{{ rootRef }}" style="--canvas: #F6F8FB; --raised: #FCFDFE; --overlay: #FFFFFF; --hairline: rgba(11,14,20,0.09); --hairline-strong: rgba(11,14,20,0.16); --ink: #0B0E14; --ink-muted: #52607A; --ink-faint: #5F6B80; --dot: rgba(11,14,20,0.055); --accent: #1E4AE0; --scrim: rgba(11,14,20,0.45); --scrim-strong: rgba(255,255,255,0.86); position: relative; background: var(--canvas); color: var(--ink); min-height: 100vh; overflow: hidden;">
+
+  <div style="pointer-events: none; position: fixed; inset: 0; z-index: 0; background-image: radial-gradient(var(--dot) 1px, transparent 1px); background-size: 32px 32px; mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 25%, transparent 78%);"></div>
+  <div style="pointer-events: none; position: fixed; inset: 0; z-index: 0; opacity: 0.03; mix-blend-mode: overlay; background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
+
+  <div ref="{{ railRef }}" aria-hidden="true" style="pointer-events: none; position: fixed; left: 34px; top: 0; bottom: 0; width: 56px; z-index: 0; display: none;">
+    <svg width="56" height="100%" viewBox="0 0 56 900" preserveAspectRatio="none" fill="none">
+      <path d="M14 0 L14 150 C14 190 42 190 42 230 L42 470 C42 510 14 510 14 550 L14 900" stroke="var(--hairline-strong)" stroke-width="1" />
+      <path ref="{{ traceRef }}" d="M14 0 L14 150 C14 190 42 190 42 230 L42 470 C42 510 14 510 14 550 L14 900" stroke="url(#railGrad)" stroke-width="1.5" stroke-dasharray="1200" stroke-dashoffset="1200" />
+      <defs><linearGradient id="railGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient></defs>
+    </svg>
+  </div>
+
+  <header ref="{{ navRef }}" style="position: sticky; top: 0; z-index: 40; backdrop-filter: blur(16px) saturate(160%); background: color-mix(in srgb, var(--canvas) 82%, transparent); border-bottom: 1px solid transparent; transition: border-color 220ms ease;">
+    <div style="max-width: 1240px; margin: 0 auto; padding: 0 clamp(20px, 3vw, 40px); height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 24px; transition: height 220ms cubic-bezier(0.16,1,0.3,1);" ref="{{ navInnerRef }}">
+      <a href="#top" style="display: flex; align-items: center; gap: 14px; min-width: 0;" aria-label="Coditu">
+        <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><path fill="url(#navGrad)" d="M26.244 24.004 L25.263 25.089 L24.169 26.055 L22.974 26.89 L21.696 27.585 L20.35 28.13 L18.953 28.52 L17.524 28.75 L16.081 28.818 L14.642 28.723 L13.226 28.468 L11.849 28.055 L10.53 27.492 L9.285 26.785 L8.129 25.944 L7.077 24.98 L6.142 23.905 L5.335 22.735 L4.666 21.484 L4.143 20.167 L3.772 18.803 L3.557 17.408 L3.5 16 L3.602 14.597 L3.86 13.218 L4.271 11.878 L4.83 10.596 L5.527 9.386 L6.355 8.265 L7.301 7.246 L8.355 6.341 L9.501 5.563 L10.725 4.919 L12.012 4.417 L13.344 4.065 L14.705 3.864 L16.077 3.818 L17.444 3.927 L18.786 4.188 L20.089 4.597 L21.335 5.15 L22.508 5.837 L23.595 6.651 L24.582 7.58 L25.456 8.612 A 1 1 0 0 1 23.88 9.843 L23.122 9.012 L22.277 8.274 L21.356 7.636 L20.372 7.108 L19.337 6.694 L18.265 6.4 L17.168 6.229 L16.062 6.182 L14.961 6.26 L13.877 6.461 L12.826 6.781 L11.819 7.217 L10.87 7.762 L9.991 8.409 L9.192 9.148 L8.482 9.971 L7.872 10.867 L7.366 11.823 L6.973 12.828 L6.696 13.867 L6.538 14.93 L6.5 16 L6.583 17.065 L6.784 18.112 L7.102 19.127 L7.53 20.098 L8.064 21.012 L8.695 21.858 L9.416 22.626 L10.217 23.306 L11.087 23.891 L12.015 24.373 L12.988 24.746 L13.996 25.007 L15.023 25.153 L16.058 25.182 L17.087 25.094 L18.098 24.892 L19.076 24.579 L20.011 24.158 L20.891 23.636 L21.704 23.021 L22.44 22.319 L23.092 21.541 A 2 2 0 0 1 26.244 24.004 Z" /><circle cx="26.4" cy="16" r="1.6" fill="#21E2C6" /><defs><linearGradient id="navGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient></defs></svg>
+        <span style="font-size: 21px; font-weight: 700; letter-spacing: -0.02em;">Codi<span style="display: inline-block; transform: scaleY(0.94); transform-origin: bottom;">t</span>u</span>
+      </a>
+
+      <nav style="display: flex; align-items: center; gap: 2px; flex-wrap: wrap;">
+        <a href="#work" style="padding: 8px 14px; border-radius: 999px; font-size: 15px; color: var(--ink-muted); transition: color 160ms, background 160ms;" style-hover="color: var(--ink); background: var(--hairline);">Work</a>
+        <a href="#services" style="padding: 8px 14px; border-radius: 999px; font-size: 15px; color: var(--ink-muted); transition: color 160ms, background 160ms;" style-hover="color: var(--ink); background: var(--hairline);">Services</a>
+        <a href="#team" style="padding: 8px 14px; border-radius: 999px; font-size: 15px; color: var(--ink-muted); transition: color 160ms, background 160ms;" style-hover="color: var(--ink); background: var(--hairline);">Team</a>
+        <a href="#contact" style="padding: 8px 14px; border-radius: 999px; font-size: 15px; color: var(--ink-muted); transition: color 160ms, background 160ms;" style-hover="color: var(--ink); background: var(--hairline);">Contact</a>
+      </nav>
+
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button type="button" onClick="{{ toggleTheme }}" aria-label="Toggle theme" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid var(--hairline); background: transparent; color: var(--ink-muted); cursor: pointer; transition: color 160ms, background 160ms;" style-hover="color: var(--ink); background: var(--hairline);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="4.2" /><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6" /></svg>
+        </button>
+        <a ref="{{ ctaRef }}" href="mailto:hello@coditu.com" style="display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: 10px; font-size: 15px; font-weight: 600; color: #07090E; background: linear-gradient(135deg, #2B57FF, #21E2C6); box-shadow: 0 0 0 1px rgba(33,226,198,0.25); transition: transform 200ms cubic-bezier(0.16,1,0.3,1);">Request a call</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top" style="position: relative; z-index: 1;">
+
+    <section style="max-width: 1240px; margin: 0 auto; padding: clamp(48px, 7vw, 104px) clamp(20px, 3vw, 40px) clamp(56px, 6vw, 96px);">
+      <div style="display: flex; align-items: center; gap: 14px;" class="r">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent);">Coditu</span>
+        <span style="height: 1px; flex: 1; background: linear-gradient(to right, rgba(33,226,198,0.5), transparent);"></span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Germany + Egypt</span>
+      </div>
+
+      <svg viewBox="0 0 1200 24" preserveAspectRatio="none" style="width: 100%; height: 24px; margin-top: 26px; display: block;" fill="none" aria-hidden="true">
+        <path class="d" style="--len: 1200;" d="M0 12 L470 12 C520 12 520 4 570 4 L1200 4" stroke="url(#heroGrad)" stroke-width="1.5" stroke-dasharray="1200" />
+        <defs><linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient></defs>
+      </svg>
+
+      <h1 style="margin-top: 34px; max-width: 20ch; font-size: clamp(2.75rem, 1.6rem + 5.2vw, 6rem); line-height: 1.02; letter-spacing: -0.035em; font-weight: 700; text-wrap: pretty;">
+        <span class="w" style="animation-delay: 120ms;">We</span> <span class="w" style="animation-delay: 165ms;">build</span> <span class="w" style="animation-delay: 210ms;">portals,</span> <span class="w" style="animation-delay: 255ms;">internal</span> <span class="w" style="animation-delay: 300ms;">systems,</span> <span class="w" style="animation-delay: 345ms;">and</span> <span class="w" style="animation-delay: 390ms;">RAG</span> <span class="w" style="animation-delay: 435ms;">assistants.</span>
+      </h1>
+
+      <div style="margin-top: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: clamp(24px, 4vw, 64px); align-items: start;">
+        <div class="r" style="animation-delay: 280ms;">
+          <p style="max-width: 46ch; font-size: clamp(1rem, 0.96rem + 0.18vw, 1.125rem); line-height: 1.6; color: var(--ink-muted);">One team owns scope, design, build, launch, and iteration. Four engineers, two hubs, no subcontracting.</p>
+          <div style="margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px;">
+            <a href="#work" style="display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 22px; border-radius: 10px; font-size: 15px; font-weight: 600; color: #07090E; background: linear-gradient(135deg, #2B57FF, #21E2C6);">See the work
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" /></svg>
+            </a>
+            <a href="mailto:hello@coditu.com" style="display: inline-flex; align-items: center; height: 48px; padding: 0 22px; border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--ink); border: 1px solid var(--hairline-strong); transition: background 180ms;" style-hover="background: var(--hairline);">Request a call</a>
+          </div>
+        </div>
+
+        <ul class="r" style="animation-delay: 340ms; display: flex; flex-direction: column; border-top: 1px solid var(--hairline);">
+          <li style="display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--hairline);">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); padding-top: 3px;">01</span>
+            <span style="font-size: 15px; line-height: 1.5; color: var(--ink);">SPFx components inside existing SharePoint governance</span>
+          </li>
+          <li style="display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--hairline);">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); padding-top: 3px;">02</span>
+            <span style="font-size: 15px; line-height: 1.5; color: var(--ink);">Approvals, scheduling, and reporting with role-based access</span>
+          </li>
+          <li style="display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--hairline);">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); padding-top: 3px;">03</span>
+            <span style="font-size: 15px; line-height: 1.5; color: var(--ink);">RAG assistants with ingestion, indexing, and answer guardrails</span>
+          </li>
+        </ul>
+      </div>
+
+      <div ref="{{ tilesRef }}" class="r" style="animation-delay: 420ms; position: relative; margin-top: clamp(40px, 5vw, 72px); height: 220px; border: 1px solid var(--hairline); border-radius: 20px; background: var(--raised); overflow: hidden;">
+        <svg viewBox="0 0 1200 220" preserveAspectRatio="none" style="position: absolute; inset: 0; width: 100%; height: 100%;" fill="none" aria-hidden="true">
+          <path class="d" style="--len: 1400;" d="M0 168 L180 168 C240 168 240 96 300 96 L560 96 C620 96 620 150 680 150 L900 150 C960 150 960 64 1020 64 L1200 64" stroke="url(#tileGrad)" stroke-width="1.5" stroke-dasharray="1400" />
+          <path d="M300 96 L300 30" stroke="var(--hairline-strong)" stroke-width="1" />
+          <path d="M680 150 L680 200" stroke="var(--hairline-strong)" stroke-width="1" />
+          <defs><linearGradient id="tileGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient></defs>
+        </svg>
+        <div data-px="0.5" style="position: absolute; left: 4%; top: 62%; display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--hairline-strong); background: var(--overlay);">
+          <span style="width: 6px; height: 6px; border-radius: 999px; background: var(--accent);" class="p"></span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.04em;">SPFx Portals</span>
+        </div>
+        <div data-px="0.8" style="position: absolute; left: 22%; top: 8%; display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--hairline-strong); background: var(--overlay);">
+          <span style="width: 6px; height: 6px; border-radius: 999px; background: var(--accent);" class="p" style-hover=""></span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.04em;">RAG</span>
+        </div>
+        <div data-px="0.35" style="position: absolute; left: 45%; top: 30%; display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--hairline-strong); background: var(--overlay);">
+          <span style="width: 6px; height: 6px; border-radius: 999px; background: var(--accent);" class="p"></span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.04em;">Web Apps</span>
+        </div>
+        <div data-px="0.62" style="position: absolute; left: 56%; top: 78%; display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--hairline-strong); background: var(--overlay);">
+          <span style="width: 6px; height: 6px; border-radius: 999px; background: var(--accent);" class="p"></span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.04em;">Systems</span>
+        </div>
+        <div data-px="0.28" style="position: absolute; right: 5%; top: 14%; display: flex; gap: 18px; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">
+          <span>Cairo</span><span>·</span><span>Munich</span><span>·</span><span>Ulm</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="work" data-screen-label="Work" style="max-width: 1240px; margin: 0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 3vw, 40px);">
+      <div style="display: flex; align-items: baseline; gap: 18px; padding-bottom: 22px; border-bottom: 1px solid var(--hairline-strong);">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; color: var(--accent);">01</span>
+        <h2 style="font-size: clamp(1.75rem, 1.3rem + 1.9vw, 2.5rem); line-height: 1.15; letter-spacing: -0.022em; font-weight: 700;">Selected work</h2>
+        <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-faint);">4 projects</span>
+      </div>
+
+      <div style="margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 20px;">
+        <sc-for list="{{ work }}" as="item" hint-placeholder-count="4">
+          <button type="button" onClick="{{ item.open }}" style="grid-column: {{ item.span }}; text-align: left; display: flex; flex-direction: column; border: 1px solid var(--hairline); border-radius: 20px; background: var(--raised); overflow: hidden; cursor: pointer; padding: 0; color: inherit; transition: border-color 240ms, transform 240ms cubic-bezier(0.16,1,0.3,1);" style-hover="border-color: var(--hairline-strong); transform: translateY(-3px);">
+            <span style="position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; border-bottom: 1px solid var(--hairline); background: var(--overlay);">
+              <sc-if value="{{ item.image }}" hint-placeholder-val="{{ false }}">
+                <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="{{ item.image }}" alt="{{ item.imageAlt }}" style="width: 100%; height: 100%; object-fit: cover; object-position: 50% 0%; display: block;" />
+              </sc-if>
+              <span style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(7,9,14,0.55), transparent 55%);"></span>
+            </span>
+            <span style="display: flex; flex-direction: column; gap: 14px; padding: 24px;">
+              <span style="display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">
+                <span style="color: var(--accent);">{{ item.client }}</span><span>·</span><span>{{ item.industry }}</span>
+              </span>
+              <span style="font-size: clamp(1.25rem, 1.1rem + 0.7vw, 1.5rem); line-height: 1.25; letter-spacing: -0.015em; font-weight: 700;">{{ item.title }}</span>
+              <span style="font-size: 15px; line-height: 1.55; color: var(--ink-muted);">{{ item.summary }}</span>
+              <span style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+                <sc-for list="{{ item.stack }}" as="chip" hint-placeholder-count="4">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 4px 9px; border-radius: 6px; border: 1px solid var(--hairline); color: var(--ink-muted);">{{ chip }}</span>
+                </sc-for>
+              </span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="services" data-screen-label="Services" style="max-width: 1240px; margin: 0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 3vw, 40px);">
+      <div style="display: flex; align-items: baseline; gap: 18px; padding-bottom: 22px; border-bottom: 1px solid var(--hairline-strong);">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; color: var(--accent);">02</span>
+        <h2 style="font-size: clamp(1.75rem, 1.3rem + 1.9vw, 2.5rem); line-height: 1.15; letter-spacing: -0.022em; font-weight: 700;">What we build</h2>
+        <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-faint);">Discovery → iteration</span>
+      </div>
+
+      <div style="margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1px; background: var(--hairline); border: 1px solid var(--hairline); border-radius: 20px; overflow: hidden;">
+        <sc-for list="{{ services }}" as="svc" hint-placeholder-count="6">
+          <div style="background: var(--raised); padding: 28px; display: flex; flex-direction: column; gap: 16px; min-height: 216px; transition: background 220ms;" style-hover="background: var(--overlay);">
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint);">{{ svc.n }}</div>
+            <div style="font-size: 19px; font-weight: 700; letter-spacing: -0.015em;">{{ svc.title }}</div>
+            <ul style="display: flex; flex-direction: column; gap: 8px; margin-top: 2px;">
+              <sc-for list="{{ svc.bullets }}" as="b" hint-placeholder-count="3">
+                <li style="display: flex; gap: 10px; font-size: 14px; line-height: 1.5; color: var(--ink-muted);">
+                  <span style="width: 14px; height: 1px; background: var(--accent); margin-top: 10px; flex-shrink: 0;"></span>{{ b }}
+                </li>
+              </sc-for>
+            </ul>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="use-cases" data-screen-label="Use cases" style="max-width: 1240px; margin: 0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 3vw, 40px);">
+      <div style="display: flex; align-items: baseline; gap: 18px; padding-bottom: 22px; border-bottom: 1px solid var(--hairline-strong);">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; color: var(--accent);">03</span>
+        <h2 style="font-size: clamp(1.75rem, 1.3rem + 1.9vw, 2.5rem); line-height: 1.15; letter-spacing: -0.022em; font-weight: 700;">Who we work with</h2>
+      </div>
+      <div style="margin-top: 28px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px 32px;">
+        <sc-for list="{{ useCases }}" as="uc" hint-placeholder-count="6">
+          <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 18px; border-top: 1px solid var(--hairline);">
+            <div style="font-size: 16px; font-weight: 700;">{{ uc.title }}</div>
+            <div style="font-size: 14px; line-height: 1.5; color: var(--ink-muted);">{{ uc.body }}</div>
+            <div style="margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--accent);">{{ uc.outcome }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="process" data-screen-label="Process" style="max-width: 1240px; margin: 0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 3vw, 40px);">
+      <div style="display: flex; align-items: baseline; gap: 18px; padding-bottom: 22px; border-bottom: 1px solid var(--hairline-strong);">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; color: var(--accent);">04</span>
+        <h2 style="font-size: clamp(1.75rem, 1.3rem + 1.9vw, 2.5rem); line-height: 1.15; letter-spacing: -0.022em; font-weight: 700;">How the work runs</h2>
+      </div>
+
+      <div style="position: relative; margin-top: 40px; padding-left: 48px;">
+        <svg width="24" height="100%" viewBox="0 0 24 600" preserveAspectRatio="none" style="position: absolute; left: 6px; top: 8px; height: calc(100% - 16px);" fill="none" aria-hidden="true">
+          <path d="M12 0 L12 600" stroke="var(--hairline-strong)" stroke-width="1" />
+          <path d="M12 0 L12 600" stroke="url(#procGrad)" stroke-width="1.5" stroke-dasharray="600" class="d" style="--len: 600;" />
+          <defs><linearGradient id="procGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient></defs>
+        </svg>
+        <ul style="display: flex; flex-direction: column; gap: 4px;">
+          <sc-for list="{{ process }}" as="step" hint-placeholder-count="5">
+            <li style="position: relative; display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--hairline);">
+              <span style="position: absolute; left: -48px; top: 28px; width: 11px; height: 11px; border-radius: 999px; background: var(--canvas); border: 1.5px solid #21E2C6;"></span>
+              <span style="display: flex; align-items: baseline; gap: 14px;">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-faint);">{{ step.n }}</span>
+                <span style="font-size: 19px; font-weight: 700; letter-spacing: -0.015em;">{{ step.title }}</span>
+              </span>
+              <span style="font-size: 15px; line-height: 1.55; color: var(--ink-muted); max-width: 62ch;">{{ step.body }}</span>
+            </li>
+          </sc-for>
+        </ul>
+      </div>
+    </section>
+
+    <section id="team" data-screen-label="Team" style="max-width: 1240px; margin: 0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 3vw, 40px);">
+      <div style="display: flex; align-items: baseline; gap: 18px; padding-bottom: 22px; border-bottom: 1px solid var(--hairline-strong);">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; color: var(--accent);">05</span>
+        <h2 style="font-size: clamp(1.75rem, 1.3rem + 1.9vw, 2.5rem); line-height: 1.15; letter-spacing: -0.022em; font-weight: 700;">The team</h2>
+        <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-faint);">Two hubs · daily overlap</span>
+      </div>
+
+      <div style="margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+        <div style="border: 1px solid var(--hairline); border-radius: 20px; background: var(--raised); padding: 28px; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; min-height: 300px;">
+          <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Distributed by design</div>
+            <p style="margin-top: 14px; max-width: 34ch; font-size: 15px; line-height: 1.55; color: var(--ink-muted);">Munich and Ulm cover the client day; Cairo carries the build. The handoff happens live, not in a ticket queue.</p>
+          </div>
+          <svg viewBox="0 0 420 150" style="width: 100%; height: auto;" fill="none" aria-hidden="true">
+            <path d="M96 52 C 170 52 210 108 292 108" stroke="url(#arcGrad)" stroke-width="1.5" stroke-dasharray="260" class="d" style="--len: 260;" />
+            <circle cx="96" cy="52" r="14" fill="rgba(43,87,255,0.18)" class="p" />
+            <circle cx="96" cy="52" r="4.5" fill="#2B57FF" />
+            <circle cx="292" cy="108" r="14" fill="rgba(33,226,198,0.16)" class="p" />
+            <circle cx="292" cy="108" r="4.5" fill="#21E2C6" />
+            <text x="96" y="30" text-anchor="middle" fill="#EDF1F7" font-family="JetBrains Mono, monospace" font-size="11">GERMANY</text>
+            <text x="292" y="136" text-anchor="middle" fill="#EDF1F7" font-family="JetBrains Mono, monospace" font-size="11">EGYPT</text>
+            <defs><linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient></defs>
+          </svg>
+        </div>
+
+        <sc-for list="{{ team }}" as="m" hint-placeholder-count="4">
+          <div style="border: 1px solid var(--hairline); border-radius: 20px; background: var(--raised); padding: 26px; display: flex; flex-direction: column; gap: 16px; transition: border-color 220ms;" style-hover="border-color: var(--hairline-strong);">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+              <span style="display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--hairline-strong); font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink);">{{ m.initials }}</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent);">{{ m.base }}</span>
+            </div>
+            <div>
+              <div style="font-size: 17px; font-weight: 700; letter-spacing: -0.015em;">{{ m.name }}</div>
+              <div style="margin-top: 4px; font-size: 14px; color: var(--ink-muted);">{{ m.role }}</div>
+            </div>
+            <ul style="display: flex; flex-direction: column; gap: 6px; margin-top: auto;">
+              <sc-for list="{{ m.specialties }}" as="s" hint-placeholder-count="3">
+                <li style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-faint);">{{ s }}</li>
+              </sc-for>
+            </ul>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="insights" data-screen-label="Notes" style="max-width: 1240px; margin: 0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 3vw, 40px);">
+      <div style="display: flex; align-items: baseline; gap: 18px; padding-bottom: 22px; border-bottom: 1px solid var(--hairline-strong);">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; color: var(--accent);">06</span>
+        <h2 style="font-size: clamp(1.75rem, 1.3rem + 1.9vw, 2.5rem); line-height: 1.15; letter-spacing: -0.022em; font-weight: 700;">Delivery notes</h2>
+      </div>
+      <div style="margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+        <sc-for list="{{ insights }}" as="n" hint-placeholder-count="3">
+          <a href="#insights" style="display: flex; flex-direction: column; gap: 14px; padding-top: 20px; border-top: 1px solid var(--hairline-strong); transition: border-color 220ms;" style-hover="border-color: var(--accent);">
+            <span style="display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);"><span style="color: var(--accent);">{{ n.topic }}</span><span>·</span><span>{{ n.read }}</span></span>
+            <span style="font-size: 20px; line-height: 1.25; letter-spacing: -0.018em; font-weight: 700; max-width: 26ch;">{{ n.title }}</span>
+            <span style="font-size: 14px; line-height: 1.55; color: var(--ink-muted);">{{ n.excerpt }}</span>
+          </a>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="faq" data-screen-label="FAQ" style="max-width: 1240px; margin: 0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 3vw, 40px);">
+      <div style="display: flex; align-items: baseline; gap: 18px; padding-bottom: 22px; border-bottom: 1px solid var(--hairline-strong);">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; color: var(--accent);">07</span>
+        <h2 style="font-size: clamp(1.75rem, 1.3rem + 1.9vw, 2.5rem); line-height: 1.15; letter-spacing: -0.022em; font-weight: 700;">Common questions</h2>
+      </div>
+      <div style="margin-top: 20px; max-width: 900px;">
+        <sc-for list="{{ faq }}" as="q" hint-placeholder-count="5">
+          <div style="border-bottom: 1px solid var(--hairline);">
+            <button type="button" onClick="{{ q.toggle }}" aria-expanded="{{ q.expanded }}" style="width: 100%; display: flex; align-items: center; gap: 18px; padding: 22px 0; background: none; border: none; color: var(--ink); text-align: left; cursor: pointer;">
+              <span style="position: relative; width: 18px; height: 18px; flex-shrink: 0;">
+                <span style="position: absolute; top: 8px; left: 0; width: 18px; height: 1.5px; background: var(--accent);"></span>
+                <span style="position: absolute; top: 8px; left: 0; width: 18px; height: 1.5px; background: var(--accent); transform: rotate({{ q.rotate }}); transition: transform 240ms cubic-bezier(0.16,1,0.3,1);"></span>
+              </span>
+              <span style="font-size: 17px; font-weight: 500; letter-spacing: -0.01em;">{{ q.question }}</span>
+            </button>
+            <sc-if value="{{ q.expanded }}" hint-placeholder-val="{{ false }}">
+              <p style="padding: 0 0 24px 36px; max-width: 68ch; font-size: 15px; line-height: 1.6; color: var(--ink-muted);">{{ q.answer }}</p>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <footer id="contact" data-screen-label="Contact" style="max-width: 1240px; margin: 0 auto; padding: clamp(56px, 6vw, 96px) clamp(20px, 3vw, 40px) 56px;">
+      <div style="border: 1px solid var(--hairline-strong); border-radius: 20px; background: var(--raised); overflow: hidden;">
+        <div style="padding: clamp(28px, 4vw, 56px); display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; align-items: end;">
+          <div>
+            <svg viewBox="0 0 400 20" preserveAspectRatio="none" style="width: 100%; max-width: 400px; height: 20px; display: block; margin-bottom: 28px;" fill="none" aria-hidden="true">
+              <path d="M0 16 L240 16 C280 16 280 4 320 4 L400 4" stroke="url(#footGrad)" stroke-width="1.5" stroke-dasharray="420" class="d" style="--len: 420;" />
+              <defs><linearGradient id="footGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient></defs>
+            </svg>
+            <h2 style="font-size: clamp(2rem, 1.4rem + 2.2vw, 3rem); line-height: 1.08; letter-spacing: -0.028em; font-weight: 700; max-width: 22ch;">Tell us what needs building.</h2>
+            <p style="margin-top: 18px; max-width: 48ch; font-size: 16px; line-height: 1.6; color: var(--ink-muted);">Send the constraint you are stuck on — the platform, the deadline, the governance rule. You get an answer from the person who would build it.</p>
+            <a href="mailto:hello@coditu.com" style="margin-top: 28px; display: inline-flex; align-items: center; gap: 12px; height: 52px; padding: 0 24px; border-radius: 10px; font-size: 16px; font-weight: 600; color: #07090E; background: linear-gradient(135deg, #2B57FF, #21E2C6);">hello@coditu.com
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" /></svg>
+            </a>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 28px;">
+            <div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Navigate</div>
+              <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 10px; font-size: 15px; color: var(--ink-muted);">
+                <a href="#work">Work</a><a href="#services">Services</a><a href="#use-cases">Use cases</a><a href="#process">Process</a><a href="#team">Team</a><a href="#insights">Notes</a><a href="#faq">FAQ</a>
+              </div>
+            </div>
+            <div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Contact</div>
+              <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 10px; font-size: 15px; color: var(--ink-muted);">
+                <span>hello@coditu.com</span>
+                <span>Munich · Ulm · Cairo</span>
+                <span>Scope, build, and iteration</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="border-top: 1px solid var(--hairline); padding: 22px clamp(28px, 4vw, 56px); display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><path fill="url(#footMark)" d="M26.244 24.004 L25.263 25.089 L24.169 26.055 L22.974 26.89 L21.696 27.585 L20.35 28.13 L18.953 28.52 L17.524 28.75 L16.081 28.818 L14.642 28.723 L13.226 28.468 L11.849 28.055 L10.53 27.492 L9.285 26.785 L8.129 25.944 L7.077 24.98 L6.142 23.905 L5.335 22.735 L4.666 21.484 L4.143 20.167 L3.772 18.803 L3.557 17.408 L3.5 16 L3.602 14.597 L3.86 13.218 L4.271 11.878 L4.83 10.596 L5.527 9.386 L6.355 8.265 L7.301 7.246 L8.355 6.341 L9.501 5.563 L10.725 4.919 L12.012 4.417 L13.344 4.065 L14.705 3.864 L16.077 3.818 L17.444 3.927 L18.786 4.188 L20.089 4.597 L21.335 5.15 L22.508 5.837 L23.595 6.651 L24.582 7.58 L25.456 8.612 A 1 1 0 0 1 23.88 9.843 L23.122 9.012 L22.277 8.274 L21.356 7.636 L20.372 7.108 L19.337 6.694 L18.265 6.4 L17.168 6.229 L16.062 6.182 L14.961 6.26 L13.877 6.461 L12.826 6.781 L11.819 7.217 L10.87 7.762 L9.991 8.409 L9.192 9.148 L8.482 9.971 L7.872 10.867 L7.366 11.823 L6.973 12.828 L6.696 13.867 L6.538 14.93 L6.5 16 L6.583 17.065 L6.784 18.112 L7.102 19.127 L7.53 20.098 L8.064 21.012 L8.695 21.858 L9.416 22.626 L10.217 23.306 L11.087 23.891 L12.015 24.373 L12.988 24.746 L13.996 25.007 L15.023 25.153 L16.058 25.182 L17.087 25.094 L18.098 24.892 L19.076 24.579 L20.011 24.158 L20.891 23.636 L21.704 23.021 L22.44 22.319 L23.092 21.541 A 2 2 0 0 1 26.244 24.004 Z" /><circle cx="26.4" cy="16" r="1.6" fill="#21E2C6" /><defs><linearGradient id="footMark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient></defs></svg>
+            <span style="font-size: 15px; font-weight: 700; letter-spacing: -0.02em;">Codi<span style="display: inline-block; transform: scaleY(0.94); transform-origin: bottom;">t</span>u</span>
+          </div>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-faint);">© 2026 Coditu · Software for teams that need reliable execution.</span>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <sc-if value="{{ modal }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position: fixed; inset: 0; z-index: 60; background: var(--scrim); backdrop-filter: blur(12px); display: flex; align-items: flex-start; justify-content: center; padding: clamp(16px, 4vh, 56px) 20px; overflow-y: auto;">
+      <div onClick="{{ stop }}" role="dialog" aria-modal="true" style="width: 100%; max-width: 1000px; border: 1px solid var(--hairline-strong); border-radius: 20px; background: var(--overlay); box-shadow: 0 24px 64px -24px rgba(0,0,0,0.7); overflow: hidden; animation: cd-rise 320ms cubic-bezier(0.16,1,0.3,1) both;">
+        <div style="position: relative; aspect-ratio: 16 / 8; background: var(--canvas); border-bottom: 1px solid var(--hairline);">
+          <sc-if value="{{ modal.image }}" hint-placeholder-val="{{ false }}">
+            <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" data-src="{{ modal.image }}" alt="{{ modal.imageAlt }}" style="width: 100%; height: 100%; object-fit: cover; object-position: 50% 0%; display: block;" />
+          </sc-if>
+          <button type="button" onClick="{{ closeModal }}" aria-label="Close" style="position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid var(--hairline-strong); background: var(--scrim-strong); color: var(--ink); cursor: pointer; backdrop-filter: blur(8px);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+          <sc-if value="{{ modal.hasCarousel }}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; bottom: 16px; right: 16px; display: flex; align-items: center; gap: 8px;">
+              <button type="button" onClick="{{ prevImage }}" aria-label="Previous image" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid var(--hairline-strong); background: var(--scrim-strong); color: var(--ink); cursor: pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg></button>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-muted); padding: 0 4px;">{{ modal.counter }}</span>
+              <button type="button" onClick="{{ nextImage }}" aria-label="Next image" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid var(--hairline-strong); background: var(--scrim-strong); color: var(--ink); cursor: pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg></button>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="padding: clamp(24px, 3vw, 40px); display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 36px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">
+              <span style="color: var(--accent);">{{ modal.client }}</span><span>·</span><span>{{ modal.industry }}</span>
+            </div>
+            <h3 style="margin-top: 14px; font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem); line-height: 1.12; letter-spacing: -0.024em; font-weight: 700;">{{ modal.title }}</h3>
+            <div style="margin-top: 26px; display: flex; flex-wrap: wrap; gap: 6px;">
+              <sc-for list="{{ modal.stack }}" as="chip" hint-placeholder-count="4">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--hairline); color: var(--ink-muted);">{{ chip }}</span>
+              </sc-for>
+            </div>
+            <a href="mailto:hello@coditu.com" style="margin-top: 28px; display: inline-flex; align-items: center; height: 48px; padding: 0 22px; border-radius: 10px; font-size: 15px; font-weight: 600; color: #07090E; background: linear-gradient(135deg, #2B57FF, #21E2C6);">Request a call</a>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 22px;">
+            <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 18px; border-top: 1px solid var(--hairline);">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #FFB020;">Problem</span>
+              <span style="font-size: 15px; line-height: 1.6; color: var(--ink);">{{ modal.problem }}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 18px; border-top: 1px solid var(--hairline);">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent);">Solution</span>
+              <span style="font-size: 15px; line-height: 1.6; color: var(--ink);">{{ modal.solution }}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 18px; border-top: 1px solid var(--hairline);">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #23C97F;">Impact</span>
+              <span style="font-size: 15px; line-height: 1.6; color: var(--ink);">{{ modal.impact }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1440}, &quot;theme&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;light&quot;, &quot;dark&quot;], &quot;default&quot;: &quot;light&quot;, &quot;tsType&quot;: &quot;\&quot;light\&quot; | \&quot;dark\&quot;&quot;, &quot;section&quot;: &quot;Appearance&quot;}, &quot;brightness&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;min&quot;: 0, &quot;max&quot;: 100, &quot;step&quot;: 5, &quot;default&quot;: 65, &quot;unit&quot;: &quot;%&quot;, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Appearance&quot;}, &quot;showTraceRail&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Appearance&quot;}, &quot;entranceMotion&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Motion&quot;}}">
+const WORK = [
+  {
+    id: "evim",
+    client: "EVIM · Germany",
+    industry: "Enterprise",
+    title: "MEINEvim internal SharePoint components",
+    summary: "A reusable SPFx component set — banner, news, link tiles, tabs, org chart — replacing fragmented legacy widgets across the intranet.",
+    stack: ["SPFx", "React", "TypeScript", "SharePoint Online"],
+    images: [
+      { src: "assets/work/banner-and-news.webp", alt: "MEINEvim banner and news web parts in the modern SharePoint UI" },
+      { src: "assets/work/org-chart.webp", alt: "MEINEvim org chart web part" },
+    ],
+    problem: "Internal teams ran on fragmented legacy web parts. One change meant editing the same widget in four places, and nobody owned the baseline.",
+    solution: "One reusable SPFx component set, built to EVIM's existing governance and permission model, with editor-facing settings on every web part.",
+    impact: "Editors maintain the intranet themselves inside the modern UI, against one component baseline instead of four copies.",
+    span: "span 2",
+  },
+  {
+    id: "nile",
+    client: "Nile Atelier · Egypt",
+    industry: "Clothing manufacturing",
+    title: "Nile Atelier partner portal",
+    summary: "Partner onboarding, document routing, and shared visibility for a manufacturer working with distributed suppliers.",
+    stack: ["Next.js", "TypeScript", "Secure file workflows"],
+    images: [{ src: "assets/work/nile-atelier.webp", alt: "Nile Atelier partner portal interface" }],
+    problem: "Supplier onboarding and document handoffs ran over email. Neither side could say where a file was without asking.",
+    solution: "A portal that holds onboarding steps, routes documents to the right reviewer, and shows both sides the same state.",
+    impact: "Handoffs stopped getting lost in threads, and onboarding progress is readable without a status call.",
+    span: "span 1",
+  },
+  {
+    id: "ops",
+    client: "Ops Console",
+    industry: "DevOps / infrastructure",
+    title: "Unified infrastructure dashboard",
+    summary: "A single Vue 3 dashboard over Redis, Pinecone, S3, PostgreSQL, and the AI services, with controls next to the telemetry.",
+    stack: ["Vue 3", "TypeScript", "Redis", "PostgreSQL", "Pinecone", "S3"],
+    images: [{ src: "assets/work/converso.webp", alt: "Ops Console dashboard showing infrastructure service panels" }],
+    problem: "Operational signals lived in five separate consoles, so incident response started with a scavenger hunt across tabs.",
+    solution: "One dashboard that aggregates service telemetry and puts the relevant control next to the reading it belongs to.",
+    impact: "Cross-service state is readable in one screen, and debugging starts with data instead of tab-switching.",
+    span: "span 1",
+  },
+  {
+    id: "nvrmiss",
+    client: "NVRMiss",
+    industry: "B2B SaaS · field services",
+    title: "AI receptionist product landing",
+    summary: "Positioning, pricing, and a three-step onboarding flow for a 24/7 receptionist that qualifies leads and books jobs.",
+    stack: ["Next.js", "TypeScript", "Motion design", "Pricing & FAQ"],
+    images: [{ src: "assets/work/NVRMiss.webp", alt: "NVRMiss landing page showing call handling and booking dashboard" }],
+    problem: "Service businesses miss after-hours calls and lose the job to whoever answers first.",
+    solution: "A landing page that sells one thing clearly: lead qualification, booking, call logs, and calendar sync, with onboarding in three steps.",
+    impact: "A demo path that reads the same to HVAC, plumbing, roofing, and cleaning operators.",
+    span: "span 2",
+  },
+];
+
+const SERVICES = [
+  { n: "01", title: "Enterprise portals", bullets: ["SPFx architecture and component sets", "Permission and governance models", "SharePoint Online UX upgrades"] },
+  { n: "02", title: "Internal business systems", bullets: ["Approval and scheduling flows", "Role-based access", "Operational dashboards"] },
+  { n: "03", title: "AI assistants using RAG", bullets: ["Ingestion and indexing", "Answer guardrails", "Workflow actions"] },
+  { n: "04", title: "Web applications", bullets: ["Product and system architecture", "Interface systems", "Release management"] },
+  { n: "05", title: "Performance and technical SEO", bullets: ["Core Web Vitals", "Metadata structure", "Performance budgets"] },
+  { n: "06", title: "End-to-end delivery", bullets: ["Scope and estimates", "Weekly increments", "Post-launch iteration"] },
+];
+
+const USE_CASES = [
+  { title: "Operations leaders", body: "Replace manual steps with workflows and reporting that hold up in an audit.", outcome: "Fewer handoffs to chase" },
+  { title: "Enterprise teams", body: "Portals that fit inside existing Microsoft governance instead of working around it.", outcome: "Governed access" },
+  { title: "Founders and specialists", body: "Turn a service into software without managing three vendors to do it.", outcome: "One delivery team" },
+  { title: "Teams adopting AI", body: "RAG assistants for support, internal search, and the tasks people repeat daily.", outcome: "Grounded answers" },
+  { title: "Growth teams", body: "Speed, metadata structure, and technical SEO tied to what converts.", outcome: "Core Web Vitals in budget" },
+  { title: "Product teams", body: "Replace fragile legacy surfaces with a maintainable web application.", outcome: "Releases without drama" },
+];
+
+const PROCESS = [
+  { n: "01", title: "Discovery and framing", body: "Goals, constraints, users, and the most sensible place to start. We name what is out of scope in writing." },
+  { n: "02", title: "System and interface design", body: "The flow, the interface structure, and the implementation boundaries, decided before the build starts." },
+  { n: "03", title: "Build in visible increments", body: "Weekly increments with one owner per piece. Sprint state is public to everyone on the engagement." },
+  { n: "04", title: "Launch and stabilise", body: "Careful cutover, then the fixes and operational details that only appear in real use." },
+  { n: "05", title: "Iterate with intent", body: "Changes driven by usage and the next business need, not by a backlog that grew on its own." },
+];
+
+const TEAM = [
+  { name: "Mohamed Tamer", role: "Frontend Lead", base: "Cairo, EG", initials: "MT", specialties: ["UI/UX & interaction", "Motion", "Design systems", "Frontend architecture"] },
+  { name: "Adam Nafie", role: "Client Partnerships Lead", base: "Munich, DE", initials: "AN", specialties: ["Discovery", "Solution design", "Roadmapping", "Hands-on QA"] },
+  { name: "Abdelrahman Elkhateeb", role: "Frontend Engineer", base: "Cairo, EG", initials: "AE", specialties: ["Core Web Vitals", "Technical SEO", "Scalable UI"] },
+  { name: "Ahmed Yehia", role: "Backend & DevOps", base: "Ulm, DE", initials: "AY", specialties: ["APIs", "CI/CD", "Databases & infra", "RAG pipelines"] },
+];
+
+const INSIGHTS = [
+  { topic: "Systems design", read: "6 min", title: "Designing internal systems people adopt without training fatigue", excerpt: "Practical ways to cut friction so operational software is trusted from the first week." },
+  { topic: "AI delivery", read: "7 min", title: "Where RAG assistants create value first", excerpt: "Choosing the knowledge workflow to ground before AI becomes a platform initiative." },
+  { topic: "Performance", read: "5 min", title: "Performance work becomes strategic when it changes the economics", excerpt: "Speed and technical SEO matter most when they are tied to discoverability and conversion." },
+];
+
+const FAQ = [
+  { question: "What does an end-to-end engagement include?", answer: "Discovery, design, engineering, launch, and the iteration after it. The same four people are on it the whole way." },
+  { question: "Do you only work with enterprise teams?", answer: "No. We work with startups and enterprise teams when the problem is defined well enough to scope." },
+  { question: "Can you work inside existing enterprise constraints?", answer: "Yes. Governance, permission models, and platform standards are the starting conditions, not an obstacle to route around." },
+  { question: "Do you handle modernisation as well as new builds?", answer: "Both. Phased modernisation usually means running the old and new surface side by side for a while, and we plan for that." },
+  { question: "How does the distributed setup work?", answer: "Munich and Ulm cover the client day, Cairo carries the build, and the overlap hours are where handoffs happen live." },
+];
+
+function mix(a, b, t) {
+  const p = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const A = p(a), B = p(b);
+  return "#" + [0, 1, 2].map((i) => Math.round(A[i] + (B[i] - A[i]) * t).toString(16).padStart(2, "0")).join("");
+}
+
+// brightness lifts every surface toward a lighter target; ink, accent and the
+// signal gradient are fixed so the brand does not drift as the canvas moves.
+function palette(theme, brightness) {
+  const t = Math.max(0, Math.min(1, brightness / 100));
+  if (theme === "dark") {
+    return {
+      "--canvas": mix("#07090E", "#141B27", t),
+      "--raised": mix("#0C1119", "#1B2432", t),
+      "--overlay": mix("#111826", "#212C3F", t),
+      "--hairline": "rgba(255,255,255," + (0.07 + 0.03 * t).toFixed(3) + ")",
+      "--hairline-strong": "rgba(255,255,255," + (0.13 + 0.04 * t).toFixed(3) + ")",
+      // ink-faint carries real metadata on this page, so it clears AA (5.6:1)
+      "--ink": "#EDF1F7", "--ink-muted": "#93A0B4", "--ink-faint": "#7C899C",
+      "--dot": "rgba(255,255,255,0.025)", "--accent": "#21E2C6",
+      "--scrim": "rgba(7,9,14,0.72)", "--scrim-strong": "rgba(7,9,14,0.70)",
+    };
+  }
+  return {
+    "--canvas": mix("#E9EEF5", "#FFFFFF", t),
+    "--raised": mix("#F7FAFD", "#FFFFFF", t),
+    "--overlay": "#FFFFFF",
+    "--hairline": "rgba(11,14,20," + (0.10 - 0.02 * t).toFixed(3) + ")",
+    "--hairline-strong": "rgba(11,14,20," + (0.18 - 0.03 * t).toFixed(3) + ")",
+    "--ink": "#0B0E14", "--ink-muted": "#52607A", "--ink-faint": "#5F6B80",
+    "--dot": "rgba(11,14,20,0.055)", "--accent": "#1E4AE0",
+    "--scrim": "rgba(11,14,20,0.45)", "--scrim-strong": "rgba(255,255,255,0.86)",
+  };
+}
+
+class Component extends DCLogic {
+  state = { openItem: null, imageIndex: 0, openFaq: 0, themeOverride: null };
+
+  constructor(props) {
+    super(props);
+    this.rootRef = React.createRef();
+    this.railRef = React.createRef();
+    this.traceRef = React.createRef();
+    this.navRef = React.createRef();
+    this.navInnerRef = React.createRef();
+    this.tilesRef = React.createRef();
+    this.ctaRef = React.createRef();
+    this.onScroll = this.onScroll.bind(this);
+    this.onWindowResize = this.onWindowResize.bind(this);
+    this.onKey = this.onKey.bind(this);
+    this.onPointer = this.onPointer.bind(this);
+    this.reduced = typeof window !== "undefined" && window.matchMedia
+      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches : false;
+  }
+
+  componentDidMount() {
+    window.addEventListener("scroll", this.onScroll, { passive: true });
+    window.addEventListener("keydown", this.onKey);
+    window.addEventListener("pointermove", this.onPointer, { passive: true });
+    window.addEventListener("resize", this.onWindowResize, { passive: true });
+    this.applySettings();
+    this.syncImages();
+    this.onScroll();
+  }
+
+  // src stays out of the template so a mid-stream unresolved hole can never
+  // be fetched as a URL; the real path is copied over once the value lands
+  syncImages() {
+    const root = this.rootRef.current;
+    if (!root) return;
+    root.querySelectorAll("img[data-src]").forEach((el) => {
+      const src = el.getAttribute("data-src");
+      if (src && el.getAttribute("src") !== src) el.setAttribute("src", src);
+    });
+  }
+
+  componentDidUpdate(prev) {
+    this.syncImages();
+    if (
+      prev.theme !== this.props.theme ||
+      prev.brightness !== this.props.brightness ||
+      prev.showTraceRail !== this.props.showTraceRail ||
+      prev.entranceMotion !== this.props.entranceMotion
+    ) {
+      this.applySettings();
+      this.onScroll();
+    }
+  }
+
+  theme() {
+    return this.state.themeOverride || this.props.theme || "light";
+  }
+
+  applySettings() {
+    const root = this.rootRef.current;
+    if (!root) return;
+    const vars = palette(this.theme(), this.props.brightness ?? 60);
+    Object.keys(vars).forEach((k) => root.style.setProperty(k, vars[k]));
+    // the rail lives in the gutter beside the 1240px container — below
+    // 1240 + 2×90 there is no gutter, so it would cross the text column
+    const hasGutter = window.innerWidth >= 1420;
+    if (this.railRef.current) {
+      this.railRef.current.style.display =
+        this.props.showTraceRail === false || !hasGutter ? "none" : "block";
+    }
+    const still = this.props.entranceMotion === false;
+    root.querySelectorAll(".w, .r, .d, .p").forEach((el) => {
+      el.style.animation = still ? "none" : "";
+      if (still && el.tagName === "path") el.style.strokeDashoffset = "0";
+    });
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("scroll", this.onScroll);
+    window.removeEventListener("keydown", this.onKey);
+    window.removeEventListener("pointermove", this.onPointer);
+    window.removeEventListener("resize", this.onWindowResize);
+  }
+
+  onWindowResize() {
+    if (this._rafResize) return;
+    this._rafResize = requestAnimationFrame(() => { this._rafResize = null; this.applySettings(); });
+  }
+
+  onScroll() {
+    if (this._rafScroll) return;
+    this._rafScroll = requestAnimationFrame(() => { this._rafScroll = null; this.readScroll(); });
+  }
+
+  readScroll() {
+    const y = window.scrollY || document.documentElement.scrollTop || 0;
+    const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    const p = Math.min(1, y / max);
+    const still = this.reduced || this.props.entranceMotion === false;
+    const trace = this.traceRef.current;
+    if (trace) trace.style.strokeDashoffset = String(1200 * (1 - (still ? 1 : p)));
+    const inner = this.navInnerRef.current;
+    if (inner) inner.style.height = y > 120 ? "64px" : "88px";
+    const nav = this.navRef.current;
+    if (nav) nav.style.borderBottomColor = y > 120 ? "var(--hairline)" : "transparent";
+  }
+
+  onPointer(e) {
+    if (this.reduced) return;
+    if (this._rafPointer) return;
+    const cx = e.clientX, cy = e.clientY;
+    this._rafPointer = requestAnimationFrame(() => { this._rafPointer = null; this.readPointer(cx, cy); });
+  }
+
+  readPointer(clientX, clientY) {
+    const e = { clientX: clientX, clientY: clientY };
+    const host = this.tilesRef.current;
+    if (!host) return;
+    const r = host.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight) return;
+    const dx = (e.clientX - (r.left + r.width / 2)) / r.width;
+    const dy = (e.clientY - (r.top + r.height / 2)) / r.height;
+    host.querySelectorAll("[data-px]").forEach((el) => {
+      const f = parseFloat(el.getAttribute("data-px")) || 0;
+      el.style.transform = "translate3d(" + (dx * 22 * f).toFixed(2) + "px," + (dy * 14 * f).toFixed(2) + "px,0)";
+    });
+    const cta = this.ctaRef.current;
+    if (cta) {
+      const cr = cta.getBoundingClientRect();
+      const d = Math.hypot(e.clientX - (cr.left + cr.width / 2), e.clientY - (cr.top + cr.height / 2));
+      cta.style.transform = d < 90 ? "translateY(-" + (6 * (1 - d / 90)).toFixed(2) + "px)" : "none";
+    }
+  }
+
+  onKey(e) {
+    if (e.key === "Escape" && this.state.openItem !== null) this.setState({ openItem: null });
+  }
+
+  renderVals() {
+    const open = this.state.openItem;
+    const item = open === null ? null : WORK.find((w) => w.id === open);
+    const idx = item ? this.state.imageIndex % item.images.length : 0;
+    return {
+      rootRef: this.rootRef,
+      railRef: this.railRef,
+      traceRef: this.traceRef,
+      navRef: this.navRef,
+      navInnerRef: this.navInnerRef,
+      tilesRef: this.tilesRef,
+      ctaRef: this.ctaRef,
+      toggleTheme: () => {
+        const next = this.theme() === "dark" ? "light" : "dark";
+        this.setState({ themeOverride: next }, () => this.applySettings());
+      },
+      work: WORK.map((w) => ({
+        client: w.client, industry: w.industry, title: w.title, summary: w.summary,
+        stack: w.stack, image: w.images[0].src, imageAlt: w.images[0].alt, span: w.span,
+        open: () => this.setState({ openItem: w.id, imageIndex: 0 }),
+      })),
+      services: SERVICES,
+      useCases: USE_CASES,
+      process: PROCESS,
+      team: TEAM,
+      insights: INSIGHTS,
+      faq: FAQ.map((f, i) => ({
+        question: f.question, answer: f.answer,
+        expanded: this.state.openFaq === i,
+        rotate: this.state.openFaq === i ? "0deg" : "90deg",
+        toggle: () => this.setState({ openFaq: this.state.openFaq === i ? -1 : i }),
+      })),
+      modal: item ? {
+        client: item.client, industry: item.industry, title: item.title, stack: item.stack,
+        problem: item.problem, solution: item.solution, impact: item.impact,
+        image: item.images[idx].src, imageAlt: item.images[idx].alt,
+        hasCarousel: item.images.length > 1,
+        counter: (idx + 1) + " / " + item.images.length,
+      } : null,
+      closeModal: () => this.setState({ openItem: null }),
+      stop: (e) => e.stopPropagation(),
+      prevImage: (e) => { e.stopPropagation(); this.setState((s) => ({ imageIndex: (s.imageIndex + (item ? item.images.length - 1 : 0)) })); },
+      nextImage: (e) => { e.stopPropagation(); this.setState((s) => ({ imageIndex: s.imageIndex + 1 })); },
+    };
+  }
+}
+</script>
+</body>
+</html>

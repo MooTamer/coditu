@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="page" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #07090E; color: #EDF1F7; font-family: Satoshi, "Instrument Sans", sans-serif; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3, h4, p, ul, li { margin: 0; }
+  ul { padding: 0; list-style: none; }
+  a { color: #21E2C6; text-decoration: none; }
+  a:hover { color: #7FF2E1; }
+  @keyframes coditu-draw { from { stroke-dashoffset: 56; } to { stroke-dashoffset: 0; } }
+  @keyframes coditu-node { 0% { transform: scale(0); } 72% { transform: scale(1.06); } 100% { transform: scale(1); } }
+  @keyframes coditu-spin { to { transform: rotate(360deg); } }
+  @keyframes coditu-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  @keyframes coditu-travel { from { transform: rotate(0deg); } to { transform: rotate(300deg); } }
+  .cd-draw { stroke-dasharray: 56; animation: coditu-draw 900ms cubic-bezier(0.16,1,0.3,1) forwards; }
+  .cd-node-in { animation: coditu-node 260ms cubic-bezier(0.16,1,0.3,1) 900ms both; transform-box: fill-box; transform-origin: center; }
+  .cd-spin { animation: coditu-spin 1.4s linear infinite; transform-box: view-box; transform-origin: 16px 16px; }
+  .cd-pulse { animation: coditu-pulse 1.4s ease-in-out infinite; }
+  .cd-travel-host:hover .cd-travel { animation: coditu-travel 600ms cubic-bezier(0.16,1,0.3,1) alternate 2; }
+  .cd-travel { transform-box: view-box; transform-origin: 16px 16px; }
+  @media (prefers-reduced-motion: reduce) {
+    .cd-draw, .cd-node-in, .cd-spin, .cd-pulse, .cd-travel { animation: none !important; stroke-dashoffset: 0 !important; }
+  }
+</style>
+</helmet>
+
+<svg width="0" height="0" style="position: absolute; overflow: hidden;" aria-hidden="true">
+  <defs>
+    <linearGradient id="cdg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient>
+    <linearGradient id="cdg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient>
+    <symbol id="mark-a" viewBox="0 0 32 32">
+      <path fill="url(#cdg)" d="M27.085 22.4 L26.236 23.663 L25.244 24.814 L24.124 25.839 L22.891 26.722 L21.563 27.452 L20.16 28.019 L18.701 28.414 L17.206 28.633 L15.698 28.674 L14.198 28.535 L12.726 28.219 L11.304 27.731 L9.951 27.079 L8.686 26.271 L7.528 25.32 L6.491 24.239 L5.592 23.045 L4.841 21.753 L4.25 20.383 L3.826 18.953 L3.575 17.486 L3.5 16 L3.602 14.518 L3.879 13.059 L4.326 11.646 L4.938 10.297 L5.705 9.032 L6.615 7.868 L7.656 6.821 L8.813 5.907 L10.068 5.137 L11.405 4.522 L12.804 4.071 L14.244 3.789 L15.707 3.681 L17.17 3.747 L18.614 3.986 L20.017 4.394 L21.361 4.965 L22.625 5.691 L23.794 6.561 L24.849 7.562 L25.778 8.681 L26.566 9.9 A 1.2 1.2 0 0 1 24.487 11.1 L23.834 10.135 L23.073 9.256 L22.214 8.475 L21.269 7.802 L20.252 7.246 L19.179 6.816 L18.063 6.517 L16.921 6.353 L15.77 6.325 L14.625 6.435 L13.502 6.679 L12.419 7.054 L11.388 7.554 L10.426 8.173 L9.546 8.9 L8.759 9.725 L8.076 10.637 L7.508 11.622 L7.061 12.666 L6.741 13.754 L6.554 14.871 L6.5 16 L6.581 17.126 L6.794 18.233 L7.137 19.306 L7.605 20.328 L8.189 21.287 L8.882 22.168 L9.674 22.959 L10.553 23.65 L11.506 24.23 L12.52 24.693 L13.58 25.031 L14.671 25.241 L15.778 25.32 L16.885 25.267 L17.976 25.083 L19.036 24.771 L20.05 24.337 L21.003 23.785 L21.884 23.126 L22.678 22.368 L23.376 21.522 L23.967 20.6 A 1.8 1.8 0 0 1 27.085 22.4 Z" />
+      <circle cx="27" cy="16" r="1.5" fill="#21E2C6" />
+    </symbol>
+    <symbol id="mark-b" viewBox="0 0 32 32">
+      <path fill="url(#cdg)" d="M26.244 24.004 L25.263 25.089 L24.169 26.055 L22.974 26.89 L21.696 27.585 L20.35 28.13 L18.953 28.52 L17.524 28.75 L16.081 28.818 L14.642 28.723 L13.226 28.468 L11.849 28.055 L10.53 27.492 L9.285 26.785 L8.129 25.944 L7.077 24.98 L6.142 23.905 L5.335 22.735 L4.666 21.484 L4.143 20.167 L3.772 18.803 L3.557 17.408 L3.5 16 L3.602 14.597 L3.86 13.218 L4.271 11.878 L4.83 10.596 L5.527 9.386 L6.355 8.265 L7.301 7.246 L8.355 6.341 L9.501 5.563 L10.725 4.919 L12.012 4.417 L13.344 4.065 L14.705 3.864 L16.077 3.818 L17.444 3.927 L18.786 4.188 L20.089 4.597 L21.335 5.15 L22.508 5.837 L23.595 6.651 L24.582 7.58 L25.456 8.612 A 1 1 0 0 1 23.88 9.843 L23.122 9.012 L22.277 8.274 L21.356 7.636 L20.372 7.108 L19.337 6.694 L18.265 6.4 L17.168 6.229 L16.062 6.182 L14.961 6.26 L13.877 6.461 L12.826 6.781 L11.819 7.217 L10.87 7.762 L9.991 8.409 L9.192 9.148 L8.482 9.971 L7.872 10.867 L7.366 11.823 L6.973 12.828 L6.696 13.867 L6.538 14.93 L6.5 16 L6.583 17.065 L6.784 18.112 L7.102 19.127 L7.53 20.098 L8.064 21.012 L8.695 21.858 L9.416 22.626 L10.217 23.306 L11.087 23.891 L12.015 24.373 L12.988 24.746 L13.996 25.007 L15.023 25.153 L16.058 25.182 L17.087 25.094 L18.098 24.892 L19.076 24.579 L20.011 24.158 L20.891 23.636 L21.704 23.021 L22.44 22.319 L23.092 21.541 A 2 2 0 0 1 26.244 24.004 Z" />
+      <circle cx="26.4" cy="16" r="1.6" fill="#21E2C6" />
+    </symbol>
+    <symbol id="mark-c" viewBox="0 0 32 32">
+      <path fill="url(#cdg)" d="M27.69 20.962 L26.977 22.373 L26.095 23.683 L25.058 24.873 L23.881 25.924 L22.584 26.82 L21.186 27.548 L19.709 28.096 L18.176 28.457 L16.611 28.624 L15.039 28.595 L13.483 28.372 L11.968 27.957 L10.517 27.357 L9.152 26.582 L7.895 25.644 L6.764 24.558 L5.778 23.34 L4.952 22.01 L4.297 20.589 L3.824 19.097 L3.54 17.56 L3.45 16 L3.554 14.442 L3.851 12.909 L4.335 11.426 L5 10.016 L5.834 8.7 L6.824 7.498 L7.956 6.429 L9.211 5.51 L10.57 4.754 L12.011 4.173 L13.513 3.775 L15.051 3.568 L16.603 3.553 L18.143 3.731 L19.649 4.099 L21.096 4.651 L22.463 5.378 L23.728 6.268 L24.873 7.308 L25.878 8.482 L26.73 9.771 L27.414 11.155 A 1.4 1.4 0 0 1 24.837 12.249 L24.296 11.184 L23.628 10.194 L22.843 9.296 L21.953 8.504 L20.972 7.828 L19.916 7.28 L18.8 6.867 L17.643 6.597 L16.461 6.473 L15.275 6.496 L14.101 6.666 L12.958 6.981 L11.864 7.435 L10.836 8.021 L9.889 8.729 L9.038 9.549 L8.296 10.468 L7.675 11.471 L7.183 12.543 L6.828 13.667 L6.616 14.825 L6.55 16 L6.63 17.173 L6.855 18.326 L7.221 19.442 L7.723 20.503 L8.352 21.492 L9.098 22.395 L9.951 23.198 L10.895 23.888 L11.918 24.455 L13.002 24.89 L14.131 25.187 L15.287 25.341 L16.453 25.35 L17.61 25.215 L18.74 24.937 L19.826 24.521 L20.852 23.974 L21.801 23.304 L22.658 22.522 L23.411 21.64 L24.049 20.673 L24.561 19.634 A 1.7 1.7 0 0 1 27.69 20.962 Z" />
+      <circle cx="26.865" cy="17.721" r="1.4" fill="#21E2C6" />
+    </symbol>
+    <symbol id="mark-mono" viewBox="0 0 32 32">
+      <path fill="currentColor" d="M26.244 24.004 L25.263 25.089 L24.169 26.055 L22.974 26.89 L21.696 27.585 L20.35 28.13 L18.953 28.52 L17.524 28.75 L16.081 28.818 L14.642 28.723 L13.226 28.468 L11.849 28.055 L10.53 27.492 L9.285 26.785 L8.129 25.944 L7.077 24.98 L6.142 23.905 L5.335 22.735 L4.666 21.484 L4.143 20.167 L3.772 18.803 L3.557 17.408 L3.5 16 L3.602 14.597 L3.86 13.218 L4.271 11.878 L4.83 10.596 L5.527 9.386 L6.355 8.265 L7.301 7.246 L8.355 6.341 L9.501 5.563 L10.725 4.919 L12.012 4.417 L13.344 4.065 L14.705 3.864 L16.077 3.818 L17.444 3.927 L18.786 4.188 L20.089 4.597 L21.335 5.15 L22.508 5.837 L23.595 6.651 L24.582 7.58 L25.456 8.612 A 1 1 0 0 1 23.88 9.843 L23.122 9.012 L22.277 8.274 L21.356 7.636 L20.372 7.108 L19.337 6.694 L18.265 6.4 L17.168 6.229 L16.062 6.182 L14.961 6.26 L13.877 6.461 L12.826 6.781 L11.819 7.217 L10.87 7.762 L9.991 8.409 L9.192 9.148 L8.482 9.971 L7.872 10.867 L7.366 11.823 L6.973 12.828 L6.696 13.867 L6.538 14.93 L6.5 16 L6.583 17.065 L6.784 18.112 L7.102 19.127 L7.53 20.098 L8.064 21.012 L8.695 21.858 L9.416 22.626 L10.217 23.306 L11.087 23.891 L12.015 24.373 L12.988 24.746 L13.996 25.007 L15.023 25.153 L16.058 25.182 L17.087 25.094 L18.098 24.892 L19.076 24.579 L20.011 24.158 L20.891 23.636 L21.704 23.021 L22.44 22.319 L23.092 21.541 A 2 2 0 0 1 26.244 24.004 Z" />
+      <circle cx="26.4" cy="16" r="1.6" fill="currentColor" />
+    </symbol>
+  </defs>
+</svg>
+
+<div style="position: relative; min-height: 100vh; background: #07090E; overflow-x: hidden;">
+  <div style="pointer-events: none; position: fixed; inset: 0; z-index: 0; background-image: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px); background-size: 32px 32px; mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);"></div>
+  <div style="pointer-events: none; position: fixed; inset: 0; z-index: 0; opacity: 0.03; mix-blend-mode: overlay; background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);"></div>
+
+  <div style="position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 72px 40px 120px;">
+
+    <header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; padding-bottom: 28px; border-bottom: 1px solid rgba(255,255,255,0.13);">
+      <div style="display: flex; align-items: center; gap: 20px;">
+        <svg width="48" height="48" viewBox="0 0 32 32" aria-label="Coditu mark"><use href="#mark-b" /></svg>
+        <div style="font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1;">Codi<span style="display: inline-block; transform: scaleY(0.94); transform-origin: bottom;">t</span>u</div>
+      </div>
+      <div style="text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5C6779;">
+        <div>Brand system — Instrument</div>
+        <div style="color: #93A0B4;">v1.0 · 2026-08-20</div>
+      </div>
+    </header>
+
+    <section style="margin-top: 72px;">
+      <div style="display: flex; align-items: baseline; gap: 16px;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #21E2C6;">01</span>
+        <h2 style="font-size: 40px; font-weight: 700; letter-spacing: -0.028em; line-height: 1.08;">The mark</h2>
+      </div>
+      <p style="margin-top: 16px; max-width: 68ch; font-size: 17px; line-height: 1.6; color: #93A0B4;">A single continuous stroke on a 32×32 grid. The stroke tapers along its path, so the C reads as a signal with direction rather than a geometric ring. The node in the aperture is where the trace continues — the same object that runs down the site as a scroll trace and spins as the app's only spinner.</p>
+
+      <div style="margin-top: 40px; display: grid; gap: 1px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; overflow: hidden;">
+
+        <div style="display: grid; grid-template-columns: 300px 1fr; gap: 1px; background: rgba(255,255,255,0.07);">
+          <div style="background: #0C1119; padding: 32px; display: flex; align-items: center; justify-content: center;">
+            <svg width="200" height="200" viewBox="0 0 32 32"><use href="#mark-a" /></svg>
+          </div>
+          <div style="background: #0C1119; padding: 32px 36px; display: flex; flex-direction: column; justify-content: space-between; gap: 24px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+              <div>
+                <div style="font-size: 20px; font-weight: 700; letter-spacing: -0.015em;">Variant A — 60° aperture</div>
+                <div style="margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #93A0B4;">gap 60° · taper 2.4→3.6 · node on-path r1.5</div>
+              </div>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #93A0B4; border: 1px solid rgba(255,255,255,0.13); border-radius: 6px; padding: 5px 10px;">Archived</span>
+            </div>
+            <p style="max-width: 60ch; font-size: 15px; line-height: 1.55; color: #93A0B4;">The brief's baseline. At 20px the 60° gap measures 11px of arc and the node sits close enough to both terminals that the counter starts to close — it reads as a broken ring, not an aperture.</p>
+            <div style="display: flex; align-items: flex-end; gap: 32px;">
+              <div style="display: flex; align-items: flex-end; gap: 24px;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;"><svg width="64" height="64" viewBox="0 0 32 32"><use href="#mark-a" /></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">64</span></div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;"><svg width="32" height="32" viewBox="0 0 32 32"><use href="#mark-a" /></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">32</span></div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;"><svg width="20" height="20" viewBox="0 0 32 32"><use href="#mark-a" /></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">20</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 300px 1fr; gap: 1px; background: rgba(255,255,255,0.07);">
+          <div style="background: #111826; padding: 32px; display: flex; align-items: center; justify-content: center; position: relative;">
+            <div style="position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, rgba(43,87,255,0.35), transparent 62%);"></div>
+            <svg width="200" height="200" viewBox="0 0 32 32" style="position: relative;"><use href="#mark-b" /></svg>
+          </div>
+          <div style="background: #111826; padding: 32px 36px; display: flex; flex-direction: column; justify-content: space-between; gap: 24px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+              <div>
+                <div style="font-size: 20px; font-weight: 700; letter-spacing: -0.015em;">Variant B — 76° aperture</div>
+                <div style="margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #93A0B4;">gap 76° · taper 2.0→4.0 · node inset 0.6, r1.6</div>
+              </div>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #07090E; background: linear-gradient(135deg, #2B57FF, #21E2C6); border-radius: 6px; padding: 5px 10px; font-weight: 600;">Shipped</span>
+            </div>
+            <p style="max-width: 60ch; font-size: 15px; line-height: 1.55; color: #93A0B4;">Wider aperture, harder taper, node pulled 0.6 units inside the path. This is the one that survives 20px: the counter stays open, the node stays a separate object, and the 2.0-unit top terminal still holds 1.25px of ink at favicon size.</p>
+            <div style="display: flex; align-items: flex-end; gap: 24px;">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;"><svg width="64" height="64" viewBox="0 0 32 32"><use href="#mark-b" /></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">64</span></div>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;"><svg width="32" height="32" viewBox="0 0 32 32"><use href="#mark-b" /></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">32</span></div>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;"><svg width="20" height="20" viewBox="0 0 32 32"><use href="#mark-b" /></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">20</span></div>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 10px; padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.07);"><svg width="16" height="16" viewBox="0 0 32 32"><use href="#mark-b" /></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">16 favicon</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 300px 1fr; gap: 1px; background: rgba(255,255,255,0.07);">
+          <div style="background: #0C1119; padding: 32px; display: flex; align-items: center; justify-content: center;">
+            <svg width="200" height="200" viewBox="0 0 32 32"><use href="#mark-c" /></svg>
+          </div>
+          <div style="background: #0C1119; padding: 32px 36px; display: flex; flex-direction: column; justify-content: space-between; gap: 24px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+              <div>
+                <div style="font-size: 20px; font-weight: 700; letter-spacing: -0.015em;">Variant C — 46° aperture</div>
+                <div style="margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #93A0B4;">gap 46° · taper 2.8→3.4 · node at +9°, r1.4</div>
+              </div>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #93A0B4; border: 1px solid rgba(255,255,255,0.13); border-radius: 6px; padding: 5px 10px;">Archived</span>
+            </div>
+            <p style="max-width: 60ch; font-size: 15px; line-height: 1.55; color: #93A0B4;">The most confident at 256px — near-uniform weight, node nudged toward the lower terminal so the trace reads as continuing. At 20px it collapses into a solid dot with a nick in it. Kept on file for large-format print only.</p>
+            <div style="display: flex; align-items: flex-end; gap: 24px;">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;"><svg width="64" height="64" viewBox="0 0 32 32"><use href="#mark-c" /></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">64</span></div>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;"><svg width="32" height="32" viewBox="0 0 32 32"><use href="#mark-c" /></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">32</span></div>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;"><svg width="20" height="20" viewBox="0 0 32 32"><use href="#mark-c" /></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">20</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div style="border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; background: #0C1119; padding: 32px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5C6779;">Construction — shipped mark</div>
+          <div style="margin-top: 24px; display: flex; justify-content: center;">
+            <svg width="260" height="260" viewBox="0 0 32 32">
+              <g stroke="rgba(255,255,255,0.07)" stroke-width="0.08">
+                <path d="M4 0V32M8 0V32M12 0V32M16 0V32M20 0V32M24 0V32M28 0V32M0 4H32M0 8H32M0 12H32M0 16H32M0 20H32M0 24H32M0 28H32" />
+              </g>
+              <circle cx="16" cy="16" r="11" fill="none" stroke="rgba(33,226,198,0.45)" stroke-width="0.12" stroke-dasharray="0.6 0.6" />
+              <line x1="16" y1="16" x2="30" y2="16" stroke="rgba(33,226,198,0.45)" stroke-width="0.12" stroke-dasharray="0.6 0.6" />
+              <line x1="16" y1="16" x2="27.5" y2="24.6" stroke="rgba(33,226,198,0.45)" stroke-width="0.12" stroke-dasharray="0.6 0.6" />
+              <line x1="16" y1="16" x2="27.5" y2="7.4" stroke="rgba(33,226,198,0.45)" stroke-width="0.12" stroke-dasharray="0.6 0.6" />
+              <use href="#mark-b" opacity="0.92" />
+            </svg>
+          </div>
+          <ul style="margin-top: 24px; display: flex; flex-direction: column; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #93A0B4;">
+            <li style="display: flex; justify-content: space-between; gap: 16px;"><span>Grid</span><span style="color: #EDF1F7;">32 × 32</span></li>
+            <li style="display: flex; justify-content: space-between; gap: 16px;"><span>Path radius</span><span style="color: #EDF1F7;">11.0</span></li>
+            <li style="display: flex; justify-content: space-between; gap: 16px;"><span>Sweep</span><span style="color: #EDF1F7;">284° cw from +38°</span></li>
+            <li style="display: flex; justify-content: space-between; gap: 16px;"><span>Terminals</span><span style="color: #EDF1F7;">radial cut, w/2 round</span></li>
+            <li style="display: flex; justify-content: space-between; gap: 16px;"><span>Gradient</span><span style="color: #EDF1F7;">135° cobalt → aqua</span></li>
+            <li style="display: flex; justify-content: space-between; gap: 16px;"><span>Node</span><span style="color: #EDF1F7;">solid #21E2C6</span></li>
+          </ul>
+        </div>
+
+        <div style="border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; background: #0C1119; padding: 32px; display: flex; flex-direction: column; gap: 28px;">
+          <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5C6779;">Motion — three states, one object</div>
+            <p style="margin-top: 12px; font-size: 15px; line-height: 1.55; color: #93A0B4;">Every state is transform, opacity, or dashoffset only. All three are a no-op under reduced motion.</p>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center;">
+            <div>
+              <div style="height: 96px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; background: #07090E;">
+                <svg width="56" height="56" viewBox="0 0 32 32" key="{{ drawKey }}">
+                  <mask id="draw-mask"><path d="M24.67 22.77 A 11 11 0 1 1 24.67 9.23" fill="none" stroke="#fff" stroke-width="6" class="cd-draw" /></mask>
+                  <g mask="url(#draw-mask)"><use href="#mark-mono" style="color: transparent;" /><path fill="url(#cdg2)" d="M26.244 24.004 L25.263 25.089 L24.169 26.055 L22.974 26.89 L21.696 27.585 L20.35 28.13 L18.953 28.52 L17.524 28.75 L16.081 28.818 L14.642 28.723 L13.226 28.468 L11.849 28.055 L10.53 27.492 L9.285 26.785 L8.129 25.944 L7.077 24.98 L6.142 23.905 L5.335 22.735 L4.666 21.484 L4.143 20.167 L3.772 18.803 L3.557 17.408 L3.5 16 L3.602 14.597 L3.86 13.218 L4.271 11.878 L4.83 10.596 L5.527 9.386 L6.355 8.265 L7.301 7.246 L8.355 6.341 L9.501 5.563 L10.725 4.919 L12.012 4.417 L13.344 4.065 L14.705 3.864 L16.077 3.818 L17.444 3.927 L18.786 4.188 L20.089 4.597 L21.335 5.15 L22.508 5.837 L23.595 6.651 L24.582 7.58 L25.456 8.612 A 1 1 0 0 1 23.88 9.843 L23.122 9.012 L22.277 8.274 L21.356 7.636 L20.372 7.108 L19.337 6.694 L18.265 6.4 L17.168 6.229 L16.062 6.182 L14.961 6.26 L13.877 6.461 L12.826 6.781 L11.819 7.217 L10.87 7.762 L9.991 8.409 L9.192 9.148 L8.482 9.971 L7.872 10.867 L7.366 11.823 L6.973 12.828 L6.696 13.867 L6.538 14.93 L6.5 16 L6.583 17.065 L6.784 18.112 L7.102 19.127 L7.53 20.098 L8.064 21.012 L8.695 21.858 L9.416 22.626 L10.217 23.306 L11.087 23.891 L12.015 24.373 L12.988 24.746 L13.996 25.007 L15.023 25.153 L16.058 25.182 L17.087 25.094 L18.098 24.892 L19.076 24.579 L20.011 24.158 L20.891 23.636 L21.704 23.021 L22.44 22.319 L23.092 21.541 A 2 2 0 0 1 26.244 24.004 Z" /></g>
+                  <circle cx="26.4" cy="16" r="1.6" fill="#21E2C6" class="cd-node-in" />
+                </svg>
+              </div>
+              <div style="margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">Draw-on 900ms</div>
+              <button type="button" onClick="{{ replay }}" style="margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #21E2C6; background: none; border: 1px solid rgba(33,226,198,0.35); border-radius: 6px; padding: 4px 10px; cursor: pointer;" style-hover="background: rgba(33,226,198,0.10);">replay</button>
+            </div>
+            <div>
+              <div class="cd-travel-host" style="height: 96px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; background: #07090E; cursor: pointer;">
+                <svg width="56" height="56" viewBox="0 0 32 32">
+                  <use href="#mark-mono" style="color: rgba(255,255,255,0.13);" />
+                  <g class="cd-travel"><circle cx="26.4" cy="16" r="1.6" fill="#21E2C6" /></g>
+                </svg>
+              </div>
+              <div style="margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">Hover — node travels 300°</div>
+              <div style="margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">hover the tile</div>
+            </div>
+            <div>
+              <div style="height: 96px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; background: #07090E;">
+                <svg width="56" height="56" viewBox="0 0 32 32" class="cd-spin">
+                  <use href="#mark-mono" style="color: rgba(255,255,255,0.13);" />
+                  <path fill="url(#cdg)" class="cd-pulse" d="M26.244 24.004 L25.263 25.089 L24.169 26.055 L22.974 26.89 L21.696 27.585 L20.35 28.13 L18.953 28.52 L17.524 28.75 L16.081 28.818 L14.642 28.723 L13.226 28.468 L11.849 28.055 L10.53 27.492 L9.285 26.785 L8.129 25.944 L7.077 24.98 L6.142 23.905 L5.335 22.735 L4.666 21.484 L4.143 20.167 L3.772 18.803 L3.557 17.408 L3.5 16 L3.602 14.597 L3.86 13.218 L4.271 11.878 L4.83 10.596 L5.527 9.386 L6.355 8.265 L7.301 7.246 L8.355 6.341 L9.501 5.563 L10.725 4.919 L12.012 4.417 L13.344 4.065 L14.705 3.864 L16.077 3.818 L17.444 3.927 L18.786 4.188 L20.089 4.597 L21.335 5.15 L22.508 5.837 L23.595 6.651 L24.582 7.58 L25.456 8.612 A 1 1 0 0 1 23.88 9.843 L23.122 9.012 L22.277 8.274 L21.356 7.636 L20.372 7.108 L19.337 6.694 L18.265 6.4 L17.168 6.229 L16.062 6.182 L14.961 6.26 L13.877 6.461 L12.826 6.781 L11.819 7.217 L10.87 7.762 L9.991 8.409 L9.192 9.148 L8.482 9.971 L7.872 10.867 L7.366 11.823 L6.973 12.828 L6.696 13.867 L6.538 14.93 L6.5 16 L6.583 17.065 L6.784 18.112 L7.102 19.127 L7.53 20.098 L8.064 21.012 L8.695 21.858 L9.416 22.626 L10.217 23.306 L11.087 23.891 L12.015 24.373 L12.988 24.746 L13.996 25.007 L15.023 25.153 L16.058 25.182 L17.087 25.094 L18.098 24.892 L19.076 24.579 L20.011 24.158 L20.891 23.636 L21.704 23.021 L22.44 22.319 L23.092 21.541 A 2 2 0 0 1 26.244 24.004 Z" />
+                  <circle cx="26.4" cy="16" r="1.6" fill="#21E2C6" class="cd-pulse" />
+                </svg>
+              </div>
+              <div style="margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">Loading 1.4s linear</div>
+              <div style="margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">the only spinner</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-top: 88px;">
+      <div style="display: flex; align-items: baseline; gap: 16px;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #21E2C6;">02</span>
+        <h2 style="font-size: 40px; font-weight: 700; letter-spacing: -0.028em; line-height: 1.08;">Wordmark and lockups</h2>
+      </div>
+      <p style="margin-top: 16px; max-width: 68ch; font-size: 17px; line-height: 1.6; color: #93A0B4;">Satoshi Bold, tracking −0.02em, lowercase t shortened 6% so it sits under the cap line. The node aligns optically with the x-height of the o. Lockup gap is 0.42× mark height.</p>
+
+      <div style="margin-top: 40px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px;">
+        <div style="border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; background: #0C1119; padding: 40px; display: flex; flex-direction: column; gap: 40px;">
+          <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5C6779; margin-bottom: 24px;">lockup-horizontal.svg</div>
+            <div style="display: flex; align-items: center; gap: 26px;">
+              <svg width="62" height="62" viewBox="0 0 32 32"><use href="#mark-b" /></svg>
+              <div style="font-size: 46px; font-weight: 700; letter-spacing: -0.02em; line-height: 1;">Codi<span style="display: inline-block; transform: scaleY(0.94); transform-origin: bottom;">t</span>u</div>
+            </div>
+          </div>
+          <div style="height: 1px; background: rgba(255,255,255,0.07);"></div>
+          <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5C6779; margin-bottom: 24px;">lockup-stacked.svg</div>
+            <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 22px;">
+              <svg width="54" height="54" viewBox="0 0 32 32"><use href="#mark-b" /></svg>
+              <div style="font-size: 38px; font-weight: 700; letter-spacing: -0.02em; line-height: 1;">Codi<span style="display: inline-block; transform: scaleY(0.94); transform-origin: bottom;">t</span>u</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; gap: 24px;">
+          <div style="border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; background: #0C1119; padding: 28px; display: flex; flex-direction: column; gap: 18px;">
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5C6779;">mark-mono-light.svg</div>
+            <div style="display: flex; align-items: center; gap: 18px; color: #EDF1F7;">
+              <svg width="40" height="40" viewBox="0 0 32 32"><use href="#mark-mono" /></svg>
+              <div style="font-size: 26px; font-weight: 700; letter-spacing: -0.02em;">Codi<span style="display: inline-block; transform: scaleY(0.94); transform-origin: bottom;">t</span>u</div>
+            </div>
+            <p style="font-size: 13px; line-height: 1.5; color: #5C6779;">Single-colour #EDF1F7. Use on dark photography, print one-colour, and embossing.</p>
+          </div>
+          <div style="border: 1px solid rgba(0,0,0,0.08); border-radius: 20px; background: #F7F9FC; padding: 28px; display: flex; flex-direction: column; gap: 18px;">
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #7A8699;">mark-mono-dark.svg</div>
+            <div style="display: flex; align-items: center; gap: 18px; color: #0B0E14;">
+              <svg width="40" height="40" viewBox="0 0 32 32"><use href="#mark-mono" /></svg>
+              <div style="font-size: 26px; font-weight: 700; letter-spacing: -0.02em;">Codi<span style="display: inline-block; transform: scaleY(0.94); transform-origin: bottom;">t</span>u</div>
+            </div>
+            <p style="font-size: 13px; line-height: 1.5; color: #52607A;">Single-colour #0B0E14 for light backgrounds, invoices, and third-party partner sheets.</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 24px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px;">
+        <div style="border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; background: #0C1119; padding: 32px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5C6779;">Clear space — 0.5× mark height</div>
+          <div style="margin-top: 24px; display: flex; justify-content: center;">
+            <div style="position: relative; padding: 40px; border: 1px dashed rgba(33,226,198,0.35); border-radius: 10px;">
+              <svg width="80" height="80" viewBox="0 0 32 32"><use href="#mark-b" /></svg>
+              <span style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #21E2C6;">0.5×</span>
+            </div>
+          </div>
+        </div>
+        <div style="border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; background: #0C1119; padding: 32px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5C6779;">Never</div>
+          <ul style="margin-top: 20px; display: flex; flex-direction: column; gap: 12px; font-size: 14px; line-height: 1.5; color: #93A0B4;">
+            <li style="display: flex; gap: 12px;"><span style="color: #FF5F6D; font-family: 'JetBrains Mono', monospace;">×</span>Recolour the gradient or reverse its direction</li>
+            <li style="display: flex; gap: 12px;"><span style="color: #FF5F6D; font-family: 'JetBrains Mono', monospace;">×</span>Outline, stretch, rotate, or add a shadow</li>
+            <li style="display: flex; gap: 12px;"><span style="color: #FF5F6D; font-family: 'JetBrains Mono', monospace;">×</span>Place the gradient mark on a busy photograph — use mono</li>
+            <li style="display: flex; gap: 12px;"><span style="color: #FF5F6D; font-family: 'JetBrains Mono', monospace;">×</span>Set the mark below 20px, or the lockup below 96px wide</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-top: 88px;">
+      <div style="display: flex; align-items: baseline; gap: 16px;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #21E2C6;">03</span>
+        <h2 style="font-size: 40px; font-weight: 700; letter-spacing: -0.028em; line-height: 1.08;">Colour</h2>
+      </div>
+      <p style="margin-top: 16px; max-width: 68ch; font-size: 17px; line-height: 1.6; color: #93A0B4;">Dark is the primary canvas. Depth comes from layered translucency and hairlines, never drop shadows. The gradient appears on at most three elements per viewport and never behind body text. Ratios below are measured, not estimated.</p>
+
+      <div style="margin-top: 40px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; overflow: hidden;">
+        <div style="background: #07090E; padding: 24px; min-height: 128px; display: flex; flex-direction: column; justify-content: space-between;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">canvas</span><div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px;">#07090E</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">page ground</div></div></div>
+        <div style="background: #0C1119; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">canvas-raised</span><div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px;">#0C1119</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">cards, panels</div></div></div>
+        <div style="background: #111826; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">canvas-overlay</span><div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px;">#111826</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">modals, palette</div></div></div>
+        <div style="background: #0C1119; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">hairline</span><div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 1px; background: rgba(255,255,255,0.07);"></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">0.07 default</div><div style="height: 1px; background: rgba(255,255,255,0.13);"></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">0.13 strong</div></div></div>
+
+        <div style="background: #0C1119; padding: 24px; display: flex; flex-direction: column; gap: 16px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">ink</span><div style="font-size: 24px; color: #EDF1F7; font-weight: 700;">Aa</div><div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px;">#EDF1F7</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #23C97F;">17.6:1 · AAA</div></div></div>
+        <div style="background: #0C1119; padding: 24px; display: flex; flex-direction: column; gap: 16px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">ink-muted</span><div style="font-size: 24px; color: #93A0B4; font-weight: 700;">Aa</div><div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px;">#93A0B4</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #23C97F;">7.4:1 · AAA</div></div></div>
+        <div style="background: #0C1119; padding: 24px; display: flex; flex-direction: column; gap: 16px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">ink-faint</span><div style="font-size: 24px; color: #7C899C; font-weight: 700;">Aa</div><div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px;">#7C899C</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #23C97F;">5.6:1 · AA</div></div></div>
+        <div style="background: #0C1119; padding: 24px; display: flex; flex-direction: column; gap: 16px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">signal</span><div style="height: 32px; border-radius: 6px; background: linear-gradient(135deg, #2B57FF, #21E2C6);"></div><div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px;">#2B57FF → #21E2C6</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">aqua 12.1:1 · cobalt 3.7:1</div></div></div>
+
+        <div style="background: #0C1119; padding: 24px; display: flex; flex-direction: column; gap: 12px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">jade</span><div style="height: 24px; border-radius: 6px; background: #23C97F;"></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">#23C97F · done</div></div>
+        <div style="background: #0C1119; padding: 24px; display: flex; flex-direction: column; gap: 12px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">amber</span><div style="height: 24px; border-radius: 6px; background: #FFB020;"></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">#FFB020 · running long</div></div>
+        <div style="background: #0C1119; padding: 24px; display: flex; flex-direction: column; gap: 12px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">rose</span><div style="height: 24px; border-radius: 6px; background: #FF5F6D;"></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">#FF5F6D · blocked</div></div>
+        <div style="background: #0C1119; padding: 24px; display: flex; flex-direction: column; gap: 12px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93A0B4;">slate</span><div style="height: 24px; border-radius: 6px; background: #6B7A90;"></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779;">#6B7A90 · draft, inert</div></div>
+      </div>
+
+      <div style="margin-top: 24px; border-radius: 20px; border: 1px solid rgba(0,0,0,0.08); background: #F7F9FC; padding: 32px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 24px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #7A8699;">Light mode — cool paper, identical signal</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #52607A;">the brand must not shift between themes</div>
+        </div>
+        <div style="margin-top: 24px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+          <div style="border: 1px solid rgba(11,14,20,0.08); border-radius: 14px; background: #FFFFFF; padding: 20px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7A8699;">canvas</div><div style="margin-top: 28px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #0B0E14;">#F7F9FC</div></div>
+          <div style="border: 1px solid rgba(11,14,20,0.08); border-radius: 14px; background: #FFFFFF; padding: 20px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7A8699;">ink</div><div style="margin-top: 12px; font-size: 22px; font-weight: 700; color: #0B0E14;">Aa</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #0B0E14;">#0B0E14 · 18.4:1</div></div>
+          <div style="border: 1px solid rgba(11,14,20,0.08); border-radius: 14px; background: #FFFFFF; padding: 20px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7A8699;">ink-muted</div><div style="margin-top: 12px; font-size: 22px; font-weight: 700; color: #52607A;">Aa</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #52607A;">#52607A · 6.0:1</div></div>
+          <div style="border: 1px solid rgba(11,14,20,0.08); border-radius: 14px; background: #FFFFFF; padding: 20px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7A8699;">signal</div><div style="margin-top: 12px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, #2B57FF, #21E2C6);"></div><div style="margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #52607A;">unchanged</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-top: 88px;">
+      <div style="display: flex; align-items: baseline; gap: 16px;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #21E2C6;">04</span>
+        <h2 style="font-size: 40px; font-weight: 700; letter-spacing: -0.028em; line-height: 1.08;">Type</h2>
+      </div>
+      <p style="margin-top: 16px; max-width: 68ch; font-size: 17px; line-height: 1.6; color: #93A0B4;">Satoshi for display and body, self-hosted. JetBrains Mono for every number, ID, status chip, timestamp, and code fragment — if a value is machine-generated, it is set in mono. Every step is fluid via clamp().</p>
+
+      <div style="margin-top: 40px; border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; background: #0C1119; overflow: hidden;">
+        <div style="padding: 36px 40px; border-bottom: 1px solid rgba(255,255,255,0.07);">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779; margin-bottom: 16px;">display · clamp(2.75rem, 1.6rem + 5.2vw, 6rem) / 1.02 / −0.035em</div>
+          <div style="font-size: clamp(2.75rem, 1.6rem + 5.2vw, 6rem); line-height: 1.02; letter-spacing: -0.035em; font-weight: 700;">Portals, systems, RAG</div>
+        </div>
+        <div style="padding: 32px 40px; border-bottom: 1px solid rgba(255,255,255,0.07);">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779; margin-bottom: 14px;">h1 · clamp(2.25rem, 1.5rem + 3.2vw, 3.75rem) / 1.08 / −0.028em</div>
+          <div style="font-size: clamp(2.25rem, 1.5rem + 3.2vw, 3.75rem); line-height: 1.08; letter-spacing: -0.028em; font-weight: 700;">One team owns the whole build</div>
+        </div>
+        <div style="padding: 32px 40px; border-bottom: 1px solid rgba(255,255,255,0.07);">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779; margin-bottom: 14px;">h2 · clamp(1.75rem, 1.3rem + 1.9vw, 2.5rem) / 1.15 / −0.022em</div>
+          <div style="font-size: clamp(1.75rem, 1.3rem + 1.9vw, 2.5rem); line-height: 1.15; letter-spacing: -0.022em; font-weight: 700;">Selected work</div>
+        </div>
+        <div style="padding: 32px 40px; border-bottom: 1px solid rgba(255,255,255,0.07);">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779; margin-bottom: 14px;">body · clamp(1rem, 0.96rem + 0.18vw, 1.125rem) / 1.6 · caps at 68ch</div>
+          <p style="max-width: 68ch; font-size: clamp(1rem, 0.96rem + 0.18vw, 1.125rem); line-height: 1.6; letter-spacing: -0.005em; color: #EDF1F7;">SPFx components that live inside existing SharePoint governance. Approval and scheduling systems that replace spreadsheets. RAG assistants with ingestion, indexing, and answer guardrails. Same team from discovery through the fixes that show up in the second week of real use.</p>
+        </div>
+        <div style="padding: 32px 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+          <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779; margin-bottom: 14px;">small · 0.875rem / 1.5</div>
+            <p style="font-size: 0.875rem; line-height: 1.5; color: #93A0B4;">Secondary copy, card summaries, table cells and form help.</p>
+          </div>
+          <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779; margin-bottom: 14px;">micro · mono 0.75rem / 0.06em / uppercase</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: #93A0B4;">COD-142 · dev started · 7.5 / 8h · 2026-08-23</div>
+            <div style="margin-top: 12px; font-family: 'JetBrains Mono', monospace; font-size: 20px; font-variant-numeric: tabular-nums; color: #EDF1F7;">0123456789 · 16.0</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-top: 88px;">
+      <div style="display: flex; align-items: baseline; gap: 16px;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #21E2C6;">05</span>
+        <h2 style="font-size: 40px; font-weight: 700; letter-spacing: -0.028em; line-height: 1.08;">Surface and elevation</h2>
+      </div>
+      <p style="margin-top: 16px; max-width: 68ch; font-size: 17px; line-height: 1.6; color: #93A0B4;">Four levels, expressed as a hairline plus a background lightness step. Only overlays get a shadow. 8px base grid; radii 6 / 10 / 14 / 20 / 999 and never more than three in one composition.</p>
+
+      <div style="margin-top: 40px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+        <div style="background: #07090E; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 24px; min-height: 148px; display: flex; flex-direction: column; justify-content: space-between;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #21E2C6;">E0</span><div><div style="font-size: 15px; font-weight: 700;">Ground</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779; margin-top: 4px;">canvas · no border</div></div></div>
+        <div style="background: #0C1119; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #21E2C6;">E1</span><div><div style="font-size: 15px; font-weight: 700;">Panel</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779; margin-top: 4px;">raised + hairline</div></div></div>
+        <div style="background: #111826; border: 1px solid rgba(255,255,255,0.13); border-radius: 14px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #21E2C6;">E2</span><div><div style="font-size: 15px; font-weight: 700;">Raised row</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779; margin-top: 4px;">hover, active row</div></div></div>
+        <div style="background: #111826; border: 1px solid rgba(255,255,255,0.13); border-radius: 14px; padding: 24px; box-shadow: 0 24px 64px -24px rgba(0,0,0,0.7); display: flex; flex-direction: column; justify-content: space-between;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #21E2C6;">E3</span><div><div style="font-size: 15px; font-weight: 700;">Overlay</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5C6779; margin-top: 4px;">modal, popover</div></div></div>
+      </div>
+    </section>
+
+    <section style="margin-top: 88px;">
+      <div style="display: flex; align-items: baseline; gap: 16px;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #21E2C6;">06</span>
+        <h2 style="font-size: 40px; font-weight: 700; letter-spacing: -0.028em; line-height: 1.08;">Social card</h2>
+      </div>
+      <p style="margin-top: 16px; max-width: 68ch; font-size: 17px; line-height: 1.6; color: #93A0B4;">og.png at 1200×630, shown here at 0.62 scale. og-square.jpg crops to the mark, wordmark, and the same single line.</p>
+
+      <div style="margin-top: 40px; display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+        <div style="width: 744px; height: 391px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.13); background: #07090E; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 52px;">
+          <div style="position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px); background-size: 32px 32px;"></div>
+          <svg viewBox="0 0 744 391" preserveAspectRatio="none" style="position: absolute; inset: 0; width: 100%; height: 100%;" aria-hidden="true">
+            <path d="M0 300 C 180 300 200 210 340 210 C 470 210 520 120 744 120" fill="none" stroke="url(#cdg)" stroke-width="2" />
+            <circle cx="340" cy="210" r="4" fill="#21E2C6" />
+          </svg>
+          <div style="position: relative; display: flex; align-items: center; gap: 20px;">
+            <svg width="52" height="52" viewBox="0 0 32 32"><use href="#mark-b" /></svg>
+            <div style="font-size: 34px; font-weight: 700; letter-spacing: -0.02em;">Codi<span style="display: inline-block; transform: scaleY(0.94); transform-origin: bottom;">t</span>u</div>
+          </div>
+          <div style="position: relative;">
+            <div style="font-size: 44px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; max-width: 18ch;">Portals, systems, and RAG assistants.</div>
+            <div style="margin-top: 20px; font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #93A0B4;">One team · Germany + Egypt · coditu.com</div>
+          </div>
+        </div>
+        <div style="width: 300px; height: 300px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.13); background: #07090E; position: relative; overflow: hidden; padding: 32px; display: flex; flex-direction: column; justify-content: space-between;">
+          <svg viewBox="0 0 300 300" preserveAspectRatio="none" style="position: absolute; inset: 0; width: 100%; height: 100%;" aria-hidden="true">
+            <path d="M0 230 C 90 230 110 150 300 150" fill="none" stroke="url(#cdg)" stroke-width="2" />
+          </svg>
+          <svg width="44" height="44" viewBox="0 0 32 32" style="position: relative;"><use href="#mark-b" /></svg>
+          <div style="position: relative;">
+            <div style="font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1;">Codi<span style="display: inline-block; transform: scaleY(0.94); transform-origin: bottom;">t</span>u</div>
+            <div style="margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #93A0B4;">Portals · Systems · RAG</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-top: 88px; border-top: 1px solid rgba(255,255,255,0.13); padding-top: 40px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+        <div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5C6779;">Written to /public/brand</div>
+          <ul style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #93A0B4;">
+            <li>mark.svg</li><li>lockup-horizontal.svg</li>
+            <li>mark-mono-light.svg</li><li>lockup-stacked.svg</li>
+            <li>mark-mono-dark.svg</li><li>lockup-horizontal-mono.svg</li>
+            <li>icon.svg</li><li>lockup-stacked-mono.svg</li>
+            <li>favicon.ico 16/32/48</li><li>og.png 1200×630</li>
+            <li>apple-touch-icon.png 180</li><li>og-square.jpg 1200²</li>
+            <li>icon-192.png · icon-512.png</li><li>icon-maskable-512.png</li>
+          </ul>
+        </div>
+        <div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5C6779;">Retired with the Strukture name</div>
+          <ul style="margin-top: 20px; display: flex; flex-direction: column; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5C6779;">
+            <li style="display: flex; gap: 10px;"><span style="color: #FF5F6D;">−</span>public/logo.svg · logo-stripped.svg</li>
+            <li style="display: flex; gap: 10px;"><span style="color: #FF5F6D;">−</span>public/logo-wordmark.png · .webp</li>
+            <li style="display: flex; gap: 10px;"><span style="color: #FF5F6D;">−</span>public/og.png · og/og.png · og/og-whatsapp.jpg</li>
+            <li style="display: flex; gap: 10px;"><span style="color: #FF5F6D;">−</span>public/apple-touch-icon.png</li>
+          </ul>
+          <p style="margin-top: 20px; font-size: 14px; line-height: 1.55; color: #93A0B4;">The word Strukture leaves the repo entirely — copy, metadata, README, sitemap, and email. hello@coditu.com is the only address.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1280}}">
+class Component extends DCLogic {
+  state = { drawKey: 0 };
+  renderVals() {
+    return {
+      drawKey: "draw-" + this.state.drawKey,
+      replay: () => this.setState((s) => ({ drawKey: s.drawKey + 1 })),
+    };
+  }
+}
+</script>
+</body>
+</html>
