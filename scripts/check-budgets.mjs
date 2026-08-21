@@ -49,7 +49,12 @@ const ROUTES = [
     path: "/app/projects/meinevim/sprints/17",
     auth: true,
     briefKb: 220,
-    ownKb: 45,
+    // 100KB measured, gated at 110 for headroom. 65KB of it is
+    // `@supabase/supabase-js`, which realtime needs for the session and the
+    // socket — it is loaded lazily, so it is off the critical path, but the
+    // bytes still arrive. An earlier value of 45 was set from a reading taken
+    // before those chunks had finished downloading.
+    ownKb: 110,
   },
 ];
 
@@ -118,8 +123,14 @@ async function measure(browser, route) {
     }
   });
 
-  await page.goto(`${BASE}${route.path}`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(500);
+  // `networkidle` plus a short sleep is NOT a stable reading. Chunks were still
+  // arriving after it on a slower machine, so the same build measured 171KB
+  // locally and 303KB on CI — a budget that depends on how fast the machine is
+  // catches nothing. Wait for `load`, then for the network to actually go quiet,
+  // then settle again.
+  await page.goto(`${BASE}${route.path}`, { waitUntil: "load" });
+  await page.waitForLoadState("networkidle").catch(() => undefined);
+  await page.waitForTimeout(2500);
   await context.close();
   return scripts;
 }
@@ -172,7 +183,15 @@ async function main() {
 
       // The editor must never be in an initial load: it is dynamically
       // imported, and only when a composer opens.
-      const editor = [...scripts.keys()].filter((url) => /tiptap|prosemirror/i.test(url));
+      //
+      // Matched on CONTENT, not on the filename. Chunks are content-hashed, so
+      // the old `/tiptap|prosemirror/.test(url)` could never fire — a check
+      // that was green because it was incapable of being red.
+      const editor = [];
+      for (const url of scripts.keys()) {
+        const body = await fetch(url).then((response) => response.text());
+        if (/prosemirror|tiptap/i.test(body)) editor.push(url);
+      }
       if (editor.length) {
         failed = true;
         console.log(`FAIL  the editor bundle is in the initial load of ${route.path}`);

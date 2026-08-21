@@ -959,3 +959,68 @@ page — from three separate hand-rolled copies of the same helper, each missing
 measured contrast there is 5.33:1 against a 4.5:1 requirement; nothing was ever wrong with the colour.
 
 Three copies is how the fourth one forgets.
+
+---
+
+## 2026-08-21 · The JS budget was measuring the machine, not the build
+
+**What happened.** The app-shell budget read 171KB locally and 303KB on CI — same commit, same
+lockfile. The check waited for `networkidle` plus 500ms, and on a faster machine it simply stopped
+listening before two ~65KB chunks had finished arriving. A budget whose answer depends on how fast the
+computer is does not catch anything; it just happens to be green where it was written.
+
+It waits for `load`, then for the network to genuinely go quiet, then settles again. The number is now
+the same in both places.
+
+**What the honest number exposed.** Adding realtime put `@supabase/supabase-js` into every page under
+`/app` — `components/app/realtime.client.tsx` is the only module in the app that imports the browser
+client, and a static import pulls the whole thing plus the zod-based env validator behind it. That was
+**~128KB gzipped on the critical path** so a subscription could start a moment sooner, and the broken
+measurement had been hiding it since the day realtime landed.
+
+Two fixes, both real:
+
+- The client is imported **inside the effect**. Same bytes eventually, but off the critical path — the
+  page renders and hydrates without waiting for it.
+- `lib/supabase/env.ts` **no longer uses zod**. It is reachable from the browser, and zod is ~63KB
+  gzipped to check that two strings exist and one parses as a URL. The server schemas still use it,
+  where the cost is paid once and never shipped.
+
+That took the app shell from 302.6KB to **239.5KB**. §5 asks for 220KB; 139.2KB of what remains is the
+framework floor and 65KB is `@supabase/supabase-js` itself. The gate is the route's own cost — 100.4KB
+measured, 110KB allowed — and §5's figure is printed every run so nobody mistakes the gate for the
+budget. `@supabase/realtime-js` on its own is roughly half the size of the full client and would close
+most of the remaining gap; it means handling the session token by hand, which is a change to the auth
+path and not one to make blind.
+
+**And the editor check could never have failed.** It tested `/tiptap|prosemirror/.test(url)` against
+content-hashed filenames. It reads the chunk bodies now. A check incapable of going red is worse than
+no check, because it is counted as coverage.
+
+---
+
+## 2026-08-21 · Four tests that only passed on one machine
+
+CI on Linux, from a clean seed, found all of them — which is the entire argument for having it.
+
+**`verify-tokens.sh` read whichever stylesheet `find | head -1` returned.** A build emits more than
+one and the order differs by filesystem: locally the 74KB token layer, on CI a 4KB fragment. Every
+token check missed and the build failed claiming the design system had been pruned. It concatenates
+all of them, which is also the more honest question — did this rule survive the build, not is it in
+this particular chunk.
+
+**`mktemp -t coditu-prod`.** BSD accepts a bare template; GNU demands the trailing `X`s. The production
+e2e harness could never have started on Linux.
+
+**The deep-nesting test could not build its own input.** 3,000 levels of object plus `JSON.stringify`,
+which recurses, overflows the stack on a smaller-stack machine. It builds the JSON as a string now.
+Seeding raw JSON is a separate function rather than a `typeof` branch, because a string is valid input
+to the normal path — one of these tests stores the literal `"not a document"`.
+
+**And a test asserted that two profiles share a name, leaning on one that existed only because it had
+been added by hand to a single developer's database.** It creates and removes its own twin. A test
+that passes for a reason unrelated to the code fails everywhere else.
+
+**Worth keeping.** Every one of these was invisible on the machine that wrote it. `eslint` was also
+linting `supabase/.temp`, which only exists after the stack has been started — the same shape of bug,
+in the tooling rather than the tests.

@@ -3,8 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { createClient } from "@/lib/supabase/client";
-
 /**
  * Realtime, for the active sprint and the open thread.
  *
@@ -20,6 +18,13 @@ import { createClient } from "@/lib/supabase/client";
  *     rows in a few milliseconds. One `router.refresh()` per row would refetch
  *     the whole server tree a dozen times over for the same final state.
  *
+ * The client is imported INSIDE the effect, not at the top of the file. This is
+ * the only module in the app that touches `@supabase/supabase-js`, and a static
+ * import puts it — plus the zod-based env validator it pulls with it — into the
+ * first chunk of every page in `/app`. That is ~130KB gzipped, on the critical
+ * path, so that a subscription can start a moment later. Loading it when the
+ * effect runs costs nothing anybody waits for.
+ *
  * The refresh IS the update path. There is deliberately no client-side merge of
  * the payload into a local cache: a merge is a second implementation of every
  * rule the server already applies — RLS scope, the minutes rollup, the status
@@ -34,25 +39,36 @@ function useRealtime(channelName: string, table: "work_items" | "comments", filt
   const router = useRouter();
 
   useEffect(() => {
-    const supabase = createClient();
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let teardown: (() => void) | null = null;
+    let cancelled = false;
 
-    const channel = supabase
-      .channel(channelName)
-      .on("postgres_changes", { event: "*", schema: "public", table, filter }, () => {
-        // The leading event schedules the refresh; everything that lands inside
-        // the window is absorbed into that one call.
-        if (timer) return;
-        timer = setTimeout(() => {
-          timer = null;
-          router.refresh();
-        }, BUFFER_MS);
-      })
-      .subscribe();
+    void (async () => {
+      const { createClient } = await import("@/lib/supabase/client");
+      // The route may already have changed while the chunk was in flight.
+      if (cancelled) return;
+
+      const supabase = createClient();
+      const channel = supabase
+        .channel(channelName)
+        .on("postgres_changes", { event: "*", schema: "public", table, filter }, () => {
+          // The leading event schedules the refresh; everything that lands
+          // inside the window is absorbed into that one call.
+          if (timer) return;
+          timer = setTimeout(() => {
+            timer = null;
+            router.refresh();
+          }, BUFFER_MS);
+        })
+        .subscribe();
+
+      teardown = () => void supabase.removeChannel(channel);
+    })();
 
     return () => {
+      cancelled = true;
       if (timer) clearTimeout(timer);
-      void supabase.removeChannel(channel);
+      teardown?.();
     };
   }, [channelName, table, filter, router]);
 }

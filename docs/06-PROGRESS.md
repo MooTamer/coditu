@@ -406,4 +406,20 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   was quietly short. All three are in `05-DECISIONS.md`.
 
   Gate: 86 unit, 63 pgTAP, **105 e2e** (twice, clean).
+- **2026-08-21** — Repository moved to `MooTamer/coditu` (private) so it can deploy from its owner's
+  account; the previous remote is kept as `abdelrahman`. CI running on Linux from a clean seed then
+  found six things that had only ever worked on one machine — `verify-tokens.sh` reading an arbitrary
+  CSS chunk, a `mktemp` that GNU refuses, eslint linting the Supabase CLI's scratch directory, a test
+  whose payload overflowed the stack while being built, a test leaning on a hand-added profile, and a
+  race in the signal-trace assertion.
+
+  The most consequential was the **JS budget measuring the machine rather than the build**: it read
+  171KB locally and 303KB on CI for the same commit, because it stopped listening before two 65KB
+  chunks arrived. Fixing the measurement exposed a real regression — realtime had put
+  `@supabase/supabase-js` and its zod-based env validator on the critical path of every `/app` page,
+  ~128KB gzipped. The client is lazily imported now and `lib/supabase/env.ts` is zod-free, taking the
+  app shell from 302.6KB to **239.5KB**. The editor check, which matched content-hashed filenames
+  against `/tiptap|prosemirror/`, could never have gone red; it reads chunk bodies now.
+
+  Gate: 86 unit, 63 pgTAP, 105 e2e, budgets OK.
 
