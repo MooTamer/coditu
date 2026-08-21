@@ -8,7 +8,9 @@ import { Reveal } from "@/components/motion/reveal";
 import { getCurrentProfile } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Sign in · Coditu",
+  // The root layout appends "| Coditu" via `title.template`, so naming it
+  // here too renders "Sign in · Coditu | Coditu" in the tab.
+  title: "Sign in",
   robots: { index: false, follow: false },
 };
 
