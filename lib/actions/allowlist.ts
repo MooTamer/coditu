@@ -51,7 +51,7 @@ export async function addAllowedEmail(input: unknown): Promise<AllowlistResult> 
     return { ok: false, error: "That invite did not save. Try again." };
   }
 
-  revalidatePath("/app/settings");
+  revalidatePath("/app/people");
   return { ok: true };
 }
 
@@ -72,6 +72,6 @@ export async function removeAllowedEmail(input: unknown): Promise<AllowlistResul
   const { error } = await supabase.from("allowed_emails").delete().eq("email", email);
   if (error) return { ok: false, error: "That did not save. Try again." };
 
-  revalidatePath("/app/settings");
+  revalidatePath("/app/people");
   return { ok: true };
 }

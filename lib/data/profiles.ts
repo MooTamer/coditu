@@ -38,3 +38,42 @@ export const listActiveProfiles = cache(async (): Promise<ProfileRef[]> => {
     role: row.role as AppRole,
   }));
 });
+
+export interface TeamMember extends ProfileRef {
+  isActive: boolean;
+  /** Invariant 2: minutes. Divided by 60 at the render edge only. */
+  weeklyCapacityMinutes: number;
+}
+
+/**
+ * Everyone, including deactivated people.
+ *
+ * `listActiveProfiles` above is the right list for assigning work and for the
+ * mention menu; this is the right list for administering the team, because an
+ * admin has to be able to see — and undo — a deactivation. RLS gates the
+ * *reader*, not the row: any active member may read `profiles`, so nothing here
+ * is a wider window than the app already had.
+ *
+ * Active first, then alphabetical. A deactivated person sinking to the bottom
+ * of the list is the ordering that matches how often anyone needs them.
+ */
+export const listTeam = cache(async (): Promise<TeamMember[]> => {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, initials, role, is_active, weekly_capacity_minutes")
+    .order("is_active", { ascending: false })
+    .order("full_name");
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    fullName: row.full_name,
+    initials: row.initials,
+    role: row.role as AppRole,
+    isActive: row.is_active,
+    weeklyCapacityMinutes: row.weekly_capacity_minutes,
+  }));
+});
