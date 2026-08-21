@@ -246,17 +246,49 @@ test.describe("motion", () => {
     await context.close();
   });
 
-  test("reduced motion stops the spinner and the backdrop still appears", async ({ browser }) => {
-    const context = await browser.newContext({ reducedMotion: "reduce" });
-    const page = await context.newPage();
-    await page.goto("/dev/tokens");
+  /**
+   * Read the spinner's animation off the real stylesheet, at a given motion
+   * preference.
+   *
+   * `/login` rather than `/dev/tokens`. The tokens page calls `notFound()` when
+   * `NODE_ENV === "production"` — deliberately, it is a review surface and
+   * should not be reachable — so a test that navigates there passes against
+   * `npm run e2e` and can never pass against the production run CI does
+   * immediately afterwards. It reported "missing", not a wrong animation, which
+   * is a test failing for a reason unrelated to the thing it is testing.
+   *
+   * The subject is a global rule, `.cd-spin` under `prefers-reduced-motion`, so
+   * any page carrying `globals.css` can host it. The element is injected
+   * because the app's only spinner is the sign-in button's pending state, and
+   * holding a form mid-submit long enough to sample it would test the network
+   * rather than the stylesheet.
+   */
+  async function spinnerAnimation(
+    browser: import("@playwright/test").Browser,
+    reducedMotion: "reduce" | "no-preference"
+  ): Promise<string> {
+    const context = await browser.newContext({ reducedMotion });
+    try {
+      const page = await context.newPage();
+      await page.goto("/login");
+      return await page.evaluate(() => {
+        const probe = document.createElement("span");
+        probe.className = "cd-spin";
+        document.body.append(probe);
+        const name = getComputedStyle(probe).animationName;
+        probe.remove();
+        return name;
+      });
+    } finally {
+      await context.close();
+    }
+  }
 
-    const spinner = await page.evaluate(() => {
-      const el = document.querySelector<HTMLElement>(".cd-spin");
-      return el ? getComputedStyle(el).animationName : "missing";
-    });
-    expect(spinner).toBe("none");
-    await context.close();
+  test("reduced motion stops the spinner", async ({ browser }) => {
+    // Both directions. Asserting only the "none" half would stay green if the
+    // rule were deleted along with the animation it suppresses.
+    expect(await spinnerAnimation(browser, "no-preference")).toBe("cd-spin");
+    expect(await spinnerAnimation(browser, "reduce")).toBe("none");
   });
 
   test("the status chip acknowledges a change on the micro tier", async ({ adminPage: page }) => {
