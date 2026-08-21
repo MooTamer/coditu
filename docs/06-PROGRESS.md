@@ -424,6 +424,26 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   Gate: 86 unit, 63 pgTAP, 105 e2e, budgets OK.
 
 
+- **2026-08-21** — Compression audited on the wire, and pinned down. Every text response this app
+  serves is gzipped by Next's own server and every already-compressed one is left alone. That was
+  true before this session; it is now asserted rather than assumed. `e2e/compression.spec.ts` measures
+  the marketing document at **130,858 bytes identity against 23,939 on the wire**, checks the RSC
+  payload, a Server Action result, and every `/_next/static` chunk over 1KB, and checks that woff2,
+  AVIF and the 112KB PDF are *not* run through gzip a second time. It reads bytes through `node:http`
+  rather than Playwright, because Playwright decodes `Content-Encoding` before you can see it — a
+  test written against it can only read the header and take the size on faith.
+
+  There is no brotli, and there will not be one here: `next start` compresses through the vendored
+  `compression` package, which speaks gzip and deflate only, so a client offering `br` alone gets all
+  130,858 bytes. The deploy target is Vercel, whose edge adds brotli in front of this server and
+  ignores custom servers anyway. `05-DECISIONS.md` carries the table and the reasoning.
+
+  One pre-existing defect fixed on the way, in its own commit: the reduced-motion spinner check
+  navigated to `/dev/tokens`, which `notFound()`s in production, so it passed under `npm run e2e` and
+  could never pass under the production run CI does immediately afterwards.
+
+  Gate: lint, typecheck, 86 unit, **115 e2e against dev and 115 against the production build**.
+
 ---
 
 ## After §14 — the team's own requests
@@ -434,4 +454,5 @@ ledger updated in the same commit as the work.
 
 | Change | Commit | Verification |
 |---|---|---|
-| **Rail** — exactly one item is `aria-current`. `startsWith("/app/projects")` matched a sprint URL, so Projects and Sprint both lit up | pending | `npx playwright test e2e/rail.spec.ts` — 4 specs |
+| **Rail** — exactly one item is `aria-current`. `startsWith("/app/projects")` matched a sprint URL, so Projects and Sprint both lit up | `646f527` | `npx playwright test e2e/rail.spec.ts` — 4 specs |
+| **Compression** — asserted on the wire: gzip on every text response, nothing already-compressed run through it twice. No brotli; that belongs to the edge | pending | `npx playwright test e2e/compression.spec.ts` — 6 specs, green against dev and the production build |

@@ -1024,3 +1024,41 @@ that passes for a reason unrelated to the code fails everywhere else.
 **Worth keeping.** Every one of these was invisible on the machine that wrote it. `eslint` was also
 linting `supabase/.temp`, which only exists after the stack has been started — the same shape of bug,
 in the tooling rather than the tests.
+
+---
+
+## 2026-08-21 · Compression stays gzip at the origin; brotli belongs to the edge
+
+**Decision.** Keep Next's built-in compression exactly as it is, add no custom server, and assert the
+whole contract on the wire in `e2e/compression.spec.ts`.
+
+**What was actually measured**, against a production build, in bytes as they left the socket:
+
+| Response | Encoding | Identity | On the wire |
+|---|---|---|---|
+| `/` document | gzip | 130,858 | 23,939 |
+| RSC payload (`RSC: 1`) | gzip | — | — |
+| Server Action result (`text/x-component`) | gzip | — | — |
+| Every `/_next/static` JS and CSS chunk over 1KB | gzip, `Vary: Accept-Encoding` | — | — |
+| Satoshi / JetBrains Mono `.woff2` | none | 31,340 | 31,340 |
+| `next/image` AVIF | none | — | — |
+| `…/report/pdf` | none, still `%PDF-` | 112,565 | 112,565 |
+| `/robots.txt` (144 bytes) | none — under the threshold | 144 | 144 |
+
+Nothing was uncompressed that should have been, and nothing already-compressed was being run through
+gzip a second time. The dev server behaves the same way, so the spec runs in both CI modes.
+
+**Why no brotli.** `next start` compresses through the vendored `compression` package, which speaks
+gzip and deflate and nothing else — a client offering `br` alone gets all 130,858 bytes. There is no
+Next config option for brotli. The only way to add it at the origin is a custom Node server, and the
+deploy target is Vercel, which ignores custom servers and already adds brotli at its edge. Trading
+`next start` for a bespoke server to duplicate something the platform does anyway is a bad trade.
+
+**Rejected.** A custom `server.js` wrapping `next()` behind `shrink-ray`/`compression` with brotli;
+precompressing `/_next/static` at build time, which Next's static handler will not serve; and
+`compress: true` written into `next.config.ts`, which is the default and would only look like a fix.
+
+**Why the test exists at all.** Every one of those rows is one boolean away from being false, and
+nothing else here would notice: the pages still render, the build still succeeds, and the marketing
+document quietly goes from 24KB to 128KB on every cold load. That is the same failure shape as the
+pruned CSS in step 3 and the never-red editor check above — silent, green, and wrong.
