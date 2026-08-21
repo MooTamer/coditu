@@ -423,3 +423,15 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
 
   Gate: 86 unit, 63 pgTAP, 105 e2e, budgets OK.
 
+
+---
+
+## After §14 — the team's own requests
+
+The fourteen steps are the build. This section is the change log for what the team asked for once
+they were using it. Same rules: one change at a time, each with the command that proved it, the
+ledger updated in the same commit as the work.
+
+| Change | Commit | Verification |
+|---|---|---|
+| **Rail** — exactly one item is `aria-current`. `startsWith("/app/projects")` matched a sprint URL, so Projects and Sprint both lit up | pending | `npx playwright test e2e/rail.spec.ts` — 4 specs |

@@ -16,12 +16,53 @@ import { cn } from "@/lib/utils";
  * The prototype's inline `<path d="…">` icons are lucide-equivalent, so they
  * are mapped to their lucide names rather than hand-rolled back into SVG.
  */
+/**
+ * Each entry owns the rule for when it is the current page.
+ *
+ * `startsWith(href)` cannot express this list. `/app/projects/evim/sprints/17`
+ * starts with `/app/projects`, so Projects and Sprint both lit up on every
+ * sprint page and the rail claimed the reader was in two places at once. A
+ * sprint URL is nested under its project for scoping reasons — invariant 1 —
+ * not because it is a sub-page of the project list, so the prefix is the wrong
+ * question to ask. Each item answers it for itself instead.
+ */
 const NAV = [
-  { id: "sprint", label: "Sprint", href: "/app", Icon: Rows3 },
-  { id: "projects", label: "Projects", href: "/app/projects", Icon: FolderOpen },
-  { id: "my-work", label: "My work", href: "/app/my-work", Icon: CheckCheck },
-  { id: "people", label: "People", href: "/app/people", Icon: Users },
-  { id: "import", label: "Import", href: "/app/import", Icon: Import },
+  {
+    id: "sprint",
+    label: "Sprint",
+    href: "/app",
+    Icon: Rows3,
+    isActive: (path: string) => path === "/app" || /^\/app\/projects\/[^/]+\/sprints(\/|$)/.test(path),
+  },
+  {
+    id: "projects",
+    label: "Projects",
+    href: "/app/projects",
+    Icon: FolderOpen,
+    // The list, and a project's own overview — but not the sprints beneath it.
+    isActive: (path: string) => /^\/app\/projects(\/[^/]+)?$/.test(path),
+  },
+  {
+    id: "my-work",
+    label: "My work",
+    href: "/app/my-work",
+    Icon: CheckCheck,
+    isActive: (path: string) => path.startsWith("/app/my-work"),
+  },
+  {
+    id: "people",
+    label: "People",
+    href: "/app/people",
+    Icon: Users,
+    isActive: (path: string) => path.startsWith("/app/people"),
+  },
+  {
+    id: "import",
+    label: "Import",
+    href: "/app/import",
+    Icon: Import,
+    isActive: (path: string) => path.startsWith("/app/import"),
+  },
 ] as const;
 
 const PIN_KEY = "coditu.rail.pinned";
@@ -70,9 +111,8 @@ export function Rail({
       </button>
 
       <nav className="flex flex-col gap-1">
-        {NAV.map(({ id, label, href, Icon }) => {
-          const active =
-            href === "/app" ? pathname === "/app" || pathname.startsWith("/app/projects/") : pathname.startsWith(href);
+        {NAV.map(({ id, label, href, Icon, isActive }) => {
+          const active = isActive(pathname);
           return (
             <Link
               key={id}
