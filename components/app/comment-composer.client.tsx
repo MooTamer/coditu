@@ -8,6 +8,7 @@ import { useMounted } from "@/lib/hooks/use-client-state";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { settle } from "@/lib/action-result";
 import { postComment } from "@/lib/actions/comments";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { isEmptyDocument } from "@/lib/comments/schema";
@@ -63,10 +64,17 @@ export function CommentComposer({
   itemId,
   itemKey,
   people,
+  onPending,
 }: {
   itemId: string;
   itemKey: string;
   people: ProfileRef[];
+  /**
+   * Called with the document at the moment of sending, from INSIDE this
+   * component's transition — which is what scopes the thread's optimistic entry
+   * to this action's lifetime. See `comment-thread.client.tsx`.
+   */
+  onPending?: (doc: unknown) => void;
 }) {
   const [opened, setOpened] = useState(false);
   // null until the editor reports; a restored draft is not empty by definition.
@@ -131,27 +139,60 @@ export function CommentComposer({
     const current = docRef.current !== EMPTY_DOC ? docRef.current : (restored ?? EMPTY_DOC);
     if (isEmptyDocument(current)) return;
 
+    /** Empties the box, as if it had already sent. */
+    const clear = () => {
+      try {
+        window.localStorage.removeItem(draftKey(itemKey));
+      } catch {
+        /* see above */
+      }
+      docRef.current = EMPTY_DOC;
+      setReportedEmpty(true);
+      setOpened(false);
+      // Re-read the (now removed) draft, so `restored` stops holding the
+      // document that was just posted. The editor remounts on this key, which
+      // is what actually empties it.
+      setDraftVersion((version) => version + 1);
+    };
+
+    // Emptied here, OUTSIDE the transition, and this is not a style choice:
+    // state set inside a transition is deferred until the transition settles,
+    // so clearing in there leaves the words sitting in the box until the write
+    // returns — underneath a copy of themselves in the thread. The test caught
+    // exactly that.
+    clear();
+
     startTransition(async () => {
-      const result = await postComment({ itemId, doc: current });
+      // The comment appears in the thread before the write is awaited. On a
+      // hosted database that round trip is most of a second of a thread that
+      // looks like it ignored you — which is the moment people press the button
+      // a second time.
+      onPending?.(current);
+
+      const result = await settle(
+        () => postComment({ itemId, doc: current }),
+        "That comment did not save — check your connection."
+      );
       if (result.ok) {
+        router.refresh();
+      } else {
+        // Invariant 4: a rollback with a visible reason. React drops the
+        // optimistic comment when this transition ends; the draft goes back
+        // into storage and the editor reopens holding it, so nothing anyone
+        // wrote is lost — it is exactly where they left it.
         try {
-          window.localStorage.removeItem(draftKey(itemKey));
+          window.localStorage.setItem(draftKey(itemKey), JSON.stringify(current));
         } catch {
           /* see above */
         }
-        docRef.current = EMPTY_DOC;
-        setReportedEmpty(true);
-        setOpened(false);
-        // Re-read the (now removed) draft, so `restored` stops holding the
-        // document that was just posted.
+        docRef.current = current;
+        setReportedEmpty(false);
+        setOpened(true);
         setDraftVersion((version) => version + 1);
-        router.refresh();
-      } else {
-        // The draft is untouched, so nothing the person wrote is lost.
         toast(result.error ?? "That comment did not save.");
       }
     });
-  }, [itemId, itemKey, restored, router, toast]);
+  }, [itemId, itemKey, onPending, restored, router, toast]);
 
   if (!active) {
     return (

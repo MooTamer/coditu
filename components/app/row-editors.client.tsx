@@ -6,6 +6,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import { CellPopover, optionListKeyDown } from "@/components/app/cell-popover.client";
 import { Mono } from "@/components/coditu/mono";
 import { StatusChipDot } from "@/components/coditu/status-chip";
+import { settle } from "@/lib/action-result";
 import {
   logTime,
   setWorkItemFields,
@@ -70,7 +71,10 @@ export function StatusCell({
       // Must be inside the transition — that is what scopes the optimistic
       // value to this action's lifetime.
       showOptimistic(next);
-      const result = await setWorkItemStatus({ itemId, status: next });
+      const result = await settle(
+        () => setWorkItemStatus({ itemId, status: next }),
+        "That change did not save — check your connection."
+      );
       if (!result.ok) onToast(result.error ?? "That change did not save.");
     });
   }
@@ -134,7 +138,10 @@ export function PersonCell({
     if ((next?.id ?? null) === (shown?.id ?? null)) return;
     startTransition(async () => {
       showOptimistic(next);
-      const result = await setWorkItemPerson({ itemId, field, profileId: next?.id ?? null });
+      const result = await settle(
+        () => setWorkItemPerson({ itemId, field, profileId: next?.id ?? null }),
+        "That change did not save — check your connection."
+      );
       // A reassignment moves the row between "assigned to me" and everyone
       // else's list, so the shell's counts are stale until this lands.
       if (result.ok) router.refresh();
@@ -245,7 +252,10 @@ export function HoursCell({
   function log(close: () => void) {
     close();
     startTransition(async () => {
-      const result = await logTime({ itemId, minutes: draft, workedOn: today });
+      const result = await settle(
+        () => logTime({ itemId, minutes: draft, workedOn: today }),
+        "That time did not save — check your connection."
+      );
       if (result.ok) router.refresh();
       else onToast(result.error ?? "That time did not save.");
     });
@@ -261,7 +271,10 @@ export function HoursCell({
     const minutes = Math.round(value * 60);
     if (minutes === estimateMinutes) return;
     startTransition(async () => {
-      const result = await setWorkItemFields({ itemId, estimateMinutes: minutes });
+      const result = await settle(
+        () => setWorkItemFields({ itemId, estimateMinutes: minutes }),
+        "That estimate did not save — check your connection."
+      );
       if (result.ok) router.refresh();
       else {
         setEstimate((estimateMinutes / 60).toFixed(1));
@@ -387,7 +400,10 @@ export function DeadlineCell({
     if (next === shown) return;
     startTransition(async () => {
       showOptimistic(next);
-      const result = await setWorkItemFields({ itemId, deadline: next });
+      const result = await settle(
+        () => setWorkItemFields({ itemId, deadline: next }),
+        "That deadline did not save — check your connection."
+      );
       if (result.ok) router.refresh();
       else onToast(result.error ?? "That deadline did not save.");
     });
@@ -463,7 +479,10 @@ export function TypeCell({
     if (next === shown) return;
     startTransition(async () => {
       showOptimistic(next);
-      const result = await setWorkItemFields({ itemId, type: next });
+      const result = await settle(
+        () => setWorkItemFields({ itemId, type: next }),
+        "That change did not save — check your connection."
+      );
       if (result.ok) router.refresh();
       else onToast(result.error ?? "That change did not save.");
     });
@@ -534,7 +553,10 @@ export function GroupingCell({
     if (next === shown) return;
     startTransition(async () => {
       showOptimistic(next);
-      const result = await setWorkItemFields({ itemId, grouping: next });
+      const result = await settle(
+        () => setWorkItemFields({ itemId, grouping: next }),
+        "That grouping did not save — check your connection."
+      );
       if (result.ok) router.refresh();
       else onToast(result.error ?? "That grouping did not save.");
     });

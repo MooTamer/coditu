@@ -1,5 +1,5 @@
 import { CommentBody } from "@/components/app/comment-body";
-import { CommentComposer } from "@/components/app/comment-composer.client";
+import { CommentThread } from "@/components/app/comment-thread.client";
 import { CriteriaList } from "@/components/app/criteria-list.client";
 import { LogTime } from "@/components/app/log-time.client";
 import { StatusChipDot } from "@/components/coditu/status-chip";
@@ -23,12 +23,19 @@ export function ItemDetailBody({
   today,
   canToggleCriteria,
   people,
+  me,
 }: {
   item: WorkItemDetail;
   today: string;
   canToggleCriteria: boolean;
   /** Active profiles, for the mention list. */
   people: ProfileRef[];
+  /**
+   * The signed-in reader. Their own optimistic comment and time entry carry
+   * their name and initials, so what appears the instant they act is what the
+   * server will send back rather than a placeholder that shifts.
+   */
+  me: { id: string; fullName: string; initials: string };
 }) {
   const properties: Array<{ label: string; value: string; color?: string }> = [
     { label: "type", value: TYPE_LABEL[item.type] },
@@ -89,19 +96,22 @@ export function ItemDetailBody({
             Comments
           </Mono>
 
-          {/* `aria-relevant="additions"` so a realtime insert is announced and
-              the thread that was already on screen is not. A bare
-              `aria-live="polite"` on a list would read the whole discussion out
-              on every refresh. */}
-          <div
-            aria-live="polite"
-            aria-relevant="additions"
-            className="mt-[14px] flex flex-col gap-[14px]"
+          {/* The list is rendered HERE, on the server, and handed to the client
+              wrapper as children. `CommentBody` walks stored JSON and pulls in
+              lowlight; rendering the thread client-side to make one pending
+              comment appear would ship all of that to a route already at
+              100.5KB of its 110KB budget. */}
+          <CommentThread
+            itemId={item.id}
+            itemKey={item.key}
+            people={people}
+            me={me}
+            isEmpty={item.comments.length === 0}
           >
             {item.comments.map((comment) => (
               // `micro`: 200ms, and NO blur. A per-message blur in a live
               // thread reads as jitter. Existing entries have already finished
-              // this animation, so a realtime insert is the only thing that
+              // this animation, so an arriving comment is the only thing that
               // moves when the server tree refreshes.
               <article key={comment.id} data-reveal="micro" className="flex gap-3">
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-pill border border-[var(--hairline-strong)]">
@@ -129,15 +139,7 @@ export function ItemDetailBody({
                 </div>
               </article>
             ))}
-
-            {item.comments.length === 0 ? (
-              <p className="text-[13.5px] text-[var(--ink-faint)]">No discussion yet.</p>
-            ) : null}
-          </div>
-
-          <div className="mt-4">
-            <CommentComposer itemId={item.id} itemKey={item.key} people={people} />
-          </div>
+          </CommentThread>
         </section>
 
         <section aria-labelledby={`activity-${item.id}`}>
@@ -195,6 +197,7 @@ export function ItemDetailBody({
           today={today}
           entries={item.entries}
           totalMinutes={item.minutesLogged}
+          me={me}
         />
       </div>
     </div>

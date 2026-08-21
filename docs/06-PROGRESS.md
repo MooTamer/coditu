@@ -515,6 +515,38 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   Gate: lint, typecheck, **100 unit** (was 86), 71 pgTAP, build, 117 e2e against the production build
   and 117 against dev, budgets OK, `npm run degraded` OK.
 
+- **2026-08-21** — Optimistic where it matters, and a rollback that actually runs. Logging time and
+  posting a comment both awaited the write and then `router.refresh()`, so nothing moved until two
+  round trips had finished. The running total now moves in **~130ms** — the probe's polling interval,
+  not the server.
+
+  The interesting part was underneath. Every optimistic control in the app was written as
+  `const result = await action(); if (!result.ok) { rollback(); toast(...) }`, which handles the
+  failure the action *reports* and not the one it cannot: a Server Action call is a `fetch`, and a
+  lost network **rejects** it. Both the rollback and the sentence were skipped, the transition ended,
+  `useOptimistic` reverted on its own, and the reader watched their change appear and vanish in
+  silence — the exact thing invariant 4 forbids. `settle()` in `lib/action-result.ts` turns the
+  rejection into a result so the existing rollback runs, and rethrows `redirect()` / `notFound()`,
+  which Next implements by throwing. Eleven call sites.
+
+  `CommentThread` takes the server-rendered thread as `children` rather than rendering it: walking
+  stored JSON is `comment-body.tsx`'s job and it pulls in lowlight, which has no business in a browser
+  bundle. The pending comment is flattened text marked "sending…". Whole pass measured at **0.1KB**
+  on the app shell.
+
+  Two things the tests taught, both invisible by reading: state set inside `startTransition` is
+  deferred until the transition settles, so clearing the composer in there left the words in the box
+  *underneath a copy of themselves* in the thread; and a rollback is only real if you have watched it
+  run, so `e2e/optimistic.spec.ts` aborts the action's POST at the network and asserts the total goes
+  back, the draft returns to the editor, the sentence is on screen, and nothing was written.
+
+  **Worth flagging:** the app shell is now **106.6KB of its 110KB** gate. 6.1KB of that arrived with
+  the merge from main (inline cell editing, the dialog shell, the team panel); 0.1KB is this. The next
+  feature on that route will need budget headroom found for it first.
+
+  Gate: lint, typecheck, 103 unit, 71 pgTAP, build, **155 e2e against the production build**, budgets
+  OK, seed back at 16.0 / 46.0.
+
 ---
 
 ## After §14 — the team's own requests
@@ -538,4 +570,5 @@ ledger updated in the same commit as the work.
 | **Outage, and the fix.** `sprints.notes_written_at` shipped ahead of its migration: it was applied to the local stack only, and every production sprint page threw `42703` (digest `718552063@E394`). The read and the write now tolerate the column being absent, so the app degrades to the pre-column behaviour instead of 500ing. **The migration still has to be applied to the hosted database** — see `05-DECISIONS.md`, which also records that nothing yet checks this before a deploy | pending | Column dropped locally to reproduce production exactly: sprint page HTTP 200, 12 rows, `16.0 / 46.0`, notes still editable and persisted. Re-applied, then `npx playwright test e2e/sprint-notes.spec.ts e2e/sprint-table.spec.ts e2e/inline-edit.spec.ts` green. `npm run test` — 89 |
 | **Compression** — asserted on the wire: gzip on every text response, nothing already-compressed run through it twice. No brotli; that belongs to the edge | `ff5987d` | `npx playwright test e2e/compression.spec.ts` — 6 specs, green against dev and the production build |
 | **Reorder** — one `update … from unnest(…) with ordinality` instead of one UPDATE per item. Atomic, and it can no longer report success after RLS silently wrote nothing | `cf24adf` | `npm run db:test` — 71 assertions; `npx playwright test e2e/sprint-table.spec.ts` — 9 specs |
-| **Circuit breaker** — Supabase auth off the marketing critical path, behind a deadline that fails closed; Chromium behind a bulkhead of two | pending | `npm run degraded`; `npx vitest run tests/circuit-breaker.test.ts` — 14 specs |
+| **Circuit breaker** — Supabase auth off the marketing critical path, behind a deadline that fails closed; Chromium behind a bulkhead of two | `af6cc03` | `npm run degraded`; `npx vitest run tests/circuit-breaker.test.ts` — 14 specs |
+| **Optimistic writes** — log time and post a comment land on screen before the server answers, and every optimistic control now rolls back with a sentence when the action *throws* rather than returns | pending | `npx playwright test e2e/optimistic.spec.ts` — 4 specs, two of which fail the write on purpose |

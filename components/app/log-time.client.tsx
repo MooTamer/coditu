@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { settle } from "@/lib/action-result";
 import { logTime } from "@/lib/actions/work-items";
 import type { TimeEntryRecord } from "@/lib/data/work-item";
 import { hours, hoursLabel } from "@/lib/format";
@@ -19,21 +20,62 @@ export function LogTime({
   today,
   entries,
   totalMinutes,
+  me,
 }: {
   itemId: string;
   /** Today in Africa/Cairo, computed on the server so it cannot drift. */
   today: string;
   entries: TimeEntryRecord[];
   totalMinutes: number;
+  /** The caller. The entry is always attributed to them — RLS enforces it. */
+  me: { id: string; fullName: string; initials: string };
 }) {
   const [minutes, setMinutes] = useState(90);
   const [pending, startTransition] = useTransition();
   const toast = useToast();
   const router = useRouter();
 
+  /**
+   * The entry and the total move the moment the button is pressed.
+   *
+   * This used to wait for the write and then `router.refresh()`, so the number
+   * this whole app's credibility rests on sat unchanged for a round trip while
+   * the button said nothing — and the reader's most reasonable conclusion was
+   * that the click had missed.
+   *
+   * `useOptimistic` IS the rollback: the added entry lives only for the
+   * duration of the transition. On success `revalidatePath` sends down the real
+   * one and the number does not move again; on failure React drops it, the
+   * total snaps back, and the toast says why. Invariant 4, and invariant 2 —
+   * this adds integer minutes, never a fraction of an hour.
+   */
+  const [shown, addOptimistic] = useOptimistic(
+    { entries, totalMinutes },
+    (state, added: number) => ({
+      entries: [
+        ...state.entries,
+        {
+          id: `pending-${state.entries.length}`,
+          minutes: added,
+          workedOn: today,
+          note: null,
+          person: { id: me.id, fullName: me.fullName, initials: me.initials },
+        } as TimeEntryRecord,
+      ],
+      totalMinutes: state.totalMinutes + added,
+    })
+  );
+
   function submit() {
+    const logged = minutes;
     startTransition(async () => {
-      const result = await logTime({ itemId, minutes, workedOn: today });
+      // Inside the transition — that is what scopes the optimistic entry to
+      // this action's lifetime.
+      addOptimistic(logged);
+      const result = await settle(
+        () => logTime({ itemId, minutes: logged, workedOn: today }),
+        "That time did not save — check your connection."
+      );
       if (result.ok) router.refresh();
       else toast(result.error ?? "That time did not save.");
     });
@@ -92,7 +134,7 @@ export function LogTime({
       </button>
 
       <div className="mt-[14px] flex flex-col gap-2">
-        {entries.map((entry) => (
+        {shown.entries.map((entry) => (
           <div key={entry.id} className="flex items-center justify-between gap-2">
             <Mono size="meta" className="text-[var(--ink-muted)]">
               {entry.workedOn}
@@ -102,7 +144,7 @@ export function LogTime({
             </Mono>
           </div>
         ))}
-        {entries.length === 0 ? (
+        {shown.entries.length === 0 ? (
           <Mono size="meta" className="text-[var(--ink-faint)]">
             no entries yet
           </Mono>
@@ -111,7 +153,7 @@ export function LogTime({
         <div className="flex items-center justify-between border-t border-[var(--hairline)] pt-2">
           <Mono size="key">total</Mono>
           <Mono size="key" className="font-semibold">
-            {hoursLabel(totalMinutes)}
+            {hoursLabel(shown.totalMinutes)}
           </Mono>
         </div>
       </div>

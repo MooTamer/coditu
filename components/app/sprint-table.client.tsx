@@ -33,6 +33,7 @@ import {
 } from "@/components/app/row-editors.client";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { settle } from "@/lib/action-result";
 import { reorderWorkItems } from "@/lib/actions/work-items";
 import type { PersonRef, WorkItemRow } from "@/lib/data/sprint";
 import { hours } from "@/lib/format";
@@ -152,7 +153,10 @@ export function SprintTable({
       setOrder(next);
 
       startTransition(async () => {
-        const result = await reorderWorkItems({ itemId: String(active.id), orderedIds: next });
+        const result = await settle(
+          () => reorderWorkItems({ itemId: String(active.id), orderedIds: next }),
+          "The new order did not save — check your connection."
+        );
         if (!result.ok) {
           // Invariant 4: rollback plus a visible error.
           setOrder(rollback);

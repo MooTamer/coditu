@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { settle } from "@/lib/action-result";
 import { setCriterionDone } from "@/lib/actions/work-items";
 import type { Criterion } from "@/lib/data/work-item";
 import { cn } from "@/lib/utils";
@@ -32,7 +33,10 @@ export function CriteriaList({ criteria, canToggle }: { criteria: Criterion[]; c
     if (!canToggle) return;
     startTransition(async () => {
       setItems({ id: criterion.id, isDone: !criterion.isDone });
-      const result = await setCriterionDone({ criterionId: criterion.id, isDone: !criterion.isDone });
+      const result = await settle(
+        () => setCriterionDone({ criterionId: criterion.id, isDone: !criterion.isDone }),
+        "That tick did not save — check your connection."
+      );
       if (!result.ok) toast(result.error ?? "That tick did not save.");
     });
   }

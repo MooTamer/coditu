@@ -1286,3 +1286,61 @@ project does not exist" to a client whose project is fine — a faster lie is no
 Making that honest means teaching `lib/data/*` to distinguish "absent" from "unreachable" and adding
 the `error.tsx` boundaries this app does not yet have. That is a change with its own shape and it
 should be made deliberately, not as a side effect of adding timeouts.
+
+---
+
+## 2026-08-21 · The two things people do all day happen before the server answers
+
+**Decision.** Logging time and posting a comment are optimistic. So is clearing notifications. And
+every optimistic control in the app now survives a Server Action that *throws*, via `settle()` in
+`lib/action-result.ts`.
+
+**What was waiting.** `LogTime` and `CommentComposer` both awaited the write and only then called
+`router.refresh()`. Nothing on screen moved until both round trips had finished — locally a couple of
+hundred milliseconds, against a hosted database most of a second of a panel that looks like it
+ignored the click. Measured after the change: the running total moves in **~130ms**, which is the
+polling interval of the probe rather than anything the server did.
+
+**The bug underneath all of it.** Every optimistic control was written as
+
+```ts
+const result = await someAction(input);
+if (!result.ok) { rollback(); toast(result.error); }
+```
+
+which handles the failure the action *reports* and not the one it cannot. A Server Action call is a
+`fetch`: lose the network, restart the server, hit a serialization error, and the promise **rejects**.
+The rollback line and the sentence are both skipped, the transition ends, `useOptimistic` reverts on
+its own — and the reader watches their change appear and then vanish with nothing said. That is
+precisely what invariant 4 forbids. The revert was always correct; the *sentence* was missing.
+
+`settle()` wraps the call and turns a rejection into `{ ok: false, error }`, so the existing rollback
+runs on the path it was always meant to. It rethrows Next's `redirect()` and `notFound()` control-flow
+errors — both are implemented by throwing, and swallowing one turns `signOut` into a button that
+appears to do nothing. Applied at eleven call sites: the two above, the acceptance-criteria toggle,
+the drag reorder, and all seven inline row editors.
+
+**Why the comment thread takes `children`.** `comment-body.tsx` is the security boundary — it walks
+stored ProseMirror JSON into React elements, server-side, and highlights code with lowlight.
+Rendering the thread from a client component to make one pending comment appear would have shipped
+all of that to the browser. So the server still renders the thread and hands it to
+`CommentThread` as `children`; the client component only adds the comment that does not exist yet, as
+flattened text marked "sending…". Cost of the whole optimistic pass, measured: **0.1KB** on the app
+shell.
+
+**One thing the tests taught us.** State set inside `startTransition` is *deferred until the
+transition settles*, so clearing the composer in there left the words sitting in the box until the
+write returned — underneath a copy of themselves in the thread. The clear is an urgent update
+outside the transition now. Only the `useOptimistic` dispatch belongs inside it.
+
+**How the rollbacks are proven.** `e2e/optimistic.spec.ts` fails the write on purpose by aborting the
+Server Action's POST at the network — aborted rather than made to return an error, because an abort
+*rejects*, which is the exact failure `settle()` exists for. It asserts the total goes back, the
+comment disappears, the draft is handed back into the editor, the sentence is on screen, and the
+database was not written. A rollback nobody has watched run is a rollback nobody knows is broken.
+
+**Rejected.** Rendering pending comments through `CommentBody`, which costs lowlight in the browser
+on a route with 3.4KB of budget left. Making the command palette optimistic — it closes on
+activation, so there is no waiting to remove. And leaving `sprint-notes.client.tsx` alone
+deliberately: it keeps the draft and shows the failure, and an editor that closes before its save
+lands is a different trade for a different control.
