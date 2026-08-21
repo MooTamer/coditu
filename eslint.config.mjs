@@ -26,6 +26,14 @@ const eslintConfig = defineConfig([
     // has been started on that machine. A "works on my laptop" waiting to
     // happen.
     "supabase/.temp/**",
+    // Local agent and tooling state. `.gitignore` already excludes it, but
+    // eslint has its own idea of the repository — and a worktree in here comes
+    // with a built `.next`, which is fifteen thousand warnings about compiled
+    // output. Exactly the shape of the `supabase/.temp` bug above.
+    ".claude/**",
+    ".claude-flow/**",
+    ".swarm/**",
+    ".hive-mind/**",
   ]),
   {
     // Playwright's fixture callback is named `use`, and the React hooks rule

@@ -6,9 +6,11 @@ import { Download, Plus, Search } from "lucide-react";
 
 import { CommandPalette } from "@/components/app/command-palette.client";
 import { ExportDialog } from "@/components/app/export-dialog.client";
+import { NewItemDialog } from "@/components/app/new-item-dialog.client";
 import { ProjectSwitcher } from "@/components/app/project-switcher.client";
 import { ThemeToggle } from "@/components/app/theme-toggle.client";
 import { Mono } from "@/components/coditu/mono";
+import type { ProfileRef } from "@/lib/data/profiles";
 import type { ProjectSummary } from "@/lib/data/projects";
 import { cn } from "@/lib/utils";
 
@@ -21,9 +23,21 @@ import { cn } from "@/lib/utils";
  * already fetched — no second query, no waterfall, and the alternative
  * (repeating the topbar in every page) is worse.
  */
-export function Topbar({ projects }: { projects: ProjectSummary[] }) {
+export function Topbar({
+  projects,
+  people,
+  canCreate,
+}: {
+  projects: ProjectSummary[];
+  /** Active profiles, for the New item dialog's owner pickers. */
+  people: ProfileRef[];
+  /** Admin or lead. RLS refuses an engineer's insert; the button says so
+   *  rather than opening a form that cannot be submitted. */
+  canCreate: boolean;
+}) {
   const pathname = usePathname();
   const [exportOpen, setExportOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   // ⌘K / Ctrl+K, from anywhere in the app. Bound here rather than inside the
@@ -57,6 +71,17 @@ export function Topbar({ projects }: { projects: ProjectSummary[] }) {
   const exportSlugName = slug ?? activeProject?.slug ?? null;
   const canExport = Boolean(activeSprint) && Boolean(exportSlugName);
   const clientName = activeProject?.clientName ?? "no project";
+
+  // Somewhere to put it: any sprint that is not closed, anywhere.
+  const hasOpenSprint = projects.some((project) =>
+    project.sprints.some((sprint) => sprint.status !== "closed")
+  );
+  const canCreateHere = canCreate && hasOpenSprint;
+  const newItemTitle = !canCreate
+    ? "Only an admin or lead can create an item"
+    : hasOpenSprint
+      ? "Create a work item"
+      : "No open sprint to create an item in";
 
   return (
     <header
@@ -117,9 +142,17 @@ export function Topbar({ projects }: { projects: ProjectSummary[] }) {
           <span className="hidden sm:inline">Export</span>
         </button>
 
+        {/* Disabled with a tooltip, never hidden — same rule as Export. */}
         <button
           type="button"
-          className="signal-gradient inline-flex h-[34px] shrink-0 items-center gap-2 whitespace-nowrap rounded-control px-[14px] text-[13.5px] font-semibold text-[#07090E]"
+          onClick={() => setNewOpen(true)}
+          disabled={!canCreateHere}
+          aria-haspopup="dialog"
+          title={newItemTitle}
+          className={cn(
+            "signal-gradient inline-flex h-[34px] shrink-0 items-center gap-2 whitespace-nowrap rounded-control px-[14px] text-[13.5px] font-semibold text-[#07090E]",
+            canCreateHere ? "cursor-pointer" : "cursor-not-allowed opacity-50"
+          )}
         >
           <Plus size={14} strokeWidth={2.4} aria-hidden />
           <span className="hidden sm:inline">New item</span>
@@ -133,6 +166,15 @@ export function Topbar({ projects }: { projects: ProjectSummary[] }) {
           sprintName={activeSprint.name}
           clientName={clientName}
           onClose={() => setExportOpen(false)}
+        />
+      ) : null}
+
+      {newOpen ? (
+        <NewItemDialog
+          projects={projects}
+          people={people}
+          defaultSprintId={activeSprint?.id ?? null}
+          onClose={() => setNewOpen(false)}
         />
       ) : null}
 

@@ -4,6 +4,7 @@ import { Rail } from "@/components/app/rail.client";
 import { ToastProvider } from "@/components/app/toast.client";
 import { Topbar } from "@/components/app/topbar.client";
 import { countUnreadNotifications } from "@/lib/data/notifications";
+import { listActiveProfiles } from "@/lib/data/profiles";
 import { listProjects } from "@/lib/data/projects";
 import { getCurrentProfile } from "@/lib/supabase/server";
 
@@ -24,14 +25,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login?next=/app");
 
-  const [projects, unreadCount] = await Promise.all([listProjects(), countUnreadNotifications()]);
+  const [projects, unreadCount, people] = await Promise.all([
+    listProjects(),
+    countUnreadNotifications(),
+    listActiveProfiles(),
+  ]);
 
   return (
     <ToastProvider>
       <div className="flex min-h-dvh bg-[var(--canvas)] text-[var(--ink)]">
         <Rail profileName={profile.full_name} role={profile.role} unreadCount={unreadCount} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar projects={projects} />
+          <Topbar
+            projects={projects}
+            people={people}
+            canCreate={profile.role === "admin" || profile.role === "lead"}
+          />
           {children}
         </div>
       </div>
