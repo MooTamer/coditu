@@ -354,6 +354,10 @@ function Row({
               a 14.5px line box on its own is 20px and fails. */}
           <Link
             href={`${basePath}/items/${row.key}`}
+            // No viewport prefetch — see the note in `rail.client.tsx`. Twelve
+            // rows cost twelve full item renders per page view and bought
+            // nothing: opening a row measures 209ms with this off, 210ms on.
+            prefetch={false}
             title={row.title}
             className="flex min-h-6 min-w-0 items-center truncate text-[14.5px] font-medium after:absolute after:inset-0 after:content-[''] hover:text-[var(--accent)]"
           >

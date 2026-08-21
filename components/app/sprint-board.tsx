@@ -52,7 +52,9 @@ export function SprintBoard({ rows, basePath }: { rows: WorkItemRow[]; basePath:
                 <Link
                   key={item.id}
                   href={`${basePath}/items/${item.key}`}
-                  className="flex flex-col gap-[10px] rounded-inner border border-l-[3px] border-[var(--hairline)] bg-[var(--canvas)] p-3"
+                  // See `rail.client.tsx`.
+                  prefetch={false}
+                        className="flex flex-col gap-[10px] rounded-inner border border-l-[3px] border-[var(--hairline)] bg-[var(--canvas)] p-3"
                   style={{ borderLeftColor: groupingHue(item.grouping) ?? "transparent" }}
                 >
                   <span className="flex items-center justify-between gap-2">

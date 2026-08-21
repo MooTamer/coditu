@@ -1344,3 +1344,51 @@ on a route with 3.4KB of budget left. Making the command palette optimistic — 
 activation, so there is no waiting to remove. And leaving `sprint-notes.client.tsx` alone
 deliberately: it keeps the draft and shows the failure, and an editor that closes before its save
 lands is a different trade for a different control.
+
+---
+
+## 2026-08-21 · The prefetch was rendering twenty-eight pages to save nothing
+
+**Decision.** `prefetch={false}` on the links into `/app`'s dynamic routes — the five rail
+destinations, and the item link in the table, the cards and the board. No caching configuration is
+added. And `npm run budgets` now fails if `/` stops being prerendered.
+
+**What was happening.** Next prefetches every `<Link>` that enters the viewport. Each prefetch of a
+dynamic route is a **full server render** of that route. A sprint page has twelve item rows and five
+rail links always in view, and each was fetched twice — so opening one sprint page ran twenty-eight
+other renders, including twelve item details with their comments, criteria, activity and time
+entries.
+
+Then the client threw all of it away. `experimental.staleTimes.dynamic` defaults to **0**, so a
+prefetched dynamic payload is stale the instant it lands and the click re-fetches from the server
+anyway.
+
+**Measured**, one sprint page view against a production build, with `pg_stat_statements` reset
+immediately before each:
+
+| | RSC renders | Database statements | Open an item | Rail navigation |
+|---|---|---|---|---|
+| Before | 28 | 178 | 210ms | 269ms |
+| After | **0** | **40** | 206ms | 277ms |
+
+**Seventy-seven percent fewer database statements per page view, and nothing anyone can feel.** The
+navigation numbers are twelve samples each; 8ms across a 270ms navigation is noise, and it is the
+number the whole prefetch existed to improve.
+
+**Rejected: `experimental.staleTimes.dynamic`.** It is the other way to fix this — keep the prefetch
+and let the router serve a tree up to N seconds old, which would make navigation genuinely faster.
+It is wrong here. This is a live sprint board with realtime subscriptions, and the reason the footer
+total is trusted is that it is never out of date; a reader who tabs to People and back would get the
+sprint as it was up to thirty seconds ago. It also still pays twenty-eight renders per page view to
+speed up the one navigation in twelve that actually happens.
+
+**Also rejected: caching the `/app` pages themselves.** They are per-user, per-project, live. There
+is nothing there whose output is the same across readers.
+
+**What IS cached, and now asserted.** `/` is prerendered at build time — same for every reader,
+changes only on deploy. That is one `cookies()`, `headers()` or `searchParams` away from being
+untrue, anywhere in the marketing tree, and nothing would go red: the page still renders, the tests
+still pass, the build still succeeds, and React quietly starts running for every visitor on the route
+whose Lighthouse score is the reason it was built the way it was. `check-budgets.mjs` asserts the
+prerendered HTML is on disk. Verified capable of failing by forcing the route dynamic and watching it
+go red — the same standard as the editor-bundle check above.

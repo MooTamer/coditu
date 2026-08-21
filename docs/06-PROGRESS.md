@@ -547,6 +547,35 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   Gate: lint, typecheck, 103 unit, 71 pgTAP, build, **155 e2e against the production build**, budgets
   OK, seed back at 16.0 / 46.0.
 
+- **2026-08-21** — One sprint page view was running **twenty-eight other page renders**. Next prefetches
+  every `<Link>` in the viewport, and a prefetch of a dynamic route is a full server render of it: a
+  sprint has twelve item rows and five rail links always in view, each fetched twice. Then the client
+  discarded all of it — `staleTimes.dynamic` defaults to **0**, so a prefetched dynamic payload is
+  stale on arrival and the click re-fetches anyway.
+
+  `prefetch={false}` on those links. Measured against a production build, `pg_stat_statements` reset
+  immediately before each run:
+
+  | one sprint page view | RSC renders | db statements | open an item | rail navigation |
+  |---|---|---|---|---|
+  | before | 28 | 178 | 210ms | 269ms |
+  | after | **0** | **40** | 206ms | 277ms |
+
+  **77% fewer database statements per page view, and nothing anyone can feel** — the navigation
+  numbers are twelve samples each, and 8ms across 270ms is noise. It was the number the prefetch
+  existed to improve.
+
+  `experimental.staleTimes.dynamic` is the other fix — keep the prefetch and let the router serve a
+  tree up to N seconds old — and it is rejected in `05-DECISIONS.md`: this is a live board with
+  realtime subscriptions, and the footer total is trusted because it is never out of date.
+
+  The one thing here that genuinely *is* cached is `/`, prerendered at build. `npm run budgets` now
+  fails if it stops being — one `cookies()` anywhere in the marketing tree ends it, and nothing else
+  would notice. Verified capable of failing by forcing the route dynamic and watching it go red.
+
+  Gate: lint, typecheck, 103 unit, 71 pgTAP, build, **155 e2e against the production build and 155
+  against dev**, budgets OK including the new assertion, `npm run degraded` OK.
+
 ---
 
 ## After §14 — the team's own requests
@@ -571,4 +600,5 @@ ledger updated in the same commit as the work.
 | **Compression** — asserted on the wire: gzip on every text response, nothing already-compressed run through it twice. No brotli; that belongs to the edge | `ff5987d` | `npx playwright test e2e/compression.spec.ts` — 6 specs, green against dev and the production build |
 | **Reorder** — one `update … from unnest(…) with ordinality` instead of one UPDATE per item. Atomic, and it can no longer report success after RLS silently wrote nothing | `cf24adf` | `npm run db:test` — 71 assertions; `npx playwright test e2e/sprint-table.spec.ts` — 9 specs |
 | **Circuit breaker** — Supabase auth off the marketing critical path, behind a deadline that fails closed; Chromium behind a bulkhead of two | `af6cc03` | `npm run degraded`; `npx vitest run tests/circuit-breaker.test.ts` — 14 specs |
-| **Optimistic writes** — log time and post a comment land on screen before the server answers, and every optimistic control now rolls back with a sentence when the action *throws* rather than returns | pending | `npx playwright test e2e/optimistic.spec.ts` — 4 specs, two of which fail the write on purpose |
+| **Optimistic writes** — log time and post a comment land on screen before the server answers, and every optimistic control now rolls back with a sentence when the action *throws* rather than returns | `02bcbfd` | `npx playwright test e2e/optimistic.spec.ts` — 4 specs, two of which fail the write on purpose |
+| **Prefetch** — `prefetch={false}` into `/app`'s dynamic routes. A sprint page view went from 28 speculative server renders and 178 database statements to 0 and 40, with navigation unchanged | pending | `npm run budgets` — now also asserts `/` is still prerendered |

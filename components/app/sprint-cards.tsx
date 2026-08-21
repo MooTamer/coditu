@@ -37,6 +37,9 @@ export function SprintCards({
           <Link
             key={row.id}
             href={`${basePath}/items/${row.key}`}
+            // See `rail.client.tsx` — a prefetch that is discarded before it
+            // can be used is a server render nobody asked for.
+            prefetch={false}
             className="flex flex-col gap-3 rounded-card border border-l-[3px] border-[var(--hairline)] p-4"
             style={{
               borderLeftColor: hue ?? "var(--hairline)",

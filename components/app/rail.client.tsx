@@ -117,6 +117,31 @@ export function Rail({
             <Link
               key={id}
               href={href}
+              /**
+               * Not prefetched, and this is measured rather than assumed.
+               *
+               * Next prefetches every `<Link>` that enters the viewport. For a
+               * DYNAMIC route the payload lands in the client router cache with
+               * `staleTimes.dynamic`, which defaults to **0** — so it is stale
+               * on arrival, the click re-fetches, and the prefetch was a full
+               * server render performed for nothing.
+               *
+               * Every route under `/app` is dynamic. One sprint page view was
+               * costing 28 of these renders — twelve item routes and five rail
+               * routes, each fetched twice — and 178 database statements. With
+               * them off it is 0 and 38.
+               *
+               * What it cost: nothing anyone can feel. Rail navigation measures
+               * 269ms prefetched and 277ms not, over twelve samples; opening an
+               * item, 210ms and 209ms.
+               *
+               * The alternative was `experimental.staleTimes.dynamic`, which
+               * makes the prefetch usable by letting the router serve a tree up
+               * to N seconds old. Rejected: this is a live sprint board with
+               * realtime subscriptions, and the reason the number in the footer
+               * is trusted is that it is never out of date.
+               */
+              prefetch={false}
               title={label}
               aria-current={active ? "page" : undefined}
               className={cn(

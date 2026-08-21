@@ -23,7 +23,7 @@
  *   node scripts/check-budgets.mjs                 # against $E2E_PROD_URL
  *   npm run budgets                                # builds and serves first
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 
 const BASE = process.env.E2E_PROD_URL ?? "http://localhost:3000";
@@ -200,6 +200,32 @@ async function main() {
     }
   } finally {
     await browser.close();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* The marketing page must stay PRERENDERED                             */
+  /* ------------------------------------------------------------------ */
+  //
+  // `/` is the same for everyone and changes only when someone deploys, so it
+  // is built once and served as a file. That is the whole caching story for
+  // this route, and it is one `cookies()`, `headers()` or `searchParams` away
+  // from being untrue — added anywhere in the marketing tree, including inside
+  // a component three levels down.
+  //
+  // Nothing would go red. The page still renders, the tests still pass, the
+  // build still succeeds. It just quietly starts running React for every
+  // visitor, on a route whose Lighthouse score is the reason it was built the
+  // way it was.
+  //
+  // A prerendered route leaves its HTML on disk. A dynamic one does not.
+  const prerendered = ".next/server/app/index.html";
+  if (existsSync(prerendered)) {
+    console.log(`\nok    / is prerendered  (${prerendered})`);
+  } else {
+    failed = true;
+    console.log(`\nFAIL  / is no longer prerendered — ${prerendered} was not built.`);
+    console.log("        Something in the marketing tree opted the route into dynamic");
+    console.log("        rendering: cookies(), headers(), searchParams, or `dynamic = 'force-dynamic'`.");
   }
 
   console.log(failed ? "\nbudgets: FAILED" : "\nbudgets: OK");
