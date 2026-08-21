@@ -5,6 +5,7 @@ import { NoSprint } from "@/components/app/no-sprint";
 import { SprintBoard } from "@/components/app/sprint-board";
 import { SprintCards } from "@/components/app/sprint-cards";
 import { SprintHeader } from "@/components/app/sprint-header";
+import { SprintRealtime } from "@/components/app/realtime.client";
 import { SprintTable } from "@/components/app/sprint-table.client";
 import { Reveal } from "@/components/motion/reveal";
 import { getProjectBySlug } from "@/lib/data/projects";
@@ -65,6 +66,9 @@ export default async function SprintPage({
     // `@container` so the table can switch to cards on its OWN width. The rail
     // pinning open changes that width without the viewport moving at all.
     <main className="@container flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+      {/* This sprint only. Renders nothing — it subscribes, coalesces bursts
+          through a 120ms buffer, and unsubscribes when the route changes. */}
+      <SprintRealtime sprintId={sprint.id} />
       {/* No wrapper reveal: as one block the header clears §4's ~40vh blur
           ceiling, so it staggers its own three columns instead — which is the
           remedy §4 gives for exactly this case. */}

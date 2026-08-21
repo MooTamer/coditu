@@ -350,4 +350,26 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   88 e2e against dev, 89 against production, budgets OK. The client PDF re-read with `pdftotext`:
   three pages, correct running header and footer, humanised statuses, and no `COD-` key, reviewer
   name, per-person hour or internal comment anywhere in it.
+- **2026-08-21** — Two features from the brief were missing and had never been tracked: the **command
+  palette** (§8) and **realtime** (§5, §8). The app had been reported finished with a topbar button
+  carrying a `⌘K` badge that did nothing. Both are built now, and the requirements inside §5 and §8 —
+  as opposed to the fourteen steps of §13 — are the gap that let it happen.
+
+  The palette does what §8 asks: jump to a project, sprint or item; and on an item, change its status,
+  assign it, or log time. Fuzzy matching is a subsequence over keys and titles, so `tbwc` finds "Tabs
+  with Cards". Its data loads on first open, through a Server Action, so RLS scopes it and it costs
+  nothing on a page load. Nine specs cover it, including axe.
+
+  Realtime subscribes to the active sprint and the open thread only, coalesces bursts through a 120ms
+  buffer, and unsubscribes on unmount — asserted on the wire by watching for the `phx_leave` frame
+  after a client-side navigation. The headline test writes a row **directly into Postgres** and
+  asserts it appears in the browser and that the footer sum recomputes.
+
+  Two real bugs found on the way. `todayInCairo` lived in a `server-only` module, so the palette
+  importing it poisoned the client bundle. And step 13 had silently **removed the backdrop blur from
+  all three dialogs**: Lightning CSS drops `backdrop-filter` entirely when a manual `-webkit-` prefix
+  follows it, and the step 13 test asserted the animation's *name* rather than its *effect*, so it
+  stayed green through the regression. Both are in `05-DECISIONS.md`.
+
+  Gate: 86 unit, 63 pgTAP, **97 e2e** (twice, clean), build, `verify-tokens.sh`, budgets.
 

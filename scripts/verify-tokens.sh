@@ -77,6 +77,9 @@ need "flat variant"        "[data-reveal-flat]"
 need "flat keyframes"      "cd-reveal-flat"
 need "scrim"               "[data-scrim]"
 need "scrim keyframes"     "cd-scrim"
+# The blur itself, not just the rule: Lightning CSS drops `backdrop-filter`
+# outright when a manual -webkit- prefix follows the standard property.
+need "scrim blur"          "backdrop-filter:blur(10px)"
 need "panel trails scrim"  "[data-scrim]>[data-reveal]"
 need "reduced motion"      "prefers-reduced-motion"
 

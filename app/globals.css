@@ -374,13 +374,11 @@
 @keyframes cd-scrim {
   from {
     opacity: 0;
-    backdrop-filter: blur(0);
-    -webkit-backdrop-filter: blur(0);
+    backdrop-filter: blur(0px);
   }
   to {
     opacity: 1;
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
   }
 }
 
@@ -596,10 +594,14 @@
    them — but ONLY when JS is actually running. Without the `js` class on
    <html> the animation simply plays on parse, so a reader with a broken
    bundle sees the content rather than an empty page. */
+
+/* No hand-written `-webkit-backdrop-filter`. Lightning CSS derives prefixes
+   from the browser targets, and a manual prefix written AFTER the standard
+   property makes it drop BOTH — the scrim shipped with no blur at all, and the
+   only symptom was a backdrop that looked slightly wrong. */
 [data-scrim] {
   background: var(--scrim);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   animation: cd-scrim 240ms var(--ease-entrance) both;
 }
 

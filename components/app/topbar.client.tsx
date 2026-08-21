@@ -1,9 +1,10 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download, Plus, Search } from "lucide-react";
 
+import { CommandPalette } from "@/components/app/command-palette.client";
 import { ExportDialog } from "@/components/app/export-dialog.client";
 import { ProjectSwitcher } from "@/components/app/project-switcher.client";
 import { ThemeToggle } from "@/components/app/theme-toggle.client";
@@ -23,6 +24,20 @@ import { cn } from "@/lib/utils";
 export function Topbar({ projects }: { projects: ProjectSummary[] }) {
   const pathname = usePathname();
   const [exportOpen, setExportOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // ⌘K / Ctrl+K, from anywhere in the app. Bound here rather than inside the
+  // palette so the shortcut works while the palette is closed — which is the
+  // only time it matters.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) return;
+      event.preventDefault();
+      setPaletteOpen((open) => !open);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const match = /^\/app\/projects\/([^/]+)(?:\/sprints\/(\d+))?/.exec(pathname);
   const slug = match?.[1];
@@ -64,7 +79,10 @@ export function Topbar({ projects }: { projects: ProjectSummary[] }) {
 
       <button
         type="button"
-        className="hidden h-[34px] max-w-[420px] flex-1 items-center gap-[10px] rounded-control border border-[var(--hairline)] bg-[var(--canvas)] px-3 text-left text-[var(--ink-faint)] sm:flex"
+        onClick={() => setPaletteOpen(true)}
+        aria-haspopup="dialog"
+        aria-keyshortcuts="Meta+K Control+K"
+        className="hidden h-[34px] max-w-[420px] flex-1 cursor-pointer items-center gap-[10px] rounded-control border border-[var(--hairline)] bg-[var(--canvas)] px-3 text-left text-[var(--ink-faint)] hover:border-[var(--hairline-strong)] sm:flex"
       >
         <Search size={14} strokeWidth={1.8} aria-hidden />
         <span className="min-w-0 flex-1 truncate text-[13.5px]">Search items, sprints, people</span>
@@ -117,6 +135,8 @@ export function Topbar({ projects }: { projects: ProjectSummary[] }) {
           onClose={() => setExportOpen(false)}
         />
       ) : null}
+
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </header>
   );
 }

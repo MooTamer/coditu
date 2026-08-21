@@ -4,6 +4,7 @@ import { CriteriaList } from "@/components/app/criteria-list.client";
 import { LogTime } from "@/components/app/log-time.client";
 import { StatusChipDot } from "@/components/app/status-popover.client";
 import { Mono } from "@/components/coditu/mono";
+import { ThreadRealtime } from "@/components/app/realtime.client";
 import { calendarDate, hours, timestamp } from "@/lib/format";
 import type { ProfileRef } from "@/lib/data/profiles";
 import type { WorkItemDetail } from "@/lib/data/work-item";
@@ -52,6 +53,9 @@ export function ItemDetailBody({
 
   return (
     <div className="grid [grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))]">
+      {/* Comments arriving on this item, coalesced through a 120ms buffer.
+          Renders nothing — it only subscribes. */}
+      <ThreadRealtime workItemId={item.id} />
       <div className="flex min-w-0 flex-col gap-6 p-6">
         <h1 className="text-[22px] font-bold leading-[1.25] tracking-[-0.02em]">{item.title}</h1>
 
@@ -85,9 +89,21 @@ export function ItemDetailBody({
             Comments
           </Mono>
 
-          <div className="mt-[14px] flex flex-col gap-[14px]">
+          {/* `aria-relevant="additions"` so a realtime insert is announced and
+              the thread that was already on screen is not. A bare
+              `aria-live="polite"` on a list would read the whole discussion out
+              on every refresh. */}
+          <div
+            aria-live="polite"
+            aria-relevant="additions"
+            className="mt-[14px] flex flex-col gap-[14px]"
+          >
             {item.comments.map((comment) => (
-              <article key={comment.id} className="flex gap-3">
+              // `micro`: 200ms, and NO blur. A per-message blur in a live
+              // thread reads as jitter. Existing entries have already finished
+              // this animation, so a realtime insert is the only thing that
+              // moves when the server tree refreshes.
+              <article key={comment.id} data-reveal="micro" className="flex gap-3">
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-pill border border-[var(--hairline-strong)]">
                   <Mono size="eyebrow" className="text-[10px] normal-case tracking-normal">
                     {comment.author.initials}

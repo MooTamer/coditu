@@ -765,3 +765,87 @@ its first screen and no more.
 weights above the fold; this ships three, because `next/font/local` preloads per family rather than per
 face, and splitting into two families does not work — font matching picks a family first and then the
 nearest weight inside it, so a 500 request would render as 400 and never reach the second family.
+
+---
+
+## 2026-08-21 · The command palette and realtime were missing, and nothing said so
+
+**What happened.** Both are specified — the palette in §8 and `03-APP-SPEC.md`, realtime in §5 and §8
+— and neither was built. Neither was recorded as deferred. The app was reported finished with a
+topbar button carrying a `⌘K` badge that did nothing, which is worse than the feature being absent:
+it advertises a capability and then ignores the keystroke.
+
+The lesson is about the ledger, not the code. §13's fourteen steps were tracked; the requirements
+*inside* §5 and §8 were not, so a feature that belonged to no step had nothing to be missing from.
+
+---
+
+## 2026-08-21 · The palette's data is fetched on first open, and its rows are not buttons
+
+**Decision.** `loadPaletteTargets()` is a Server Action called the first time the palette opens.
+Options are `<li role="option">` with click handlers, not buttons.
+
+**Why.** A query on every page load to populate a dialog most people never open is a cost with no
+reader, and it would sit in the app shell's JS budget permanently. A Server Action also inherits the
+caller's cookie session, so RLS scopes the results — the palette can only list what the person
+opening it may already see.
+
+The rows are not buttons because axe found `nested-interactive` on every one: a `role="option"`
+containing a focusable control announces itself as an option and then competes with the button inside
+it. In the listbox pattern the input keeps focus and points at the active row through
+`aria-activedescendant`; the rows only need a click target. Same defect the sprint table's rows had,
+found the same way.
+
+Item-scoped commands — change status, assign, log time — appear only when the palette is opened on an
+item. A "set status" row with nothing to act on is dead, and a dead row teaches people the palette is
+unreliable. Every one of them calls the same Server Action the rest of the app uses; the palette is a
+second way to reach a mutation, never a second implementation of it.
+
+---
+
+## 2026-08-21 · Realtime refreshes the server tree; it does not merge the payload
+
+**Decision.** `SprintRealtime` and `ThreadRealtime` subscribe to one sprint or one thread, coalesce
+events through a 120ms buffer, and call `router.refresh()`. There is no client-side merge.
+
+**Why.** A merge is a second implementation of every rule the server already applies — RLS scope, the
+`minutes_logged` rollup, the status ordering, the grouping tint — and the two would drift. Refreshing
+re-runs the server components, so a new row is a genuinely new node and animates in on the `micro`
+tier while everything already on screen stays put. The e2e test writes a row **straight into
+Postgres** — no Server Action, no navigation — and asserts both that it appears and that the footer
+sum recomputes, which a client-side merge would have had to reimplement.
+
+`supabase_realtime` is empty by default, so a migration adds the two tables. A client can otherwise
+subscribe successfully and receive nothing, with no error on either side.
+
+**Worth knowing, because it cost several rounds.** Knowing when a subscription is *live* is not
+obvious. The frames are: `phx_join` → `phx_reply {status: ok}` → `system {"Unable to subscribe …"}` →
+`system {"Subscribed to PostgreSQL"}`. Only the last means ready; the first attempt at the Postgres
+binding routinely fails and retries. A write landing before that is silently dropped, which looks
+exactly like realtime being broken, and every test that waited on the join reply — or on a sleep —
+was flaky rather than false.
+
+---
+
+## 2026-08-21 · Lightning CSS drops `backdrop-filter` when a manual prefix follows it
+
+**What happened.** Step 13 moved the dialog scrims from an inline
+`style={{ backdropFilter: "blur(10px)" }}` to a `[data-scrim]` rule, written as:
+
+```css
+backdrop-filter: blur(10px);
+-webkit-backdrop-filter: blur(10px);   /* ← this line deletes both */
+```
+
+Lightning CSS emitted **neither**. All three dialogs — item detail, export, and the work modal —
+shipped with no backdrop blur at all, and the only symptom was a backdrop that looked slightly wrong.
+Writing the prefix *first* survives; so does writing no prefix at all, which is correct, because
+Lightning CSS derives prefixes from the browser targets itself.
+
+**Why it went unnoticed.** The step 13 test asserted `animationName === "cd-scrim"` and the panel's
+delay. It checked that the mechanism was *wired*, not that it *worked* — so it stayed green across the
+regression. It now asserts the computed `backdrop-filter`, and `verify-tokens.sh` greps the built
+stylesheet for `backdrop-filter:blur(10px)`.
+
+The general form is worth keeping: a test that asserts a property's *name* proves the code ran, not
+that it did anything.

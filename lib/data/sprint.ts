@@ -2,6 +2,8 @@ import "server-only";
 
 import { cache } from "react";
 
+import { todayInCairo } from "@/lib/today";
+
 import { createClient } from "@/lib/supabase/server";
 import { statusRank, type WorkItemStatus, type WorkItemType } from "@/lib/work-items";
 
@@ -219,15 +221,7 @@ export function daysRemaining(endsOn: string | null, today = todayInCairo()): nu
   return Math.max(days, 0);
 }
 
-/** Today, as a calendar date in Africa/Cairo. */
-export function todayInCairo(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Africa/Cairo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
+
 
 export interface SprintMember {
   initials: string;
@@ -280,3 +274,6 @@ export const getSprintMembers = cache(async (sprintId: string): Promise<SprintMe
 
   return [...members.values()].sort((a, b) => b.minutes - a.minutes);
 });
+
+/** Re-exported: it lives in `lib/today.ts` so client code can reach it too. */
+export { todayInCairo };

@@ -168,6 +168,9 @@ test.describe("motion", () => {
     await page.goto(SPRINT);
     await page.getByRole("link", { name: "Add optional titles to all webparts" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
+    // The scrim resolves over 240ms. Sampling it mid-flight reads an
+    // intermediate blur — the assertion below is about where it LANDS.
+    await settle(page);
 
     const backdrop = await page.evaluate(() => {
       const scrim = document.querySelector<HTMLElement>("[data-scrim]");
@@ -178,6 +181,12 @@ test.describe("motion", () => {
       return {
         name: s.animationName,
         duration: s.animationDuration,
+        // The EFFECT, not just the wiring. Lightning CSS silently dropped every
+        // `backdrop-filter` here once — a manual `-webkit-` prefix written
+        // after the standard property makes it drop both — and a test that only
+        // checked the animation's NAME reported green while all three dialogs
+        // shipped with no blur at all.
+        blur: s.backdropFilter,
         panelTier: panel.dataset.reveal,
         panelDelay: p.animationDelay,
       };
@@ -186,6 +195,7 @@ test.describe("motion", () => {
     expect(backdrop).toEqual({
       name: "cd-scrim",
       duration: "0.24s",
+      blur: "blur(10px)",
       panelTier: "surface",
       panelDelay: "0.016s",
     });
