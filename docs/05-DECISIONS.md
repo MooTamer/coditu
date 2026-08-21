@@ -1024,3 +1024,28 @@ that passes for a reason unrelated to the code fails everywhere else.
 **Worth keeping.** Every one of these was invisible on the machine that wrote it. `eslint` was also
 linting `supabase/.temp`, which only exists after the stack has been started — the same shape of bug,
 in the tooling rather than the tests.
+
+---
+
+## 2026-08-21 · Light is the default theme — supersedes "Dark is the default"
+
+**Decision.** `next-themes` runs with `defaultTheme="light"`. `enableSystem` stays `false` and the
+toggle still persists an explicit choice, so only the starting point moves. This supersedes the
+2026-08-20 entry above; that entry's own last line said it was one prop to change if the team
+disagreed, and they do.
+
+**Why.** The team asked for it after living in the app. It also removes a small correctness cost the
+dark default was quietly paying: `:root` in `globals.css` declares the *light* palette and `.dark`
+overrides it, so a document with no stored choice painted light for one frame before `next-themes`
+added `.dark`. Defaulting to the palette the stylesheet already declares means the first frame is
+the final frame.
+
+**Rejected.** `enableSystem` with a light fallback — still a coin flip on first impression, and the
+reason to refuse it has not changed. Re-ordering `globals.css` so `:root` is dark instead — it would
+have made dark cheap and light expensive, which is the wrong way round now and would have to be
+undone again.
+
+**Consequence for the suite.** Two axe specs clicked a button labelled "Switch to light theme" to
+reach the alternate palette. That label names the theme you are *leaving*, so it points the wrong way
+the moment the default flips — the specs would have kept passing while auditing the same theme twice.
+Both now set `localStorage.theme` before load and assert the class they expect.

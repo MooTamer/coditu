@@ -173,7 +173,12 @@ export function WorkModal({
           <dl className="flex flex-col gap-[22px]">
             <Fact label="Problem" tone="var(--amber-text)" body={item.problem} />
             <Fact label="Solution" tone="var(--accent)" body={item.solution} />
-            <Fact label="Impact" tone="var(--jade)" body={item.impact} />
+            {/* `--tone-jade-fg`, not the raw `--jade` hue. The functional
+                hues are identical in both themes by design, and #23c97f on the
+                white overlay is about 2:1 — it only ever passed because the
+                page opened dark. Its sibling tones already use the themed text
+                pair; this one was the odd one out. */}
+            <Fact label="Impact" tone="var(--tone-jade-fg)" body={item.impact} />
           </dl>
         </div>
       </div>
