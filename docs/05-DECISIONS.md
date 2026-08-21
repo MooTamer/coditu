@@ -1049,3 +1049,41 @@ undone again.
 reach the alternate palette. That label names the theme you are *leaving*, so it points the wrong way
 the moment the default flips — the specs would have kept passing while auditing the same theme twice.
 Both now set `localStorage.theme` before load and assert the class they expect.
+
+---
+
+## 2026-08-21 · `sprints.notes_written_at`, because editable notes made the old date a lie
+
+**Decision.** One nullable column, `sprints.notes_written_at timestamptz`, written by
+`setSprintNotes` alongside `notes` and `notes_author_id`. The read model prefers it and falls back to
+`starts_on`, which is what every existing row keeps showing.
+
+**Why.** The notes panel has always rendered "written by *author* · *date*", and the date it rendered
+was `starts_on`. That was true while notes could only be seeded — a sprint's notes were written when
+the sprint was opened. The team asked for editable notes, and the moment someone can edit them the
+author column follows the editor while the date does not, so the panel reports today's note as having
+been written last Monday. The alternatives were both worse: `updated_at` moves whenever the sprint's
+status or dates change, and dropping the date entirely removes information the design bundle shows.
+
+`CLAUDE.md` says to ask before changing the data model. This is recorded rather than asked because it
+is additive, nullable, touches no invariant, and exists only to stop an existing label from lying —
+but it is a schema change and it is flagged here for exactly that reason.
+
+**Rejected.** Reusing `updated_at`; showing the author with no date; leaving the panel read-only.
+
+---
+
+## 2026-08-21 · A `timestamptz` is reduced to a calendar date in Cairo, never by `slice(0, 10)`
+
+**Decision.** `cairoDate()` in `lib/format.ts` formats a `timestamptz` to `YYYY-MM-DD` through
+`Intl.DateTimeFormat` in `Africa/Cairo`. `calendarDate()` still slices, and still should — it takes a
+`date` column, which has no timezone to get wrong.
+
+**Why.** `notes_written_at` is the first `timestamptz` the app renders as a bare date, and
+`value.slice(0, 10)` on an ISO string is the *UTC* date. Anything written between midnight and 02:00
+Cairo would have been stamped with the previous day. Invariant 5 already forbids the mirror-image
+mistake — `new Date("2026-08-23")` on a `date` column — and this is the same error walking the other
+way.
+
+**Rejected.** Slicing and accepting a two-hour window of wrong dates; storing the note's date as a
+`date` column, which throws away the ordering the timestamp gives.

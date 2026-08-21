@@ -460,6 +460,7 @@ export type Database = {
           name: string
           notes: string | null
           notes_author_id: string | null
+          notes_written_at: string | null
           number: number
           project_id: string
           starts_on: string | null
@@ -474,6 +475,7 @@ export type Database = {
           name: string
           notes?: string | null
           notes_author_id?: string | null
+          notes_written_at?: string | null
           number: number
           project_id: string
           starts_on?: string | null
@@ -488,6 +490,7 @@ export type Database = {
           name?: string
           notes?: string | null
           notes_author_id?: string | null
+          notes_written_at?: string | null
           number?: number
           project_id?: string
           starts_on?: string | null

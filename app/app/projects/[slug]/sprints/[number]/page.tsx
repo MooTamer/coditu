@@ -78,6 +78,7 @@ export default async function SprintPage({
         burn={burn}
         daysLeft={daysRemaining(sprint.endsOn)}
         members={members}
+        canEdit={canAssign}
       />
 
       <Reveal tier="section" delay={0.06}>

@@ -54,6 +54,22 @@ export function timestamp(value: string | null): string {
   return formatted.replace(",", "");
 }
 
+/**
+ * A `timestamptz`, reduced to the calendar date it fell on **in Cairo**.
+ *
+ * Not `value.slice(0, 10)`. That is the UTC date, and for anything logged
+ * between midnight and 02:00 Cairo it is yesterday's.
+ */
+export function cairoDate(value: string | null): string | null {
+  if (!value) return null;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+}
+
 /** "2026-08-17 → 2026-08-23" */
 export function dateRange(from: string | null, to: string | null): string {
   return `${calendarDate(from)} → ${calendarDate(to)}`;

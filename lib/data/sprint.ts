@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { cairoDate } from "@/lib/format";
 import { todayInCairo } from "@/lib/today";
 
 import { createClient } from "@/lib/supabase/server";
@@ -62,7 +63,7 @@ export const getSprint = cache(
     const { data, error } = await supabase
       .from("sprints")
       .select(
-        `id, number, name, status, starts_on, ends_on, goal, notes, created_at,
+        `id, number, name, status, starts_on, ends_on, goal, notes, notes_written_at, created_at,
          notes_author:profiles!sprints_notes_author_id_fkey ( id, full_name, initials ),
          work_items (
            id, key, title, description, highlight, status, type, deadline,
@@ -113,9 +114,12 @@ export const getSprint = cache(
       goal: data.goal,
       notes: data.notes,
       notesAuthor: toPerson(data.notes_author),
-      // The notes were written when the sprint was opened; the bundle shows the
-      // sprint's start date, not a separate edited-at.
-      notesWrittenOn: data.starts_on,
+      // `notes_written_at` follows the text; `starts_on` is the fallback for
+      // rows written before notes could be edited, which is what the panel has
+      // always shown for them. The timestamp is reduced to the calendar date it
+      // fell on IN CAIRO — invariant 5, and not a `slice(0, 10)`, which is the
+      // UTC date and reads as yesterday for anything written before 02:00.
+      notesWrittenOn: cairoDate(data.notes_written_at) ?? data.starts_on,
       items,
     };
   }
