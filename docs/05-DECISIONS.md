@@ -1087,3 +1087,39 @@ way.
 
 **Rejected.** Slicing and accepting a two-hour window of wrong dates; storing the note's date as a
 `date` column, which throws away the ordering the timestamp gives.
+
+---
+
+## 2026-08-21 · Code that reads a new column tolerates the column not being there yet
+
+**Decision.** `lib/supabase/schema.ts` exports `isMissingColumn`, and the two places that touch
+`sprints.notes_written_at` — the sprint read model and `setSprintNotes` — ask for the column and
+accept "no such column" as an answer. On a migrated database neither fallback runs.
+
+**Why.** Because it already broke production. The migration was applied to the local stack, the code
+that reads the column shipped, and every sprint page in production threw `42703` — the app's central
+screen, down, for a column that existed on one laptop. `npm run db:migrate` runs `supabase migration
+up` against the **local** stack; nothing in the repo or in the deploy pushes a migration to the
+hosted project, so a migration and the code that depends on it travel separately and arrive in
+whatever order they arrive.
+
+The real fix is ordering — schema first, then code — and that is a deployment concern, recorded below
+as the thing still to build. This entry is about the second line of defence: while the two are in
+flight, the code should degrade rather than 500. That is what expand/contract migrations assume, and
+it costs nothing once the column lands.
+
+**The part worth remembering: there are two codes and they are not interchangeable.** A refused
+SELECT is refused by Postgres and carries a SQL state, `42703`. A refused write is refused earlier,
+by PostgREST against its cached schema, and returns `PGRST204` with no SQL state at all. The first
+version of this fix checked only `42703`, which restored the sprint page and left the notes editor
+silently broken — the action returned its ordinary "those notes did not save" sentence, which reads
+exactly like a network failure. `tests/schema-drift.test.ts` pins both codes.
+
+**Rejected.** Reverting the column read and shipping the feature again later — two deploys, and the
+notes date goes back to being wrong in the meantime. A general "retry any failed query without the
+offending column" helper — that hides permission errors and constraint violations behind a fallback
+path. Leaving production broken until someone could run the migration by hand.
+
+**Still to build.** Nothing verifies that the hosted database has every migration in
+`supabase/migrations/` before a deployment goes live. Until it does, this class of outage is one
+forgotten `db push` away, and the fallback above is the only thing standing in front of it.

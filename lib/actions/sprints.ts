@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { isMissingColumn } from "@/lib/supabase/schema";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { SPRINT_STATUSES } from "@/lib/work-items";
 
@@ -90,14 +91,28 @@ export async function setSprintNotes(input: unknown): Promise<SprintResult> {
 
   const notes = parsed.data.notes.trim();
 
-  const { error } = await scope.supabase
+  const written = {
+    notes: notes.length ? notes : null,
+    notes_author_id: notes.length ? scope.profile.id : null,
+  };
+
+  // The timestamp is written when the column is there, and skipped when it is
+  // not. A database still waiting for the migration keeps the notes — losing
+  // somebody's paragraph because a column is missing would be the worse half of
+  // the same bug. See `isMissingColumn`: a refused WRITE says PGRST204, not
+  // 42703, and checking only for the latter is why this fallback did nothing
+  // the first time.
+  let { error } = await scope.supabase
     .from("sprints")
-    .update({
-      notes: notes.length ? notes : null,
-      notes_author_id: notes.length ? scope.profile.id : null,
-      notes_written_at: notes.length ? new Date().toISOString() : null,
-    })
+    .update({ ...written, notes_written_at: notes.length ? new Date().toISOString() : null })
     .eq("id", scope.sprint.id);
+
+  if (isMissingColumn(error?.code)) {
+    ({ error } = await scope.supabase
+      .from("sprints")
+      .update(written)
+      .eq("id", scope.sprint.id));
+  }
 
   if (error) return { ok: false, error: "Those notes did not save. Nothing was lost — try again." };
 
