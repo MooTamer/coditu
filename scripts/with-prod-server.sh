@@ -55,7 +55,9 @@ done
 [ -n "$PORT" ] || { echo "no free port in 3210-3260" >&2; exit 1; }
 echo "production server on :$PORT"
 
-LOG=$(mktemp -t coditu-prod)
+# GNU mktemp requires the trailing X's; BSD does not care. Without them
+# this fails on Linux only — which is to say, on CI and nowhere else.
+LOG=$(mktemp -t coditu-prod.XXXXXX)
 npx next start -p "$PORT" > "$LOG" 2>&1 &
 SERVER_PID=$!
 trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT

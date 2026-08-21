@@ -12,12 +12,21 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-CSS=$(find .next/static -name '*.css' -type f | head -1)
-if [ -z "$CSS" ]; then
+# EVERY built stylesheet, concatenated. A build emits more than one, and
+# `find ... | head -1` returns whichever the filesystem lists first — which is
+# the 74KB token layer on one machine and a 4KB fragment on another. The
+# question here is "did this rule survive the build", not "is it in this
+# particular chunk".
+CSS_FILES=$(find .next/static -name '*.css' -type f)
+if [ -z "$CSS_FILES" ]; then
   echo "no built CSS found — run 'npm run build' first" >&2
   exit 1
 fi
-echo "built CSS: $CSS ($(wc -c < "$CSS" | tr -d ' ') bytes)"
+CSS=$(mktemp -t coditu-css.XXXXXX)
+# shellcheck disable=SC2086
+cat $CSS_FILES > "$CSS"
+trap 'rm -f "$CSS"' EXIT
+echo "built CSS: $(printf '%s\n' $CSS_FILES | wc -l | tr -d ' ') file(s), $(wc -c < "$CSS" | tr -d ' ') bytes"
 
 # The built CSS is minified: `--canvas: #ebeff6` becomes `--canvas:#ebeff6` and
 # `[data-reveal="micro"]` loses its quotes. Compare with whitespace and quotes
