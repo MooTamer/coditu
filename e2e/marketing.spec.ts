@@ -220,17 +220,29 @@ test.describe("marketing site", () => {
     await page.reload();
     await expect(page.locator("svg#site-trace, [data-trace-rail]")).toHaveCount(0);
 
-    const railAt1440 = await page.evaluate(
-      () => document.querySelectorAll("svg path[stroke^='url(#traceGrad']").length
-    );
-    expect(railAt1440).toBeGreaterThan(0);
+    // The rail is drawn by a client component that first has to decide whether
+    // there IS a gutter, so it cannot exist before hydration. Polling is the
+    // difference between testing the behaviour and testing the machine's speed.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () => document.querySelectorAll("svg path[stroke^='url(#traceGrad']").length
+          ),
+        { timeout: 10_000 }
+      )
+      .toBeGreaterThan(0);
 
     await page.setViewportSize({ width: 1200, height: 900 });
-    await page.waitForTimeout(200);
-    const railAt1200 = await page.evaluate(
-      () => document.querySelectorAll("svg path[stroke^='url(#traceGrad']").length
-    );
-    expect(railAt1200, "the trace must not render without a gutter").toBe(0);
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () => document.querySelectorAll("svg path[stroke^='url(#traceGrad']").length
+          ),
+        { timeout: 10_000 }
+      )
+      .toBe(0);
   });
 
   test("content is visible without JavaScript", async ({ browser }) => {

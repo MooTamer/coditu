@@ -13,14 +13,29 @@ const ITEM = `${SPRINT}/items/COD-150`;
  * sees something rather than a blank thread.
  */
 async function seedComment(doc: unknown, text = "seeded") {
+  return seedRawComment(JSON.stringify(doc), text);
+}
+
+/**
+ * Seed a comment from JSON that is ALREADY serialised.
+ *
+ * Separate from `seedComment` rather than a `typeof doc === "string"` branch
+ * inside it: a string is perfectly good input to the normal path — one of these
+ * tests stores the literal `"not a document"` — so dispatching on the type
+ * would quietly send valid data down the wrong road.
+ */
+async function seedRawComment(body: string, text = "seeded") {
   const [item] = await query<{ id: string }>(`select id from work_items where key = 'COD-150'`);
   const [author] = await query<{ id: string }>(
-    `select id from profiles where full_name = 'Mohamed Tamer'`
+    // By email, not by name: two profiles are called "Mohamed Tamer", and
+    // `[author]` would silently take whichever the planner returned first.
+    `select p.id from profiles p join auth.users u on u.id = p.id
+     where u.email = 'mohamed@coditu.com'`
   );
   const [row] = await query<{ id: string }>(
     `insert into comments (work_item_id, author_id, body_json, body_text)
      values ($1, $2, $3::jsonb, $4) returning id`,
-    [item.id, author.id, JSON.stringify(doc), text]
+    [item.id, author.id, body, text]
   );
   return row.id;
 }
@@ -190,10 +205,20 @@ test.describe("comment rendering is inert against hostile JSON", () => {
   test("a deeply nested document does not crash the page", async ({ adminPage: page }) => {
     // body_json is jsonb — it will store this happily. The renderer must not
     // recurse into it without a bound.
-    let deep: Record<string, unknown> = { type: "text", text: "bottom of the well" };
-    for (let i = 0; i < 3000; i += 1) deep = { type: "paragraph", content: [deep] };
+    //
+    // Built as a STRING rather than an object: `JSON.stringify` recurses, so
+    // 3,000 levels overflows the stack on a machine with a smaller default than
+    // a Mac's — the test could not construct its own input on CI, which looked
+    // exactly like the app crashing.
+    const depth = 3000;
+    const deepJson =
+      `{"type":"doc","content":[` +
+      `{"type":"paragraph","content":[`.repeat(depth) +
+      `{"type":"text","text":"bottom of the well"}` +
+      `]}`.repeat(depth) +
+      `]}`;
 
-    await seedComment({ type: "doc", content: [deep] }, "deep nesting");
+    await seedRawComment(deepJson, "deep nesting");
 
     const response = await page.goto(ITEM);
     expect(response?.status()).toBe(200);

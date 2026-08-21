@@ -191,16 +191,37 @@ test.describe("notion import", () => {
   });
 
   test("an ambiguous name is flagged, never guessed at", async ({ adminPage: page }) => {
-    // Two active profiles are called "Mohamed Tamer". `new Map(pairs)` keeps
-    // whichever came last, so the importer would have assigned the row to an
-    // arbitrary one of them and said nothing. A name that matches more than one
-    // person now matches nobody, which puts the row in the flagged pile where a
-    // human can decide.
+    // `new Map(name -> id)` keeps whichever row came last, so the importer would
+    // have assigned work to an arbitrary one of two people and said nothing. A
+    // name matching more than one person now matches nobody, which puts the row
+    // in the flagged pile where a human decides.
+    //
+    // The duplicate is created HERE. An earlier version leaned on a profile that
+    // happened to exist in one developer's database, which is a test that passes
+    // for a reason unrelated to the code and fails everywhere else.
+    const TWIN = "import-twin@example.com";
+    await query(`insert into public.allowed_emails (email, note) values ($1, 'e2e twin')
+                 on conflict (email) do nothing`, [TWIN]);
+    await query(
+      `insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                               email_confirmed_at, created_at, updated_at,
+                               raw_app_meta_data, raw_user_meta_data,
+                               confirmation_token, recovery_token, email_change,
+                               email_change_token_new, email_change_token_current,
+                               phone_change, phone_change_token, reauthentication_token)
+       values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated',
+               'authenticated', $1, 'x', now(), now(), now(),
+               '{"provider":"email","providers":["email"]}'::jsonb,
+               jsonb_build_object('full_name', 'Mohamed Tamer'),
+               '', '', '', '', '', '', '', '')`,
+      [TWIN]
+    );
+
     const [duplicates] = await query<{ n: string }>(
       `select count(*)::text as n from profiles
        where is_active and full_name = 'Mohamed Tamer'`
     );
-    expect(Number(duplicates.n), "this test needs a genuinely duplicated name").toBeGreaterThan(1);
+    expect(Number(duplicates.n), "the twin profile was not created").toBeGreaterThan(1);
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/app/import");
@@ -223,6 +244,10 @@ test.describe("notion import", () => {
       `select count(*)::text as n from work_items where title = 'Imported ambiguous person'`
     );
     expect(written.n).toBe("0");
+
+    await query(`delete from public.profiles where id in (select id from auth.users where email = $1)`, [TWIN]);
+    await query(`delete from auth.users where email = $1`, [TWIN]);
+    await query(`delete from public.allowed_emails where email = $1`, [TWIN]);
   });
 
   test("the commit writes into the sprint, so it cannot land under another client", async ({
