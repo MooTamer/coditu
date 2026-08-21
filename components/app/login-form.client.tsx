@@ -5,7 +5,7 @@ import { useFormStatus } from "react-dom";
 
 import { CoditusMark } from "@/components/coditu/coditus-mark";
 import { Mono } from "@/components/coditu/mono";
-import { sendMagicLink, signIn, signUp, type AuthState } from "@/lib/actions/auth";
+import { requestPasswordReset, sendMagicLink, signIn, signUp, type AuthState } from "@/lib/actions/auth";
 
 const FIELD =
   "h-[38px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-3 text-[14px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]";
@@ -25,18 +25,41 @@ function SubmitButton({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function LoginForm({ next }: { next: string }) {
+export function LoginForm({
+  next,
+  linkFailed = false,
+}: {
+  next: string;
+  /** The callback route sent them back here because the link was dead. */
+  linkFailed?: boolean;
+}) {
   const [passwordState, passwordAction] = useActionState<AuthState, FormData>(signIn, {});
   const [linkState, linkAction] = useActionState<AuthState, FormData>(sendMagicLink, {});
+  const [resetState, resetAction] = useActionState<AuthState, FormData>(requestPasswordReset, {});
   const [joinState, joinAction] = useActionState<AuthState, FormData>(signUp, {});
   // Sign-in and sign-up share every field but one, so they are one form in two
   // modes rather than two forms — a second password box on the same screen is
   // how people end up typing their password into the wrong one.
   const [mode, setMode] = useState<"signin" | "signup">("signin");
 
+  const linkError = linkFailed
+    ? "That link has expired or has already been used. Ask for a new one below."
+    : undefined;
+
+  // `linkError` comes from the URL, so it outlives the click that follows it —
+  // it goes LAST, or asking for a fresh link would still be answered with "that
+  // link has expired" instead of "one is on its way".
   const message =
-    passwordState.error ?? joinState.error ?? linkState.error ?? linkState.notice;
-  const isError = Boolean(passwordState.error ?? joinState.error ?? linkState.error);
+    passwordState.error ??
+    joinState.error ??
+    linkState.error ??
+    resetState.error ??
+    linkState.notice ??
+    resetState.notice ??
+    linkError;
+  const isError =
+    Boolean(passwordState.error ?? joinState.error ?? linkState.error ?? resetState.error) ||
+    (message !== undefined && message === linkError);
   const joining = mode === "signup";
 
   return (
@@ -123,8 +146,13 @@ export function LoginForm({ next }: { next: string }) {
         </p>
       ) : null}
 
-      {/* Magic link is the fallback, so it is a second form rather than a mode
-          switch — one field, one button, no state to get wrong. */}
+      {/* Two fallbacks, each its own form rather than a mode switch — one
+          field, one button, no state to get wrong.
+
+          The password one is what an existing account is CLAIMED with: the
+          seeded accounts were created with a shared password and later
+          repointed to the team's real addresses, so each owner needs to choose
+          a password of their own without creating a second account. */}
       <form action={linkAction} className="flex flex-col gap-2 border-t border-[var(--hairline)] pt-3">
         <input type="hidden" name="next" value={next} />
         <input
@@ -140,6 +168,23 @@ export function LoginForm({ next }: { next: string }) {
           className="h-[38px] w-full rounded-control border border-[var(--hairline-strong)] text-[13.5px] font-medium hover:bg-[var(--canvas)]"
         >
           Send a sign-in link
+        </button>
+      </form>
+
+      <form action={resetAction} className="flex flex-col gap-2">
+        <input
+          className={FIELD}
+          type="email"
+          name="email"
+          autoComplete="email"
+          required
+          placeholder="Set or reset your password"
+        />
+        <button
+          type="submit"
+          className="h-[38px] w-full rounded-control border border-[var(--hairline-strong)] text-[13.5px] font-medium hover:bg-[var(--canvas)]"
+        >
+          Email a link to set a password
         </button>
       </form>
 

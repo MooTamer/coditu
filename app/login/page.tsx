@@ -17,9 +17,9 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
   if (await getCurrentProfile()) redirect(next ?? "/app");
 
   return (
@@ -52,7 +52,7 @@ export default async function LoginPage({
             Coditu is an internal tool. There is no public sign-up — your address has to be on the
             allowlist.
           </p>
-          <LoginForm next={next ?? "/app"} />
+          <LoginForm next={next ?? "/app"} linkFailed={error === "link"} />
         </Reveal>
       </section>
     </main>

@@ -576,6 +576,36 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   Gate: lint, typecheck, 103 unit, 71 pgTAP, build, **155 e2e against the production build and 155
   against dev**, budgets OK including the new assertion, `npm run degraded` OK.
 
+- **2026-08-21** — Two auth defects, one of them live. **A sign-up could choose its own role.**
+  `handle_new_user` read it from `raw_user_meta_data`, which is `options.data` on
+  `supabase.auth.signUp` — client-written, public endpoint, anon key in the browser bundle.
+  Reproduced before the fix: `{"data":{"role":"admin"}}` produced `profiles.role = 'admin'`. The app's
+  own form never sends a role, which is exactly why nothing looked wrong; the form is not the boundary.
+  Every account is an `engineer` now and promotion happens on `/app/people`. Fixing it demoted every
+  seeded account until the seed and `pg_temp.make_user` were changed to state roles as an explicit
+  `update` — they are privileged writers, not sign-ups. `rls.sql` has the negative case; **72 pgTAP**.
+
+  **And `/auth/callback` never existed.** `sendMagicLink` had always pointed `emailRedirectTo` there
+  and the login page had always offered to email a link — but there was no `app/auth/` directory,
+  nothing in the route list, and no `exchangeCodeForSession` anywhere. The mail sent, the link 404'd.
+  It is built now, with `/auth/update-password` behind it and "set or reset your password" on `/login`,
+  because the four production accounts were seeded with one shared password and each owner needs their
+  own without creating a second account.
+
+  Two things only an end-to-end run could show. **Supabase silently ignores a `redirectTo` that is not
+  on its allowed list** and substitutes the Site URL — the first run produced a link to
+  `http://127.0.0.1:3000` instead of the callback, and it fails by *appearing to work*.
+  `config.toml` lists `/auth/callback` now, the hosted project needs the same, and the spec asserts on
+  the URL read out of the **delivered email** rather than on what was passed. And `emailRedirectTo`
+  used the bare `NEXT_PUBLIC_SITE_URL`, which is unset on Vercel and produced a *relative* redirect.
+
+  `e2e/password.spec.ts` drives the whole journey against the local mail server: request a link, read
+  the mail, follow it, set a password, sign in with it in a clean browser, and confirm the old password
+  is refused. Plus a dead link, and an open-redirect guard — `next` rides inside an emailed URL, and
+  `//evil.example` is the case people miss.
+
+  Gate: lint, typecheck, 103 unit, **72 pgTAP**, build, e2e green against dev and the production build.
+
 ---
 
 ## After §14 — the team's own requests
@@ -601,4 +631,5 @@ ledger updated in the same commit as the work.
 | **Reorder** — one `update … from unnest(…) with ordinality` instead of one UPDATE per item. Atomic, and it can no longer report success after RLS silently wrote nothing | `cf24adf` | `npm run db:test` — 71 assertions; `npx playwright test e2e/sprint-table.spec.ts` — 9 specs |
 | **Circuit breaker** — Supabase auth off the marketing critical path, behind a deadline that fails closed; Chromium behind a bulkhead of two | `af6cc03` | `npm run degraded`; `npx vitest run tests/circuit-breaker.test.ts` — 14 specs |
 | **Optimistic writes** — log time and post a comment land on screen before the server answers, and every optimistic control now rolls back with a sentence when the action *throws* rather than returns | `02bcbfd` | `npx playwright test e2e/optimistic.spec.ts` — 4 specs, two of which fail the write on purpose |
-| **Prefetch** — `prefetch={false}` into `/app`'s dynamic routes. A sprint page view went from 28 speculative server renders and 178 database statements to 0 and 40, with navigation unchanged | pending | `npm run budgets` — now also asserts `/` is still prerendered |
+| **Prefetch** — `prefetch={false}` into `/app`'s dynamic routes. A sprint page view went from 28 speculative server renders and 178 database statements to 0 and 40, with navigation unchanged | `a09d48c` | `npm run budgets` — now also asserts `/` is still prerendered |
+| **Auth** — a sign-up can no longer choose its own role, and `/auth/callback` exists at last, so the email links the login page has always offered now lead somewhere | pending | `npm run db:test` — 72 assertions; `npx playwright test e2e/password.spec.ts` — 3 specs, the first driving the whole journey through a real mailbox |

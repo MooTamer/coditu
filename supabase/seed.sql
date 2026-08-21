@@ -56,13 +56,22 @@ select u.id, u.id, u.id::text,
 from auth.users u
 where u.email like '%@coditu.com';
 
+-- Roles are set HERE, not in `raw_user_meta_data` above.
+--
+-- The trigger used to read the role out of the sign-up request, which is how a
+-- client could hand itself `admin` — see
+-- `20260821180000_role_is_not_client_supplied.sql`. Every new account is an
+-- engineer now, so the seed states the roles it wants as the privileged writer
+-- it already is. The `role` keys still in the metadata above are left alone
+-- because they are an honest record of who these people are; nothing reads them.
+--
 -- The auth trigger derives initials from the display name; the bundle's People
 -- view spells them out, so set them explicitly. Adam is part-time on delivery
 -- (the People view reads "0.0 / 20"), hence 1200 minutes rather than 2400.
-update public.profiles set initials = 'MT', weekly_capacity_minutes = 2400 where id = 'a0000000-0000-4000-8000-000000000001';
-update public.profiles set initials = 'AN', weekly_capacity_minutes = 1200 where id = 'a0000000-0000-4000-8000-000000000002';
-update public.profiles set initials = 'AE', weekly_capacity_minutes = 2400 where id = 'a0000000-0000-4000-8000-000000000003';
-update public.profiles set initials = 'AY', weekly_capacity_minutes = 2400 where id = 'a0000000-0000-4000-8000-000000000004';
+update public.profiles set role = 'admin',    initials = 'MT', weekly_capacity_minutes = 2400 where id = 'a0000000-0000-4000-8000-000000000001';
+update public.profiles set role = 'lead',     initials = 'AN', weekly_capacity_minutes = 1200 where id = 'a0000000-0000-4000-8000-000000000002';
+update public.profiles set role = 'engineer', initials = 'AE', weekly_capacity_minutes = 2400 where id = 'a0000000-0000-4000-8000-000000000003';
+update public.profiles set role = 'engineer', initials = 'AY', weekly_capacity_minutes = 2400 where id = 'a0000000-0000-4000-8000-000000000004';
 
 -- ---------------------------------------------------------------------------
 -- Clients and projects. Only EVIM runs a sprint cadence today — the other three

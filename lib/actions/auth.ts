@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getSiteOrigin } from "@/lib/site-url";
 
 /**
  * Invariant 3: every mutation is a Server Action — zod-validate, re-check
@@ -156,13 +157,100 @@ export async function sendMagicLink(_prev: AuthState, formData: FormData): Promi
       // shouldCreateUser is false because sign-up is closed. The allowlist
       // trigger would refuse the insert anyway; this just avoids the round trip.
       shouldCreateUser: false,
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/auth/callback?next=${parsed.data.next}`,
+      // `getSiteOrigin()` rather than the bare env var: unset on Vercel, the
+      // old form produced a RELATIVE redirect, which Supabase cannot use. The
+      // helper falls back to VERCEL_PROJECT_PRODUCTION_URL and then to the
+      // site metadata, so a deployment without NEXT_PUBLIC_SITE_URL still
+      // sends a link that works.
+      emailRedirectTo: `${getSiteOrigin()}/auth/callback?next=${encodeURIComponent(parsed.data.next)}`,
     },
   });
 
   // Always the same message, whether or not the address exists. Same reason as
   // above: the response must not reveal who is on the allowlist.
   return { notice: "If that address is on the allowlist, a sign-in link is on its way." };
+}
+
+const passwordReset = z.object({
+  email: z.string().email("That does not look like an email address."),
+});
+
+/**
+ * Sends a link that lets somebody set their own password.
+ *
+ * This is how an existing account is claimed. The four seeded accounts were
+ * created with a shared password and later repointed to the team's real
+ * addresses, so every one of them needs its owner to choose a password that
+ * only they know — without creating a second account, because the account they
+ * already have is the one holding their work.
+ *
+ * The link lands on `/auth/callback`, which exchanges it for a session and
+ * forwards to `/auth/update-password`.
+ */
+export async function requestPasswordReset(
+  _prev: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const parsed = passwordReset.safeParse({ email: formData.get("email") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the address and try again." };
+  }
+
+  const supabase = await createClient();
+  await supabase.auth.resetPasswordForEmail(parsed.data.email.trim().toLowerCase(), {
+    redirectTo: `${getSiteOrigin()}/auth/callback?next=${encodeURIComponent("/auth/update-password")}`,
+  });
+
+  // Same sentence either way. Distinguishing "sent" from "no such account"
+  // turns this into a way to find out who works here, exactly as the sign-in
+  // error does.
+  return { notice: "If that address has an account, a link to set a password is on its way." };
+}
+
+const newPassword = z
+  .object({
+    password: z.string().min(8, "Use at least 8 characters."),
+    confirm: z.string(),
+  })
+  .refine((value) => value.password === value.confirm, {
+    message: "Those two passwords do not match.",
+    path: ["confirm"],
+  });
+
+/**
+ * Sets the password on the session the email link created.
+ *
+ * There is no "current password" field and there does not need to be: the only
+ * way to reach this with a session is to have opened a single-use link sent to
+ * the address on the account. The session IS the proof.
+ */
+export async function setPassword(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  const parsed = newPassword.safeParse({
+    password: formData.get("password"),
+    confirm: formData.get("confirm"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      error: "That link has expired or has already been used. Ask for a new one from the sign-in page.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (error) {
+    return { error: "That password could not be saved. Try a different one." };
+  }
+
+  redirect("/app");
 }
 
 export async function signOut() {

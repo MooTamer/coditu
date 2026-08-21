@@ -161,11 +161,21 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+site_url = "http://localhost:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# `/auth/callback` MUST be listed, or Supabase silently ignores the `redirectTo`
+# passed to resetPasswordForEmail/signInWithOtp and substitutes `site_url` —
+# the link then lands on the site root carrying a token nothing will consume.
+# It fails by *appearing to work*: the mail arrives and the link resolves.
+# The hosted project needs the same entries under Authentication → URL
+# Configuration → Redirect URLs, for the real domain.
+additional_redirect_urls = [
+  "https://127.0.0.1:3000",
+  "http://localhost:3000/**",
+  "http://127.0.0.1:3000/**",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

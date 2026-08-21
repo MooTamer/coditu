@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(48);
+select plan(49);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -38,6 +38,13 @@ begin
 end;
 $$;
 
+-- Creates an account AND gives it the role the fixture asks for.
+--
+-- The role is applied as a separate UPDATE rather than passed in
+-- `raw_user_meta_data`, because `handle_new_user` deliberately ignores that —
+-- it is client-controlled and reading it was a privilege escalation. See
+-- `20260821180000_role_is_not_client_supplied.sql`. The fixture is a privileged
+-- writer, so it states the role directly, exactly as the seed does.
 create or replace function pg_temp.make_user(uid uuid, addr text, nm text, r public.app_role) returns void
 language plpgsql as $$
 begin
@@ -53,6 +60,8 @@ begin
           addr, crypt('password', gen_salt('bf')), now(), now(), now(), '{}'::jsonb,
           json_build_object('full_name', nm, 'role', r)::jsonb,
           '', '', '', '', '', '', '', '');
+
+  update public.profiles set role = r where id = uid;
 end;
 $$;
 
@@ -291,6 +300,33 @@ select pg_temp.act_as_owner();
 
 update public.work_items set assignee_id = '33333333-3333-3333-3333-333333333333'
 where id = '60000000-0000-0000-0000-000000000001';
+
+-- =========================================================================
+-- A sign-up cannot choose its own role
+--
+-- `raw_user_meta_data` is `options.data` on `supabase.auth.signUp` — the client
+-- writes it, and the sign-up endpoint is public and takes the anon key. Reading
+-- a role out of it meant anyone on the allowlist could arrive as an admin by
+-- editing a JSON body. Reproduced against a real local sign-up before the fix.
+-- =========================================================================
+
+insert into public.allowed_emails (email) values ('climber@rls.test');
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at,
+                        raw_app_meta_data, raw_user_meta_data,
+                        confirmation_token, recovery_token, email_change_token_new, email_change,
+                        email_change_token_current, phone_change, phone_change_token, reauthentication_token)
+values ('99999999-9999-9999-9999-999999999999', '00000000-0000-0000-0000-000000000000',
+        'authenticated', 'authenticated', 'climber@rls.test', crypt('password', gen_salt('bf')),
+        now(), now(), now(), '{}'::jsonb,
+        '{"full_name":"Ivan Climber","role":"admin"}'::jsonb,
+        '', '', '', '', '', '', '', '');
+
+select is(
+  (select role from public.profiles where id = '99999999-9999-9999-9999-999999999999'),
+  'engineer'::public.app_role,
+  'negative: a sign-up asking for `role: admin` is created as an engineer anyway'
+);
 
 -- =========================================================================
 -- reorder_work_items — one statement, all of it or none of it

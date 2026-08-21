@@ -1392,3 +1392,82 @@ still pass, the build still succeeds, and React quietly starts running for every
 whose Lighthouse score is the reason it was built the way it was. `check-budgets.mjs` asserts the
 prerendered HTML is on disk. Verified capable of failing by forcing the route dynamic and watching it
 go red — the same standard as the editor-bundle check above.
+
+---
+
+## 2026-08-21 · A sign-up cannot choose its own role
+
+**Decision.** `handle_new_user` no longer reads `raw_user_meta_data ->> 'role'`. Every new account is
+an `engineer`; promotion is an explicit act by an existing admin on `/app/people`.
+
+**Why.** `raw_user_meta_data` is `options.data` on `supabase.auth.signUp` — written by the client,
+against a public endpoint, with the anon key that ships in the browser bundle. Reproduced against the
+local stack before the change:
+
+```
+POST /auth/v1/signup  {"email":"…","password":"…","data":{"role":"admin"}}
+→ profiles.role = 'admin'
+```
+
+The app's own form never sends a role, which is why nothing looked wrong. But the form is not the
+boundary — the endpoint is, and it believed whatever it was told. The allowlist keeps this to invited
+addresses, so it is escalation rather than a way in off the street; it is still an engineer becoming
+an admin by editing a JSON body, and an admin changes roles, deactivates people and controls the
+allowlist. After the change the identical request produces `engineer`.
+
+**What it broke, and had to be fixed with it.** Both the seed and the pgTAP fixtures set roles
+*through that metadata*, so ignoring it silently demoted every seeded account. `supabase/seed.sql` and
+`pg_temp.make_user` now state the role as an explicit `update`, which is honest about what they are:
+privileged writers, not sign-ups. `rls.sql` gained the negative case — an account created asking for
+`role: admin` comes out an engineer.
+
+**Rejected.** Putting a `role` column on `allowed_emails` so an invite could carry one. It was
+approved earlier in the session and then made unnecessary: repointing the existing accounts to the
+team's real addresses means nobody signs up at all, and the role select already on `/app/people` does
+the job. Adding schema for a path nobody walks is how the next escalation gets written.
+
+---
+
+## 2026-08-21 · `/auth/callback` — the route the email links always pointed at
+
+**Decision.** Build `app/auth/callback/route.ts` and `/auth/update-password`, and add "set or reset
+your password" to `/login`.
+
+**Why.** `sendMagicLink` has always set `emailRedirectTo` to `/auth/callback`, and the login page has
+always offered "Send a sign-in link". **The route did not exist.** No `app/auth/` directory, nothing in
+the build's route list, and no call to `exchangeCodeForSession` anywhere in the repository — so the
+mail was sent, the link arrived, and it 404'd. The same shape as the ⌘K badge in §14: a control that
+looks finished and is connected to nothing.
+
+It became urgent because the four production accounts were seeded with one shared password and then
+repointed to the team's real addresses. Each owner has to pick a password of their own **without**
+creating a second account, because the account they already have is the one holding their work.
+
+**Two things this turned up, both invisible from the code:**
+
+- **Supabase ignores a `redirectTo` that is not on its allowed list** and silently substitutes the
+  project's Site URL. The first end-to-end run produced a link pointing at `http://127.0.0.1:3000` —
+  not the callback — and it fails by *appearing to work*: the mail arrives, the link resolves, and the
+  person lands on the site root holding a token nothing will consume. `supabase/config.toml` now lists
+  `/auth/callback` under `additional_redirect_urls`, and the hosted project needs the same entry.
+  `e2e/password.spec.ts` asserts on the URL **read out of the delivered email** rather than on what was
+  passed, because only the former is evidence.
+- **`emailRedirectTo` used the bare `NEXT_PUBLIC_SITE_URL`**, not `getSiteUrl()`. Unset on Vercel, that
+  produced a *relative* redirect, which Supabase cannot use at all.
+
+**On the open redirect.** `next` travels inside a URL that gets emailed to somebody, which makes it a
+open redirect waiting to happen — our own sign-in link as a credible way to send a signed-in person
+anywhere. It is validated to a same-origin path, and `//evil.example` is rejected explicitly: a browser
+reads a protocol-relative URL as a different site.
+
+**On `/auth/update-password` living outside `/login`.** The middleware sends a signed-in visitor from
+`/login` to `/app`, and by the time somebody reaches the password form they *are* signed in — the
+callback exchanged their link for a session. Under `/login` it would bounce off the page it sent them
+to. The e2e spec found this the hard way: its final assertion hung for ninety seconds because the
+"wrong password" check reused a context that had just signed in successfully, and the middleware
+redirected it away from the form. It uses a third, clean context now.
+
+**Rejected.** Distributing passwords chosen by an admin — it works, and it means four people share a
+secret an admin also knows. And handling the older implicit flow (`#access_token=` in the fragment):
+`@supabase/ssr` uses PKCE, the fragment never reaches the server, and writing a client-side branch for
+a flow this project does not use is surface with no reader.
