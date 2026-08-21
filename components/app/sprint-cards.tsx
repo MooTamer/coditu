@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { StatusChipDot } from "@/components/app/status-popover.client";
+import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
 import type { WorkItemRow } from "@/lib/data/sprint";
 import { calendarDate, hours } from "@/lib/format";

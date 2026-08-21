@@ -23,15 +23,35 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 
-import { StatusPopover } from "@/components/app/status-popover.client";
+import {
+  DeadlineCell,
+  GroupingCell,
+  HoursCell,
+  PersonCell,
+  StatusCell,
+  TypeCell,
+} from "@/components/app/row-editors.client";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { reorderWorkItems } from "@/lib/actions/work-items";
-import type { WorkItemRow } from "@/lib/data/sprint";
-import { calendarDate, hours } from "@/lib/format";
-import { groupingHue, groupingStickyBg, groupingTint, TYPE_LABEL } from "@/lib/work-items";
+import type { PersonRef, WorkItemRow } from "@/lib/data/sprint";
+import { hours } from "@/lib/format";
+import { groupingHue, groupingStickyBg, groupingTint } from "@/lib/work-items";
 import { cn } from "@/lib/utils";
 
+/**
+ * Editable cells give up their padding to the control inside them, which then
+ * takes the whole box. Aiming at a 13px name to change an assignee is a target
+ * the size of the word, and the rest of the column looks inert while being the
+ * obvious place to click.
+ *
+ * The `<td>` carries an explicit height as well, and it has to: a table cell's
+ * height comes from the row, so it is not a definite value a percentage can
+ * resolve against, and `h-full` on the button inside measures 24px in a 52px
+ * row. The row height is a number this component already has — using it is
+ * cheaper and more predictable than any of the `height: inherit` folklore.
+ */
+const EDIT_CELL = "p-0";
 const CELL = "px-4";
 const HEAD =
   "px-4 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.06em] text-[var(--ink-faint)]";
@@ -63,6 +83,8 @@ export function SprintTable({
   currentProfileId,
   canAssign,
   rowHeight,
+  people,
+  today,
 }: {
   /** Rows after filtering — what is displayed. */
   rows: WorkItemRow[];
@@ -75,6 +97,10 @@ export function SprintTable({
   currentProfileId: string;
   canAssign: boolean;
   rowHeight: number;
+  /** Active profiles, for the assignee and reviewer menus. */
+  people: PersonRef[];
+  /** Today in Africa/Cairo, from the server so a stale tab cannot drift. */
+  today: string;
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -180,6 +206,8 @@ export function SprintTable({
               currentProfileId={currentProfileId}
               canAssign={canAssign}
               rowHeight={rowHeight}
+              people={people}
+              today={today}
               onToast={toast}
             />
           ))}
@@ -247,6 +275,8 @@ function Row({
   currentProfileId,
   canAssign,
   rowHeight,
+  people,
+  today,
   onToast,
 }: {
   row: WorkItemRow;
@@ -255,6 +285,8 @@ function Row({
   currentProfileId: string;
   canAssign: boolean;
   rowHeight: number;
+  people: PersonRef[];
+  today: string;
   onToast: (message: string) => void;
 }) {
   const {
@@ -268,7 +300,6 @@ function Row({
   } = useSortable({ id: row.id, disabled: !canReorder });
 
   const hue = groupingHue(row.grouping);
-  const over = row.minutesLogged > row.estimateMinutes && row.estimateMinutes > 0;
   const dueSoon = isDueWithin24h(row.deadline);
   const mayMove =
     canAssign || row.assignee?.id === currentProfileId || row.reviewer?.id === currentProfileId;
@@ -291,8 +322,12 @@ function Row({
       }}
       className="group/row border-b border-[var(--hairline)] hover:bg-[var(--canvas)] transition-[background-color,border-color,color] duration-[var(--dur-micro)] ease-[var(--ease-entrance)]"
     >
+      {/* The whole task cell opens the item, not just the six words of the
+          title. `after:absolute after:inset-0` stretches the link over the
+          cell without wrapping the key or the drag handle in it — both of
+          which sit above it on `z-[1]` and keep their own behaviour. */}
       <td
-        className={cn("sticky left-0 border-l-[3px]", CELL)}
+        className={cn("relative sticky left-0 border-l-[3px]", CELL)}
         style={{ background: groupingStickyBg(row.grouping), borderLeftColor: hue ?? "transparent" }}
       >
         <span className="flex min-w-0 items-center gap-2">
@@ -303,7 +338,7 @@ function Row({
               {...listeners}
               type="button"
               aria-label={`Reorder ${row.key} — ${row.title}`}
-              className="-ml-1 flex size-6 shrink-0 cursor-grab items-center justify-center rounded-[5px] text-[var(--ink-faint)] opacity-0 transition-opacity duration-[var(--dur-micro)] group-hover/row:opacity-100 hover:bg-[var(--canvas)] focus-visible:opacity-100"
+              className="relative z-[1] -ml-1 flex size-6 shrink-0 cursor-grab items-center justify-center rounded-[5px] text-[var(--ink-faint)] opacity-0 transition-opacity duration-[var(--dur-micro)] group-hover/row:opacity-100 hover:bg-[var(--canvas)] focus-visible:opacity-100"
             >
               <GripVertical size={13} strokeWidth={1.8} aria-hidden />
             </button>
@@ -316,7 +351,7 @@ function Row({
           <Link
             href={`${basePath}/items/${row.key}`}
             title={row.title}
-            className="flex min-h-6 min-w-0 items-center truncate text-[14.5px] font-medium hover:text-[var(--accent)]"
+            className="flex min-h-6 min-w-0 items-center truncate text-[14.5px] font-medium after:absolute after:inset-0 after:content-[''] hover:text-[var(--accent)]"
           >
             {row.title}
           </Link>
@@ -328,89 +363,68 @@ function Row({
         </span>
       </td>
 
-      <td className={CELL}>
-        <StatusPopover itemId={row.id} status={row.status} editable={mayMove} onToast={onToast} />
+      <td className={EDIT_CELL} style={{ height: rowHeight }}>
+        <StatusCell itemId={row.id} status={row.status} editable={mayMove} onToast={onToast} />
       </td>
 
-      <td className={cn(CELL, "whitespace-nowrap text-right")}>
-        <Mono size="key" className="text-[13px]" style={{ color: over ? "var(--amber-text)" : "var(--ink)" }}>
-          {row.minutesLogged > 0 ? hours(row.minutesLogged) : "—"}
-        </Mono>
-        <Mono size="key" className="text-[var(--ink-faint)]">
-          {" "}
-          / {hours(row.estimateMinutes)}
-        </Mono>
+      <td className={EDIT_CELL} style={{ height: rowHeight }}>
+        <HoursCell
+          itemId={row.id}
+          minutesLogged={row.minutesLogged}
+          estimateMinutes={row.estimateMinutes}
+          today={today}
+          canEstimate={canAssign}
+          onToast={onToast}
+        />
       </td>
 
-      <PersonCell person={row.assignee} canAssign={canAssign} fallback="unassigned" />
-      <PersonCell person={row.reviewer} canAssign={canAssign} fallback="—" />
-
-      <td className={cn(CELL, "whitespace-nowrap")}>
-        <Mono
-          size="key"
-          className="text-[12.5px]"
-          style={{ color: dueSoon ? "var(--amber-text)" : "var(--ink-muted)" }}
-        >
-          {calendarDate(row.deadline)}
-        </Mono>
+      <td className={EDIT_CELL} style={{ height: rowHeight }}>
+        <PersonCell
+          itemId={row.id}
+          field="assignee_id"
+          person={row.assignee}
+          people={people}
+          editable={canAssign}
+          fallback="unassigned"
+          onToast={onToast}
+        />
       </td>
 
-      <td className={CELL}>
-        <Mono size="meta" className="whitespace-nowrap text-[var(--ink-muted)]">
-          {TYPE_LABEL[row.type]}
-        </Mono>
+      <td className={EDIT_CELL} style={{ height: rowHeight }}>
+        <PersonCell
+          itemId={row.id}
+          field="reviewer_id"
+          person={row.reviewer}
+          people={people}
+          editable={canAssign}
+          fallback="—"
+          onToast={onToast}
+        />
       </td>
 
-      <td className={cn(CELL, "text-right")}>
-        <span
-          className="inline-flex min-w-6 items-center justify-center rounded-chip border px-[7px] py-[3px]"
-          style={{
-            borderColor: hue ?? "var(--hairline)",
-            background: row.grouping ? "var(--group-chip-bg)" : "transparent",
-          }}
-        >
-          {/* The number is ink, never the hue: an 11px label in the grouping
-              colour never clears 4.5:1. */}
-          <Mono size="meta" className={row.grouping ? "text-[var(--ink)]" : "text-[var(--ink-faint)]"}>
-            {row.grouping ?? "—"}
-          </Mono>
-        </span>
+      <td className={EDIT_CELL} style={{ height: rowHeight }}>
+        <DeadlineCell
+          itemId={row.id}
+          deadline={row.deadline}
+          dueSoon={dueSoon}
+          editable={canAssign}
+          onToast={onToast}
+        />
+      </td>
+
+      <td className={EDIT_CELL} style={{ height: rowHeight }}>
+        <TypeCell itemId={row.id} type={row.type} editable={canAssign} onToast={onToast} />
+      </td>
+
+      <td className={EDIT_CELL} style={{ height: rowHeight }}>
+        <GroupingCell
+          itemId={row.id}
+          grouping={row.grouping}
+          editable={canAssign}
+          onToast={onToast}
+        />
       </td>
     </tr>
-  );
-}
-
-function PersonCell({
-  person,
-  canAssign,
-  fallback,
-}: {
-  person: WorkItemRow["assignee"];
-  canAssign: boolean;
-  fallback: string;
-}) {
-  return (
-    <td className={CELL}>
-      {/* Disabled with a tooltip for an engineer, never hidden — the control
-          being absent reads as a bug, not as a permission. */}
-      <span
-        className="inline-flex items-center gap-2 whitespace-nowrap"
-        title={canAssign ? undefined : "Only an admin or lead can change who owns an item"}
-        aria-disabled={!canAssign}
-      >
-        <span
-          className="flex size-6 items-center justify-center rounded-pill border border-[var(--hairline-strong)]"
-          style={{ color: person ? "var(--ink)" : "var(--ink-faint)" }}
-        >
-          <Mono size="eyebrow" className="text-[9.5px] normal-case tracking-normal">
-            {person?.initials ?? "··"}
-          </Mono>
-        </span>
-        <span className="text-[13.5px]" style={{ color: person ? "var(--ink)" : "var(--ink-faint)" }}>
-          {person ? person.fullName.split(" ")[0] : fallback}
-        </span>
-      </span>
-    </td>
   );
 }
 
