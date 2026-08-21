@@ -22,10 +22,22 @@ export interface PreviewResult {
   error?: string;
 }
 
-async function peopleNames(): Promise<string[]> {
+/**
+ * Names the importer can resolve to exactly one person.
+ *
+ * A duplicated name is left OUT, so the preview flags it as unmatched. That is
+ * the same rule the commit applies — and it has to be, because the preview is
+ * the thing a person approves. A preview that calls a row ready while the
+ * commit quietly leaves it unassigned is the one failure this whole
+ * preview-then-commit design exists to prevent.
+ */
+async function resolvableNames(): Promise<string[]> {
   const supabase = await createClient();
   const { data } = await supabase.from("profiles").select("full_name").eq("is_active", true);
-  return (data ?? []).map((row) => row.full_name);
+
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) counts.set(row.full_name, (counts.get(row.full_name) ?? 0) + 1);
+  return [...counts.entries()].filter(([, n]) => n === 1).map(([name]) => name);
 }
 
 export async function previewImport(formData: FormData): Promise<PreviewResult> {
@@ -37,7 +49,7 @@ export async function previewImport(formData: FormData): Promise<PreviewResult> 
   if (file.size > MAX_CSV_BYTES) return { ok: false, error: "That file is over 2MB." };
 
   const text = await file.text();
-  const preview = buildPreview(text, await peopleNames());
+  const preview = buildPreview(text, await resolvableNames());
 
   if (preview.rows.length === 0) {
     return { ok: false, error: "That file has no rows we could read." };
@@ -79,14 +91,28 @@ export async function commitImport(input: unknown): Promise<CommitResult> {
 
   if (!sprint) return { ok: false, error: "That sprint no longer exists." };
 
-  const names = await peopleNames();
+  const names = await resolvableNames();
   const preview = buildPreview(parsed.data.csv, names);
 
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, full_name")
     .eq("is_active", true);
-  const byName = new Map((profiles ?? []).map((row) => [row.full_name, row.id]));
+
+  // A name is not a key. Two people can share one — it has already happened
+  // here — and `new Map(pairs)` keeps whichever came last, so the importer
+  // would assign work to an arbitrary one of them and never say a word.
+  // Ambiguous names resolve to nothing, which makes the row unmatched rather
+  // than wrongly matched.
+  const nameCounts = new Map<string, number>();
+  for (const row of profiles ?? []) {
+    nameCounts.set(row.full_name, (nameCounts.get(row.full_name) ?? 0) + 1);
+  }
+  const byName = new Map(
+    (profiles ?? [])
+      .filter((row) => nameCounts.get(row.full_name) === 1)
+      .map((row) => [row.full_name, row.id])
+  );
 
   // Only clean rows. A row with any issue is skipped, never guessed at.
   const clean = preview.rows.filter((row) => row.issues.length === 0);
@@ -124,20 +150,43 @@ export async function commitImport(input: unknown): Promise<CommitResult> {
     return { ok: false, error: "The import did not save. Nothing was written." };
   }
 
-  // Hours become a time entry, attributed to the row's assignee where there is
-  // one and to the importer otherwise — the hours were worked by somebody, and
-  // dropping them would make the sprint total wrong.
+  // Hours become a time entry attributed to the IMPORTER, always.
+  //
+  // Not to the row's assignee, however tempting: the `log own time` policy
+  // permits a person to insert time only for themselves, so attributing an
+  // entry to somebody else is rejected — and this insert used to discard its
+  // result, so the hours simply vanished and the work item landed showing 0.
+  // The sprint total is the number this whole app's credibility rests on, and
+  // it was quietly wrong for every imported row that belonged to anyone but
+  // the person clicking Commit.
+  //
+  // Attributing to the importer keeps the sprint total right. The note carries
+  // who the row was actually assigned to, so the per-person view is recoverable
+  // rather than invented.
   const entries = clean
     .map((row, index) => ({ row, id: inserted[index]?.id }))
     .filter(({ row, id }) => id && row.minutesWorked && row.minutesWorked > 0)
     .map(({ row, id }) => ({
       work_item_id: id!,
-      profile_id: (row.assigneeName ? byName.get(row.assigneeName) : null) ?? profile.id,
+      profile_id: profile.id,
       minutes: row.minutesWorked!,
-      note: "Imported from Notion",
+      note: row.assigneeName
+        ? `Imported from Notion — worked by ${row.assigneeName}`
+        : "Imported from Notion",
     }));
 
-  if (entries.length > 0) await supabase.from("time_entries").insert(entries);
+  if (entries.length > 0) {
+    const { error: entriesError } = await supabase.from("time_entries").insert(entries);
+    if (entriesError) {
+      // The items are in and the hours are not, so say exactly that. A silent
+      // failure here shows a sprint whose totals are wrong and whose rows all
+      // look fine.
+      return {
+        ok: false,
+        error: `${inserted.length} ${inserted.length === 1 ? "item was" : "items were"} created, but their hours did not save. Log them by hand — the totals are short until you do.`,
+      };
+    }
+  }
 
   const path = `/app/projects/${sprint.projects.slug}/sprints/${sprint.number}`;
   revalidatePath(path);

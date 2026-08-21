@@ -742,6 +742,12 @@ export type Database = {
       }
     }
     Functions: {
+      allowlist_claimed: {
+        Args: never
+        Returns: {
+          email: string
+        }[]
+      }
       auth_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]

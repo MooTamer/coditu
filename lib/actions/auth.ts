@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -20,6 +21,90 @@ const credentials = z.object({
 export interface AuthState {
   error?: string;
   notice?: string;
+}
+
+const registration = z.object({
+  email: z.string().email("That does not look like an email address."),
+  // Supabase's own floor is 6; asking for more here and less there would just
+  // produce two different rejections for the same password.
+  password: z.string().min(8, "Use at least 8 characters."),
+  fullName: z.string().trim().min(2, "Tell us your name.").max(80),
+  next: z.string().startsWith("/").default("/app"),
+});
+
+/**
+ * Sign-up, gated by the allowlist.
+ *
+ * The database is the real gate: `enforce_email_allowlist` is a BEFORE INSERT
+ * trigger on `auth.users`, and it refuses regardless of what any client sends.
+ * But GoTrue swallows the trigger's message and returns a bare
+ * `500 Database error saving new user`, which reads as a system fault rather
+ * than an answer — so the allowlist is checked here first, purely to be able to
+ * say something true.
+ *
+ * The check uses the service-role client rather than a public RPC. `allowed_emails`
+ * is admin-only by policy, and adding an anonymous "is this email invited?"
+ * endpoint would hand out the invite list one guess at a time.
+ */
+export async function signUp(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  const parsed = registration.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+    fullName: formData.get("fullName"),
+    next: formData.get("next") || "/app",
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  }
+
+  const email = parsed.data.email.trim().toLowerCase();
+
+  const admin = createAdminClient();
+  const { data: invited, error: lookupError } = await admin
+    .from("allowed_emails")
+    .select("email")
+    .ilike("email", email)
+    .maybeSingle();
+
+  if (lookupError) {
+    return { error: "We could not check that address just now. Try again in a moment." };
+  }
+
+  if (!invited) {
+    return {
+      error:
+        "That email is not authorized. Coditu accounts are invite-only — ask an admin to add you, then sign up again.",
+    };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password: parsed.data.password,
+    // `handle_new_user` reads `full_name` out of this to build the profile and
+    // its initials; without it the profile falls back to the email local-part.
+    options: { data: { full_name: parsed.data.fullName } },
+  });
+
+  if (error) {
+    if (/already registered|already been registered/i.test(error.message)) {
+      return { error: "There is already an account for that email. Sign in instead." };
+    }
+    return { error: "That did not work. Nothing was created — try again." };
+  }
+
+  // No session means the project has email confirmation switched on, so the
+  // account exists but cannot be used yet. Redirecting anyway would bounce off
+  // the middleware straight back to this page with nothing said, which reads as
+  // the form having failed.
+  if (!data.session) {
+    return {
+      notice: `Account created. Check ${email} for a confirmation link, then sign in.`,
+    };
+  }
+
+  redirect(parsed.data.next);
 }
 
 export async function signIn(_prev: AuthState, formData: FormData): Promise<AuthState> {

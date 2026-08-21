@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { CoditusMark } from "@/components/coditu/coditus-mark";
 import { Mono } from "@/components/coditu/mono";
-import { sendMagicLink, signIn, type AuthState } from "@/lib/actions/auth";
+import { sendMagicLink, signIn, signUp, type AuthState } from "@/lib/actions/auth";
 
 const FIELD =
   "h-[38px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-3 text-[14px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]";
@@ -28,13 +28,43 @@ function SubmitButton({ children }: { children: React.ReactNode }) {
 export function LoginForm({ next }: { next: string }) {
   const [passwordState, passwordAction] = useActionState<AuthState, FormData>(signIn, {});
   const [linkState, linkAction] = useActionState<AuthState, FormData>(sendMagicLink, {});
+  const [joinState, joinAction] = useActionState<AuthState, FormData>(signUp, {});
+  // Sign-in and sign-up share every field but one, so they are one form in two
+  // modes rather than two forms — a second password box on the same screen is
+  // how people end up typing their password into the wrong one.
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
 
-  const message = passwordState.error ?? linkState.error ?? linkState.notice;
-  const isError = Boolean(passwordState.error ?? linkState.error);
+  const message =
+    passwordState.error ?? joinState.error ?? linkState.error ?? linkState.notice;
+  const isError = Boolean(passwordState.error ?? joinState.error ?? linkState.error);
+  const joining = mode === "signup";
 
   return (
     <div className="mt-6 flex flex-col gap-3">
-      <form action={passwordAction} className="flex flex-col gap-3">
+      <div
+        role="tablist"
+        aria-label="Sign in or create an account"
+        className="flex rounded-control border border-[var(--hairline)] bg-[var(--raised)] p-[3px]"
+      >
+        {(["signin", "signup"] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={mode === value}
+            onClick={() => setMode(value)}
+            className={`h-[30px] flex-1 rounded-[7px] text-[13px] font-semibold transition-[background-color,color] duration-[var(--dur-micro)] ${
+              mode === value
+                ? "bg-[var(--canvas)] text-[var(--ink)]"
+                : "text-[var(--ink-muted)]"
+            }`}
+          >
+            {value === "signin" ? "Sign in" : "Create account"}
+          </button>
+        ))}
+      </div>
+
+      <form action={joining ? joinAction : passwordAction} className="flex flex-col gap-3">
         <input type="hidden" name="next" value={next} />
 
         <label className="flex flex-col gap-[6px]">
@@ -51,15 +81,47 @@ export function LoginForm({ next }: { next: string }) {
           />
         </label>
 
+        {joining ? (
+          <label className="flex flex-col gap-[6px]">
+            <Mono size="eyebrow" className="text-[var(--ink-faint)]">
+              Your name
+            </Mono>
+            <input
+              className={FIELD}
+              type="text"
+              name="fullName"
+              autoComplete="name"
+              required
+              minLength={2}
+              maxLength={80}
+              placeholder="Mohamed Tamer"
+            />
+          </label>
+        ) : null}
+
         <label className="flex flex-col gap-[6px]">
           <Mono size="eyebrow" className="text-[var(--ink-faint)]">
             Password
           </Mono>
-          <input className={FIELD} type="password" name="password" autoComplete="current-password" required />
+          <input
+            className={FIELD}
+            type="password"
+            name="password"
+            autoComplete={joining ? "new-password" : "current-password"}
+            required
+            minLength={joining ? 8 : undefined}
+          />
         </label>
 
-        <SubmitButton>Sign in</SubmitButton>
+        <SubmitButton>{joining ? "Create account" : "Sign in"}</SubmitButton>
       </form>
+
+      {joining ? (
+        <p className="text-[12.5px] leading-[1.5] text-[var(--ink-faint)]">
+          Coditu is invite-only. Your address has to be on the allowlist already — an admin adds it
+          in Settings.
+        </p>
+      ) : null}
 
       {/* Magic link is the fallback, so it is a second form rather than a mode
           switch — one field, one button, no state to get wrong. */}
@@ -83,7 +145,14 @@ export function LoginForm({ next }: { next: string }) {
 
       {message ? (
         <p
-          role="status"
+          // An error is announced assertively; a notice ("check your inbox") is
+          // polite. One `role` for both would either interrupt for good news or
+          // let a failure pass unheard.
+          role={isError ? "alert" : "status"}
+          // Next renders its own empty `role="alert"` route announcer, so tests
+          // need something that identifies THIS element rather than whichever
+          // live region the framework happened to mount first.
+          data-auth-message={isError ? "error" : "notice"}
           aria-live="polite"
           className="text-[12.5px] leading-[1.5]"
           style={{ color: isError ? "var(--tone-amber-fg)" : "var(--ink-muted)" }}

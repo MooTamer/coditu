@@ -81,9 +81,23 @@ function watchRealtime(page: import("@playwright/test").Page) {
  * than a failure. Both are races the tests kept losing.
  */
 async function openPalette(page: import("@playwright/test").Page) {
-  await page.keyboard.press("Meta+k");
   const dialog = page.getByRole("dialog", { name: "Command palette" });
-  await expect(dialog).toBeVisible();
+
+  // ⌘K is bound by a client component, so a press that lands before hydration
+  // does nothing at all. Pressing until it takes is what a person does anyway,
+  // and it is honest about the shortcut being an enhancement rather than
+  // something the server can answer.
+  await expect
+    .poll(
+      async () => {
+        if (await dialog.isVisible()) return true;
+        await page.keyboard.press("Meta+k");
+        return dialog.isVisible();
+      },
+      { timeout: 15_000, intervals: [200, 300, 500, 800] }
+    )
+    .toBe(true);
+
   await expect(dialog.locator("input")).toBeFocused();
   await expect(dialog.getByRole("option").first()).toBeVisible();
   return dialog;

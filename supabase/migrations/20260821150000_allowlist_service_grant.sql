@@ -1,0 +1,19 @@
+-- Let the server read the allowlist when nobody is signed in yet.
+--
+-- Sign-up has to answer "is this address invited?" before an account exists, so
+-- there is no session to run the query as. The database is still the real gate —
+-- `enforce_email_allowlist` refuses the insert regardless — but GoTrue swallows
+-- a trigger's message and returns a bare `500 Database error saving new user`,
+-- which reads as a fault rather than an answer. The pre-check exists only to be
+-- able to say something true.
+--
+-- Nothing else in this schema grants anything to `service_role`, and that is
+-- deliberate: policies do the work, and the service key cannot quietly read
+-- everything. This is the one exception, it is SELECT on one table, and the
+-- only caller is `lib/supabase/admin.ts`, which is `server-only` — so no new
+-- surface is reachable from a browser.
+--
+-- Note that `service_role` bypasses RLS POLICIES but not table GRANTs. Without
+-- this line the query fails with 42501 and the sign-up form tells everyone,
+-- invited or not, to try again in a moment.
+grant select on public.allowed_emails to service_role;

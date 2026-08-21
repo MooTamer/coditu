@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { test as base, type Page } from "@playwright/test";
 import { Client } from "pg";
 
@@ -114,5 +115,58 @@ export const test = base.extend<{
     await use(page);
   },
 });
+
+/**
+ * Wait for every finite animation that is currently running.
+ *
+ * A PAUSED animation's `finished` never settles — which is exactly what the
+ * reveal tiers are below the fold — so only running ones are awaited, under a
+ * cap.
+ */
+export async function settleAnimations(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const running = document
+      .getAnimations()
+      .filter(
+        (animation) =>
+          animation.playState === "running" &&
+          animation.effect?.getComputedTiming().iterations !== Infinity
+      );
+    await Promise.race([
+      Promise.all(running.map((animation) => animation.finished.catch(() => undefined))),
+      new Promise((resolve) => setTimeout(resolve, 2500)),
+    ]);
+  });
+}
+
+/**
+ * Run axe and return each failing node by selector.
+ *
+ * It settles animations first, and that is the whole reason this lives here
+ * rather than in each spec. Every tier fades in from `opacity: 0`, and axe
+ * sampling an element mid-fade computes the blended colour and reports a
+ * contrast failure that does not exist once it lands. That has now been
+ * diagnosed three separate times from three separate copies of this helper.
+ *
+ * Reporting the selector rather than a count means a regression names the
+ * element instead of sending the next person to go and find it.
+ */
+export async function auditA11y(page: Page, include?: string): Promise<string[]> {
+  await settleAnimations(page);
+
+  let builder = new AxeBuilder({ page }).withTags([
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa",
+    "wcag22aa",
+  ]);
+  if (include) builder = builder.include(include);
+
+  const results = await builder.analyze();
+  return results.violations.flatMap((violation) =>
+    violation.nodes.map((node) => `${violation.id} @ ${node.target.join(" ")}`)
+  );
+}
 
 export { expect } from "@playwright/test";

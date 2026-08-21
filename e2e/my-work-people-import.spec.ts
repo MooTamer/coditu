@@ -76,7 +76,11 @@ test.describe("people", () => {
 
   test("the capacity bar is labelled with real values", async ({ adminPage: page }) => {
     await page.goto("/app/people");
-    const bar = page.getByRole("img", { name: /Mohamed Tamer: .* hours, .* percent of capacity/ });
+    // `.first()` on purpose: two active profiles can share a display name, and
+    // this assertion is about the bar's label, not about who owns it.
+    const bar = page
+      .getByRole("img", { name: /Mohamed Tamer: .* hours, .* percent of capacity/ })
+      .first();
     await expect(bar).toBeVisible();
   });
 });
@@ -87,10 +91,13 @@ test.describe("notion import", () => {
   // sprint's totals while it is in flight.
   test.use({ sprintTotals: "write" });
 
+  // Assignees here are deliberately UNIQUE names. "Mohamed Tamer" is not — the
+  // database has two active profiles with it — and an ambiguous name resolves
+  // to nothing on purpose, which is its own test below.
   const CSV = [
     "Task,Status,Hours Worked,Assignee,Reviewer,Deadline,Story Type,Grouping",
-    "Imported clean row,Dev Started,1.5,Mohamed Tamer,Ahmed Yehia,23/08/2026,Story,1",
-    'Imported bad grouping,Todo,0,Mohamed Tamer,,23/08/2026,"CR: Change Request",1a',
+    "Imported clean row,Dev Started,1.5,Ahmed Yehia,Adam Nafie,23/08/2026,Story,1",
+    'Imported bad grouping,Todo,0,Ahmed Yehia,,23/08/2026,"CR: Change Request",1a',
     "Imported unknown person,Todo,0,Nobody Here,,23/08/2026,Story,",
   ].join("\n");
 
@@ -164,9 +171,58 @@ test.describe("notion import", () => {
     expect(written.status).toBe("dev_started");
     expect(written.deadline).toBe("2026-08-23");
     expect(written.grouping).toBe("1");
-    // 1.5 hours became 90 integer minutes at the boundary.
+    // 1.5 hours became 90 integer minutes at the boundary — and they are ON the
+    // item, which is the part that used to fail silently: the entry is
+    // attributed to the importer, because `log own time` permits nothing else,
+    // and an unchecked insert meant every row assigned to somebody else lost
+    // its hours with the sprint total quietly short.
     expect(written.minutes).toBe("90");
+
+    const [entry] = await query<{ note: string; who: string }>(
+      `select t.note, p.full_name as who
+       from time_entries t
+       join work_items w on w.id = t.work_item_id
+       join profiles p on p.id = t.profile_id
+       where w.title like 'Imported %'`
+    );
+    expect(entry.note).toContain("worked by Ahmed Yehia");
+    expect(entry.who, "imported hours are attributed to the importer").toBe("Mohamed Tamer");
     expect(written.number).toBe("17");
+  });
+
+  test("an ambiguous name is flagged, never guessed at", async ({ adminPage: page }) => {
+    // Two active profiles are called "Mohamed Tamer". `new Map(pairs)` keeps
+    // whichever came last, so the importer would have assigned the row to an
+    // arbitrary one of them and said nothing. A name that matches more than one
+    // person now matches nobody, which puts the row in the flagged pile where a
+    // human can decide.
+    const [duplicates] = await query<{ n: string }>(
+      `select count(*)::text as n from profiles
+       where is_active and full_name = 'Mohamed Tamer'`
+    );
+    expect(Number(duplicates.n), "this test needs a genuinely duplicated name").toBeGreaterThan(1);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/app/import");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "Ambiguous.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(
+        [
+          "Task,Status,Hours Worked,Assignee,Reviewer,Deadline,Story Type,Grouping",
+          "Imported ambiguous person,Todo,0,Mohamed Tamer,,23/08/2026,Story,",
+        ].join("\n"),
+        "utf8"
+      ),
+    });
+
+    await expect(page.getByText(/0 ready, 1 flagged/)).toBeVisible();
+    await expect(page.getByText(/No profile named "Mohamed Tamer"/).first()).toBeVisible();
+
+    const [written] = await query<{ n: string }>(
+      `select count(*)::text as n from work_items where title = 'Imported ambiguous person'`
+    );
+    expect(written.n).toBe("0");
   });
 
   test("the commit writes into the sprint, so it cannot land under another client", async ({

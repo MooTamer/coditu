@@ -10,6 +10,18 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
+-- Identify a seeded person by the one thing that is actually unique: their
+-- email. `initials` is a display detail — the moment a second "Mohamed Tamer"
+-- exists, every `initials = 'MT'` lookup returns two rows and the assertion
+-- fails for a reason that has nothing to do with what it was testing.
+create or replace function public.seeded_profile(p_email text)
+returns uuid
+language sql
+stable
+as $$
+  select u.id from auth.users u where lower(u.email) = lower(p_email);
+$$;
+
 select plan(23);
 
 -- ---------------------------------------------------------------------------
@@ -57,7 +69,7 @@ select is(
    join public.profiles p on p.id = t.profile_id
    join public.work_items w on w.id = t.work_item_id
    join public.sprints s on s.id = w.sprint_id
-   where s.number = 17 and p.initials = 'MT'),
+   where s.number = 17 and p.id = public.seeded_profile('mohamed@coditu.com')),
   12.5,
   'per person: Mohamed logged 12.5h'
 );
@@ -67,7 +79,7 @@ select is(
    join public.profiles p on p.id = t.profile_id
    join public.work_items w on w.id = t.work_item_id
    join public.sprints s on s.id = w.sprint_id
-   where s.number = 17 and p.initials = 'AE'),
+   where s.number = 17 and p.id = public.seeded_profile('abdelrahman@coditu.com')),
   3.0,
   'per person: Abdelrahman logged 3.0h'
 );
@@ -77,7 +89,7 @@ select is(
    join public.profiles p on p.id = t.profile_id
    join public.work_items w on w.id = t.work_item_id
    join public.sprints s on s.id = w.sprint_id
-   where s.number = 17 and p.initials = 'AY'),
+   where s.number = 17 and p.id = public.seeded_profile('ahmed@coditu.com')),
   0.5,
   'per person: Ahmed logged 0.5h'
 );
@@ -142,7 +154,7 @@ select cmp_ok(
 
 select is(
   (select notes_author_id from public.sprints where number = 17),
-  (select id from public.profiles where initials = 'AN'),
+  public.seeded_profile('adam@coditu.com'),
   'sprint notes are attributed to Adam'
 );
 
@@ -195,7 +207,7 @@ select is(
   (select v.minutes_logged::int from public.v_person_load v
    join public.profiles p on p.id = v.profile_id
    join public.sprints s on s.id = v.sprint_id
-   where s.number = 17 and p.initials = 'MT'),
+   where s.number = 17 and p.id = public.seeded_profile('mohamed@coditu.com')),
   750,
   'person load: Mohamed logged 750 minutes, not a multiple of it'
 );
@@ -214,7 +226,7 @@ select is(
    from public.v_person_load v
    join public.profiles p on p.id = v.profile_id
    join public.sprints s on s.id = v.sprint_id
-   where s.number = 17 and p.initials = 'AE'),
+   where s.number = 17 and p.id = public.seeded_profile('abdelrahman@coditu.com')),
   '1/3',
   'person load: Abdelrahman has 1 assigned and 3 in his review queue'
 );

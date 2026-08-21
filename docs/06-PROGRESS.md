@@ -387,4 +387,23 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   and the whole test suite stay on the local stack. `scripts/with-prod-server.sh` now **refuses to
   start** unless the database is local — it runs a real `next build`, and the suite it hosts deletes
   rows. Suite green against both: 97 on dev, 98 on the production build.
+- **2026-08-21** — Invite-only sign-up, end to end. `/login` gained a "Create account" mode; the
+  `signUp` action checks the allowlist first so an uninvited person is told they are *not authorized*
+  rather than shown GoTrue's bare `500 Database error saving new user`. `/app/settings` was still a
+  "lands in step 10" placeholder — it is now the admin allowlist manager: invite with an optional
+  note, see who has actually signed up, withdraw an invite. Non-admins get an explanation, not a
+  broken page. Seven specs, including one that bypasses the app entirely and inserts straight into
+  `auth.users` to prove the trigger is the real gate, and one that shows an engineer cannot write the
+  allowlist by calling PostgREST with their own token.
+
+  `mohamedtamer200200@gmail.com` is provisioned as an admin on both databases.
+
+  Adding a second "Mohamed Tamer" broke three things, each a real defect the fixtures had been hiding:
+  the seed assertions used `initials` as an identifier; the importer resolved assignees through
+  `new Map(name → id)`, which silently keeps the last duplicate; and — the serious one — the importer
+  **attributed time entries to the row's assignee and discarded the insert's result**, so every
+  imported row belonging to anyone but the person clicking Commit lost its hours and the sprint total
+  was quietly short. All three are in `05-DECISIONS.md`.
+
+  Gate: 86 unit, 63 pgTAP, **105 e2e** (twice, clean).
 

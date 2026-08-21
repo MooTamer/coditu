@@ -879,3 +879,83 @@ local stack and indefensible on anything reachable from the internet — it is a
 anyone who has read this repository already knows. The hosted project was seeded with generated
 passwords instead. If the seed ever grows a "production" path, that substitution has to be part of
 it rather than a thing someone remembers.
+
+---
+
+## 2026-08-21 · Invite-only sign-up: the database refuses, the app explains
+
+**Decision.** `/login` gained a "Create account" mode. `/app/settings` gained an admin-only allowlist
+manager. The `signUp` Server Action checks `allowed_emails` *before* calling GoTrue, using the
+service-role client.
+
+**Why the pre-check exists at all.** `enforce_email_allowlist` is a BEFORE INSERT trigger on
+`auth.users` and it is the real gate — there is a test that bypasses the app entirely and inserts
+straight into `auth.users`, and it is refused. But GoTrue swallows a trigger's message and returns a
+bare `500 Database error saving new user`, which reads as a fault rather than an answer. The pre-check
+exists only so the person can be told they are not authorized, and why.
+
+It uses the service-role client rather than a public RPC: `allowed_emails` is admin-only by policy,
+and an anonymous "is this address invited?" endpoint would hand out the invite list one guess at a
+time. `lib/supabase/admin.ts` is `server-only`, so nothing new is reachable from a browser.
+
+**The grant that was missing.** `service_role` bypasses RLS *policies* but not table GRANTs, and
+nothing in this schema had ever granted it anything — deliberately, so the service key cannot quietly
+read everything. The lookup therefore failed with 42501, and the form told everyone, invited or not,
+to "try again in a moment". One narrow `grant select on public.allowed_emails to service_role` fixes
+it and stays the only exception.
+
+**Sign-ups are engineers.** `handle_new_user` assigns the default role; nobody signs themselves up as
+an admin. An admin promotes them afterwards.
+
+---
+
+## 2026-08-21 · A name is not a key — and the importer was losing hours because of it
+
+**What broke.** Adding a second profile called "Mohamed Tamer" broke three things at once, and each
+one was a real defect that a single-namespace test fixture had been hiding:
+
+**1. The seed assertions used `initials` as an identifier.** `p.initials = 'MT'` returned two rows and
+the pgTAP suite failed with "more than one row returned by a subquery". They key on email now, through
+a small `seeded_profile()` helper, because email is the only thing that is actually unique.
+
+**2. The importer resolved assignees with `new Map(name → id)`, which silently keeps whichever row
+came last.** Work would have been assigned to an arbitrary one of two people with no indication. A
+name that matches more than one active profile now matches *nobody*, which puts the row in the flagged
+pile where a human decides — consistent with the rule the importer already followed everywhere else:
+skipped, never guessed at.
+
+Critically, that rule had to go in **both** paths. The preview validated against a raw list of names
+and the commit resolved against a map, so the preview called the row ready while the commit would
+quietly leave it unassigned. Preview and commit share one function now. A preview that disagrees with
+the write is the single failure this whole preview-then-commit design exists to prevent.
+
+**3. The importer was silently dropping imported hours.** It attributed each time entry to the row's
+assignee and then discarded the insert's result. The `log own time` policy permits a person to insert
+time only for themselves, so **every imported row belonging to anyone but the person clicking Commit
+lost its hours**, the item landed showing 0, and the sprint total — the number this app's credibility
+rests on — was quietly short. It had never been caught because the only tested row happened to be
+self-assigned.
+
+Entries are attributed to the importer now, which is what the policy permits, with the original owner
+recorded in the note so the per-person view is recoverable rather than invented. And the insert is
+checked: if the hours fail to save, the message says the items exist and the totals are short, because
+a silent failure here shows a sprint whose rows all look fine and whose numbers are wrong.
+
+**Worth keeping.** Two of these three were latent for the entire build and none of them needed new
+code to surface — only a second person with the same name. A fixture where every value is unique is a
+fixture that cannot find this class of bug.
+
+---
+
+## 2026-08-21 · One `auditA11y` helper, because the third copy diagnosed the same thing again
+
+**Decision.** `e2e/fixtures.ts` exports `auditA11y(page)`. It settles running animations, then runs
+axe, and reports each failing node by selector.
+
+**Why.** Every reveal tier fades in from `opacity: 0`, and axe sampling an element mid-fade computes
+the blended colour and reports a contrast failure that does not exist once it lands. That was
+diagnosed on the marketing headline, then again on the a11y suite, then a third time on the settings
+page — from three separate hand-rolled copies of the same helper, each missing the settle. The
+measured contrast there is 5.33:1 against a 4.5:1 requirement; nothing was ever wrong with the colour.
+
+Three copies is how the fourth one forgets.
