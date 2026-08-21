@@ -49,6 +49,22 @@ function useRealtime(channelName: string, table: "work_items" | "comments", filt
       if (cancelled) return;
 
       const supabase = createClient();
+
+      // Hand realtime the caller's JWT BEFORE subscribing.
+      //
+      // supabase-js sets this itself when the auth client settles, but that is
+      // a race with `subscribe()` — and losing it is silent. Realtime validates
+      // a filter with `has_column_privilege(claims->>'role', ...)`, so a channel
+      // that joins as `anon` sees a table it has no grants on and the server
+      // replies "invalid column for filter sprint_id". The subscription then
+      // sits there, connected and receiving nothing.
+      //
+      // Local timing happened to win that race every time; production lost it
+      // every time. Awaiting the session removes it.
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (data.session?.access_token) supabase.realtime.setAuth(data.session.access_token);
+
       const channel = supabase
         .channel(channelName)
         .on("postgres_changes", { event: "*", schema: "public", table, filter }, () => {
