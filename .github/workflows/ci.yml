@@ -93,5 +93,24 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The marketing route is static, but `next build` still validates the
+      # Supabase environment — and `with-prod-server.sh` refuses to start
+      # without a local database. So this job needs the stack too, even though
+      # the page it measures never touches it.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start
+      - name: Point the app at the local stack
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "NEXT_PUBLIC_SITE_URL=http://localhost:3000"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "REPORT_TOKEN_SECRET=ci-only-not-a-secret"
+          } > .env.local
       - run: npx playwright install --with-deps chromium
       - run: npm run lighthouse

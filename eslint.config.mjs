@@ -20,6 +20,12 @@ const eslintConfig = defineConfig([
     // Playwright output. Regenerated every run, never reviewed.
     "test-results/**",
     "playwright-report/**",
+    // The Supabase CLI's own scratch directory. `supabase start` writes vendor
+    // JS in here, so linting it reports someone else's minified code as our
+    // problem — and only in CI, because the files do not exist until the stack
+    // has been started on that machine. A "works on my laptop" waiting to
+    // happen.
+    "supabase/.temp/**",
   ]),
   {
     // Playwright's fixture callback is named `use`, and the React hooks rule
