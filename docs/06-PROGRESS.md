@@ -444,6 +444,34 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
 
   Gate: lint, typecheck, 86 unit, **115 e2e against dev and 115 against the production build**.
 
+- **2026-08-21** — Reordering a sprint is one statement now. `public.reorder_work_items(uuid, uuid[])`
+  renumbers the whole list with `update … from unnest(…) with ordinality`, SECURITY INVOKER so RLS
+  still decides which rows may move. Measured in `pg_stat_statements`: one drag of a twelve-item
+  sprint went from **twelve UPDATE statements to one**, and from fifteen PostgREST round trips to two.
+
+  The speed was the smaller half. The loop was hiding two real defects. Nothing made the writes
+  atomic, so a failure part-way left the sprint half-renumbered under a message that said nothing was
+  lost. And **RLS does not raise on a row it filters out** — it updates nothing and reports success —
+  so an engineer reordering a sprint wrote the rows they were assigned, skipped everyone else's, and
+  was told it had worked. The function counts what it moved and rolls the whole thing back unless
+  every row moved; `rls.sql` proves it with an engineer who can move exactly one of two rows and
+  therefore moves neither. The action also re-checks the role now, which every other lead-only
+  mutation in that file already did.
+
+  There was no test that a drag persisted — only that it was announced. There is one now: it performs
+  the keyboard drag, asserts the order against Postgres, asserts every index is contiguous from zero,
+  and restores the sprint in a `finally`. Getting it right took two goes: retrying the whole
+  Space-Arrow-Space sequence could drop the row twice, once after the restore had already run, which
+  is the same class of leftover-write race the advisory lock was introduced for.
+
+  The Notion importer was checked and deliberately left alone — PostgREST sends a 300-row insert as
+  **one 941-character statement** with the rows as a single JSON parameter, so there is no oversized
+  statement to chunk and chunking would only cost the atomicity it has today. Both in
+  `05-DECISIONS.md`.
+
+  Gate: lint, typecheck, 86 unit, **71 pgTAP** (was 63), build, **117 e2e twice against the production
+  build and twice against dev**, seed back at 16.0 / 46.0 with its original order after every pass.
+
 ---
 
 ## After §14 — the team's own requests
@@ -455,4 +483,5 @@ ledger updated in the same commit as the work.
 | Change | Commit | Verification |
 |---|---|---|
 | **Rail** — exactly one item is `aria-current`. `startsWith("/app/projects")` matched a sprint URL, so Projects and Sprint both lit up | `646f527` | `npx playwright test e2e/rail.spec.ts` — 4 specs |
-| **Compression** — asserted on the wire: gzip on every text response, nothing already-compressed run through it twice. No brotli; that belongs to the edge | pending | `npx playwright test e2e/compression.spec.ts` — 6 specs, green against dev and the production build |
+| **Compression** — asserted on the wire: gzip on every text response, nothing already-compressed run through it twice. No brotli; that belongs to the edge | `ff5987d` | `npx playwright test e2e/compression.spec.ts` — 6 specs, green against dev and the production build |
+| **Reorder** — one `update … from unnest(…) with ordinality` instead of one UPDATE per item. Atomic, and it can no longer report success after RLS silently wrote nothing | pending | `npm run db:test` — 71 assertions; `npx playwright test e2e/sprint-table.spec.ts` — 9 specs |

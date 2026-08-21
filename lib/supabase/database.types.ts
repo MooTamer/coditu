@@ -460,6 +460,7 @@ export type Database = {
           name: string
           notes: string | null
           notes_author_id: string | null
+          notes_written_at: string | null
           number: number
           project_id: string
           starts_on: string | null
@@ -474,6 +475,7 @@ export type Database = {
           name: string
           notes?: string | null
           notes_author_id?: string | null
+          notes_written_at?: string | null
           number: number
           project_id: string
           starts_on?: string | null
@@ -488,6 +490,7 @@ export type Database = {
           name?: string
           notes?: string | null
           notes_author_id?: string | null
+          notes_written_at?: string | null
           number?: number
           project_id?: string
           starts_on?: string | null
@@ -754,6 +757,10 @@ export type Database = {
       }
       is_active_member: { Args: never; Returns: boolean }
       is_admin_or_lead: { Args: never; Returns: boolean }
+      reorder_work_items: {
+        Args: { p_item_id: string; p_ordered_ids: string[] }
+        Returns: string
+      }
       work_item_project_id: { Args: { item_id: string }; Returns: string }
       work_item_status_rank: {
         Args: { s: Database["public"]["Enums"]["work_item_status"] }

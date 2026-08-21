@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(40);
+select plan(48);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -291,6 +291,94 @@ select pg_temp.act_as_owner();
 
 update public.work_items set assignee_id = '33333333-3333-3333-3333-333333333333'
 where id = '60000000-0000-0000-0000-000000000001';
+
+-- =========================================================================
+-- reorder_work_items — one statement, all of it or none of it
+--
+-- The action this replaces sent one UPDATE per item and awaited them together.
+-- RLS does not raise on a row it filters out, so a caller who could write half
+-- the list wrote half the list and was told it had saved. The function counts
+-- the rows it moved and refuses to leave a partial order behind.
+-- =========================================================================
+
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+select is(
+  public.reorder_work_items(
+    '60000000-0000-0000-0000-000000000001',
+    array['60000000-0000-0000-0000-000000000002', '60000000-0000-0000-0000-000000000001']::uuid[]
+  ),
+  'ok',
+  'positive: an admin renumbers a whole sprint in one call'
+);
+select is(
+  (select array_agg(order_index order by id)
+     from public.work_items
+    where id in ('60000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000002')),
+  array[1, 0],
+  'positive: every listed item takes its new index'
+);
+
+select is(
+  public.reorder_work_items(
+    '60000000-0000-0000-0000-000000000001',
+    array['60000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000003']::uuid[]
+  ),
+  'foreign-item',
+  'negative: an id from another project''s sprint is refused'
+);
+select is(
+  (select order_index from public.work_items where id = '60000000-0000-0000-0000-000000000003'),
+  0,
+  'negative: and the other project''s item keeps its index'
+);
+
+select is(
+  public.reorder_work_items(
+    '00000000-0000-0000-0000-0000000000ff',
+    array['60000000-0000-0000-0000-000000000001']::uuid[]
+  ),
+  'no-item',
+  'negative: an item that does not exist reorders nothing'
+);
+select pg_temp.act_as_owner();
+
+-- Eve is assignee on 001 and nothing on 002, so RLS lets her move exactly one
+-- of the two. That is the case the old loop got wrong.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select throws_ok(
+  $$select public.reorder_work_items(
+      '60000000-0000-0000-0000-000000000001',
+      array['60000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000002']::uuid[]
+    )$$,
+  '42501',
+  null,
+  'negative: an engineer who may move only some of the rows moves none of them'
+);
+select pg_temp.act_as_owner();
+
+select is(
+  (select array_agg(order_index order by id)
+     from public.work_items
+    where id in ('60000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000002')),
+  array[1, 0],
+  'negative: the refused reorder left the order exactly as it was'
+);
+
+select pg_temp.act_as_anon();
+select throws_ok(
+  $$select public.reorder_work_items(
+      '60000000-0000-0000-0000-000000000001',
+      array['60000000-0000-0000-0000-000000000001']::uuid[]
+    )$$,
+  '42501',
+  null,
+  'negative: a signed-out visitor has no EXECUTE on the function'
+);
+select pg_temp.act_as_owner();
+
+-- Put the fixture back the way the rest of the suite expects to find it.
+update public.work_items set order_index = 0 where id = '60000000-0000-0000-0000-000000000001';
+update public.work_items set order_index = 1 where id = '60000000-0000-0000-0000-000000000002';
 
 -- =========================================================================
 -- acceptance_criteria — tick yes, rewrite no

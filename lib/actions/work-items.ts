@@ -140,27 +140,44 @@ export async function reorderWorkItems(input: unknown): Promise<ActionResult> {
   const scope = await resolveScope(parsed.data.itemId);
   if (!scope) return { ok: false, error: "You are not signed in, or that item no longer exists." };
 
-  // Every id must belong to the SAME sprint as the dragged item. Without this
-  // check a crafted payload could renumber another project's backlog, since
-  // order_index is one of the two columns an engineer may write.
-  const { data: sprintItems } = await scope.supabase
-    .from("work_items")
-    .select("id")
-    .eq("sprint_id", (
-      await scope.supabase.from("work_items").select("sprint_id").eq("id", scope.itemId).single()
-    ).data!.sprint_id);
-
-  const allowed = new Set((sprintItems ?? []).map((row) => row.id));
-  if (parsed.data.orderedIds.some((id) => !allowed.has(id))) {
-    return { ok: false, error: "That reorder referenced an item outside this sprint." };
+  // The drag handle is only rendered for an admin or a lead. RLS would let an
+  // engineer write `order_index` on the items they happen to own, which is a
+  // fraction of a reorder — and a fraction of a reorder is worse than none,
+  // because the order it leaves behind looks deliberate. Say so in a sentence
+  // rather than handing back a list the database can only partly move.
+  if (scope.profile.role === "engineer") {
+    return { ok: false, error: "Only an admin or lead can reorder this sprint." };
   }
 
-  const updates = parsed.data.orderedIds.map((id, index) =>
-    scope.supabase.from("work_items").update({ order_index: index }).eq("id", id)
-  );
-  const results = await Promise.all(updates);
-  if (results.some((r) => r.error)) {
+  // One statement, one transaction.
+  //
+  // This used to send one UPDATE per item through PostgREST and await them
+  // together: three queries plus twelve writes to move a single row, most of
+  // it latency on a hosted database. Worse, nothing made them atomic, and RLS
+  // does not raise on a row it filters out — it just updates nothing — so a
+  // caller who could write half the list was told the whole thing had saved.
+  //
+  // The function re-derives the sprint from the item, rejects any id outside
+  // it, and rolls the whole thing back unless every row moved.
+  const { data, error } = await scope.supabase.rpc("reorder_work_items", {
+    p_item_id: scope.itemId,
+    p_ordered_ids: parsed.data.orderedIds,
+  });
+
+  if (error) {
+    // The function raises `42501` when the row count came up short — the only
+    // way it can tell a blocked write from a successful one.
+    if (error.code === "42501") {
+      return { ok: false, error: "You are not allowed to reorder every item in this sprint." };
+    }
     return { ok: false, error: "The new order did not save. Nothing was lost — try again." };
+  }
+
+  if (data === "foreign-item") {
+    return { ok: false, error: "That reorder referenced an item outside this sprint." };
+  }
+  if (data === "no-item") {
+    return { ok: false, error: "You are not signed in, or that item no longer exists." };
   }
 
   revalidatePath(sprintPath(scope.slug, scope.sprintNumber));

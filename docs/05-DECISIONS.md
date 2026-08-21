@@ -1062,3 +1062,72 @@ precompressing `/_next/static` at build time, which Next's static handler will n
 nothing else here would notice: the pages still render, the build still succeeds, and the marketing
 document quietly goes from 24KB to 128KB on every cold load. That is the same failure shape as the
 pruned CSS in step 3 and the never-red editor check above — silent, green, and wrong.
+
+---
+
+## 2026-08-21 · Reordering is one statement in the database, not twelve over the wire
+
+**Decision.** `reorderWorkItems` calls a new `public.reorder_work_items(uuid, uuid[])` — SECURITY
+INVOKER, `search_path = ''` — which renumbers a whole sprint in a single
+`update … from unnest(…) with ordinality`. The action re-checks the role first and maps the
+function's return value to a sentence.
+
+**Why.** The old shape was three queries plus one UPDATE per item, fired with `Promise.all`:
+fifteen PostgREST round trips to move one row in a twelve-item sprint, most of that latency on a
+hosted database. Measured in `pg_stat_statements` against the local stack, one drag went from
+**twelve UPDATE statements to one**.
+
+The cost was the least of it. Two real defects were living inside that loop:
+
+- **Nothing made the writes atomic.** A failure part-way left the sprint half-renumbered while the
+  action returned "The new order did not save. Nothing was lost — try again", which was false.
+- **RLS does not raise on a row it filters out.** It updates nothing and reports success. An engineer
+  reordering a sprint wrote the rows they happened to be assigned, skipped the rest, and was told it
+  had worked. `supabase/tests/rls.sql` now proves this directly: Eve is assignee on one of two
+  fixture items, and her reorder raises `42501` and moves **neither** row.
+
+The function counts the rows it moved and raises unless every one of them did, so the whole
+statement rolls back. `foreign-item` and `no-item` come back as values, because nothing has been
+written at that point and an exception would be theatre.
+
+**Also.** The action now refuses an engineer outright. The drag handle is only rendered for an admin
+or a lead (`canReorder={canAssign}`), and every other lead-only mutation in that file already
+re-checks the role server-side; reorder was the one that did not. An engineer who happened to own
+every item in a sprint could previously reorder it — the UI never offered that, and a fraction of a
+reorder is worse than none, because the order it leaves behind looks deliberate.
+
+**And a test that had never existed.** The suite proved the drag path was *announced* and never proved
+a drag *persisted*. `e2e/sprint-table.spec.ts` now performs the keyboard drag, asserts the new order
+against Postgres, asserts every index is contiguous from zero, and restores the sprint in a `finally`.
+
+**Rejected.** A PostgREST `upsert` with `onConflict`, which is an INSERT underneath and needs every
+NOT NULL column for rows that already exist. A SECURITY DEFINER function, which would have stepped
+around the policies that are the entire authorization model here. And re-deriving the sprint from a
+client-supplied id, which invariant 1 forbids.
+
+---
+
+## 2026-08-21 · The Notion import is already a single statement — leave it alone
+
+**Decision.** `commitImport` keeps its two array `.insert()` calls. No chunking.
+
+**Why.** The worry chunking answers is an oversized statement, and PostgREST does not build one.
+Measured by inserting 300 rows and reading `pg_stat_statements`: the SQL it executed was **941
+characters long and ran once**, with all 300 rows arriving as a single `$1` JSON parameter —
+
+```
+WITH pgrst_source AS (INSERT INTO "public"."work_items"(…)
+  SELECT … FROM (SELECT $1 AS json_data) pgrst_payload, LATERAL (SELECT …
+```
+
+The statement text does not grow with the row count, so it cannot become oversized, and the whole
+insert is one short-lived statement rather than a long lock. What *does* scale with row count is the
+HTTP body, and the CSV that produced it is already capped at 2MB.
+
+Chunking would buy nothing and cost the one property that matters here: the insert is atomic today,
+and a chunked version leaves a prefix written and no way to re-run without duplicating it — there is
+no idempotency key on an imported row.
+
+**Rejected.** Chunking at 500 rows with partial-write reporting; a row cap, which is a product
+decision nobody asked for; and moving the mapper into SQL, which would rewrite 25 passing unit tests
+to solve a problem that is not there.

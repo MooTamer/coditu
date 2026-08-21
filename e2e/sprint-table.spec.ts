@@ -1,4 +1,4 @@
-import { expect, query, test } from "./fixtures";
+import { SEED_ENGINEER, expect, query, signIn, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
 
@@ -151,6 +151,141 @@ test.describe("sprint table", () => {
       describedBy
     );
     expect(insideTable, "drag instructions must live outside <table>").toBe(false);
+  });
+
+  /**
+   * A reorder that actually writes, asserted against the database.
+   *
+   * There was no test for this. The suite proved the drag path was announced
+   * and never proved a drag persisted — which is how the action could send one
+   * UPDATE per item, silently write only the rows RLS allowed, and report
+   * success for years without anything going red.
+   *
+   * It runs under the `write` lock: it moves rows the export golden files and
+   * the sum assertions read in order, and it restores them in a `finally` so a
+   * failure part-way does not leave the sprint renumbered for every test after
+   * it.
+   */
+  test.describe("reordering", () => {
+    test.use({ sprintTotals: "write" });
+
+    async function orderFromDatabase() {
+      const rows = await query<{ key: string; order_index: number }>(
+        `select w.key, w.order_index
+           from work_items w
+           join sprints s on s.id = w.sprint_id
+           join projects p on p.id = s.project_id
+          where p.slug = 'meinevim' and s.number = 17
+          order by w.order_index`
+      );
+      return rows.map((row) => row.key);
+    }
+
+    test("a keyboard drag renumbers the sprint, and the database agrees", async ({
+      adminPage: page,
+    }) => {
+      const before = await orderFromDatabase();
+      expect(before.length).toBeGreaterThan(2);
+
+      try {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto(SPRINT);
+
+        const expected = [before[1], before[0], ...before.slice(2)];
+        const firstRow = page.locator("tbody tr").first();
+        await expect(firstRow).toBeVisible();
+
+        // dnd-kit's keyboard sensor is bound by a client component, so a press
+        // that lands before hydration does nothing at all — silently. The
+        // retry therefore goes on the LIFT and stops there: Space, then look
+        // for dnd-kit's own "Lifted …" announcement, and Escape back out if it
+        // did not take.
+        //
+        // Retrying the whole Space-Arrow-Space sequence instead is what an
+        // earlier version of this test did, and it could drop the row twice —
+        // once for real, once after the restore below had already run, leaving
+        // the sprint renumbered for every test after it. That is the same race
+        // the advisory lock exists for, arriving through a different door.
+        // `aria-pressed="true"` is dnd-kit's own record that the row is lifted —
+        // `useSortable` sets it from `isDragging`. The live region is not usable
+        // for this: the drag-over announcement overwrites "Lifted …" in the same
+        // tick, so reading it is a coin toss.
+        const handle = firstRow.getByRole("button", { name: /^Reorder COD-/ });
+        await expect
+          .poll(
+            async () => {
+              await handle.focus();
+              await page.keyboard.press("Space");
+              if ((await handle.getAttribute("aria-pressed")) === "true") return true;
+              await page.keyboard.press("Escape");
+              return false;
+            },
+            { timeout: 20_000, intervals: [300, 500, 800, 1200] }
+          )
+          .toBe(true);
+
+        // Exactly one move, and the drop waits for it to land. dnd-kit
+        // processes the arrow key asynchronously — pressing Space in the next
+        // statement drops the row where it started — so this waits for the
+        // component's own "is now over …" announcement before committing.
+        await page.keyboard.press("ArrowDown");
+        await expect
+          .poll(
+            () =>
+              page.evaluate(() =>
+                [...document.querySelectorAll('[role="status"], [aria-live]')]
+                  .map((node) => node.textContent?.trim() ?? "")
+                  .join(" ")
+              ),
+            { timeout: 10_000 }
+          )
+          .toContain(`is now over ${expected[0]}`);
+
+        await page.keyboard.press("Space");
+        await expect(firstRow).toContainText(expected[0]);
+
+        // The screen moves optimistically, so Postgres is asked separately.
+        await expect.poll(orderFromDatabase, { timeout: 15_000 }).toEqual(expected);
+
+        // Every index is contiguous from zero. A partial write leaves gaps or
+        // duplicates, which is exactly what the old one-UPDATE-per-item shape
+        // produced when RLS filtered a row out.
+        const indexes = await query<{ order_index: number }>(
+          `select w.order_index
+             from work_items w
+             join sprints s on s.id = w.sprint_id
+             join projects p on p.id = s.project_id
+            where p.slug = 'meinevim' and s.number = 17
+            order by w.order_index`
+        );
+        expect(indexes.map((row) => row.order_index)).toEqual(
+          indexes.map((_, index) => index)
+        );
+
+        await page.reload();
+        await expect(page.locator("tbody tr").first()).toContainText(expected[0]);
+      } finally {
+        for (const [index, key] of before.entries()) {
+          await query(
+            `update work_items w set order_index = $1
+              from sprints s, projects p
+             where w.sprint_id = s.id and s.project_id = p.id
+               and p.slug = 'meinevim' and s.number = 17 and w.key = $2`,
+            [index, key]
+          );
+        }
+      }
+      expect(await orderFromDatabase()).toEqual(before);
+    });
+
+    test("an engineer is not offered the handle at all", async ({ page }) => {
+      await signIn(page, SEED_ENGINEER);
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(SPRINT);
+
+      await expect(page.locator("tbody tr").first()).toBeVisible();
+      await expect(page.getByRole("button", { name: /^Reorder COD-/ })).toHaveCount(0);
+    });
   });
 
   test("the status distribution and burn-up carry real values", async ({ adminPage: page }) => {
