@@ -42,8 +42,8 @@ in `allowed_emails` can create an account at all; see
 
 ### Vercel
 
-Import the repository, then set these four project environment variables before
-the first deploy — the build **fails loudly** without them, which is deliberate:
+Import the repository, then set these project environment variables before the
+first deploy — the build **fails loudly** without them, which is deliberate:
 a site that builds and then cannot reach its database is worse than one that
 refuses to build.
 
@@ -51,7 +51,7 @@ refuses to build.
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API → Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API → `anon` key |
-| `NEXT_PUBLIC_SITE_URL` | The real domain, e.g. `https://coditu.com`. Canonical URLs, OG image URLs, and the sitemap are all built from it |
+| `NEXT_PUBLIC_SITE_URL` | **Optional on Vercel** — leave it unset and `lib/site-url.ts` uses `VERCEL_PROJECT_PRODUCTION_URL`. Set it only once a custom domain actually resolves to the deployment; pointing it at a domain that serves nothing sends every canonical URL and OG image there |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → `service_role`. **Server only** — never prefix it with `NEXT_PUBLIC_` |
 | `REPORT_TOKEN_SECRET` | Any long random string: `openssl rand -base64 48` |
 
