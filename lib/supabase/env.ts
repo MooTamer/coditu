@@ -23,10 +23,16 @@ const parsed = publicSchema.safeParse({
 
 if (!parsed.success) {
   const missing = parsed.error.issues.map((issue) => issue.path.join(".")).join(", ");
-  throw new Error(
-    `Supabase environment is not configured (${missing}). ` +
-      `Copy .env.example to .env.local, then run \`npm run db:start\` — it prints the values.`
-  );
+
+  // The build fails here on a host that has no environment set, so the message
+  // has to be useful in BOTH places. Telling a Vercel build to run
+  // `npm run db:start` sends whoever reads it down a road that does not exist.
+  const onAHost = Boolean(process.env.VERCEL || process.env.CI);
+  const fix = onAHost
+    ? "Set them as project environment variables on the host (Vercel: Settings → Environment Variables), then redeploy. See .env.example for the full list."
+    : "Copy .env.example to .env.local, then run `npm run db:start` — it prints the values.";
+
+  throw new Error(`Supabase environment is not configured (${missing}). ${fix}`);
 }
 
 export const publicEnv = parsed.data;

@@ -40,6 +40,33 @@ in `allowed_emails` can create an account at all; see
 
 ## Deploying
 
+### Vercel
+
+Import the repository, then set these four project environment variables before
+the first deploy — the build **fails loudly** without them, which is deliberate:
+a site that builds and then cannot reach its database is worse than one that
+refuses to build.
+
+| Variable | Where it comes from |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API → Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API → `anon` key |
+| `NEXT_PUBLIC_SITE_URL` | The real domain, e.g. `https://coditu.com`. Canonical URLs, OG image URLs, and the sitemap are all built from it |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → `service_role`. **Server only** — never prefix it with `NEXT_PUBLIC_` |
+| `REPORT_TOKEN_SECRET` | Any long random string: `openssl rand -base64 48` |
+
+No build command or output directory to configure; Vercel detects Next.js.
+
+**One route does not work on serverless as-is.** `…/report/pdf` drives a headless
+Chromium through `playwright-core`, and there is no Chromium in a Vercel
+function. It fails *gracefully* — a 503 whose body explains the problem — and the
+report itself still opens at `…/report` and prints from the browser, which is
+the same document. To make the route work in production, swap the launcher for
+`@sparticuz/chromium-min` and point `CHROMIUM_EXECUTABLE_PATH` at it; see
+[`docs/04-EXPORT-SPEC.md`](./docs/04-EXPORT-SPEC.md).
+
+### Local production config
+
 The hosted Supabase project's values live in `.env.production.local`, which Next
 loads only when `NODE_ENV=production`. `npm run dev` and every test keep talking
 to the local stack, and `scripts/with-prod-server.sh` refuses to start when
