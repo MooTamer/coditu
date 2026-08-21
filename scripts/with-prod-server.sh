@@ -12,6 +12,37 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# ---------------------------------------------------------------------------
+# This harness runs `next build` + `next start`, which means NODE_ENV=production,
+# which means Next loads `.env.production.local` — the REAL Supabase project.
+# The e2e suite inserts and deletes work items. Pointing it at production would
+# be a very bad day, so the local values from `.env.local` are exported here:
+# a variable already in the environment wins over any `.env` file in Next.
+#
+# The assertion below is the actual guard. The export is what makes it pass.
+# ---------------------------------------------------------------------------
+# An explicitly-set variable always wins — silently overriding one the caller
+# passed in is how a deliberate staging run turns into a confusing local one.
+if [ -f .env.local ]; then
+  while IFS= read -r line; do
+    case "$line" in
+      NEXT_PUBLIC_SUPABASE_URL=*|NEXT_PUBLIC_SUPABASE_ANON_KEY=*|SUPABASE_SERVICE_ROLE_KEY=*|REPORT_TOKEN_SECRET=*)
+        name="${line%%=*}"
+        [ -n "$(eval "printf '%s' \"\${$name:-}\"")" ] || export "${line?}"
+        ;;
+    esac
+  done < .env.local
+fi
+
+case "${NEXT_PUBLIC_SUPABASE_URL:-}" in
+  *localhost*|*127.0.0.1*) ;;
+  *)
+    echo "refusing to run: NEXT_PUBLIC_SUPABASE_URL is not local." >&2
+    echo "  resolved to: ${NEXT_PUBLIC_SUPABASE_URL:-<unset>}" >&2
+    echo "  this harness runs a suite that DELETES rows. Point it at the local stack." >&2
+    exit 1 ;;
+esac
+
 [ "${SKIP_BUILD:-}" = "1" ] || npm run build
 
 PORT=""

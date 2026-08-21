@@ -156,6 +156,10 @@ test.describe("command palette", () => {
     await page.keyboard.type("cod-14");
 
     const options = page.getByRole("option");
+    // The list is still settling while the query is typed. Pressing ArrowDown
+    // against a one-row list clamps at index 0 and the assertion below fails
+    // for a reason that has nothing to do with the arrows.
+    await expect.poll(() => options.count(), { timeout: 10_000 }).toBeGreaterThan(1);
     await expect(options.first()).toHaveAttribute("aria-selected", "true");
 
     await page.keyboard.press("ArrowDown");

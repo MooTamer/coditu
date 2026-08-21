@@ -849,3 +849,33 @@ stylesheet for `backdrop-filter:blur(10px)`.
 
 The general form is worth keeping: a test that asserts a property's *name* proves the code ran, not
 that it did anything.
+
+---
+
+## 2026-08-21 · Production config lives in `.env.production.local`, and the test harness refuses to leave home
+
+**Decision.** The hosted Supabase project's values go in `.env.production.local`, which Next loads
+only when `NODE_ENV=production`. `.env.local` stays pointed at the local stack.
+`scripts/with-prod-server.sh` exports the local values and **exits 1** if
+`NEXT_PUBLIC_SUPABASE_URL` is not localhost.
+
+**Why.** Putting the real project in `.env.local` is the obvious move and it is a trap. The e2e suite
+inserts and deletes work items, and `npm run e2e:prod` runs a genuine `next build` — which reads
+whichever env file NODE_ENV selects. One command would have run a destructive suite against the live
+database, and nothing would have stopped it.
+
+So the split is the design, and the guard is the proof: the harness is the only thing that builds in
+production mode, and it will not start unless the database is local. An explicitly-set variable still
+wins over the file, because silently overriding a deliberate staging run is its own bug.
+
+**Two things the hosted setup taught us, both worth knowing before the next project:**
+
+The direct connection host, `db.<ref>.supabase.co`, is IPv6-only on current projects and does not
+resolve from most machines. The **session pooler** string is the one that works, and
+`supabase db push --db-url` takes it.
+
+And the seed hardcodes `crypt('coditu', …)` for all four accounts. That is right for a throwaway
+local stack and indefensible on anything reachable from the internet — it is an admin login that
+anyone who has read this repository already knows. The hosted project was seeded with generated
+passwords instead. If the seed ever grows a "production" path, that substitution has to be part of
+it rather than a thing someone remembers.

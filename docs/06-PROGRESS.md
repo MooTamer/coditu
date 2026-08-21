@@ -372,4 +372,19 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   stayed green through the regression. Both are in `05-DECISIONS.md`.
 
   Gate: 86 unit, 63 pgTAP, **97 e2e** (twice, clean), build, `verify-tokens.sh`, budgets.
+- **2026-08-21** — Connected to the hosted Supabase project. All ten migrations pushed through the
+  session pooler; every table has RLS enabled with policies, both views exist, and the realtime
+  publication carries `work_items` and `comments`. Seeded, and verified against the remote database:
+  **16.0 / 46.0 across 12 items**, per-person load summing to exactly the sprint total, and the four
+  accounts with their right roles.
+
+  A production build run against it end to end: sign-in, `/app` redirecting to the active sprint, the
+  table rendering 16.0 / 46.0 from the remote data, and the client PDF generating at three pages with
+  correct pagination and no leaked keys, reviewer names, or internal comments. The `service_role` key
+  is absent from every client chunk.
+
+  Production config is `.env.production.local`, which Next loads only for production builds, so dev
+  and the whole test suite stay on the local stack. `scripts/with-prod-server.sh` now **refuses to
+  start** unless the database is local — it runs a real `next build`, and the suite it hosts deletes
+  rows. Suite green against both: 97 on dev, 98 on the production build.
 

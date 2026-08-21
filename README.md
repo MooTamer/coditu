@@ -38,6 +38,27 @@ Sign in with a seeded account — `mohamed@coditu.com` / `coditu`. Only addresse
 in `allowed_emails` can create an account at all; see
 [`docs/02-DATA-MODEL.md`](./docs/02-DATA-MODEL.md).
 
+## Deploying
+
+The hosted Supabase project's values live in `.env.production.local`, which Next
+loads only when `NODE_ENV=production`. `npm run dev` and every test keep talking
+to the local stack, and `scripts/with-prod-server.sh` refuses to start when
+`NEXT_PUBLIC_SUPABASE_URL` is not local — the e2e suite deletes rows, and it runs
+a real production build.
+
+Applying the schema to a hosted project:
+
+```bash
+supabase db push --db-url "postgresql://postgres.<ref>:<password>@<pooler-host>:5432/postgres"
+```
+
+Use the **session pooler** connection string. The direct `db.<ref>.supabase.co`
+host is IPv6-only on current projects and will not resolve from most machines.
+
+The seed sets every account's password to `coditu`, which is correct for a
+throwaway local stack and unacceptable anywhere reachable. Substitute real
+passwords before seeding a hosted project.
+
 ## Commands
 
 | Command | What it does |
