@@ -290,9 +290,14 @@ test.describe("marketing site", () => {
     expect(await audit(page)).toEqual([]);
   });
 
-  test("axe finds nothing in the light theme either", async ({ page }) => {
-    await page.getByRole("button", { name: /Switch to light theme|Toggle theme/ }).click();
-    await expect(page.locator("html")).toHaveClass(/light/);
+  // Light is the default, so the run above covers it; this one covers dark.
+  // Set from storage, not by clicking "Switch to X" — that label names the
+  // theme you are leaving, so it points the wrong way the day the default
+  // changes.
+  test("axe finds nothing in the dark theme either", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("theme", "dark"));
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveClass(/dark/);
     expect(await audit(page)).toEqual([]);
   });
 });

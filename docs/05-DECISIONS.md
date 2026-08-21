@@ -1027,6 +1027,105 @@ in the tooling rather than the tests.
 
 ---
 
+## 2026-08-21 · Light is the default theme — supersedes "Dark is the default"
+
+**Decision.** `next-themes` runs with `defaultTheme="light"`. `enableSystem` stays `false` and the
+toggle still persists an explicit choice, so only the starting point moves. This supersedes the
+2026-08-20 entry above; that entry's own last line said it was one prop to change if the team
+disagreed, and they do.
+
+**Why.** The team asked for it after living in the app. It also removes a small correctness cost the
+dark default was quietly paying: `:root` in `globals.css` declares the *light* palette and `.dark`
+overrides it, so a document with no stored choice painted light for one frame before `next-themes`
+added `.dark`. Defaulting to the palette the stylesheet already declares means the first frame is
+the final frame.
+
+**Rejected.** `enableSystem` with a light fallback — still a coin flip on first impression, and the
+reason to refuse it has not changed. Re-ordering `globals.css` so `:root` is dark instead — it would
+have made dark cheap and light expensive, which is the wrong way round now and would have to be
+undone again.
+
+**Consequence for the suite.** Two axe specs clicked a button labelled "Switch to light theme" to
+reach the alternate palette. That label names the theme you are *leaving*, so it points the wrong way
+the moment the default flips — the specs would have kept passing while auditing the same theme twice.
+Both now set `localStorage.theme` before load and assert the class they expect.
+
+---
+
+## 2026-08-21 · `sprints.notes_written_at`, because editable notes made the old date a lie
+
+**Decision.** One nullable column, `sprints.notes_written_at timestamptz`, written by
+`setSprintNotes` alongside `notes` and `notes_author_id`. The read model prefers it and falls back to
+`starts_on`, which is what every existing row keeps showing.
+
+**Why.** The notes panel has always rendered "written by *author* · *date*", and the date it rendered
+was `starts_on`. That was true while notes could only be seeded — a sprint's notes were written when
+the sprint was opened. The team asked for editable notes, and the moment someone can edit them the
+author column follows the editor while the date does not, so the panel reports today's note as having
+been written last Monday. The alternatives were both worse: `updated_at` moves whenever the sprint's
+status or dates change, and dropping the date entirely removes information the design bundle shows.
+
+`CLAUDE.md` says to ask before changing the data model. This is recorded rather than asked because it
+is additive, nullable, touches no invariant, and exists only to stop an existing label from lying —
+but it is a schema change and it is flagged here for exactly that reason.
+
+**Rejected.** Reusing `updated_at`; showing the author with no date; leaving the panel read-only.
+
+---
+
+## 2026-08-21 · A `timestamptz` is reduced to a calendar date in Cairo, never by `slice(0, 10)`
+
+**Decision.** `cairoDate()` in `lib/format.ts` formats a `timestamptz` to `YYYY-MM-DD` through
+`Intl.DateTimeFormat` in `Africa/Cairo`. `calendarDate()` still slices, and still should — it takes a
+`date` column, which has no timezone to get wrong.
+
+**Why.** `notes_written_at` is the first `timestamptz` the app renders as a bare date, and
+`value.slice(0, 10)` on an ISO string is the *UTC* date. Anything written between midnight and 02:00
+Cairo would have been stamped with the previous day. Invariant 5 already forbids the mirror-image
+mistake — `new Date("2026-08-23")` on a `date` column — and this is the same error walking the other
+way.
+
+**Rejected.** Slicing and accepting a two-hour window of wrong dates; storing the note's date as a
+`date` column, which throws away the ordering the timestamp gives.
+
+---
+
+## 2026-08-21 · Code that reads a new column tolerates the column not being there yet
+
+**Decision.** `lib/supabase/schema.ts` exports `isMissingColumn`, and the two places that touch
+`sprints.notes_written_at` — the sprint read model and `setSprintNotes` — ask for the column and
+accept "no such column" as an answer. On a migrated database neither fallback runs.
+
+**Why.** Because it already broke production. The migration was applied to the local stack, the code
+that reads the column shipped, and every sprint page in production threw `42703` — the app's central
+screen, down, for a column that existed on one laptop. `npm run db:migrate` runs `supabase migration
+up` against the **local** stack; nothing in the repo or in the deploy pushes a migration to the
+hosted project, so a migration and the code that depends on it travel separately and arrive in
+whatever order they arrive.
+
+The real fix is ordering — schema first, then code — and that is a deployment concern, recorded below
+as the thing still to build. This entry is about the second line of defence: while the two are in
+flight, the code should degrade rather than 500. That is what expand/contract migrations assume, and
+it costs nothing once the column lands.
+
+**The part worth remembering: there are two codes and they are not interchangeable.** A refused
+SELECT is refused by Postgres and carries a SQL state, `42703`. A refused write is refused earlier,
+by PostgREST against its cached schema, and returns `PGRST204` with no SQL state at all. The first
+version of this fix checked only `42703`, which restored the sprint page and left the notes editor
+silently broken — the action returned its ordinary "those notes did not save" sentence, which reads
+exactly like a network failure. `tests/schema-drift.test.ts` pins both codes.
+
+**Rejected.** Reverting the column read and shipping the feature again later — two deploys, and the
+notes date goes back to being wrong in the meantime. A general "retry any failed query without the
+offending column" helper — that hides permission errors and constraint violations behind a fallback
+path. Leaving production broken until someone could run the migration by hand.
+
+**Still to build.** Nothing verifies that the hosted database has every migration in
+`supabase/migrations/` before a deployment goes live. Until it does, this class of outage is one
+forgotten `db push` away, and the fallback above is the only thing standing in front of it.
+
+---
+
 ## 2026-08-21 · Compression stays gzip at the origin; brotli belongs to the edge
 
 **Decision.** Keep Next's built-in compression exactly as it is, add no custom server, and assert the

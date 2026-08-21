@@ -48,17 +48,23 @@ async function audit(page: Page, only?: string): Promise<string[]> {
 test.describe("accessibility", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("axe: the sprint table", async ({ adminPage: page }) => {
+  // The default theme is light, so the plain run below covers it. The dark
+  // run is driven from storage rather than by clicking the toggle: the
+  // toggle's label depends on which theme is current, so a spec that clicks
+  // "Switch to X" silently starts asserting the wrong theme the day the
+  // default flips — which is exactly what happened when it did.
+  test("axe: the sprint table, light", async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(SPRINT);
+    await expect(page.locator("html")).toHaveClass(/light/);
     expect(await audit(page)).toEqual([]);
   });
 
-  test("axe: the sprint table in the light theme", async ({ adminPage: page }) => {
+  test("axe: the sprint table, dark", async ({ adminPage: page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("theme", "dark"));
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(SPRINT);
-    await page.getByRole("button", { name: /Switch to light theme|Toggle theme/ }).click();
-    await expect(page.locator("html")).toHaveClass(/light/);
+    await expect(page.locator("html")).toHaveClass(/dark/);
     expect(await audit(page)).toEqual([]);
   });
 

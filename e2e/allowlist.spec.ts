@@ -76,7 +76,7 @@ test.describe("invite-only sign-up", () => {
 
   test("an admin invites, and then the same address can sign up", async ({ adminPage, browser }) => {
     await adminPage.setViewportSize({ width: 1440, height: 900 });
-    await adminPage.goto("/app/settings");
+    await adminPage.goto("/app/people");
 
     await adminPage.getByLabel("Email").fill(PROBE);
     await adminPage.getByLabel("Note (optional)").fill("From the e2e suite");
@@ -119,7 +119,7 @@ test.describe("invite-only sign-up", () => {
     await query(`insert into public.allowed_emails (email, note) values ($1, 'e2e')`, [PROBE]);
 
     await adminPage.setViewportSize({ width: 1440, height: 900 });
-    await adminPage.goto("/app/settings");
+    await adminPage.goto("/app/people");
     await adminPage.getByRole("button", { name: `Withdraw the invite for ${PROBE}` }).click();
 
     await expect
@@ -141,7 +141,7 @@ test.describe("invite-only sign-up", () => {
 
     const { signIn, SEED_ENGINEER } = await import("./fixtures");
     await signIn(page, SEED_ENGINEER);
-    await page.goto("/app/settings");
+    await page.goto("/app/people");
 
     await expect(page.getByText("Only an admin can invite people")).toBeVisible();
     await expect(page.getByRole("button", { name: "Invite", exact: true })).toHaveCount(0);
@@ -153,7 +153,7 @@ test.describe("invite-only sign-up", () => {
     const page = await context.newPage();
     const { signIn, SEED_ENGINEER } = await import("./fixtures");
     await signIn(page, SEED_ENGINEER);
-    await page.goto("/app/settings");
+    await page.goto("/app/people");
 
     // Straight at PostgREST with the engineer's own token — the same thing a
     // hand-rolled request would do. RLS is the boundary, not the button.
@@ -187,9 +187,9 @@ test.describe("invite-only sign-up", () => {
     await context.close();
   });
 
-  test("axe finds nothing on settings or the sign-up form", async ({ adminPage, browser }) => {
+  test("axe finds nothing on People or the sign-up form", async ({ adminPage, browser }) => {
     await adminPage.setViewportSize({ width: 1440, height: 900 });
-    await adminPage.goto("/app/settings");
+    await adminPage.goto("/app/people");
     expect(await auditA11y(adminPage)).toEqual([]);
 
     // A genuinely signed-out context. `adminPage` is built ON `page`, so they

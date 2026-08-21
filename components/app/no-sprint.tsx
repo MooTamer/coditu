@@ -44,11 +44,15 @@ export function NoSprint({ project }: { project: ProjectSummary }) {
           >
             See all projects
           </Link>
+          {/* Straight to where sprints are opened, not back to the project
+              list. The sentence above offers to create the first sprint, and
+              until sprints could be created from the app both buttons went to
+              the same place — which made the offer a dead end. */}
           <Link
-            href="/app/projects"
+            href={`/app/projects/${project.slug}`}
             className="signal-gradient flex h-[38px] items-center rounded-control px-4 text-[13.5px] font-semibold text-[#07090E]"
           >
-            Switch project
+            Open a sprint for {project.clientName}
           </Link>
         </div>
       </Reveal>

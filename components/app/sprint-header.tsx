@@ -33,12 +33,15 @@ export function SprintHeader({
   burn,
   daysLeft,
   members,
+  canEdit,
 }: {
   project: ProjectSummary;
   sprint: SprintDetail;
   burn: BurnPoint[];
   daysLeft: number | null;
   members: Array<{ initials: string; fullName: string; minutes: number }>;
+  /** Admin or lead. Sprints are theirs to change. */
+  canEdit: boolean;
 }) {
   const slices = statusDistribution(sprint.items);
   const logged = sprint.items.reduce((total, item) => total + item.minutesLogged, 0);
@@ -187,11 +190,17 @@ export function SprintHeader({
         </div>
       </div>
 
-      {sprint.notes ? (
+      {/* Rendered for a lead even when the sprint has no notes: the panel is
+          where notes are written, so hiding it until notes exist means there is
+          nowhere to write the first ones. An engineer looking at a sprint with
+          no notes still sees nothing, because for them there is nothing. */}
+      {sprint.notes || canEdit ? (
         <SprintNotes
-          notes={sprint.notes}
+          sprintId={sprint.id}
+          notes={sprint.notes ?? ""}
           author={sprint.notesAuthor?.fullName.split(" ")[0] ?? null}
           writtenOn={sprint.notesWrittenOn}
+          canEdit={canEdit}
         />
       ) : null}
     </section>

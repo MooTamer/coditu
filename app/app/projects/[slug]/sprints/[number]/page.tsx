@@ -8,8 +8,15 @@ import { SprintHeader } from "@/components/app/sprint-header";
 import { SprintRealtime } from "@/components/app/realtime.client";
 import { SprintTable } from "@/components/app/sprint-table.client";
 import { Reveal } from "@/components/motion/reveal";
+import { listActiveProfiles } from "@/lib/data/profiles";
 import { getProjectBySlug } from "@/lib/data/projects";
-import { daysRemaining, getBurnUp, getSprint, getSprintMembers } from "@/lib/data/sprint";
+import {
+  daysRemaining,
+  getBurnUp,
+  getSprint,
+  getSprintMembers,
+  todayInCairo,
+} from "@/lib/data/sprint";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { WORK_ITEM_STATUSES, type WorkItemStatus } from "@/lib/work-items";
 
@@ -42,9 +49,12 @@ export default async function SprintPage({
   const profile = await getCurrentProfile();
   if (!profile) notFound();
 
-  const [burn, members] = await Promise.all([
+  const [burn, members, people] = await Promise.all([
     getBurnUp(sprint.id, sprint.startsOn, sprint.endsOn),
     getSprintMembers(sprint.id),
+    // The assignee and reviewer menus. Request-cached, so the shell's copy and
+    // this one are a single query.
+    listActiveProfiles(),
   ]);
 
   // Filters are read from the URL and validated against the enum, so a
@@ -78,6 +88,7 @@ export default async function SprintPage({
         burn={burn}
         daysLeft={daysRemaining(sprint.endsOn)}
         members={members}
+        canEdit={canAssign}
       />
 
       <Reveal tier="section" delay={0.06}>
@@ -101,6 +112,8 @@ export default async function SprintPage({
               currentProfileId={profile.id}
               canAssign={canAssign}
               rowHeight={rowHeight}
+              people={people}
+              today={todayInCairo()}
             />
             <SprintCards rows={visible} allRows={sprint.items} basePath={basePath} />
           </>

@@ -2,9 +2,11 @@ import "server-only";
 
 import { cache } from "react";
 
+import { cairoDate } from "@/lib/format";
 import { todayInCairo } from "@/lib/today";
 
 import { createClient } from "@/lib/supabase/server";
+import { isMissingColumn } from "@/lib/supabase/schema";
 import { statusRank, type WorkItemStatus, type WorkItemType } from "@/lib/work-items";
 
 /**
@@ -55,28 +57,63 @@ export interface SprintDetail {
   items: WorkItemRow[];
 }
 
+/**
+ * The sprint query, in two shapes.
+ *
+ * The tail is shared, so the twenty columns that are not in question cannot
+ * drift between them; the heads differ by exactly the one column that can be
+ * absent. They are separate literals rather than one built at runtime because
+ * supabase-js infers the row type from the literal type of the select string —
+ * hand it a computed string and every field comes back as `GenericStringError`.
+ */
+const SPRINT_TAIL = `created_at,
+     notes_author:profiles!sprints_notes_author_id_fkey ( id, full_name, initials ),
+     work_items (
+       id, key, title, description, highlight, status, type, deadline,
+       estimate_minutes, minutes_logged, grouping, order_index,
+       assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials ),
+       reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials ),
+       acceptance_criteria ( is_done )
+     )` as const;
+
+const SPRINT_HEAD = "id, number, name, status, starts_on, ends_on, goal, notes, " as const;
+
+const SPRINT_SELECT = `${SPRINT_HEAD}${SPRINT_TAIL}` as const;
+const SPRINT_SELECT_WITH_WRITTEN_AT = `${SPRINT_HEAD}notes_written_at, ${SPRINT_TAIL}` as const;
+
 export const getSprint = cache(
   async (projectId: string, number: number): Promise<SprintDetail | null> => {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    // Ask for `notes_written_at` first. A database that has not been migrated
+    // yet says so, and the second read leaves the column out — the notes date
+    // then falls back to the sprint's start, which is what it was before the
+    // column existed. See `isMissingColumn`.
+    const rich = await supabase
       .from("sprints")
-      .select(
-        `id, number, name, status, starts_on, ends_on, goal, notes, created_at,
-         notes_author:profiles!sprints_notes_author_id_fkey ( id, full_name, initials ),
-         work_items (
-           id, key, title, description, highlight, status, type, deadline,
-           estimate_minutes, minutes_logged, grouping, order_index,
-           assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials ),
-           reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials ),
-           acceptance_criteria ( is_done )
-         )`
-      )
+      .select(SPRINT_SELECT_WITH_WRITTEN_AT)
       .eq("project_id", projectId)
       .eq("number", number)
       .maybeSingle();
 
-    if (error) throw error;
+    if (rich.error && !isMissingColumn(rich.error.code)) throw rich.error;
+
+    let notesWrittenAt: string | null = rich.data?.notes_written_at ?? null;
+    let data = rich.data as Omit<NonNullable<typeof rich.data>, "notes_written_at"> | null;
+
+    if (rich.error) {
+      const plain = await supabase
+        .from("sprints")
+        .select(SPRINT_SELECT)
+        .eq("project_id", projectId)
+        .eq("number", number)
+        .maybeSingle();
+
+      if (plain.error) throw plain.error;
+      data = plain.data;
+      notesWrittenAt = null;
+    }
+
     if (!data) return null;
 
     const items: WorkItemRow[] = (data.work_items ?? [])
@@ -113,9 +150,12 @@ export const getSprint = cache(
       goal: data.goal,
       notes: data.notes,
       notesAuthor: toPerson(data.notes_author),
-      // The notes were written when the sprint was opened; the bundle shows the
-      // sprint's start date, not a separate edited-at.
-      notesWrittenOn: data.starts_on,
+      // `notes_written_at` follows the text; `starts_on` is the fallback for
+      // rows written before notes could be edited, which is what the panel has
+      // always shown for them. The timestamp is reduced to the calendar date it
+      // fell on IN CAIRO — invariant 5, and not a `slice(0, 10)`, which is the
+      // UTC date and reads as yesterday for anything written before 02:00.
+      notesWrittenOn: cairoDate(notesWrittenAt) ?? data.starts_on,
       items,
     };
   }

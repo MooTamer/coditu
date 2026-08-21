@@ -25,8 +25,9 @@ export interface ProjectSummary {
   sprintCount: number;
   minutesLogged: number;
   activeSprint: { number: number; name: string } | null;
-  /** Enough for the switcher menu. The full read model is `listSprintsForProject`. */
-  sprints: Array<{ number: number; name: string; status: SprintStatus; itemCount: number }>;
+  /** Enough for the switcher menu and the New item dialog's target picker. The
+   *  full read model is `listSprintsForProject`. */
+  sprints: Array<{ id: string; number: number; name: string; status: SprintStatus; itemCount: number }>;
 }
 
 type SprintStatus = "planned" | "active" | "closed";
@@ -39,7 +40,7 @@ export const listProjects = cache(async (): Promise<ProjectSummary[]> => {
     .select(
       `id, name, slug, scope, accent_hex, is_archived,
        clients ( name, website_url, logo_path ),
-       sprints ( number, name, status,
+       sprints ( id, number, name, status,
                  work_items ( minutes_logged ) )`
     )
     .eq("is_archived", false)
@@ -70,6 +71,7 @@ export const listProjects = cache(async (): Promise<ProjectSummary[]> => {
       sprints: [...sprints]
         .sort((a, b) => b.number - a.number)
         .map((sprint) => ({
+          id: sprint.id,
           number: sprint.number,
           name: sprint.name,
           status: sprint.status,

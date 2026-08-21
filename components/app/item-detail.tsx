@@ -2,7 +2,7 @@ import { CommentBody } from "@/components/app/comment-body";
 import { CommentComposer } from "@/components/app/comment-composer.client";
 import { CriteriaList } from "@/components/app/criteria-list.client";
 import { LogTime } from "@/components/app/log-time.client";
-import { StatusChipDot } from "@/components/app/status-popover.client";
+import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
 import { ThreadRealtime } from "@/components/app/realtime.client";
 import { calendarDate, hours, timestamp } from "@/lib/format";

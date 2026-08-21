@@ -48,9 +48,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="overflow-x-clip">
       <body className={`${fontVariables} min-w-0 overflow-x-clip font-sans antialiased`}>
-        {/* Dark-first: the design is built on the dark canvas and light is the
-            alternate. System preference is deliberately not consulted — see
-            docs/05-DECISIONS.md. */}
+        {/* Light is the default the team asked for and the one `:root`
+            declares, so a document with no stored choice paints correctly on
+            the very first frame. Dark is the alternate. System preference is
+            still not consulted — see docs/05-DECISIONS.md. */}
         {/* Marks that JS is running, before first paint. Scroll-triggered
             reveals only hold their hidden frame when this class is present, so
             a blocked or broken bundle degrades to content that is simply
@@ -58,7 +59,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }}
         />
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           {/* One gradient definition per document; every mark references it. */}
           <CoditusMarkDefs />
           {children}

@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { ItemDetailBody } from "@/components/app/item-detail";
 import { Mono } from "@/components/coditu/mono";
-import { StatusChipDot } from "@/components/app/status-popover.client";
+import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Reveal } from "@/components/motion/reveal";
 import { todayInCairo } from "@/lib/data/sprint";
 import { listActiveProfiles } from "@/lib/data/profiles";

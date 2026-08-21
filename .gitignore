@@ -58,3 +58,6 @@ next-env.d.ts
 /.swarm
 /.hive-mind
 /.claude
+
+# local screenshot helper — verification only, never committed
+/scripts/.shot.local.mjs

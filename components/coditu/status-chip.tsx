@@ -69,6 +69,23 @@ export function StatusChip({ status, label, className, style, children, ...props
   );
 }
 
+/**
+ * The chip with its 6px leading dot, exactly as the table and the item detail
+ * render it.
+ *
+ * It lives here rather than beside the table's editor because three Server
+ * Components display one — the item page, the item detail body, and the mobile
+ * cards — and none of them should have to import a client module to do it.
+ */
+export function StatusChipDot({ status }: { status: WorkItemStatus }) {
+  return (
+    <StatusChip status={status} className="gap-[7px] px-[10px] py-[5px]">
+      <span aria-hidden className="size-[6px] rounded-pill bg-current" />
+      {STATUS_LABEL[status]}
+    </StatusChip>
+  );
+}
+
 export interface ToneChipProps extends HTMLAttributes<HTMLSpanElement> {
   tone: ChipTone;
 }

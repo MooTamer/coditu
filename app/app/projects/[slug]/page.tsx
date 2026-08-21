@@ -1,13 +1,11 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ClientMark } from "@/components/app/client-mark";
-import { NoSprint } from "@/components/app/no-sprint";
+import { SprintManager } from "@/components/app/sprint-manager.client";
 import { Mono } from "@/components/coditu/mono";
-import { ToneChip } from "@/components/coditu/status-chip";
 import { Reveal } from "@/components/motion/reveal";
 import { getProjectBySlug, listSprintsForProject } from "@/lib/data/projects";
-import { dateRange, hours } from "@/lib/format";
+import { getCurrentProfile } from "@/lib/supabase/server";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -15,13 +13,23 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { title: project?.name ?? "Project" };
 }
 
+/**
+ * A project and its sprints.
+ *
+ * This is where sprints are managed, because a sprint belongs to a project —
+ * invariant 1 — and "which sprint is running" is a question about the project,
+ * not about any one sprint. The empty case is not a dead end any more either:
+ * a project with no sprints is exactly where you need to be able to open one.
+ */
 export default async function ProjectPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const project = await getProjectBySlug(slug);
+
+  const [project, profile] = await Promise.all([getProjectBySlug(slug), getCurrentProfile()]);
   if (!project) notFound();
+  if (!profile) notFound();
 
   const sprints = await listSprintsForProject(project.id);
-  if (sprints.length === 0) return <NoSprint project={project} />;
+  const canManage = profile.role === "admin" || profile.role === "lead";
 
   return (
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
@@ -38,36 +46,24 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
         ) : null}
       </Reveal>
 
-      <Reveal
-        tier="section"
-        delay={0.075}
-        className="overflow-hidden rounded-list border border-[var(--hairline)] bg-[var(--raised)]"
-      >
-        {sprints.map((sprint) => (
-          <Link
-            key={sprint.id}
-            href={`/app/projects/${project.slug}/sprints/${sprint.number}`}
-            className="flex flex-wrap items-center gap-4 border-b border-[var(--hairline)] px-5 py-4 last:border-b-0 hover:bg-[var(--canvas)]"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14px] font-medium">{sprint.name}</span>
-              <Mono size="meta" className="block text-[var(--ink-faint)]">
-                {dateRange(sprint.startsOn, sprint.endsOn)}
-              </Mono>
-            </span>
+      <Reveal tier="section" delay={0.075} as="section" aria-labelledby="sprints">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h2 id="sprints" className="text-[16px] font-bold tracking-[-0.015em]">
+            Sprints
+          </h2>
+          <Mono size="meta" className="text-[var(--ink-faint)]">
+            {canManage ? "one active at a time" : "managed by an admin or lead"}
+          </Mono>
+        </div>
 
-            <ToneChip tone={sprint.status === "active" ? "jade" : "slate"} className="shrink-0">
-              {sprint.status}
-            </ToneChip>
-
-            <Mono size="meta" className="w-[68px] shrink-0 text-right text-[var(--ink-muted)]">
-              {sprint.itemCount} items
-            </Mono>
-            <Mono size="meta" className="w-[96px] shrink-0 text-right text-[var(--ink-muted)]">
-              {hours(sprint.minutesLogged)} / {hours(sprint.estimateMinutes)} h
-            </Mono>
-          </Link>
-        ))}
+        <div className="mt-4">
+          <SprintManager
+            projectId={project.id}
+            slug={project.slug}
+            sprints={sprints}
+            canManage={canManage}
+          />
+        </div>
       </Reveal>
     </main>
   );

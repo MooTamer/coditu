@@ -230,10 +230,14 @@ export function ExportDialog({
         aria-modal="true"
         aria-label={`Export ${clientName} · ${sprintName}`}
         data-reveal="surface"
-        className="w-full max-w-[1000px] overflow-hidden rounded-section border border-[var(--hairline-strong)] bg-[var(--overlay)] outline-none"
+        // Capped at the scrim's content box and scrolling its own body, for the
+        // same reason the item dialog is: twelve items and a long preview grow
+        // this panel past the bottom of a laptop screen, and the download
+        // buttons are the part that goes over the edge.
+        className="flex max-h-full w-full max-w-[1000px] flex-col overflow-hidden rounded-section border border-[var(--hairline-strong)] bg-[var(--overlay)] outline-none"
         style={{ boxShadow: "var(--shadow-overlay)" }}
       >
-        <div className="flex items-center gap-3 border-b border-[var(--hairline)] bg-[var(--raised)] px-5 py-4">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--hairline)] bg-[var(--raised)] px-5 py-4">
           <span className="text-[15.5px] font-bold tracking-[-0.018em]">
             Export {clientName} · {sprintName}
           </span>
@@ -250,7 +254,7 @@ export function ExportDialog({
           </button>
         </div>
 
-        <div className="grid [grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))]">
+        <div className="grid min-h-0 flex-1 overflow-y-auto overscroll-contain [grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))]">
           {/* ---- left: format, include, items ---- */}
           <div className="flex min-w-0 flex-col gap-[18px] border-r border-[var(--hairline)] p-5">
             <fieldset>
