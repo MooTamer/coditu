@@ -41,6 +41,13 @@ function isVisible(element: HTMLElement): boolean {
  * whatever opened it. That last one is the part most modals get wrong: closing
  * a dialog and dropping focus back to `<body>` sends a keyboard user to the top
  * of the page, and they have to tab all the way back to the row they were on.
+ *
+ * The panel is capped at the height of the scrim's content box and scrolls its
+ * own body. Letting the panel grow to its content and scrolling the SCRIM
+ * instead — which is what it used to do — reads as a dialog sliced off by the
+ * bottom of the screen: an item with a long thread starts with its header
+ * on-screen and its footer nowhere, and the close button scrolls away with it.
+ * Capping the panel means the frame is always whole and only the contents move.
  */
 export function ItemModal({ itemKey, children }: { itemKey: string; children: ReactNode }) {
   const router = useRouter();
@@ -117,10 +124,15 @@ export function ItemModal({ itemKey, children }: { itemKey: string; children: Re
         aria-label={`Work item ${itemKey}`}
         tabIndex={-1}
         data-reveal="surface"
-        className="w-full max-w-[1080px] overflow-hidden rounded-section border border-[var(--hairline-strong)] bg-[var(--overlay)] outline-none"
+        // `max-h-full` resolves against the scrim's content box — inset-0 minus
+        // its own padding — so the panel can never reach an edge. `min-h-0` on
+        // the scroller below is what actually lets it shrink: a flex child
+        // defaults to `min-height: auto`, refuses to go below its content, and
+        // pushes the overflow back out of the panel it was supposed to stay in.
+        className="flex max-h-full w-full max-w-[1080px] flex-col overflow-hidden rounded-section border border-[var(--hairline-strong)] bg-[var(--overlay)] outline-none"
         style={{ boxShadow: "var(--shadow-overlay)" }}
       >
-        <div className="flex items-center gap-3 border-b border-[var(--hairline)] bg-[var(--raised)] px-5 py-[14px]">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--hairline)] bg-[var(--raised)] px-5 py-[14px]">
           <Mono size="key" className="text-[var(--accent)]">
             {itemKey}
           </Mono>
@@ -133,7 +145,10 @@ export function ItemModal({ itemKey, children }: { itemKey: string; children: Re
             <X size={15} strokeWidth={2} aria-hidden />
           </button>
         </div>
-        {children}
+
+        {/* `overscroll-contain` so reaching the end of the thread does not
+            hand the wheel to the sprint table behind the scrim. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div>
   );

@@ -112,6 +112,52 @@ test.describe("item detail", () => {
     expect(criterion).toBeDefined();
   });
 
+  /**
+   * The frame is always whole; only the contents move.
+   *
+   * The regression this guards: the panel grew to its content and the SCRIM
+   * scrolled, so an item with a long thread rendered as a dialog sliced off by
+   * the bottom of the screen — with the close button scrolled away above it.
+   */
+  test("the dialog fits the viewport and scrolls its own body", async ({ adminPage: page }) => {
+    // Short enough that COD-140 — five criteria, two comments, an activity
+    // feed — cannot possibly fit.
+    await page.setViewportSize({ width: 1280, height: 560 });
+    await page.goto(SPRINT);
+    await page.getByRole("link", { name: "Add optional titles to all webparts" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    const box = (await dialog.boundingBox())!;
+    const viewport = page.viewportSize()!;
+    expect(box.y, "the dialog starts on screen").toBeGreaterThanOrEqual(0);
+    expect(
+      box.y + box.height,
+      "the dialog ends on screen"
+    ).toBeLessThanOrEqual(viewport.height + 1);
+
+    // The close button rides with the frame, not with the content.
+    const close = dialog.getByRole("button", { name: "Close" });
+    await expect(close).toBeInViewport();
+
+    // The overflow lives inside the panel, and it is real overflow.
+    const scroller = dialog.locator("div").filter({ has: page.locator("h1") }).first();
+    const scrolled = await dialog.evaluate((panel) => {
+      const region = Array.from(panel.querySelectorAll<HTMLElement>("div")).find(
+        (el) => el.scrollHeight > el.clientHeight + 8 && getComputedStyle(el).overflowY === "auto"
+      );
+      if (!region) return "no scrolling region inside the dialog";
+      region.scrollTop = region.scrollHeight;
+      return region.scrollTop > 0 ? "scrolled" : "region does not scroll";
+    });
+    expect(scrolled).toBe("scrolled");
+
+    // ...and after scrolling to the very bottom the frame has not moved.
+    await expect(close).toBeInViewport();
+    expect(await scroller.count()).toBeGreaterThan(0);
+  });
+
   test("the highlight is announced, not just coloured", async ({ adminPage: page }) => {
     await page.goto(ITEM);
     // The amber rule is invisible to a screen reader, so the meaning is in text.
