@@ -472,6 +472,49 @@ Newest at the bottom. One line per session: what moved, and what the next sessio
   Gate: lint, typecheck, 86 unit, **71 pgTAP** (was 63), build, **117 e2e twice against the production
   build and twice against dev**, seed back at 16.0 / 46.0 with its original order after every pass.
 
+- **2026-08-21** — A degraded Supabase no longer takes the marketing site with it. `middleware.ts`
+  matched everything that was not a static asset and called `supabase.auth.getUser()` on every one of
+  those requests — a live round trip to GoTrue, by design, because `getUser()` revalidates where
+  `getSession()` only trusts the cookie. The matcher is `/app/*` and `/login` now, and what remains
+  runs behind a 2.5s deadline and a circuit breaker that fails **closed**.
+
+  `npm run degraded` proves it by pausing the gateway container, so it accepts connections and answers
+  nothing — the failure that actually hurts, rather than a refused connection that fails in a
+  millisecond. Before and after, same build, same outage:
+
+  | While the auth server answers nothing | Before | After |
+  |---|---|---|
+  | `GET /` — signed-in reader | **hung, nothing at 15s** | 3–11ms |
+  | First `GET /app` | **hung, nothing at 15s** | 2.5s → `/login` |
+  | Subsequent `GET /app` | **hung, every one** | 3ms → `/login` |
+  | Recovery | — | automatic, no restart |
+
+  The asymmetry worth remembering: an **anonymous** visitor was fine all along, because gotrue-js
+  answers "no session" from the cookie without touching the network. It was signed-in readers — the
+  team, on their own marketing site — who paid a live auth call per page and hung outright.
+
+  Chromium got the same treatment. The PDF route launches a browser per request, and that browser
+  visits this server as a second client, so it is slowest exactly when the database is slow — and
+  nothing stopped a dozen of them existing at once. Bulkhead of two, 45s ceiling, 10s launch timeout,
+  20s page timeout, and a 503 that distinguishes "two are already rendering" from "rendering is
+  unavailable". Four simultaneous Export clicks now produce two PDFs and two refusals in under a
+  second, instead of four browsers.
+
+  `lib/circuit-breaker.ts` is ~120 lines with no dependencies — it runs in the Edge runtime and sits on
+  every request into the app. Its own tests caught the flaw that matters most: a deadline that only
+  aborts a signal releases nobody when the work ignores the signal, which is exactly Playwright's
+  page methods. It races the work instead, and holds the bulkhead slot until the abandoned work
+  really finishes.
+
+  **Deliberately not done:** page data reads are not behind a breaker. A failed read makes the data
+  layer return null and the page call `notFound()`, so fast-failing an outage would tell a client
+  their project does not exist. Fixing that honestly means distinguishing "absent" from "unreachable"
+  through `lib/data/*` and adding the `error.tsx` boundaries this app has none of. Written up in
+  `05-DECISIONS.md` rather than half-done here.
+
+  Gate: lint, typecheck, **100 unit** (was 86), 71 pgTAP, build, 117 e2e against the production build
+  and 117 against dev, budgets OK, `npm run degraded` OK.
+
 ---
 
 ## After §14 — the team's own requests
@@ -484,4 +527,5 @@ ledger updated in the same commit as the work.
 |---|---|---|
 | **Rail** — exactly one item is `aria-current`. `startsWith("/app/projects")` matched a sprint URL, so Projects and Sprint both lit up | `646f527` | `npx playwright test e2e/rail.spec.ts` — 4 specs |
 | **Compression** — asserted on the wire: gzip on every text response, nothing already-compressed run through it twice. No brotli; that belongs to the edge | `ff5987d` | `npx playwright test e2e/compression.spec.ts` — 6 specs, green against dev and the production build |
-| **Reorder** — one `update … from unnest(…) with ordinality` instead of one UPDATE per item. Atomic, and it can no longer report success after RLS silently wrote nothing | pending | `npm run db:test` — 71 assertions; `npx playwright test e2e/sprint-table.spec.ts` — 9 specs |
+| **Reorder** — one `update … from unnest(…) with ordinality` instead of one UPDATE per item. Atomic, and it can no longer report success after RLS silently wrote nothing | `cf24adf` | `npm run db:test` — 71 assertions; `npx playwright test e2e/sprint-table.spec.ts` — 9 specs |
+| **Circuit breaker** — Supabase auth off the marketing critical path, behind a deadline that fails closed; Chromium behind a bulkhead of two | pending | `npm run degraded`; `npx vitest run tests/circuit-breaker.test.ts` — 14 specs |

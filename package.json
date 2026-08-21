@@ -21,6 +21,7 @@
     "e2e:prod": "./scripts/e2e-prod.sh",
     "brand:assets": "node scripts/generate-brand-assets.mjs",
     "budgets": "./scripts/with-prod-server.sh node scripts/check-budgets.mjs",
+    "degraded": "node scripts/check-degraded-dependency.mjs",
     "lighthouse": "./scripts/with-prod-server.sh node scripts/lighthouse.mjs",
     "analyze": "ANALYZE=1 next build"
   },

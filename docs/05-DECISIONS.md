@@ -1131,3 +1131,59 @@ no idempotency key on an imported row.
 **Rejected.** Chunking at 500 rows with partial-write reporting; a row cap, which is a product
 decision nobody asked for; and moving the mapper into SQL, which would rewrite 25 passing unit tests
 to solve a problem that is not there.
+
+---
+
+## 2026-08-21 · The auth server is no longer on the marketing site's critical path
+
+**Decision.** `middleware.ts` matches `/app/*` and `/login` only, and what remains runs behind a
+2.5s deadline and a circuit breaker (`lib/circuit-breaker.ts`). When the breaker is open the gate
+stays **shut** — `/app` redirects to sign-in rather than failing open.
+
+**What it used to do.** The matcher was "everything that is not a static asset", and every matched
+request called `supabase.auth.getUser()` — a live HTTP round trip to GoTrue, by design, because
+`getUser()` revalidates and `getSession()` merely trusts the cookie. That put the auth server on the
+critical path of the **marketing site**, which has no session, no database and nothing to gate.
+
+Measured with `npm run degraded`, which pauses the gateway container so it accepts connections and
+answers nothing — the failure that actually hurts, as opposed to a refused connection that fails in a
+millisecond:
+
+| Request, while the auth server answers nothing | Before | After |
+|---|---|---|
+| `GET /` — signed-in reader | **hung; still nothing at 15s** | 3–11ms |
+| `GET /` — anonymous visitor | 5ms | 4ms |
+| First `GET /app` | **hung; still nothing at 15s** | 2.5s, redirected to `/login` |
+| Subsequent `GET /app` | **hung, every one** | 3ms, still redirected to `/login` |
+| Recovery | — | automatic, no restart |
+
+The anonymous row is why the matcher change matters more than it looks: gotrue-js answers "no
+session" from the cookie alone and never touches the network, so an anonymous visitor was always
+fine. It was **signed-in** readers — the team, on their own marketing site — who paid a live auth
+call per page and hung outright when it was unwell. That asymmetry is exactly the kind that hides
+this class of bug until the day it matters.
+
+**On losing the session refresh outside `/app`.** The middleware also refreshed the session cookie on
+every matched request. It now refreshes only on `/app/*` and `/login`. A refresh token outlives any
+browsing session by a wide margin and the next visit to `/app` refreshes it, so the cost is nil and
+the isolation is total: the strongest way to stop a dependency dragging down an unrelated part of the
+app is not to call it from there.
+
+**Chromium too.** The PDF route launches a real browser per request and that browser then visits this
+same server as a second client — so it is slowest exactly when the database is slow, and nothing
+stopped a dozen of them existing at once. It now runs behind a bulkhead of two, a 45s ceiling, a 10s
+launch timeout and a 20s page timeout, and it distinguishes "two are already rendering, try again"
+from "rendering is unavailable". Measured: four simultaneous requests produce two PDFs and two 503s,
+refused in under a second rather than queued behind a browser.
+
+**Rejected.** `opossum` and friends — this is ~120 lines, it has to run in the Edge runtime, and it is
+on the path of every request into the app. Failing OPEN on the gate when auth is unreachable, which
+trades a slow page for an authorization bypass. And a shared breaker across auth and Chromium, which
+would let a wedged browser stop people signing in.
+
+**Not done, and worth naming.** Page data reads are *not* behind a breaker. On a failed read the data
+layer returns null and the page calls `notFound()`, so fast-failing an outage would render "this
+project does not exist" to a client whose project is fine — a faster lie is not an improvement.
+Making that honest means teaching `lib/data/*` to distinguish "absent" from "unreachable" and adding
+the `error.tsx` boundaries this app does not yet have. That is a change with its own shape and it
+should be made deliberately, not as a side effect of adding timeouts.

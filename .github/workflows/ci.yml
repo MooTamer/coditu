@@ -66,6 +66,11 @@ jobs:
       # Fails the build when a route's own JavaScript exceeds its cap.
       - run: SKIP_BUILD=1 ./scripts/with-prod-server.sh node scripts/check-budgets.mjs
 
+      # Pauses the Supabase gateway and asserts the app degrades instead of
+      # hanging: marketing untouched, /app failing fast and CLOSED, automatic
+      # recovery. Last, because it takes the database away from everything.
+      - run: SKIP_BUILD=1 npm run degraded
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
