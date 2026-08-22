@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Menu, X } from "lucide-react";
+import { ArrowUpRight, Menu, X } from "lucide-react";
 
 import { CoditusLockup } from "@/components/coditu/coditus-mark";
 import { ThemeToggle } from "@/components/app/theme-toggle.client";
@@ -99,6 +99,33 @@ export function SiteNav({ email }: { email: string }) {
         <div className="ml-auto flex shrink-0 items-center gap-2.5 md:ml-0">
           <ThemeToggle className="size-11" />
 
+          {/* ── The way into the application ──────────────────────────────────
+              The single most severe thing that was wrong with this site: the
+              manifest's `start_url` was `/`, so installing Coditu to a Home
+              Screen and tapping the icon landed on THIS page — which contained
+              no link to `/app` at all, and inside an installed app there is no
+              address bar to type one into. The installed app was a dead end.
+
+              One link serves both audiences, because `middleware.ts` already
+              does the deciding: an anonymous visitor is sent to
+              `/login?next=…`, and a signed-in one who lands on `/login` is sent
+              to `/app`. So this is never wrong, whoever taps it. */}
+          <Link
+            href="/app"
+            // Present at EVERY width, not `hidden sm:inline-flex` like the
+            // mail link beside it. Below `sm` the label collapses and the
+            // arrow carries it, the same way Export and New item do inside the
+            // app — because a link that only exists once you have opened a
+            // menu is not much of an answer to "the installed app is a dead
+            // end".
+            aria-label="Open the app"
+            title="Open the app"
+            className="inline-flex size-11 shrink-0 items-center justify-center gap-1.5 rounded-control border border-hairline-strong text-[15px] font-medium text-ink transition-colors duration-[160ms] hover:bg-hairline sm:w-auto sm:px-4"
+          >
+            <span className="hidden sm:inline">Open the app</span>
+            <ArrowUpRight size={15} strokeWidth={1.9} aria-hidden />
+          </Link>
+
           <a
             href={`mailto:${email}`}
             className="signal-gradient hidden h-11 items-center rounded-control px-5 text-[15px] font-semibold text-[#07090E] transition-transform duration-[200ms] ease-[var(--ease-entrance)] hover:-translate-y-0.5 sm:inline-flex"
@@ -142,10 +169,22 @@ export function SiteNav({ email }: { email: string }) {
                 {item.label}
               </a>
             ))}
+            {/* Present at every width, unlike "Request a call" — this is the
+                only door into the app on a phone, and on an installed one it
+                is the only door at all. */}
+            <Link
+              href="/app"
+              onClick={() => setOpen(false)}
+              className="mt-4 flex h-12 items-center justify-center gap-1.5 rounded-control border border-hairline-strong text-[15px] font-medium text-ink"
+            >
+              Open the app
+              <ArrowUpRight size={15} strokeWidth={1.9} aria-hidden />
+            </Link>
+
             <a
               href={`mailto:${email}`}
               onClick={() => setOpen(false)}
-              className="signal-gradient mt-4 flex h-12 items-center justify-center rounded-control text-[15px] font-semibold text-[#07090E] sm:hidden"
+              className="signal-gradient mt-2.5 flex h-12 items-center justify-center rounded-control text-[15px] font-semibold text-[#07090E] sm:hidden"
             >
               Request a call
             </a>

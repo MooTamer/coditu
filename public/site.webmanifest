@@ -1,14 +1,37 @@
 {
+  "id": "/app",
   "name": "Coditu",
   "short_name": "Coditu",
   "description": "Portals, internal systems, and RAG assistants.",
-  "start_url": "/",
+  "start_url": "/app",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#07090E",
-  "theme_color": "#07090E",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#ebeff6",
+  "theme_color": "#ebeff6",
+  "orientation": "any",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["productivity", "business"],
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
     { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "My work",
+      "short_name": "My work",
+      "description": "Assigned to me, awaiting my review, and my mentions",
+      "url": "/app/my-work",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Settings",
+      "short_name": "Settings",
+      "description": "Your name, your picture, and your account",
+      "url": "/app/settings",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }
