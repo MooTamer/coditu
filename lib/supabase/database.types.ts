@@ -379,6 +379,7 @@ export type Database = {
           id: string
           initials: string
           is_active: boolean
+          must_set_password: boolean
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
           weekly_capacity_minutes: number
@@ -390,6 +391,7 @@ export type Database = {
           id: string
           initials: string
           is_active?: boolean
+          must_set_password?: boolean
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           weekly_capacity_minutes?: number
@@ -401,6 +403,7 @@ export type Database = {
           id?: string
           initials?: string
           is_active?: boolean
+          must_set_password?: boolean
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           weekly_capacity_minutes?: number

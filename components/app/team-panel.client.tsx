@@ -2,13 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { RotateCcw, UserMinus } from "lucide-react";
+import { Check, Copy, KeyRound, RotateCcw, UserMinus } from "lucide-react";
 
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { ToneChip } from "@/components/coditu/status-chip";
-import { setProfileActive, setProfileRole } from "@/lib/actions/profiles";
+import { setProfileActive, setProfileRole, setTemporaryPassword } from "@/lib/actions/profiles";
 import type { TeamMember } from "@/lib/data/profiles";
 import { hours } from "@/lib/format";
 import { APP_ROLES, type AppRole } from "@/lib/work-items";
@@ -79,6 +79,16 @@ function PersonRow({
   const [role, setRole] = useState<AppRole>(person.role);
   const [active, setActive] = useState(person.isActive);
   const [confirming, setConfirming] = useState(false);
+  /**
+   * The plaintext temporary password, held in this component and nowhere else.
+   *
+   * Not in a toast, not in the URL, not re-fetchable. The server returns it once
+   * and never again, so if this state is lost the answer is to generate another
+   * one — which is the honest answer, because the alternative is a readable
+   * password stored somewhere.
+   */
+  const [temporary, setTemporary] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // The confirm step expires on its own. A button left reading "Confirm?"
   // across a page the reader has moved on from is a trap for the next click.
@@ -112,6 +122,29 @@ function PersonRow({
         // Invariant 4: the select snaps back AND the reason is on screen.
         setRole(previous);
         toast(result.error ?? "That change did not save.");
+      }
+    });
+  }
+
+  function issueTemporaryPassword() {
+    setTemporary(null);
+    setCopied(false);
+    startTransition(async () => {
+      try {
+        const result = await setTemporaryPassword({ profileId: person.id });
+        if (!result.ok || !result.password) {
+          toast(result.error ?? "That did not work.");
+          return;
+        }
+        setTemporary(result.password);
+        // No toast carrying the password. A toast is transient, it stacks, and
+        // it would put the thing that grants access to somebody's account into
+        // a element that disappears on its own.
+        router.refresh();
+      } catch {
+        // A Server Action that THROWS never returns, so the branch above never
+        // runs and the row would sit there looking as if nothing happened.
+        toast("That did not work. Nothing has changed — try again.");
       }
     });
   }
@@ -254,7 +287,28 @@ function PersonRow({
           rows with five puts that row's numbers under different headings than
           everyone else's. */}
       {isAdmin ? (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {isSelf ? null : (
+            <button
+              type="button"
+              onClick={issueTemporaryPassword}
+              disabled={pending || !active}
+              aria-label={`Set a temporary password for ${person.fullName}`}
+              title={
+                active
+                  ? "Generates a password, shows it once, and requires them to choose their own before the app opens."
+                  : "They have no access at all while deactivated."
+              }
+              className={cn(
+                "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-control border px-3 text-[12.5px]",
+                "border-[var(--hairline)] text-[var(--ink-muted)] transition-colors duration-[var(--dur-micro)]",
+                "hover:border-[var(--hairline-strong)] hover:text-[var(--ink)] disabled:opacity-50",
+              )}
+            >
+              <KeyRound size={13} strokeWidth={1.8} aria-hidden />
+              Temporary password
+            </button>
+          )}
           {isSelf ? null : (
             <button
               type="button"
@@ -286,6 +340,58 @@ function PersonRow({
               {active ? (confirming ? "Confirm?" : "Deactivate") : "Reactivate"}
             </button>
           )}
+        </div>
+      ) : null}
+
+      {/* Shown once, in the row it belongs to, spanning the whole grid. It is
+          not a dialog: a dialog would have to be dismissed before the admin
+          could read the password out, and closing it is how you lose the only
+          copy that exists. */}
+      {temporary ? (
+        <div
+          data-temporary-password
+          role="status"
+          className="col-span-full flex flex-wrap items-center gap-3 rounded-inner border border-[var(--hairline-strong)] bg-[var(--canvas)] px-4 py-3"
+        >
+          <Mono size="meta" className="text-[var(--ink-faint)]">
+            temporary password for {person.fullName} — shown once
+          </Mono>
+
+          <Mono
+            size="key"
+            data-password-value
+            className="select-all text-[15px] font-semibold tracking-[0.06em]"
+          >
+            {temporary}
+          </Mono>
+
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(temporary);
+                setCopied(true);
+              } catch {
+                // A refused clipboard permission is not a failure worth a
+                // toast — the password is on screen and selectable.
+                setCopied(false);
+              }
+            }}
+            className="ml-auto inline-flex h-9 items-center gap-2 rounded-control border border-[var(--hairline)] px-3 text-[12.5px] text-[var(--ink-muted)] hover:border-[var(--hairline-strong)] hover:text-[var(--ink)]"
+          >
+            {copied ? (
+              <Check size={13} strokeWidth={2.2} aria-hidden />
+            ) : (
+              <Copy size={13} strokeWidth={1.8} aria-hidden />
+            )}
+            {copied ? "Copied" : "Copy"}
+          </button>
+
+          <p className="w-full text-[12.5px] leading-[1.5] text-[var(--ink-muted)]">
+            Give it to {person.fullName.split(" ")[0]} directly. It is stored nowhere and cannot be
+            shown again — generate another if it is lost. They will be asked to choose their own
+            password the moment they sign in, and nothing in the app opens until they do.
+          </p>
         </div>
       ) : null}
     </div>

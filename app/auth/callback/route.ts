@@ -3,24 +3,25 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Where every email link lands.
+ * Where a Supabase auth link would land, if anything still sent one.
  *
- * This route did not exist. `sendMagicLink` has always pointed
- * `emailRedirectTo` at `/auth/callback`, and the login page has always offered
- * "Send a sign-in link" — so the fallback was advertised, the mail was sent, and
- * the link arrived at a 404. Nothing anywhere called `exchangeCodeForSession`,
- * so even a link that resolved would not have produced a session. Same shape as
- * the ⌘K badge that did nothing: a control that looks finished and is not
- * connected to anything.
+ * **Nothing in this application sends email any more** — `docs/05-DECISIONS.md`
+ * records why, and recovery is an admin handing out a temporary password. This
+ * route is kept anyway, deliberately, for two reasons: it costs nothing, and
+ * its open-redirect guard below is written and tested. Deleting a tested guard
+ * because its caller went away is how it comes back untested. It also still
+ * serves the `next` redirect that lands somebody on `/auth/update-password`.
  *
- * A password reset needs exactly the same landing, which is why one route
- * serves both — `next` decides where the person ends up once the session
- * exists.
+ * It is worth knowing how this route came to exist at all: the login page
+ * offered to email a sign-in link for months, the mail was sent, and the link
+ * arrived at a 404 — the route was never built and nothing anywhere called
+ * `exchangeCodeForSession`. A control that looks finished and is connected to
+ * nothing, which is a shape this repository has now met three times.
  *
- * `@supabase/ssr` uses the PKCE flow, so the link comes back with `?code=`,
- * which is exchanged for a session here and written to cookies by the server
- * client. The older implicit flow put the token in the URL *fragment*, which
- * never reaches the server at all — worth knowing if a link ever arrives with
+ * `@supabase/ssr` uses the PKCE flow, so a link comes back with `?code=`, which
+ * is exchanged for a session here and written to cookies by the server client.
+ * The older implicit flow put the token in the URL *fragment*, which never
+ * reaches the server at all — worth knowing if a link ever arrives with
  * `#access_token=` instead.
  */
 export const dynamic = "force-dynamic";

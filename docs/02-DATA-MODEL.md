@@ -34,9 +34,21 @@ Defined once as a Postgres function and once in TypeScript. A test asserts the t
 ### `profiles`
 `id uuid pk references auth.users on delete cascade`, `full_name`, `initials`, `avatar_url`,
 `role app_role default 'engineer'`, `weekly_capacity_minutes int default 2400`,
-`is_active bool default true`, timestamps. Populated by an `on auth.users` insert trigger.
+`is_active bool default true`, `must_set_password bool not null default false`, timestamps.
+Populated by an `on auth.users` insert trigger.
 
 `weekly_capacity_minutes` is minutes, per invariant 2. 2400 = 40 hours.
+
+`must_set_password` is the forced password change. An admin generating a temporary password on
+`/app/people` sets it; `setPassword` clears it, and nothing else can — it is one of the four columns
+`guard_profile_privilege_columns` refuses to a non-admin, because a forced change its subject can
+switch off is not a forced change. **The default is `false` and has to stay `false`:** default it
+`true` and every account that already exists is locked out at once. There is no email recovery path
+in this application at all — see `05-DECISIONS.md`, 2026-08-22.
+
+`full_name` and `avatar_url` are deliberately absent from that trigger's list. How a person presents
+themselves is not a privilege; both are set by their owner on `/app/settings`, and `initials` is
+re-derived from `full_name` by the same rule `handle_new_user` uses.
 
 ### `clients`
 `id`, `name`, `website_url`, `logo_path`, `accent_hex`, timestamps.

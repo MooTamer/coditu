@@ -5,7 +5,7 @@ import { useFormStatus } from "react-dom";
 
 import { CoditusMark } from "@/components/coditu/coditus-mark";
 import { Mono } from "@/components/coditu/mono";
-import { requestPasswordReset, sendMagicLink, signIn, signUp, type AuthState } from "@/lib/actions/auth";
+import { signIn, signUp, type AuthState } from "@/lib/actions/auth";
 
 const FIELD =
   "h-[38px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-3 text-[14px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]";
@@ -34,8 +34,6 @@ export function LoginForm({
   linkFailed?: boolean;
 }) {
   const [passwordState, passwordAction] = useActionState<AuthState, FormData>(signIn, {});
-  const [linkState, linkAction] = useActionState<AuthState, FormData>(sendMagicLink, {});
-  const [resetState, resetAction] = useActionState<AuthState, FormData>(requestPasswordReset, {});
   const [joinState, joinAction] = useActionState<AuthState, FormData>(signUp, {});
   // Sign-in and sign-up share every field but one, so they are one form in two
   // modes rather than two forms — a second password box on the same screen is
@@ -43,22 +41,15 @@ export function LoginForm({
   const [mode, setMode] = useState<"signin" | "signup">("signin");
 
   const linkError = linkFailed
-    ? "That link has expired or has already been used. Ask for a new one below."
+    ? "That link is no longer valid. Sign in with your password, or ask an admin for a temporary one."
     : undefined;
 
-  // `linkError` comes from the URL, so it outlives the click that follows it —
-  // it goes LAST, or asking for a fresh link would still be answered with "that
-  // link has expired" instead of "one is on its way".
-  const message =
-    passwordState.error ??
-    joinState.error ??
-    linkState.error ??
-    resetState.error ??
-    linkState.notice ??
-    resetState.notice ??
-    linkError;
+  // `linkError` comes from the URL, so it outlives the submit that follows it —
+  // it goes LAST, or a fresh attempt would still be answered with the stale
+  // sentence instead of what actually just happened.
+  const message = passwordState.error ?? joinState.error ?? joinState.notice ?? linkError;
   const isError =
-    Boolean(passwordState.error ?? joinState.error ?? linkState.error ?? resetState.error) ||
+    Boolean(passwordState.error ?? joinState.error) ||
     (message !== undefined && message === linkError);
   const joining = mode === "signup";
 
@@ -142,51 +133,23 @@ export function LoginForm({
       {joining ? (
         <p className="text-[12.5px] leading-[1.5] text-[var(--ink-faint)]">
           Coditu is invite-only. Your address has to be on the allowlist already — an admin adds it
-          in Settings.
+          on People.
         </p>
       ) : null}
 
-      {/* Two fallbacks, each its own form rather than a mode switch — one
-          field, one button, no state to get wrong.
+      {/* There is no "email me a link" and no "reset my password", and that is
+          a decision rather than an omission. Both depended on SMTP the team
+          does not have: Vercel's free tier allows two emails an hour and
+          Supabase's shared sender is rate-limited and not meant for production.
+          A password nobody can remember is now an admin's job on /app/people —
+          they generate a temporary one, read it out, and the account cannot be
+          used for anything else until it is changed. See docs/05-DECISIONS.md.
 
-          The password one is what an existing account is CLAIMED with: the
-          seeded accounts were created with a shared password and later
-          repointed to the team's real addresses, so each owner needs to choose
-          a password of their own without creating a second account. */}
-      <form action={linkAction} className="flex flex-col gap-2 border-t border-[var(--hairline)] pt-3">
-        <input type="hidden" name="next" value={next} />
-        <input
-          className={FIELD}
-          type="email"
-          name="email"
-          autoComplete="email"
-          required
-          placeholder="Email a sign-in link instead"
-        />
-        <button
-          type="submit"
-          className="h-[38px] w-full rounded-control border border-[var(--hairline-strong)] text-[13.5px] font-medium hover:bg-[var(--canvas)]"
-        >
-          Send a sign-in link
-        </button>
-      </form>
-
-      <form action={resetAction} className="flex flex-col gap-2">
-        <input
-          className={FIELD}
-          type="email"
-          name="email"
-          autoComplete="email"
-          required
-          placeholder="Set or reset your password"
-        />
-        <button
-          type="submit"
-          className="h-[38px] w-full rounded-control border border-[var(--hairline-strong)] text-[13.5px] font-medium hover:bg-[var(--canvas)]"
-        >
-          Email a link to set a password
-        </button>
-      </form>
+          What is left is one email field and one password field. */}
+      <p className="text-[12.5px] leading-[1.5] text-[var(--ink-faint)]">
+        Forgotten your password? Ask an admin for a temporary one — they can set it from People,
+        and you will be asked to choose your own the moment you sign in.
+      </p>
 
       {message ? (
         <p

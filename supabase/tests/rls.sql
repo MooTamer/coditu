@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(59);
+select plan(64);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -684,6 +684,62 @@ select is(
   (select avatar_url from public.profiles where id = '44444444-4444-4444-4444-444444444444'),
   null,
   'negative: a member cannot set another member''s picture'
+);
+
+-- ---------------------------------------------------------------------------
+-- must_set_password — the forced password change.
+--
+-- The whole mechanism rests on one property: the person being forced cannot
+-- switch it off. Everything else about it is application code, and application
+-- code is not what stops a PATCH sent straight to PostgREST with the anon key
+-- that ships in the browser bundle.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+select lives_ok(
+  $$update public.profiles set must_set_password = true
+    where id = '33333333-3333-3333-3333-333333333333'$$,
+  'positive: an admin can require a password change'
+);
+select pg_temp.act_as_owner();
+
+select is(
+  (select must_set_password from public.profiles where id = '33333333-3333-3333-3333-333333333333'),
+  true,
+  'positive: the flag is set'
+);
+
+-- The one that matters. Eve is flagged, Eve is signed in, and Eve may write her
+-- own row — `own profile update` allows it and she has just proved it by
+-- setting her own avatar. The flag is what she must not be able to reach.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select throws_ok(
+  $$update public.profiles set must_set_password = false
+    where id = '33333333-3333-3333-3333-333333333333'$$,
+  '42501',
+  null,
+  'negative: the owner cannot clear their own forced password change'
+);
+
+-- And it is not a "your own row" rule either — nobody but an admin sets it.
+--
+-- This one refuses one layer earlier and it is worth being precise about which:
+-- `own profile update` will not let Eve see Otto's row at all, so the UPDATE
+-- matches nothing and the trigger never runs. No exception, no rows, no change.
+-- That silence is exactly the failure mode this repository has been caught by
+-- before — an action reporting success after RLS wrote nothing — so the
+-- assertion is on the stored value, not on the absence of an error.
+select lives_ok(
+  $$update public.profiles set must_set_password = true
+    where id = '44444444-4444-4444-4444-444444444444'$$,
+  'negative: a non-admin''s write to somebody else''s flag matches no rows'
+);
+select pg_temp.act_as_owner();
+
+select is(
+  (select must_set_password from public.profiles where id = '44444444-4444-4444-4444-444444444444'),
+  false,
+  'negative: and it changed nothing'
 );
 
 select * from finish();

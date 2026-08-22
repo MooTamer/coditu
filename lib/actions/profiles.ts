@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { AVATAR_BUCKET, avatarObjectKey } from "@/lib/avatar";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { extensionFor, isAllowedImageType, looksLikeImage } from "@/lib/images";
 import { initialsFor } from "@/lib/profile-initials";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
@@ -154,6 +155,158 @@ export async function setProfileActive(input: unknown): Promise<ProfileResult> {
 
   revalidatePath("/app/people");
   return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  A temporary password.                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * No ambiguous glyphs. This password gets read out loud or typed off a screen,
+ * and `I`/`l`/`1` and `O`/`0` are the difference between "it does not work" and
+ * a support conversation. 31 characters, 16 of them, is about 79 bits.
+ */
+const READABLE = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+/** The largest multiple of the alphabet that fits in a byte, for rejection sampling. */
+const UNBIASED_CEILING = 256 - (256 % READABLE.length);
+
+/**
+ * Generated on the SERVER, from `crypto.getRandomValues`, and never anywhere
+ * else.
+ *
+ * The admin does not choose it and cannot supply one: a human-chosen temporary
+ * password is a guessable temporary password, and accepting one from the client
+ * would mean the value that grants access to somebody else's account arrived
+ * over the wire from a form.
+ *
+ * `% READABLE.length` on a raw byte would bias the first eight characters of
+ * the alphabet upwards by about 3%. That is not an attack anybody is running,
+ * and it is also two extra lines to do properly.
+ */
+function generateTemporaryPassword(): string {
+  const groups: string[] = [];
+  for (let group = 0; group < 4; group += 1) {
+    let out = "";
+    while (out.length < 4) {
+      const bytes = new Uint8Array(8);
+      crypto.getRandomValues(bytes);
+      for (const byte of bytes) {
+        if (out.length === 4) break;
+        if (byte >= UNBIASED_CEILING) continue;
+        out += READABLE[byte % READABLE.length];
+      }
+    }
+    groups.push(out);
+  }
+  return groups.join("-");
+}
+
+export interface TemporaryPasswordResult {
+  ok: boolean;
+  error?: string;
+  /**
+   * The plaintext, returned EXACTLY ONCE and never stored.
+   *
+   * It is not written to `profiles`, not to `activity`, not to a log line, and
+   * there is no second endpoint that will hand it out again. If the admin loses
+   * it before the person has it, the answer is to generate another one — which
+   * is cheap, and is the only honest answer when the alternative is keeping a
+   * readable password somewhere.
+   */
+  password?: string;
+}
+
+/**
+ * An admin hands somebody a password they can sign in with once.
+ *
+ * ── What this is, said plainly ─────────────────────────────────────────────
+ * Setting another person's password **is account takeover of that person**.
+ * There is no framing that makes it not that. It is accepted here because the
+ * alternative is a mail dependency the team cannot operate — see
+ * `docs/05-DECISIONS.md` — and because the same four people already administer
+ * each other's roles, access and allowlist. What can be limited is limited: the
+ * flag set alongside it means the account cannot be *used* until its owner has
+ * chosen a password of their own, so a takeover cannot be quiet.
+ *
+ * ── Ordering, and why the flag goes first ──────────────────────────────────
+ * `auth.admin.updateUserById` is an HTTP call to GoTrue and the profile write
+ * is a separate one to PostgREST; there is no transaction across the two. So
+ * the flag is set FIRST. If the second call then fails, the account is
+ * locked-but-recoverable — its owner is asked to choose a password and can,
+ * because their existing one still works. The other order would leave it
+ * reset-but-unflagged: a password only the admin knows and nothing insisting it
+ * be changed.
+ */
+export async function setTemporaryPassword(input: unknown): Promise<TemporaryPasswordResult> {
+  const parsed = z.object({ profileId: uuid }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That request did not make sense." };
+
+  const scope = await requireAdmin();
+  if ("error" in scope) return { ok: false, error: scope.error };
+
+  if (parsed.data.profileId === scope.profile.id) {
+    // Not a security boundary — an admin can already change their own password
+    // from the sign-in screen. It is the misclick that hands you a password you
+    // then have to read off your own screen to yourself.
+    return { ok: false, error: "Use Settings to change your own password." };
+  }
+
+  const { data: target } = await scope.supabase
+    .from("profiles")
+    .select("id, full_name, role, is_active")
+    .eq("id", parsed.data.profileId)
+    .maybeSingle();
+
+  if (!target) return { ok: false, error: "That person is no longer on the team." };
+
+  if (!target.is_active) {
+    return {
+      ok: false,
+      error: `${target.full_name} is deactivated, so a password would not let them in. Reactivate them first.`,
+    };
+  }
+
+  // Belt to the same braces `setProfileRole` and `setProfileActive` wear. It
+  // cannot fire while the caller is themselves an active admin who is not the
+  // target — which `requireAdmin` and the check above guarantee — and it stays
+  // because all three admin operations should refuse on the same grounds, and
+  // because the guarantee is two edits away from not holding.
+  if (target.role === "admin" && (await otherActiveAdmins(scope.supabase, target.id)) === 0) {
+    return { ok: false, error: `${target.full_name} is the only admin. Promote someone else first.` };
+  }
+
+  const admin = createAdminClient();
+
+  // 1. Flag first. See the note above on ordering.
+  const flagged = await admin
+    .from("profiles")
+    .update({ must_set_password: true })
+    .eq("id", target.id);
+
+  if (flagged.error) {
+    return { ok: false, error: "That did not save. Nothing has changed — try again." };
+  }
+
+  // 2. Then the password itself. `app_metadata` carries a copy of the flag for
+  //    the middleware, which has only the auth server's answer to work with and
+  //    deliberately makes no database call of its own.
+  const password = generateTemporaryPassword();
+  const { error } = await admin.auth.admin.updateUserById(target.id, {
+    password,
+    app_metadata: { must_set_password: true },
+  });
+
+  if (error) {
+    return {
+      ok: false,
+      error: `${target.full_name}'s password is unchanged, and they will be asked to set one at their next sign-in. Try again.`,
+    };
+  }
+
+  revalidatePath("/app/people");
+  // Returned, shown once, and gone. Nothing on the way here wrote it down.
+  return { ok: true, password };
 }
 
 /* -------------------------------------------------------------------------- */

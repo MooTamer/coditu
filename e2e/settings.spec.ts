@@ -2,6 +2,7 @@ import {
   auditA11y,
   createThrowawayAccount,
   expect,
+  instrumentPage,
   query,
   removeThrowawayAccount,
   signIn,
@@ -108,6 +109,9 @@ test.describe("your own profile", () => {
       const context = await browser.newContext();
       try {
         const fresh = await context.newPage();
+        // A page from a hand-rolled context does not get the fixture's
+        // hydration wait, and this one fills a form the moment it lands.
+        instrumentPage(fresh);
         await fresh.goto("/login");
         await fresh.getByRole("tab", { name: "Create account" }).click();
         await fresh.getByLabel("Email").fill(signUpEmail);

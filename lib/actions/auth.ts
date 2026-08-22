@@ -1,11 +1,11 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { getSiteOrigin } from "@/lib/site-url";
 
 /**
  * Invariant 3: every mutation is a Server Action — zod-validate, re-check
@@ -135,78 +135,6 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   redirect(parsed.data.next);
 }
 
-const magicLink = z.object({
-  email: z.string().email("That does not look like an email address."),
-  next: z.string().startsWith("/").default("/app"),
-});
-
-export async function sendMagicLink(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const parsed = magicLink.safeParse({
-    email: formData.get("email"),
-    next: formData.get("next") || "/app",
-  });
-
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
-  }
-
-  const supabase = await createClient();
-  await supabase.auth.signInWithOtp({
-    email: parsed.data.email,
-    options: {
-      // shouldCreateUser is false because sign-up is closed. The allowlist
-      // trigger would refuse the insert anyway; this just avoids the round trip.
-      shouldCreateUser: false,
-      // `getSiteOrigin()` rather than the bare env var: unset on Vercel, the
-      // old form produced a RELATIVE redirect, which Supabase cannot use. The
-      // helper falls back to VERCEL_PROJECT_PRODUCTION_URL and then to the
-      // site metadata, so a deployment without NEXT_PUBLIC_SITE_URL still
-      // sends a link that works.
-      emailRedirectTo: `${getSiteOrigin()}/auth/callback?next=${encodeURIComponent(parsed.data.next)}`,
-    },
-  });
-
-  // Always the same message, whether or not the address exists. Same reason as
-  // above: the response must not reveal who is on the allowlist.
-  return { notice: "If that address is on the allowlist, a sign-in link is on its way." };
-}
-
-const passwordReset = z.object({
-  email: z.string().email("That does not look like an email address."),
-});
-
-/**
- * Sends a link that lets somebody set their own password.
- *
- * This is how an existing account is claimed. The four seeded accounts were
- * created with a shared password and later repointed to the team's real
- * addresses, so every one of them needs its owner to choose a password that
- * only they know — without creating a second account, because the account they
- * already have is the one holding their work.
- *
- * The link lands on `/auth/callback`, which exchanges it for a session and
- * forwards to `/auth/update-password`.
- */
-export async function requestPasswordReset(
-  _prev: AuthState,
-  formData: FormData
-): Promise<AuthState> {
-  const parsed = passwordReset.safeParse({ email: formData.get("email") });
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Check the address and try again." };
-  }
-
-  const supabase = await createClient();
-  await supabase.auth.resetPasswordForEmail(parsed.data.email.trim().toLowerCase(), {
-    redirectTo: `${getSiteOrigin()}/auth/callback?next=${encodeURIComponent("/auth/update-password")}`,
-  });
-
-  // Same sentence either way. Distinguishing "sent" from "no such account"
-  // turns this into a way to find out who works here, exactly as the sign-in
-  // error does.
-  return { notice: "If that address has an account, a link to set a password is on its way." };
-}
-
 const newPassword = z
   .object({
     password: z.string().min(8, "Use at least 8 characters."),
@@ -218,11 +146,25 @@ const newPassword = z
   });
 
 /**
- * Sets the password on the session the email link created.
+ * Sets a password on the session that is already open.
  *
- * There is no "current password" field and there does not need to be: the only
- * way to reach this with a session is to have opened a single-use link sent to
- * the address on the account. The session IS the proof.
+ * There is no "current password" field and there does not need to be: you are
+ * here because you are signed in, and the only way to be signed in is to have
+ * used a password that works — either your own, or the temporary one an admin
+ * read out to you.
+ *
+ * **Clearing `must_set_password` is the whole point of this action now.** While
+ * it is true the app shell redirects here and nothing under `/app` renders, so
+ * this is the only way out of the loop, and it must not be possible to take it
+ * without actually changing the password. Hence the ordering below: the flag is
+ * cleared only after `updateUser` has returned without an error.
+ *
+ * The clear goes through the SERVICE-ROLE client, and it has to.
+ * `guard_profile_privilege_columns` refuses a non-admin write to
+ * `must_set_password` — that refusal is what stops the person being forced from
+ * simply switching it off — and the person clearing it here is, by definition,
+ * not an admin acting on somebody else. The trigger takes an early return when
+ * `auth.uid()` is null, which is exactly the service-role case.
  */
 export async function setPassword(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const parsed = newPassword.safeParse({
@@ -241,7 +183,7 @@ export async function setPassword(_prev: AuthState, formData: FormData): Promise
 
   if (!user) {
     return {
-      error: "That link has expired or has already been used. Ask for a new one from the sign-in page.",
+      error: "You are not signed in any more. Sign in with the password you were given and try again.",
     };
   }
 
@@ -250,6 +192,30 @@ export async function setPassword(_prev: AuthState, formData: FormData): Promise
     return { error: "That password could not be saved. Try a different one." };
   }
 
+  const admin = createAdminClient();
+  const { error: clearError } = await admin
+    .from("profiles")
+    .update({ must_set_password: false })
+    .eq("id", user.id);
+
+  if (clearError) {
+    // The password IS changed — saying otherwise would be worse than this. The
+    // person is still on the forced-change screen and setting the same password
+    // again will clear the flag, which is a recoverable state; telling them the
+    // change failed would have them try a different one for no reason.
+    return {
+      error:
+        "Your password is changed, but we could not lift the requirement to change it. Set it once more.",
+    };
+  }
+
+  // The middleware's copy, so a signed-in visitor stops being bounced at the
+  // edge as well as in the layout. See `middleware.ts` for why there are two.
+  await admin.auth.admin.updateUserById(user.id, {
+    app_metadata: { must_set_password: false },
+  });
+
+  revalidatePath("/app", "layout");
   redirect("/app");
 }
 

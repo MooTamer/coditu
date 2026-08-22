@@ -59,7 +59,7 @@ export async function middleware(request: NextRequest) {
   if (!needsSession(pathname)) return NextResponse.next({ request });
 
   let response = NextResponse.next({ request });
-  let user: { id: string } | null = null;
+  let user: { id: string; app_metadata?: Record<string, unknown> } | null = null;
   let reachable = true;
 
   try {
@@ -136,6 +136,62 @@ export async function middleware(request: NextRequest) {
     app.pathname = "/app";
     app.search = "";
     return NextResponse.redirect(app);
+  }
+
+  /**
+   * ── The forced password change, at the edge ────────────────────────────────
+   * An admin has handed this account a temporary password. It can sign in — it
+   * has to, or the person could not set a new one — but nothing under `/app`
+   * may render until they do.
+   *
+   * **This is a courtesy, not the gate.** `app/app/layout.tsx` re-reads
+   * `profiles.must_set_password` server-side and that is what actually holds
+   * the line; two things stop this from being the real check:
+   *
+   *  - `/auth/update-password` is outside the matcher below, deliberately, and
+   *    widening it would put the auth server back on the critical path of a
+   *    route it has no business gating. Read the circuit-breaker note at the
+   *    top before touching that list.
+   *  - This reads `app_metadata`, which the service-role client writes
+   *    alongside the column in `setTemporaryPassword` and clears in
+   *    `setPassword`. It is server-written and a client cannot forge it, but it
+   *    is still a copy — and a copy can go stale. A stale copy here costs one
+   *    extra redirect that the layout then resolves correctly; the layout's copy
+   *    is the one that is never wrong.
+   *
+   * What it buys: a phone that is bounced without a dynamic render happening at
+   * all. There is no second database call for it — `getUser()` above already
+   * returned this object.
+   *
+   * ── And why it is document navigations only ───────────────────────────────
+   * `Sec-Fetch-Dest: document` is the browser's own word for "this is a real
+   * navigation" — a `fetch()` from JavaScript says `empty`. A 307 from
+   * middleware in answer to the router's own fetch is not something the App
+   * Router follows: it leaves the address bar on
+   * the old URL and renders nothing, which is exactly what a person signing in
+   * with a temporary password saw — the Server Action redirected to `/app`, the
+   * router asked for it, middleware answered with a redirect the router
+   * discarded, and the page simply stopped. Took an hour and a bisect to find,
+   * because both gates were "working" and the failure was in the handshake
+   * between them.
+   *
+   * A client-side navigation is already covered, correctly, by the layout: a
+   * `redirect()` from a Server Component is encoded IN the RSC payload, which
+   * the router does understand. So this handles the cold case — a typed URL, a
+   * refresh, a PWA launch — and stays out of the way of the other.
+   */
+  const isDocumentNavigation = request.headers.get("sec-fetch-dest") === "document";
+
+  if (
+    user &&
+    isDocumentNavigation &&
+    user.app_metadata?.must_set_password === true &&
+    pathname !== "/login"
+  ) {
+    const change = request.nextUrl.clone();
+    change.pathname = "/auth/update-password";
+    change.search = "";
+    return NextResponse.redirect(change);
   }
 
   return response;

@@ -1694,3 +1694,41 @@ the sprint page — for loading states, an error boundary, a not-found boundary 
 **Rejected.** Fewer rows, or a lighter bar per row — the cost is per element, so halving it halves
 nothing that matters. Also rejected: dropping the outer `loading.tsx` files to avoid the nesting,
 which would have taken the loading state away from `/app` itself.
+
+---
+
+## 2026-08-22 · No SMTP, ever. Recovery is an admin handing over a temporary password
+
+**Decision.** Coditu sends no email. `sendMagicLink` and `requestPasswordReset` are deleted, and with
+them the two fallback forms that made `/login` four forms and three email fields. What replaces them:
+an admin generates a temporary password on `/app/people`, reads it out, and
+`profiles.must_set_password` stops the account being used for anything else until its owner has
+chosen their own. The plaintext is generated server-side, returned once, shown once, and written to
+no table, no log and no activity row.
+
+**Why.** There is no mail transport this team can operate. Vercel's free tier allows two emails an
+hour; Supabase's shared sender is rate-limited and its own documentation says it is not for
+production. A recovery path that works four times a day is not a recovery path — it is a support
+queue with extra steps, and it fails silently, which is the worst way for an auth path to fail.
+
+**What this is, said plainly.** An admin setting another person's password **is account takeover of
+that person**. No framing makes it not that. It is accepted because the alternative is the mail
+dependency above, and because these same four people already administer each other's roles, access
+and allowlist — the trust boundary was already there. What is limited is limited: the flag means a
+takeover cannot be quiet, the flag is admin-only at the database (`guard_profile_privilege_columns`,
+with positive and negative assertions in `rls.sql`), and the person being forced cannot clear it
+except by actually setting a password.
+
+**It also retires the shared seed password.** Four production accounts were created with `coditu` and
+one of them is an admin. Until now the only way to replace those was an emailed link that did not
+work. An admin can now hand each owner a temporary password and the account will insist on being
+changed.
+
+**Rejected.** SMTP — the reason above. A self-service "reset my password" — with no mail it can only
+be an unauthenticated endpoint that changes a password, which is worse than the problem. Putting the
+temporary password in a toast, an activity row, or the URL: all three persist or leak it. A
+human-chosen temporary password: a guessable one, and it would arrive at the server from a form.
+
+**One consequence, recorded rather than hidden.** `app/auth/callback/route.ts` stays — it costs
+nothing, its open-redirect guard is written and tested, and it still serves the forced-change
+redirect — but nothing in the application sends a link to it any more.

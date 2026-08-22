@@ -15,10 +15,17 @@ export const metadata: Metadata = {
 /**
  * Choose a password for an account that already exists.
  *
+ * This is where the forced change lands. An admin has generated a temporary
+ * password and read it out; the account signs in with it and the app shell
+ * redirects here until a real one is set. Nothing under `/app` renders in
+ * between, which is the entire point — a password somebody else knows is not a
+ * password.
+ *
  * Deliberately NOT under `/login`: the middleware sends a signed-in visitor
  * from `/login` to `/app`, and by the time somebody arrives here they ARE
- * signed in — the callback route exchanged their link for a session. Putting
- * this under `/login` would bounce them off the page they were sent to.
+ * signed in. Putting this under `/login` would bounce them off the page they
+ * were sent to. It is also deliberately outside the middleware matcher — see
+ * the note there — so this page must be reachable without one.
  *
  * It reads the user rather than the profile: `getCurrentProfile()` also demands
  * an active profile row, and someone who has been deactivated should be told
@@ -36,14 +43,14 @@ export default async function UpdatePasswordPage() {
         <CoditusLockup markSize={26} />
 
         <h1 className="mt-8 text-[24px] font-bold leading-[1.2] tracking-[-0.022em]">
-          {user ? "Set your password" : "That link is no longer valid"}
+          {user ? "Set your password" : "You are not signed in"}
         </h1>
 
         {user ? (
           <>
             <p className="mt-2 text-[13.5px] leading-[1.6] text-[var(--ink-muted)]">
-              Your account and everything on it stays exactly as it is — this only changes how you
-              sign in.
+              Choose one only you know. Your account and everything on it stays exactly as it is —
+              this only changes how you sign in, and nothing else in Coditu opens until it is done.
             </p>
             <div className="mt-6">
               <SetPasswordForm email={user.email ?? ""} />
@@ -52,8 +59,8 @@ export default async function UpdatePasswordPage() {
         ) : (
           <>
             <p className="mt-2 text-[13.5px] leading-[1.6] text-[var(--ink-muted)]">
-              Links can only be used once, and they expire. Ask for a new one and it will bring you
-              straight back here.
+              Sign in first, with the temporary password an admin gave you, and you will be brought
+              straight back here to choose your own.
             </p>
             <Link
               href="/login"

@@ -25,6 +25,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login?next=/app");
 
+  /**
+   * The forced password change, and **this is the gate that holds the line**.
+   *
+   * An admin has set a temporary password on this account, so it can be signed
+   * in with but must not be used for anything else until its owner has chosen
+   * one of their own. `middleware.ts` turns the same traffic away at the edge,
+   * but it can only read what the auth server already told it and
+   * `/auth/update-password` sits outside its matcher — so the authoritative
+   * check is here, on the `profiles` column, server-side, exactly like every
+   * other authorization decision in this app.
+   */
+  if (profile.must_set_password) redirect("/auth/update-password");
+
   const [projects, unreadCount, people] = await Promise.all([
     listProjects(),
     countUnreadNotifications(),

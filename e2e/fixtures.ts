@@ -240,8 +240,16 @@ async function waitForInteractive(page: Page): Promise<void> {
   );
 }
 
-/** Wraps `goto` in place, so no spec has to remember to call it. */
-function waitAfterEveryGoto(page: Page): void {
+/**
+ * Wraps `goto` in place, so no spec has to remember to call it.
+ *
+ * Exported because the `page` fixture is not the only page in this suite: any
+ * spec that needs a second identity opens its own `browser.newContext()`, and
+ * those pages are NOT wrapped. That gap produced exactly one failure in twelve
+ * full runs — a sign-up form filled before it had handlers — which is the worst
+ * kind, so a page from a hand-rolled context should be handed to this.
+ */
+export function instrumentPage(page: Page): void {
   const goto = page.goto.bind(page);
   page.goto = async (url: string, options?: Parameters<Page["goto"]>[1]) => {
     const response = await goto(url, options);
@@ -282,7 +290,7 @@ export const test = base.extend<{
   ],
 
   page: async ({ page }, use) => {
-    waitAfterEveryGoto(page);
+    instrumentPage(page);
     await use(page);
   },
 

@@ -1,209 +1,420 @@
-import { expect, query, test } from "./fixtures";
+import {
+  auditA11y,
+  createThrowawayAccount,
+  expect,
+  instrumentPage,
+  query,
+  removeThrowawayAccount,
+  signIn,
+  SEED_ENGINEER,
+  test,
+} from "./fixtures";
 
 /**
- * Claiming an account: the email link, the callback, and the password.
+ * Getting back in, without any email at all.
  *
- * None of this existed. `sendMagicLink` had always pointed at `/auth/callback`
- * and the login page had always offered to email a sign-in link — but the route
- * was never built, so the mail arrived and the link landed on a 404, and nothing
- * anywhere called `exchangeCodeForSession`. A control that looks finished and is
- * wired to nothing, like the ⌘K badge in §14.
+ * This file used to drive a magic link and a password-reset link through a real
+ * local mail server. Both are gone, and the reason is in `docs/05-DECISIONS.md`:
+ * there is no SMTP this team can operate. Vercel's free tier allows two emails
+ * an hour and Supabase's shared sender is rate-limited and explicitly not for
+ * production, so a recovery path built on mail works four times a day and fails
+ * silently the rest of the time — the worst way for an auth path to fail.
  *
- * It matters now because the four production accounts were created by the seed
- * with one shared password and later repointed to the team's real addresses.
- * Each owner has to choose a password of their own **without** creating a second
- * account — the account they already have is the one holding their work.
- *
- * The whole path is exercised against a real local mail server, because the two
- * ways this breaks are both invisible from the code:
- *
- *  - Supabase IGNORES a `redirectTo` that is not in its allowed redirect list
- *    and silently substitutes the project's Site URL. The mail still arrives and
- *    the link still resolves — it just dumps the person on the site root with a
- *    token nothing will consume. That is why the assertion below reads the URL
- *    out of the actual email rather than trusting what was passed.
- *  - A single-use link is single-use, so a test that reuses one passes once.
+ * What replaces it is deliberately unglamorous: an admin generates a temporary
+ * password on `/app/people`, reads it out, and `profiles.must_set_password`
+ * stops the account being used for anything else until its owner chooses their
+ * own. The thing worth testing hard is that last clause, because it is the only
+ * thing standing between "an admin can help somebody back in" and "an admin has
+ * quietly taken over an account".
  */
 
-/** Mailpit — despite the container being named `supabase_inbucket_*`. */
-const MAIL = process.env.E2E_MAIL_URL ?? "http://127.0.0.1:54424";
-
-interface MailpitMessage {
-  ID: string;
-  Subject: string;
-  To: Array<{ Address: string }>;
-}
-
-async function linkSentTo(address: string): Promise<string> {
-  const list = (await (await fetch(`${MAIL}/api/v1/messages?limit=50`)).json()) as {
-    messages: MailpitMessage[];
+/** One address per test — these run in parallel against one database. */
+function probe(name: string) {
+  return {
+    email: `pw-${name}@coditu.test`,
+    password: `probe-${name}-2026`,
+    // The NAME has to be unique too, not just the address: these run in
+    // parallel and every one of them appears on `/app/people` at the same time,
+    // so a shared display name makes `filter({ hasText })` match five rows.
+    fullName: `Password Probe ${name}`,
   };
-  const mine = list.messages.filter((message) =>
-    message.To.some((to) => to.Address.toLowerCase() === address.toLowerCase())
-  );
-  expect(mine.length, `no mail was sent to ${address}`).toBeGreaterThan(0);
-
-  const full = (await (await fetch(`${MAIL}/api/v1/message/${mine[0].ID}`)).json()) as {
-    HTML?: string;
-    Text?: string;
-  };
-  const body = full.HTML ?? full.Text ?? "";
-  const link = (body.match(/https?:\/\/[^"'\s<>]+/g) ?? [])
-    .map((url) => url.replace(/&amp;/g, "&"))
-    .find((url) => url.includes("/auth/v1/verify"));
-
-  expect(link, "the email contained no verification link").toBeTruthy();
-  return link!;
 }
 
-/** An account with no known password, exactly like the repointed production ones. */
-async function createClaimableAccount(address: string) {
-  await query(`delete from auth.users where email = $1`, [address]);
-  await query(`delete from allowed_emails where email = $1`, [address]);
-  await query(`insert into allowed_emails (email, note) values ($1, 'e2e password spec')`, [address]);
-  await query(
-    `insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
-       email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data,
-       confirmation_token, recovery_token, email_change_token_new, email_change,
-       email_change_token_current, phone_change, phone_change_token, reauthentication_token)
-     values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated',
-       'authenticated', $1, crypt($2, gen_salt('bf')), now(), now(), now(),
-       '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Claim Probe"}'::jsonb,
-       '', '', '', '', '', '', '', '')`,
-    [address, "the-old-shared-password"]
-  );
-  // Without an identity row GoTrue refuses the recovery flow outright.
-  await query(
-    `insert into auth.identities (id, user_id, provider_id, identity_data, provider,
-       last_sign_in_at, created_at, updated_at)
-     select u.id, u.id, u.id::text,
-       jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true,
-                          'phone_verified', false),
-       'email', now(), now(), now()
-     from auth.users u where u.email = $1`,
-    [address]
-  );
+/** The generated shape: four groups of four, no ambiguous glyphs. */
+const TEMPORARY = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}(-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}){3}$/;
+
+/**
+ * A browser that is NOT the admin's.
+ *
+ * `adminPage` is built on the `page` fixture, so they are the same tab — and
+ * the middleware sends a signed-in visitor from `/login` straight to `/app`.
+ * Signing the target in on that tab produces a sprint page and a locator that
+ * waits thirty seconds for an email field that will never render.
+ */
+async function asSomebodyElse(
+  browser: import("@playwright/test").Browser,
+  baseURL: string | undefined,
+  run: (page: import("@playwright/test").Page) => Promise<void>
+) {
+  const context = await browser.newContext({ baseURL });
+  try {
+    const page = await context.newPage();
+    // Hand-rolled contexts miss the `page` fixture's hydration wait, and every
+    // caller here fills a form as soon as it lands. See `instrumentPage`.
+    instrumentPage(page);
+    await run(page);
+  } finally {
+    await context.close();
+  }
 }
 
-async function removeAccount(address: string) {
-  await query(`delete from auth.users where email = $1`, [address]);
-  await query(`delete from allowed_emails where email = $1`, [address]);
+/** Sign in on a page that has no session, and land wherever the app sends you. */
+async function signInWith(
+  page: import("@playwright/test").Page,
+  email: string,
+  password: string
+) {
+  await page.goto("/login");
+  await page.locator('input[name="email"]').fill(email);
+  await page.locator('input[name="password"]').fill(password);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
 }
 
-test.describe("claiming an account with a password", () => {
-  // Serial, because the sweep below is a `like 'claim-%'` and `afterAll` runs
-  // once PER WORKER. Split across workers, the worker that finishes the two
-  // fast tests deletes the slow test's account while it is still mid-flight —
-  // and the symptom is not an error, it is silence: `/recover` on an address
-  // with no user returns 200 and sends nothing, precisely so the endpoint
-  // cannot be used to find out who works here. The spec then fails at "no mail
-  // was sent", pointing at the mail server.
-  test.describe.configure({ mode: "serial" });
+async function issueTemporaryPasswordFor(adminPage: import("@playwright/test").Page, fullName: string) {
+  await adminPage.goto("/app/people");
+  const row = adminPage.locator("[data-team-member]").filter({ hasText: fullName });
+  await row.getByRole("button", { name: `Set a temporary password for ${fullName}` }).click();
 
-  // The per-test `finally` is not enough on its own: Playwright aborts a test
-  // at its timeout, which can cut the cleanup off part-way and leave the
-  // throwaway address on the allowlist. This sweep runs regardless, so a run
-  // that times out cannot silently pile rows up for the next one.
-  test.afterAll(async () => {
-    await query(`delete from auth.users where email like 'claim-%@coditu.test'`);
-    await query(`delete from public.allowed_emails where email like 'claim-%@coditu.test'`);
+  const panel = row.locator("[data-temporary-password]");
+  await expect(panel).toBeVisible();
+  const shown = (await panel.locator("[data-password-value]").innerText()).trim();
+  expect(shown, "the generated password is not the readable shape").toMatch(TEMPORARY);
+  return shown;
+}
+
+test.describe("one form, and no mail anywhere", () => {
+  test("the login page offers exactly one email field and one password field", async ({ page }) => {
+    await page.goto("/login");
+
+    await expect(page.locator('input[type="email"]')).toHaveCount(1);
+    await expect(page.locator('input[type="password"]')).toHaveCount(1);
+
+    // The two forms that depended on SMTP are gone, by name.
+    await expect(page.getByPlaceholder("Email a sign-in link instead")).toHaveCount(0);
+    await expect(page.getByPlaceholder("Set or reset your password")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Send a sign-in link/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Email a link to set a password/ })).toHaveCount(0);
+
+    // And it says what to do instead, rather than leaving a hole.
+    await expect(page.getByText(/Ask an admin for a temporary one/)).toBeVisible();
+
+    // Sign-up is still here, and still gated.
+    await page.getByRole("tab", { name: "Create account" }).click();
+    await expect(page.getByText(/invite-only/)).toBeVisible();
+    await expect(page.locator('input[type="email"]')).toHaveCount(1);
   });
 
-  test("the link sets a session, the password sticks, and the old one stops working", async ({
-    page,
+  test("nothing in the repository sends mail", async () => {
+    // A grep, and it earns its place: the two actions are deleted, but the
+    // thing that must stay true is that no NEW caller appears. Every Supabase
+    // API below sends an email and there is no transport to send it with.
+    const { execSync } = await import("node:child_process");
+    // Call sites, not mentions: the trailing `(` is what keeps a comment
+    // explaining why the mail is gone from failing the test that proves it.
+    const hits = execSync(
+      "grep -rnE '(signInWithOtp|resetPasswordForEmail|inviteUserByEmail|generateLink|sendMagicLink|requestPasswordReset)\\(' " +
+        "app components lib scripts || true",
+      { encoding: "utf8" }
+    ).trim();
+    expect(hits, "something in the app sends mail").toBe("");
+  });
+});
+
+test.describe("a temporary password, and the change it forces", () => {
+  test("an admin issues one, and it is the readable shape", async ({
+    adminPage,
     browser,
     baseURL,
   }) => {
-    // Mail delivery plus six navigations across three browser contexts. Fast
-    // locally; the default 30s is not a meaningful budget for it on CI.
-    test.slow();
-
-    const address = `claim-${Date.now()}@coditu.test`;
-    const chosen = "a-password-of-my-own-9";
-
+    const me = probe("shape");
+    await createThrowawayAccount(me);
     try {
-      await createClaimableAccount(address);
+      const shown = await issueTemporaryPasswordFor(adminPage, me.fullName);
 
-      await page.goto("/login");
-      await page.getByPlaceholder("Set or reset your password").fill(address);
-      await page.getByRole("button", { name: /Email a link to set a password/ }).click();
+      // Shown once, in the row, with the sentence that says it is not stored.
+      const row = adminPage.locator("[data-team-member]").filter({ hasText: me.fullName });
+      await expect(row.locator("[data-temporary-password]")).toContainText("shown once");
+      await expect(row.getByRole("button", { name: "Copy" })).toBeVisible();
 
-      // Same sentence whether or not the address exists — it must not become a
-      // way to find out who works here.
-      await expect(page.locator("[data-auth-message]")).toContainText(
-        /a link to set a password is on its way/i
-      );
-
-      const link = await linkSentTo(address);
-
-      // The redirect Supabase actually agreed to. If `/auth/callback` is not in
-      // the allowed list this is the Site URL instead, and everything below
-      // fails — which is the point.
-      expect(decodeURIComponent(link), "Supabase substituted its Site URL for our redirectTo")
-        .toContain("/auth/callback");
-
-      await page.goto(link);
-      await expect(page).toHaveURL(/\/auth\/update-password/);
-      await expect(page.getByRole("heading")).toContainText("Set your password");
-
-      await page.locator('input[name="password"]').fill(chosen);
-      await page.locator('input[name="confirm"]').fill(chosen);
-      await page.getByRole("button", { name: "Set password" }).click();
-      await expect(page).toHaveURL(/\/app/, { timeout: 20_000 });
-
-      // A clean browser: the password is what gets them in, not the session the
-      // link happened to leave behind.
-      // `browser.newContext()` does NOT inherit `baseURL` from the config's `use`
-      // block, so a relative `goto` in here has nothing to resolve against.
-      const fresh = await browser.newContext({ baseURL });
-      try {
-        const signedIn = await fresh.newPage();
-        await signedIn.goto("/login");
-        await signedIn.locator('input[name="email"]').first().fill(address);
-        await signedIn.locator('input[name="password"]').first().fill(chosen);
-        await signedIn.getByRole("button", { name: "Sign in", exact: true }).click();
-        await expect(signedIn).toHaveURL(/\/app/, { timeout: 20_000 });
-
-      } finally {
-        await fresh.close();
-      }
-
-      // A THIRD context, because the one above is now signed in — and the
-      // middleware sends a signed-in visitor from /login straight to /app, so
-      // the form would never render and this would hang rather than fail.
-      const stale = await browser.newContext({ baseURL });
-      try {
-        const page3 = await stale.newPage();
-        await page3.goto("/login");
-        await page3.locator('input[name="email"]').first().fill(address);
-        await page3.locator('input[name="password"]').first().fill("the-old-shared-password");
-        await page3.getByRole("button", { name: "Sign in", exact: true }).click();
-        await expect(page3.locator("[data-auth-message]")).toContainText(/do not match/i);
-      } finally {
-        await stale.close();
-      }
+      // And it works: this is a password, not a placeholder.
+      await asSomebodyElse(browser, baseURL, async (them) => {
+        await signInWith(them, me.email, shown);
+        await expect(them).toHaveURL(/\/auth\/update-password/, { timeout: 20_000 });
+      });
     } finally {
-      await removeAccount(address);
+      await removeThrowawayAccount(me.email);
     }
   });
 
-  test("a dead link says so instead of showing a blank form", async ({ page }) => {
-    await page.goto("/auth/callback?code=not-a-real-code");
-    await expect(page).toHaveURL(/\/login\?error=link/);
-    await expect(page.locator("[data-auth-message]")).toContainText(/expired or has already been used/i);
+  test("the target cannot navigate past the password screen", async ({
+    adminPage,
+    browser,
+    baseURL,
+  }) => {
+    const me = probe("gate");
+    await createThrowawayAccount(me);
+    try {
+      const shown = await issueTemporaryPasswordFor(adminPage, me.fullName);
+
+      await asSomebodyElse(browser, baseURL, async (them) => {
+        await signInWith(them, me.email, shown);
+        await expect(them).toHaveURL(/\/auth\/update-password/, { timeout: 20_000 });
+
+        // Typing a URL is the obvious way out, so it is the one worth checking.
+        // Every route under /app, not one: the layout is the gate and it wraps
+        // all of them.
+        for (const path of ["/app", "/app/people", "/app/my-work", "/app/settings"]) {
+          await them.goto(path);
+          await expect(them, `${path} let them through`).toHaveURL(/\/auth\/update-password/);
+        }
+      });
+    } finally {
+      await removeThrowawayAccount(me.email);
+    }
   });
 
-  test("the callback never redirects off this site", async ({ page }) => {
-    // `next` arrives inside a URL that gets emailed to somebody, so it is an
-    // open redirect waiting to happen. `//evil.example` is the case people miss:
-    // a browser reads it as protocol-relative and leaves the site.
-    for (const hostile of ["https://evil.example", "//evil.example", "/\\evil.example"]) {
-      const response = await page.request.get(
-        `/auth/callback?code=x&next=${encodeURIComponent(hostile)}`,
-        { maxRedirects: 0 }
+  test("setting their own password clears the flag and opens the app", async ({
+    adminPage,
+    browser,
+    baseURL,
+  }) => {
+    test.slow();
+    const me = probe("clears");
+    const chosen = "a-password-of-my-own-9";
+
+    await createThrowawayAccount(me);
+    try {
+      const shown = await issueTemporaryPasswordFor(adminPage, me.fullName);
+
+      const [flagged] = await query<{ must_set_password: boolean }>(
+        `select p.must_set_password from public.profiles p
+         join auth.users u on u.id = p.id where u.email = $1`,
+        [me.email]
       );
-      const location = response.headers()["location"] ?? "";
-      expect(location, `${hostile} escaped the site`).not.toContain("evil.example");
+      expect(flagged.must_set_password, "the flag was not set").toBe(true);
+
+      await asSomebodyElse(browser, baseURL, async (them) => {
+        await signInWith(them, me.email, shown);
+        await expect(them).toHaveURL(/\/auth\/update-password/, { timeout: 20_000 });
+
+        await them.locator('input[name="password"]').fill(chosen);
+        await them.locator('input[name="confirm"]').fill(chosen);
+        await them.getByRole("button", { name: "Set password" }).click();
+        await expect(them).toHaveURL(/\/app/, { timeout: 20_000 });
+      });
+
+      const [cleared] = await query<{ must_set_password: boolean }>(
+        `select p.must_set_password from public.profiles p
+         join auth.users u on u.id = p.id where u.email = $1`,
+        [me.email]
+      );
+      expect(cleared.must_set_password, "the flag survived the change").toBe(false);
+
+      // A clean browser: the new password is what gets them in, and it no
+      // longer stops at the password screen.
+      await asSomebodyElse(browser, baseURL, async (them) => {
+        await signInWith(them, me.email, chosen);
+        await expect(them).toHaveURL(/\/app/, { timeout: 20_000 });
+        await expect(them).not.toHaveURL(/update-password/);
+      });
+
+      // And the temporary one is dead.
+      await asSomebodyElse(browser, baseURL, async (them) => {
+        await signInWith(them, me.email, shown);
+        await expect(them.locator("[data-auth-message]")).toContainText(/do not match/i);
+      });
+    } finally {
+      await removeThrowawayAccount(me.email);
+    }
+  });
+
+  test("the plaintext is in no column of any table", async ({ adminPage }) => {
+    const me = probe("storage");
+    await createThrowawayAccount(me);
+    try {
+      const shown = await issueTemporaryPasswordFor(adminPage, me.fullName);
+
+      // Every text-ish column of every table in `public` and `auth`, scanned
+      // for the literal. Not a spot-check of the columns somebody thought of:
+      // the claim is "written to no table, no log, no activity row", and the
+      // honest way to test the first of those is to look in all of them.
+      const columns = await query<{ table_schema: string; table_name: string; column_name: string }>(
+        `select c.table_schema, c.table_name, c.column_name
+         from information_schema.columns c
+         join information_schema.tables t
+           on t.table_schema = c.table_schema and t.table_name = c.table_name
+         where c.table_schema in ('public', 'auth')
+           and t.table_type = 'BASE TABLE'
+           and c.data_type in ('text', 'character varying', 'json', 'jsonb')`
+      );
+      expect(columns.length, "no columns were scanned — the query is wrong").toBeGreaterThan(20);
+
+      const probes = columns.map(
+        (c) =>
+          `select '${c.table_schema}.${c.table_name}.${c.column_name}' as where_it_is
+           where exists (select 1 from "${c.table_schema}"."${c.table_name}"
+                         where "${c.column_name}"::text like $1)`
+      );
+      const found = await query<{ where_it_is: string }>(probes.join(" union all "), [`%${shown}%`]);
+
+      expect(found.map((row) => row.where_it_is), "the temporary password was written somewhere").toEqual([]);
+    } finally {
+      await removeThrowawayAccount(me.email);
+    }
+  });
+
+  test("an admin cannot issue one for themselves, or for somebody deactivated", async ({
+    adminPage,
+  }) => {
+    const me = probe("refuses");
+    await createThrowawayAccount(me);
+    try {
+      await adminPage.goto("/app/people");
+
+      // Their own row does not offer it at all — the same rule that stops an
+      // admin changing their own role or deactivating themselves.
+      const own = adminPage.locator("[data-team-member][data-self]");
+      await expect(own.getByRole("button", { name: /Set a temporary password/ })).toHaveCount(0);
+
+      // A deactivated person has no access at all, so a password would let them
+      // in exactly nowhere. The control is present and disabled with a reason,
+      // never hidden — the rule this panel already follows everywhere else.
+      await query(
+        `update public.profiles set is_active = false
+         where id = (select id from auth.users where email = $1)`,
+        [me.email]
+      );
+      await adminPage.reload();
+
+      const row = adminPage.locator("[data-team-member]").filter({ hasText: me.fullName });
+      const control = row.getByRole("button", {
+        name: `Set a temporary password for ${me.fullName}`,
+      });
+      await expect(control).toBeVisible();
+      await expect(control).toBeDisabled();
+      await expect(control).toHaveAttribute("title", /no access at all while deactivated/);
+    } finally {
+      await removeThrowawayAccount(me.email);
+    }
+  });
+
+  test("PostgREST refuses a non-admin's write to the flag", async ({ browser, baseURL }) => {
+    // `own profile update` lets a person write their own row — they set their
+    // own name and picture through it. `guard_profile_privilege_columns` is
+    // what stops that row's `must_set_password` going with them.
+    const context = await browser.newContext({ baseURL });
+    try {
+      const page = await context.newPage();
+      await signIn(page, SEED_ENGINEER);
+      await page.goto("/app/my-work");
+
+      const outcome = await page.evaluate(async () => {
+        const raw = document.cookie
+          .split("; ")
+          .find((c) => c.startsWith("sb-127-auth-token="))
+          ?.split("=")
+          .slice(1)
+          .join("=");
+        const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
+        const me = JSON.parse(atob(json.access_token.split(".")[1])).sub;
+        const response = await fetch(`http://127.0.0.1:54421/rest/v1/profiles?id=eq.${me}`, {
+          method: "PATCH",
+          headers: {
+            apikey: json.access_token,
+            Authorization: `Bearer ${json.access_token}`,
+            "Content-Type": "application/json",
+          },
+          // TRUE, not false. `is distinct from` is what the trigger tests, so
+          // writing the value the row already holds changes nothing, raises
+          // nothing, and would have passed this test against no trigger at all.
+          body: JSON.stringify({ must_set_password: true }),
+        });
+        return { status: response.status, body: await response.text() };
+      });
+
+      // The trigger's own errcode, surfaced by PostgREST as a 403.
+      expect(outcome.status).toBe(403);
+      expect(outcome.body).toContain("only an admin may require a password change");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("axe finds nothing on the sign-in page or the password screen", async ({
+    adminPage,
+    browser,
+    baseURL,
+  }) => {
+    // A SEPARATE context for `/login`. The plain `page` fixture is the one
+    // `adminPage` signs in, and the middleware sends a signed-in visitor from
+    // `/login` straight to `/app` — so the form would never render and this
+    // would fail while looking like an accessibility problem.
+    const anonymous = await browser.newContext({ baseURL, viewport: { width: 1440, height: 900 } });
+    try {
+      const out = await anonymous.newPage();
+      instrumentPage(out);
+      await out.goto("/login");
+      await expect(out.getByRole("heading", { name: "Sign in" })).toBeVisible();
+      expect(await auditA11y(out), "the sign-in page").toEqual([]);
+    } finally {
+      await anonymous.close();
+    }
+
+    const me = probe("axe");
+    await createThrowawayAccount(me);
+    try {
+      const shown = await issueTemporaryPasswordFor(adminPage, me.fullName);
+      // The People panel with the password on screen is the other new surface.
+      expect(await auditA11y(adminPage), "People with a temporary password shown").toEqual([]);
+
+      const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 900 } });
+      try {
+        const forced = await context.newPage();
+        instrumentPage(forced);
+        await signInWith(forced, me.email, shown);
+        await expect(forced).toHaveURL(/\/auth\/update-password/, { timeout: 20_000 });
+        // The redirect chain has to have finished before axe reads the DOM, or
+        // `page.evaluate` lands mid-navigation and the context is destroyed
+        // under it.
+        await expect(forced.getByRole("heading", { name: "Set your password" })).toBeVisible();
+        expect(await auditA11y(forced), "the forced password screen").toEqual([]);
+      } finally {
+        await context.close();
+      }
+    } finally {
+      await removeThrowawayAccount(me.email);
+    }
+  });
+});
+
+test.describe("the callback route, which nothing sends links to any more", () => {
+  // Kept because it costs nothing, its open-redirect guard is written and
+  // tested, and it still serves the forced-change redirect. Deleting a tested
+  // guard because the caller went away is how it comes back untested.
+  test("a dead code says so instead of showing a blank form", async ({ page }) => {
+    await page.goto("/auth/callback?code=not-a-real-code");
+    await expect(page).toHaveURL(/\/login\?error=link/);
+    await expect(page.locator("[data-auth-message]")).toContainText(/no longer valid/i);
+  });
+
+  test("the callback never redirects off this site", async ({ page, baseURL }) => {
+    // `next` used to arrive inside an emailed URL. Nothing emails one now, but
+    // the parameter is still read, and `//evil.example` is the case people miss:
+    // a browser reads it as protocol-relative and leaves the site.
+    const ours = new URL(baseURL ?? "http://localhost:3000").host;
+    for (const hostile of ["https://evil.example", "//evil.example", "/\\evil.example"]) {
+      await page.goto(`/auth/callback?next=${encodeURIComponent(hostile)}`);
+      expect(new URL(page.url()).host, `escaped with next=${hostile}`).toBe(ours);
     }
   });
 });
