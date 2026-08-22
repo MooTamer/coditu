@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { AVATAR_BUCKET, avatarObjectKey } from "@/lib/avatar";
 import { extensionFor, isAllowedImageType, looksLikeImage } from "@/lib/images";
+import { initialsFor } from "@/lib/profile-initials";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { APP_ROLES } from "@/lib/work-items";
 
@@ -153,6 +154,71 @@ export async function setProfileActive(input: unknown): Promise<ProfileResult> {
 
   revalidatePath("/app/people");
   return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Your own name.                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The other thing on a profile that belongs to its owner.
+ *
+ * Where the boundary is, and why it is where it is: a display name and a
+ * picture are how a person presents themselves, and they set both. Role,
+ * capacity and access are decisions *about* a person and are an admin's, on
+ * `/app/people`. That split is already documented at length at the top of this
+ * file and `guard_profile_privilege_columns` enforces the half that matters —
+ * so `full_name` is deliberately NOT in that trigger's list. It is not a
+ * privilege.
+ *
+ * `initials` is re-derived rather than accepted. It is a *derived* column, and
+ * the derivation already exists in `handle_new_user`; letting a form set it
+ * would mean a name changed here and the same name typed at sign-up could
+ * produce two different faces for one person.
+ */
+const displayName = z.object({
+  // The same floor and ceiling the sign-up form uses. Two different limits for
+  // one column is how you get a name that can be created and never corrected.
+  fullName: z.string().trim().min(2, "Tell us your name.").max(80, "That is too long for a name."),
+});
+
+export interface NameResult {
+  ok: boolean;
+  error?: string;
+  /** What was actually stored, so the caller can settle its optimistic state. */
+  fullName?: string;
+  initials?: string;
+}
+
+export async function setMyName(input: unknown): Promise<NameResult> {
+  const parsed = displayName.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the name and try again." };
+  }
+
+  const profile = await getCurrentProfile();
+  if (!profile) return { ok: false, error: "You are not signed in." };
+
+  const fullName = parsed.data.fullName;
+  const initials = initialsFor(fullName);
+
+  if (fullName === profile.full_name && initials === profile.initials) {
+    return { ok: true, fullName, initials };
+  }
+
+  const supabase = await createClient();
+  // `.eq("id", profile.id)` and not a bare update: the RLS policy allows an
+  // admin to update anyone, so the scope has to come from the session rather
+  // than from the request. Same reasoning as every other action here.
+  const { error } = await supabase
+    .from("profiles")
+    .update({ full_name: fullName, initials })
+    .eq("id", profile.id);
+
+  if (error) return { ok: false, error: "That did not save. Your name is unchanged — try again." };
+
+  revalidateEverywhereAPersonAppears();
+  return { ok: true, fullName, initials };
 }
 
 /* -------------------------------------------------------------------------- */

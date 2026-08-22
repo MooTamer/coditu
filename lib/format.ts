@@ -75,7 +75,3 @@ export function dateRange(from: string | null, to: string | null): string {
   return `${calendarDate(from)} → ${calendarDate(to)}`;
 }
 
-export function initialsOf(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "··";
-}

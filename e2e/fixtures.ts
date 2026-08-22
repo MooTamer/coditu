@@ -129,6 +129,63 @@ export async function query<T = Record<string, unknown>>(sql: string, params: un
 }
 
 /**
+ * A throwaway account, for the handful of tests that must not touch the seed.
+ *
+ * Two things in this app are destructive to a shared session and there is no
+ * way to test either of them politely:
+ *
+ *  - `supabase.auth.signOut()` defaults to `scope: "global"`, so it revokes
+ *    every session the account holds — every other parallel worker included.
+ *  - Renaming a profile changes a name eleven other specs assert on.
+ *
+ * So those tests get their own person. Written straight into `auth.users`
+ * rather than through the sign-up form because the form is not what is under
+ * test — the same approach `password.spec.ts` takes, and the identity row is
+ * mandatory there for the same reason: GoTrue refuses to work with a user that
+ * has no identity.
+ *
+ * `handle_new_user` still fires, so the profile and its initials come from the
+ * real trigger.
+ */
+export async function createThrowawayAccount(who: {
+  email: string;
+  password: string;
+  fullName: string;
+}): Promise<void> {
+  await removeThrowawayAccount(who.email);
+  await query(`insert into public.allowed_emails (email, note) values ($1, 'e2e throwaway')`, [
+    who.email,
+  ]);
+  await query(
+    `insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+       email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data,
+       confirmation_token, recovery_token, email_change_token_new, email_change,
+       email_change_token_current, phone_change, phone_change_token, reauthentication_token)
+     values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated',
+       'authenticated', $1, crypt($2, gen_salt('bf')), now(), now(), now(),
+       '{"provider":"email","providers":["email"]}'::jsonb,
+       jsonb_build_object('full_name', $3::text),
+       '', '', '', '', '', '', '', '')`,
+    [who.email, who.password, who.fullName]
+  );
+  await query(
+    `insert into auth.identities (id, user_id, provider_id, identity_data, provider,
+       last_sign_in_at, created_at, updated_at)
+     select u.id, u.id, u.id::text,
+       jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true,
+                          'phone_verified', false),
+       'email', now(), now(), now()
+     from auth.users u where u.email = $1`,
+    [who.email]
+  );
+}
+
+export async function removeThrowawayAccount(email: string): Promise<void> {
+  await query(`delete from auth.users where email = $1`, [email]);
+  await query(`delete from public.allowed_emails where email = $1`, [email]);
+}
+
+/**
  * The suite runs in parallel against ONE seeded database, so a test that logs
  * an hour into the sprint and a test that asserts the footer totals are a race
  * waiting to happen — and it is the second run that finds it, not the first.

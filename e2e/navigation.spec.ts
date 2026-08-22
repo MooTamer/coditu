@@ -1,6 +1,13 @@
 import { existsSync } from "node:fs";
 
-import { auditA11y, expect, query, signIn, test } from "./fixtures";
+import {
+  auditA11y,
+  createThrowawayAccount,
+  expect,
+  removeThrowawayAccount,
+  signIn,
+  test,
+} from "./fixtures";
 
 /**
  * Navigation you can see, and an account you can leave.
@@ -152,44 +159,15 @@ test.describe("navigation feedback", () => {
  * So this creates a throwaway account with a password only it knows, exactly
  * the way `password.spec.ts` builds its claimable ones, and signs *that* out.
  */
-const PROBE = { email: "signout-probe@coditu.test", password: "probe-signs-out-2026" };
-
-async function createProbeAccount() {
-  await removeProbeAccount();
-  await query(`insert into allowed_emails (email, note) values ($1, 'e2e navigation spec')`, [
-    PROBE.email,
-  ]);
-  await query(
-    `insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
-       email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data,
-       confirmation_token, recovery_token, email_change_token_new, email_change,
-       email_change_token_current, phone_change, phone_change_token, reauthentication_token)
-     values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated',
-       'authenticated', $1, crypt($2, gen_salt('bf')), now(), now(), now(),
-       '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Signout Probe"}'::jsonb,
-       '', '', '', '', '', '', '', '')`,
-    [PROBE.email, PROBE.password]
-  );
-  await query(
-    `insert into auth.identities (id, user_id, provider_id, identity_data, provider,
-       last_sign_in_at, created_at, updated_at)
-     select u.id, u.id, u.id::text,
-       jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true,
-                          'phone_verified', false),
-       'email', now(), now(), now()
-     from auth.users u where u.email = $1`,
-    [PROBE.email]
-  );
-}
-
-async function removeProbeAccount() {
-  await query(`delete from auth.users where email = $1`, [PROBE.email]);
-  await query(`delete from public.allowed_emails where email = $1`, [PROBE.email]);
-}
+const PROBE = {
+  email: "signout-probe@coditu.test",
+  password: "probe-signs-out-2026",
+  fullName: "Signout Probe",
+};
 
 test.describe("the account menu", () => {
   test("sign out is reachable by tapping, on a phone", async ({ page }) => {
-    await createProbeAccount();
+    await createThrowawayAccount(PROBE);
     try {
       await signIn(page, PROBE);
       await page.setViewportSize(PHONE);
@@ -216,7 +194,7 @@ test.describe("the account menu", () => {
       await page.goto(SPRINT);
       await expect(page).toHaveURL(/\/login\?next=/);
     } finally {
-      await removeProbeAccount();
+      await removeThrowawayAccount(PROBE.email);
     }
   });
 

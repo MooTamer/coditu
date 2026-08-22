@@ -85,7 +85,13 @@ export async function getPaletteTargets(): Promise<PaletteTargets> {
         "id, key, title, status, sprints!inner ( number, projects!inner ( slug, clients ( name ) ) )"
       )
       .order("key"),
-    supabase.from("profiles").select("id, full_name").order("full_name"),
+    // `initials` is READ, not re-derived. It used to be computed here from the
+    // display name, which is a third answer to a question the column already
+    // answers — and the three did not agree: this one split on `\s+`, so
+    // "Ahmed  Yehia" gave AY where `handle_new_user` gives A. A name corrected
+    // in Settings updates the column, and the palette would have gone on
+    // showing the old derivation.
+    supabase.from("profiles").select("id, full_name, initials").order("full_name"),
   ]);
 
   const projects: PaletteProject[] = [];
@@ -142,7 +148,7 @@ export async function getPaletteTargets(): Promise<PaletteTargets> {
   const people: PalettePerson[] = (peopleRows.data ?? []).map((row) => ({
     id: row.id,
     fullName: row.full_name,
-    initials: initialsOf(row.full_name),
+    initials: row.initials,
   }));
 
   return {
@@ -152,9 +158,4 @@ export async function getPaletteTargets(): Promise<PaletteTargets> {
     people,
     canAssign: profile.role === "admin" || profile.role === "lead",
   };
-}
-
-function initialsOf(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "··";
 }

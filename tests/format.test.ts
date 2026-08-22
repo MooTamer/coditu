@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { calendarDate, dateRange, hours, hoursLabel, hoursOrDash, initialsOf, timestamp } from "@/lib/format";
+import { calendarDate, dateRange, hours, hoursLabel, hoursOrDash, timestamp } from "@/lib/format";
+import { initialsFor } from "@/lib/profile-initials";
 
 /**
  * These helpers are where invariants 2 and 5 are actually enforced, so they get
@@ -87,17 +88,50 @@ describe("dates — invariant 5", () => {
   });
 });
 
-describe("initials", () => {
+/**
+ * `profiles.initials` is a DERIVED column, and the derivation that counts lives
+ * in `handle_new_user`. `initialsFor` is a copy of it — needed because Settings
+ * writes the column and a round trip to the database to ask what two letters to
+ * store would be absurd — and a copied rule is only safe while it is provably
+ * the same rule.
+ *
+ * Every expectation below was read off Postgres, not reasoned about:
+ *
+ *   select upper(left(regexp_replace(n, '[^[:alpha:] ]', '', 'g'), 1)) ||
+ *          upper(coalesce(substr(split_part(n, ' ', 2), 1, 1), ''))
+ *
+ * There were three answers to this question in the codebase before today. The
+ * two that disagreed with the database are gone; this is the survivor, and
+ * `e2e/settings.spec.ts` proves the property end to end by comparing a name set
+ * here against the same name typed at sign-up.
+ */
+describe("initials — the same rule handle_new_user applies", () => {
   it("takes the first letter of the first two names", () => {
-    expect(initialsOf("Mohamed Tamer")).toBe("MT");
-    expect(initialsOf("Abdelrahman Elkhateeb")).toBe("AE");
+    expect(initialsFor("Mohamed Tamer")).toBe("MT");
+    expect(initialsFor("Abdelrahman Elkhateeb")).toBe("AE");
+    expect(initialsFor("Ahmed Yehia")).toBe("AY");
   });
 
   it("copes with a single name", () => {
-    expect(initialsOf("Prince")).toBe("P");
+    expect(initialsFor("Prince")).toBe("P");
   });
 
-  it("falls back rather than rendering an empty avatar", () => {
-    expect(initialsOf("   ")).toBe("··");
+  it("strips punctuation from the first initial but not from the second word", () => {
+    // `regexp_replace` cleans the string the FIRST letter is taken from;
+    // `split_part` runs on the original, so "R." still contributes R.
+    expect(initialsFor("'Abdelrahman Elkhateeb")).toBe("AE");
+    expect(initialsFor("J. R. Tolkien")).toBe("JR");
+    expect(initialsFor("3M Corporation")).toBe("MC");
+  });
+
+  it("treats a double space the way split_part does — as an empty second word", () => {
+    // The trap in the two rules this replaced: both split on `\s+` and answered
+    // AY here, where the database answers A.
+    expect(initialsFor("Ahmed  Yehia")).toBe("A");
+  });
+
+  it("is Unicode-aware, because half these names are transliterations", () => {
+    expect(initialsFor("Şeyma Öz")).toBe("ŞÖ");
+    expect(initialsFor("محمد تامر")).toBe("مت");
   });
 });

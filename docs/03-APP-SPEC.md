@@ -21,7 +21,7 @@ Geometry, spacing, and copy come from `design/project/Coditu App.dc.html`. What 
 /app/my-work                               assigned to me · awaiting my review · my hours this week
 /app/people                                team load
 /app/import                                Notion CSV importer
-/app/settings                              profile · allowlist (admin) · projects (admin)
+/app/settings                              your profile: name, picture, account, sign out
 ```
 
 Filter, sort, and view state live in the URL (`?status=dev_started,todo&assignee=…&view=board`) so a
@@ -168,17 +168,27 @@ These follow the bundle. The **Notion importer** maps:
 It shows a **preview table flagging every unmatched value — including the non-integer grouping case
 (`"1a"`) — before committing anything.**
 
-## Settings · your picture
+## Settings · your profile
 
-The one thing on a profile its owner sets. Choose, replace, or remove; the browser centre-crops to
+**Your name and your picture** — the two things on a profile its owner sets, and the boundary is the
+point: they are how a person presents themselves. Role, capacity and access are decisions *about* a
+person, are an admin's to make on **People**, and appear here as read-only facts with a pointer to
+where they change. Sign out is here too, as a plain `<form>` on the Server Action, because it is the
+one control that has to work before hydration.
+
+**Your name** writes `profiles.full_name` and re-derives `profiles.initials` by the same rule
+`handle_new_user` applies at sign-up — one rule, copied once, with the property asserted end to end
+rather than assumed. The circle beside the field shows the derived initials as you type, because
+nobody has memorised the rule. `initials` is never accepted from the form.
+
+**Your picture** — choose, replace, or remove; the browser centre-crops to
 256px WebP before it uploads, and the caption names your initials while there is no picture. It then
 replaces the initials **everywhere a person appears** — the rail, the sprint header, the board cards,
 the assignee and reviewer columns, the mobile cards, the People list, the mention menu, every comment
 and every logged hour. Wherever a person has no picture, the initials stay.
 
 Every one of those is `<PersonAvatar>`, which always draws the initials and lays the picture over
-them: a missing or broken image degrades to initials with no JavaScript involved. Role, capacity and
-access stay on **People** — they are decisions *about* a person and are an admin's to make.
+them: a missing or broken image degrades to initials with no JavaScript involved.
 
 Exports are unchanged. `04-EXPORT-SPEC.md` states people as name and initials, and a CSV is not a
 place for a photograph.
