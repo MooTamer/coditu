@@ -2,7 +2,7 @@ import { SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixture
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
 /** Unassigned, draft, no grouping — the least entangled row in the seed. */
-const KEY = "COD-151";
+const KEY = "COD-242";
 
 async function readItem() {
   const [row] = await query<{
@@ -29,7 +29,7 @@ async function readItem() {
  *
  * The whole describe takes the write lock: these specs move statuses,
  * estimates and hours on a seeded sprint, and every other spec that asserts
- * "16.0 / 46.0" or "peer review 4" would see them half-applied.
+ * the sprint totals or "peer review 4" would see them half-applied.
  */
 test.describe("editing from the table", () => {
   test.describe.configure({ mode: "serial", timeout: 60_000 });
@@ -142,7 +142,7 @@ test.describe("editing from the table", () => {
     adminPage: page,
   }) => {
     const assignee = row(page).getByRole("button", { name: /^Assignee/ });
-    // COD-151 is the last row of twelve; `boundingBox` is viewport-relative,
+    // The last row of the sprint; `boundingBox` is viewport-relative,
     // so measuring it while it is still below the fold gives coordinates the
     // mouse can never reach.
     await assignee.scrollIntoViewIfNeeded();

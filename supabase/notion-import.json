@@ -1,0 +1,4370 @@
+{
+ "clients": [
+  {
+   "name": "EVIM",
+   "website_url": "https://www.evim.de",
+   "logo_path": "/clients/evim.svg",
+   "accent_hex": "#2B57FF"
+  },
+  {
+   "name": "Nile Atelier",
+   "website_url": "https://nileatelier.com",
+   "logo_path": null,
+   "accent_hex": "#12A594"
+  },
+  {
+   "name": "Internal · DevOps",
+   "website_url": null,
+   "logo_path": null,
+   "accent_hex": "#5B8CFF"
+  },
+  {
+   "name": "NVRMiss",
+   "website_url": "https://nvrmiss.com",
+   "logo_path": null,
+   "accent_hex": "#FFB020"
+  },
+  {
+   "name": "Converso",
+   "website_url": "https://www.converso.ai",
+   "logo_path": null,
+   "accent_hex": "#7C5CFF"
+  }
+ ],
+ "projects": [
+  {
+   "client": "EVIM",
+   "name": "MEINEvim components",
+   "slug": "meinevim",
+   "scope": "SPFx component set inside SharePoint Online governance.\n\nStanding requirements:\n• Login credentials are held outside this system\n• Mobile/Tablet/Desktop responsiveness\n• First, Last name pasring should meet german naming convensions\n• Modern cool UI with animations\n• Use Assistant, sans-serif as default font\n• ⁠font size to be slider\n• Use #d80345 as default color\n• Use Fluent UI as much as possible\n• Changes to a task are proposed, not applied directly",
+   "accent_hex": "#2B57FF"
+  },
+  {
+   "client": "Nile Atelier",
+   "name": "Nile Atelier partner portal",
+   "slug": "nile-atelier",
+   "scope": "Partner onboarding and document routing",
+   "accent_hex": "#12A594"
+  },
+  {
+   "client": "Internal · DevOps",
+   "name": "Ops Console",
+   "slug": "ops-console",
+   "scope": "Unified dashboard over Redis, Pinecone, S3, PostgreSQL",
+   "accent_hex": "#5B8CFF"
+  },
+  {
+   "client": "NVRMiss",
+   "name": "NVRMiss landing",
+   "slug": "nvrmiss",
+   "scope": "AI receptionist product landing and pricing",
+   "accent_hex": "#FFB020"
+  },
+  {
+   "client": "Converso",
+   "name": "Converso dashboard",
+   "slug": "converso",
+   "scope": "Frontend review of the Converso database dashboard",
+   "accent_hex": "#7C5CFF"
+  }
+ ],
+ "sprints": [
+  {
+   "project": "meinevim",
+   "number": 3,
+   "name": "Sprint — Week 3",
+   "starts_on": "2025-11-03",
+   "ends_on": "2025-11-09",
+   "status": "closed",
+   "notes": "@Abdelrahman Elkhateeb @Mohamed Tamer @adam plz update this page not scWeek 3, it’s deprecated now\n\n@adam if you deployed heading and spe. update its status\n\ncheck ready for review tickets\n\nWeek 3 Web Part Requirements.pdf\n\nplease check review @Ahmed Yehia\n\n• [x]  `process and timeline`\n\n• [ ]  old review issues still there? (except preview issue) (@abdelrahman elkhateeb issues are still there)\n\n• [x]  `Calendar`\n\n• [ ]  A lot of issues still :( @Mohamed Tamer can u handel Calendar issues plz?\n\n• [x]  `Heading and Separator`\n\n• [x]  local testing heading and sep. (yehia)\n\n• [ ]  local testing Baneer with news (yehia)\n\n• remaning tasks dd\n\n• [x]  review UI for Calendar (khateeb)\n\n• [ ]  review UI for process and timeline(khateeb)\n\n• [x]  review UI for Heading Separator(khateeb)\n\n• [x]  check fix: Banner with new changes (khateeb)\n\nwhile reviewing the UI, test implemented functionally and start marked tested functionality as done\nCalendar\n\n• testing notes\n\n    to connect with a calander use this url\n\n    ```jsx\n    https://evimwi.sharepoint.com/Lists/Events/AllItems.aspx\n\n    calander name is (not used anymore)\n    Events\n    ```\n\n• [x]  `the api connection isn’t working fine should be fixed to display events from this url`\n\n```jsx\nhttps://evimwi.sharepoint.com/Lists/Events/AllItems.aspx\n\n```\n\nhttps://community.origamiconnect.com/t/calendar-color-coded-sharepoint-calendar-microsoft-365-group-calendar/416\nAcceptance Criteria:\n\n• [x]  Calendar loads events from Sharepoint Calendars (Events Lists, see\nhttps://www.loom.com/share/496973d5ec614f07ac4e533f2e59e3b5 from 2:49)\n\n• [x]  In the properties pane, users can add/edit/remove calendars (like document libs in\nFinder and co). Calendars can be added from different sites. Each Calendar has a\nlabel and a color.\n\n• [x]  Default Date property that sets the calendar date range based on the following\noptions:\n\n• [x]  -today - shows today’s events\n\n• [x]  -this week - shows all events from today until 7 days from today\n\n• [x]  -this month(default) - shows all events from today till the end of the month\n\n• [x]  -this quarter - shows all events from today until last days of month 3 from\n    now\n\n• [x]  -this year - shows all events from today till the end of the year\n\n• [x]  Calendar month names are either to be hardcoded in German or dynamic\n\n• [x]  The Calendar UI is like the attached pictures..(Tamer)\n\n• [x]  Month View Picker with arrows to slide between months\n\n• [x]  When a time range is selected (by clicking on a month day number for start of\n    range, and another for end of range. Edge case: only 1 day, means no end of\n    range), then events in that time range are shown as cards under the calendar.\n\n• [x]  If no time range is selected, then show all the events in the selected default\n    date (Today, This week, This month …)\n\n• [ ]  An event card shows the data, time and event title. Also include the\n    calendar’s custom label as a “tag” @Mohamed Tamer if it’s done update status\n\n• [x]  When card is hovered over, animate the right border in with the custom color\n    of the calendar the event is fetched from\n\n• [x]  Toggle functionality to filter events based on calendar via dropdown\n\n• Review\n\n• [x]  Toggle to hide “Month View Picker” and only show events happening during the\n    Default Date\n\n• Styling:\n\n• [x]  Max Web Part Height to limit the number of events with a “show additional\n    events” button (maybe use expand icon here to avoid translation to German?) (Tamer)\n\n• [x]  Use default color #D80345 instead of blue for hardcoded colors (Tamer)\n\n• see this screenshot and change everything in blue-ish/purple-ish to the code above (also hover on Reset selection, month change arrows)\n\n• [x]  The event card needs a bit more work.. it is too bulky.. too much information (Tamer)\n\n• see details\n\n• i like the simplicity and conciseness of this…\n\n• Notice also in your implementation how the date and time are each stated twice.. redundant duplication\n\n• The bulkiness gets more apparent with 3+ events:\n\n• [x]  I would remove the “Start” and “End” tags in the selection range, or at least make optional (Tamer)\n\n• [x]  I would make the default range/selected range tag optional (Tamer)\n\n• [x]  If the month view is toggled off, hide “Reset selection” button (Tamer)\n\n• [ ]  What do these labels do? Can’t see them. @Mohamed Tamer if it’s done update status\n\n• [x]  Make Days “Mon”, “Tue”, … dynamic as is implemented with Months. Days also have German names ;) (Tamer)\n\n• [x]  Calendar not responsive in narrow column section\n\n• See screenshot\n\n• [x]  The functionality “Max event list height (px)” is okay but should accompanied with a “show more events” button as in the requirements. Maybe it would be easier to have “Max events in list”? Then if the amount of events surpasses, show the expand button? (Tamer)\nProcess and Timeline\n\nhttps://community.origamiconnect.com/t/process-and-timeline-with-targeting-and-tracking/404\nAcceptance Criteria:\n\n• [x]  adjust animation line to go from right to left instead of left to right\n\n• [x]  UI: Arrow (left to right) that connects Quick Link Icons\n\n• [x]  On mobile: Arrow is vertical top to bottom @Mohamed Tamer if it’s done update status\n\n• [x]  Add/edit/remove Steps (same input format as banner with news)\n\n• [x]  Each Step consists of:\n\n• [x]  Title\n\n• [x]  Subtitle\n\n• [x]  Optional description which shows up as fancy tooltip when hovering over an\n    icon @Mohamed Tamer if it’s done update status\n\n• [x]  Icon (Fluent with preview or Custom PNG)\n\n• [x]  Icon color\n\n• [x]  Optional color to override background gradient for specific step\n\n• [x]  Optional URL to open when icon is clicked\n\n• [x]  Slider to resize entire webpart, to let user avoid arrow overflowing to a second line\n\n• Styling:\n\n• [x]  Text color\n\n• [x]  Tooltip colors (text, background) @Mohamed Tamer if it’s done update status\n\n• [x]  Gradient start, middle, end\nReview\n\n• [x]  @Ahmed Yehia properties in first page are not working.. text is not changing, same with colors, icons, etc..\n\n• @adam preview keda … khalas worked after preview again, is this necessary?\n\n• -\n\n• [x]  Need more space on the top for icons to not be cut when hovered over\n\n• i also can’t see the tooltip when i hover?  @Mohamed Tamer if it’s done update status\n\n    20251106-2007-57.5555591.mp4\n\n• [x]  Make resize scale minimum lower than 60%, allow till say 10% for example?\n\n• [x]  Responsiveness needs work\n\n• maybe for narrow screen tooltip should come from side? idk… check attached vid in dropdown\n\n        20251106-2014-13.2920064.mp4\n\nLinkedIn Feed  *(first requirements draft)*\n\nhttps://community.origamiconnect.com/t/linkedin-feed-web-part-for-sharepoint/786\nAcceptance Criteria:\n\n• Carousel of posts, each post is a returned Object from a backend API which will be\nprovided by Adam:\n\n```jsx\n{\n“author”: {\n“pic”: link,\n“name”: str\n},\n“date_posted”: str (format german string),\n“text”: str,\n“media”: {\n“type”: “img” or “vid”\n,\n“link”: str,\n}\n}\n```\n\n• note: @adam for the data we will hard code it in german lang.\n\n• • • • • • • Styling:\n\n• Text color\n\n• Background color\n\nHow can we make the date text fit with German language?\nHeading and Separator\n\nhttps://community.origamiconnect.com/t/heading-and-separator-web-part-with-custom-font-for-sharepoint/597\nAcceptance Criteria:\n\n• [x]  disable animations for all exxcept border bottom\n\n• [x]  Custom text with {firstname}, {lastname}, {fullname} to show as heading and\nseparator between webparts\n\n• [x]  Small animation on hover\n\n• [x]  Heading styles dropdown includes:\n\n• [x]  Clean (Just text)\n\n• [x]  Rounded box (Rounded rectangle as background)\n\n• [x]  Border left\n\n• [x]  Border Bottom\n\n• [x]  Centered Bottom separator\n\n• [x]  Centered Top separator\n\n• [x]  Dynamic styling:\n\n• [x]  Thickness of border/separator\n\n• [x]  Border/box color\n\n• [x]  Corner radius\n\n• [x]  Text styling should include\n\n• [x]  Font\n\n• [x]  Weight (important weird weight to include: Assistant Bold, whatever that is…)\n    or maybe just slider…\n\n• [x]  Size slider\n\n• [x]  Margins dynamic in % to move around freely near other webparts\n\n• [x]  Left margin\n\n• [x]  Top margin\n\n• [x]  Bottom margin\nReview\n\n• [x]  Only leave “Lift” hover animation, remove the rest. Hardcoded\n\n• [x]  Fix {firstname}, {lastname} to adhere to the company’s names…\n\n• e.g. Nafie, Adam (EVIM Personal)\n\n• split by comma once and then split by space for first name?\n\n• [x]  Fonts as dropdown? or link to documentation that previews available css fonts, so that they can just copy-paste\nFIX: Banner with News changes\n\n• [x]  Change color of scrollbar and slideshow tracker to #D80345\n\n• See circled @abdelrahman elkhateeb\n\n• adam changed color of arrows, scrollbar and default featured tag gradient also\n\n• [x]  Left and right arrows not centered vertically, need to go a little to the bottom (done)\n\n• [x]  😅 the company is claiming that the webpart’s container has a gray background… @adam  doesn’t see it, but they would like it to be white, so that it would fit with other webparts… keep @adam updated on this specifically(done)\n\n• [x]  slideshow trackers on mobile are currently being shown as squares and circles, fix please because they are too big(done)",
+   "items": [
+    {
+     "title": "Calendar",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Ahmed Yehia",
+     "reviewer": null,
+     "deadline": "2025-11-09",
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [],
+     "time": null,
+     "media": []
+    },
+    {
+     "title": "Process and Timeline",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": "2025-11-07",
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [],
+     "time": null,
+     "media": []
+    },
+    {
+     "title": "LinkedIn Feed",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Ahmed Yehia",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 2,
+     "criteria": [],
+     "time": null,
+     "media": []
+    },
+    {
+     "title": "Heading and Separator",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Ahmed Yehia",
+     "reviewer": null,
+     "deadline": "2025-11-07",
+     "grouping": null,
+     "order_index": 3,
+     "criteria": [],
+     "time": null,
+     "media": []
+    },
+    {
+     "title": "Banner with News changes",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": "2025-11-09",
+     "grouping": null,
+     "order_index": 4,
+     "criteria": [],
+     "time": null,
+     "media": []
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 4,
+   "name": "Sprint — Week 4",
+   "starts_on": "2025-11-10",
+   "ends_on": "2025-11-16",
+   "status": "closed",
+   "notes": "@Abdelrahman Elkhateeb @Ahmed Yehia\n\nEvery Component has its acceptance criteria inside it",
+   "items": [
+    {
+     "title": "Changes: Collapser",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "bug_fix",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [
+      {
+       "body": "Color of border and button background to be determined by “Sidebar background” property, default: d80345",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "deploy",
+       "is_done": true,
+       "order_index": 1
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Changes Collapser/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 35952,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Changes: Carousel with expanding Links",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "bug_fix",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [
+      {
+       "body": "Text and details color to be dynamic",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "deploy",
+       "is_done": true,
+       "order_index": 1
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Changes Carousel with expanding Links/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 882249,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Changes: User feedback",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 2,
+     "criteria": [
+      {
+       "body": "User feedback when in focus has blue border, change it to d80345",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "deploy",
+       "is_done": true,
+       "order_index": 1
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Changes User feedback/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 11188,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Changes: Finder",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 3,
+     "criteria": [
+      {
+       "body": "Text of “See additional xx folders”, see less text and all other english text should be dynamic",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "deploy",
+       "is_done": true,
+       "order_index": 1
+      }
+     ],
+     "time": null,
+     "media": []
+    },
+    {
+     "title": "Changes: Video Carousel",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 4,
+     "criteria": [
+      {
+       "body": "Remove css gray background",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "Deploy",
+       "is_done": true,
+       "order_index": 1
+      }
+     ],
+     "time": null,
+     "media": []
+    },
+    {
+     "title": "Changes: LinkedIn Feed",
+     "description": "https://community.origamiconnect.com/t/linkedin-feed-web-part-for-sharepoint/786\nAcceptance Criteria:\n• Carousel of posts, each post is a returned Object from a backend API which will be\nprovided by Adam:\n\n```jsx\n{\n“author”: {\n“pic”: link,\n“name”: str\n},\n“date_posted”: str (format german string),\n“text”: str,\n“media”: {\n“type”: “img” or “vid”\n,\n“link”: str,\n}\n}\n```\n• ngrok endpoint with real posts:\n\nGET `https://delicia-haematoxylic-unintellectually.ngrok-free.dev/api/linkedin-posts` (https://delicia-haematoxylic-unintellectually.ngrok-free.dev/api/linkedin-posts) (use “`ngrok-skip-browser-warning`”: “blabla” in header of request)\n• UI as described in old reqs\n\nReview:",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Ahmed Yehia",
+     "reviewer": null,
+     "deadline": "2025-11-16",
+     "grouping": null,
+     "order_index": 5,
+     "criteria": [
+      {
+       "body": "Video in second post is not working, I changed the link in the cache to https://streamable.com/e/0ijuf2, still not working",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "Date is being passed from backend as string, just put the string directly. Do not parse.",
+       "is_done": true,
+       "order_index": 1
+      },
+      {
+       "body": "Remove “Referrer policy” from sidepane",
+       "is_done": true,
+       "order_index": 2
+      },
+      {
+       "body": "What is “number of cards” supposed to do?",
+       "is_done": true,
+       "order_index": 3
+      },
+      {
+       "body": "On narrow screens make carousel previous and next button better positioned, maybe even just remove entirely as on narrow screen we usually swipe",
+       "is_done": true,
+       "order_index": 4
+      },
+      {
+       "body": "Change “Max media grid columns” dropdown to “Media Grid Style”. Remove 1 column option",
+       "is_done": true,
+       "order_index": 5
+      },
+      {
+       "body": "Change “Card size” dropdown to “Caption size”. Options: “Concise”, “Full”. If “Concise”, then after 500 characters add a ‘… Read More’ dynamic text which shows the rest of the text upon clicking and a ‘Read less’ dynamic text to collapse the text back. If “Full”, show all text from the get go.",
+       "is_done": true,
+       "order_index": 6
+      },
+      {
+       "body": "Remove refresh button",
+       "is_done": true,
+       "order_index": 7
+      },
+      {
+       "body": "Default Font: Assistant, sans-serif",
+       "is_done": true,
+       "order_index": 8
+      },
+      {
+       "body": "Default accent: d80345",
+       "is_done": true,
+       "order_index": 9
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 3/image 9.png",
+       "file_name": "image 9.png",
+       "mime": "image/png",
+       "bytes": 614661,
+       "slug": "0-image-9.png"
+      }
+     ]
+    },
+    {
+     "title": "Urgent Alert",
+     "description": "Acceptance criteria:\n• TopPlaceholder has\n• dynamic solid background color\n• title\n• message (multiline)\n• dynamic icon\n• dynamic text color\n• Start date, end date for timed alerts\n• isActive toggle\n• Alerts are defined in a list called “Alerts” on the website for which the alert should show",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Adam Nafie",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 6,
+     "criteria": [],
+     "time": null,
+     "media": []
+    },
+    {
+     "title": "Instagram Feed",
+     "description": "Same as LinkedIn Feed but for instagram with some instagram characteristic (media above caption, colors, etc.)\n\nPlease change to local testing after review",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Adam Nafie",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 7,
+     "criteria": [],
+     "time": null,
+     "media": []
+    },
+    {
+     "title": "Anniversaries",
+     "description": "• Image\n• Vertical carousel displaying anniversary cards\n• Each card shows:\n• Person's profile picture\n• Person's name\n• Anniversary label (e.g., \"Work Anniversary\", \"Birthday\")\n• Date in German format\n• Slim card design matching the reference image provided\n• Scrollable carousel\n• Dynamic up/down arrows that appear/disappear based on scroll position\n• Hover effects on cards with left border showing\n• Dynamic title\n• Styling:\n• dynamic accent color",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Adam Nafie",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 8,
+     "criteria": [],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Anniversaries/c590ea65f5a0b9d49b3ca7fdb2c88f195b7981fe.gif",
+       "file_name": "c590ea65f5a0b9d49b3ca7fdb2c88f195b7981fe.gif",
+       "mime": "image/gif",
+       "bytes": 1369822,
+       "slug": "0-c590ea65f5a0b9d49b3ca7fdb2c88f195b7981fe.gif"
+      }
+     ]
+    },
+    {
+     "title": "Banner WITHOUT News",
+     "description": "( I actually called it banner XD)",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": "2025-11-16",
+     "grouping": null,
+     "order_index": 9,
+     "criteria": [
+      {
+       "body": "Create new webpart called “Header” that only includes the “Banner” from Banner with News",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "Include all properties that concern banner (background, text and banner height)",
+       "is_done": true,
+       "order_index": 1
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Banner WITHOUT News/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 434295,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Org Chart",
+     "description": "Acceptance Criteria:\n\n‘groups’\n    to a certain person from the directly above level, acting as an x-axis.\n    o Option to Add/remove Level (collapsibles in 1 page like Banner w/ News)\n• Would you need us to assume maximum 3 levels for easier logic\n    implementation? What do you think?\n• Inside each Level, option to add/remove groups (collapsibles as well)\n    [see people without dotted lines in pic above]\n    field that allows only 1 person to identify to which person from the directly\n    upper level is it going to be connected to, so use ‘Controlled People Picker’\n    here to only select from people from the level above\nانا وخطيب لقينا ده:https://github.com/pnp/sp-dev-fx-webparts/tree/main/samples/react-organization-chart\n\nNovember 13, 2025 11:10 PM @adam plz review, you can ignore the spacing and padding for the filter side bar, either tamer or khateeb will fix them later, you can focus on the main goal and tree representation, I didn’t limit sub group number and levels I think we can handle more than 2\n\n---\n\n@Mohamed Tamer @abdelrahman elkhateeb feel free to adjust the UI for this ticket, still need some adjustments\n\n—\n\nadam: shabab let’s use comments feature above",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": "2025-11-16",
+     "grouping": null,
+     "order_index": 10,
+     "criteria": [
+      {
+       "body": "Cards that show Accounts from the Active Directory",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "The cards will be organized from the side pane using ‘Levels’ and in each level",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "— Levels are the vertical layers, acting as a y-axis. Groups are each connected",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "— Each group has a label (to be shown like in the pic above (dotted line))",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "— Each group has a color",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "— Employees can be added by PeoplePicker field directly in the level (no group)",
+       "is_done": false,
+       "order_index": 5
+      },
+      {
+       "body": "— Employees can be added in a group within a level (PeoplePicker field)",
+       "is_done": false,
+       "order_index": 6
+      },
+      {
+       "body": "— Each group (in all levels but first) has a ‘predecessor’ , also a PeoplePicker",
+       "is_done": false,
+       "order_index": 7
+      },
+      {
+       "body": "Cards should have following info:",
+       "is_done": false,
+       "order_index": 8
+      },
+      {
+       "body": "— User Pic",
+       "is_done": false,
+       "order_index": 9
+      },
+      {
+       "body": "— Display Name",
+       "is_done": false,
+       "order_index": 10
+      },
+      {
+       "body": "— If clicked on mailto: link",
+       "is_done": false,
+       "order_index": 11
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Org Chart/CleanShot_2025-11-12_at_13.28.14.png",
+       "file_name": "CleanShot_2025-11-12_at_13.28.14.png",
+       "mime": "image/png",
+       "bytes": 196036,
+       "slug": "0-cleanshot-2025-11-12-at-13.28.14.png"
+      }
+     ]
+    },
+    {
+     "title": "Embed Plus",
+     "description": "Acceptance Criteria:\n\nwebpart is added to a page\nhttps://community.origamiconnect.com/t/embed-plus-web-part/723\n\nCheck “Modern script editor” webpart to understand more and replicate… super simple:\n\nNovember 13, 2025 10:03 PM @adam plz review",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Ahmed Yehia",
+     "reviewer": null,
+     "deadline": "2025-11-16",
+     "grouping": null,
+     "order_index": 11,
+     "criteria": [
+      {
+       "body": "Javascript or embed code to be pasted in property pane gets compiled when",
+       "is_done": true,
+       "order_index": 0
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Embed Plus/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 57920,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Main Navigation",
+     "description": "Acceptance Criteria:\n\nRoot (compare with pic)\n    |--- Home.url\n    |--- Company Resources\n            | --- xx.url\n            | --- yy.url\n    |--- Employee resources\n            | --- New Hire Onboarding.url\n            | --- Benefits.url\n    etc…\n    inherent with the implementation, but we should test for this)\n    webpart, Excel sheet in dedicated folder if otherwise?)",
+     "highlight": "I need you to tell me if we can pull having a navigation as a webpart off… idea is that\nwe need the navigation to appear in the app MeinEVIM (go download from play/app\nstore) which only embeds the Sharepoint Site without the Sharepoint Navigation\nIf we can’t… then the Navigation will need to be implemented as an “Application\nCustomizer” …",
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": "2025-11-16",
+     "grouping": null,
+     "order_index": 12,
+     "criteria": [
+      {
+       "body": "Modern UI",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "— Navigation bar controlled by a dedicated folder with subfolders and/or .url files",
+       "is_done": true,
+       "order_index": 1
+      },
+      {
+       "body": "— Subfolders represent dropdown. Assume only subfolders on root level allowed.",
+       "is_done": true,
+       "order_index": 2
+      },
+      {
+       "body": "— Folders and files only appear to those they are shared with (I think this should be",
+       "is_done": true,
+       "order_index": 3
+      },
+      {
+       "body": "— Dynamic properties/styling need to be controlled from somewhere (sidepane if",
+       "is_done": true,
+       "order_index": 4
+      },
+      {
+       "body": "— — Logo",
+       "is_done": true,
+       "order_index": 5
+      },
+      {
+       "body": "— — Colors",
+       "is_done": true,
+       "order_index": 6
+      },
+      {
+       "body": "— — Font (Assistant, sans-serif default)",
+       "is_done": true,
+       "order_index": 7
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Main Navigation/CleanShot_2025-11-12_at_13.33.15.png",
+       "file_name": "CleanShot_2025-11-12_at_13.33.15.png",
+       "mime": "image/png",
+       "bytes": 59507,
+       "slug": "0-cleanshot-2025-11-12-at-13.33.15.png"
+      }
+     ]
+    },
+    {
+     "title": "Interactive Video",
+     "description": "Reference: https://community.origamiconnect.com/t/video-on-hover-autoplay/872\n\nAcceptance Criteria:\n• A video uploaded to Sharepoint can have its stream embed added to the property pane\n• Video only plays on hover, no sound\n• Video roundness dynamic",
+     "highlight": null,
+     "status": "todo",
+     "type": "story",
+     "assignee": "Adam Nafie",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 13,
+     "criteria": [],
+     "time": null,
+     "media": []
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 5,
+   "name": "Sprint — Week 5",
+   "starts_on": null,
+   "ends_on": null,
+   "status": "closed",
+   "notes": "@Abdelrahman Elkhateeb @Ahmed Yehia\n\nOpenAI API key for codex:\n\n[OpenAI key redacted]\n\nPlease tell @adam  if credits need recharging",
+   "items": [
+    {
+     "title": "News Center",
+     "description": "https://community.origamiconnect.com/t/news-center-web-part/634\nAcceptance Criteria:\n\nAbility to create and/or connect list from sidepane (Same functionality as in User Feedback)\n\nThe connected list will act as our database for news. If User has no link to a list, they can create one from the sidepane.\n\nAfter list creation, show hyperlink for user to go to “Add News” from the list directly\n\nList columns:\n\nTitle (Single line text)\n\nBody (Multi line text)\n\nImage Link (Single line text)\n\nCategory (Single line text)\n\nOptional URL (Single line text)\n\nAbility to add and load “Categories” in sidepane using collapsibles.\n\nA category consists of:\n\nCategory name\n\nCategory color\n\nLoading categories from connected lists is done by getting all the items from the connected list, then gathering all the “Category” columns in a set. The collapsibles are then refreshed accordingly. Maybe it is best if this is done automatically when an already existing list is connected. When loading this\nway, you will only load category names, give each category a different color, but user can eventually change it.\n\nOption to sort news by Created Date or Modified Date\n\nUI:\n\nNews items are split into tabs. Each tab represents a category. There is an “All News” tab.\n\nEach tab contains pages. Each consists of a dynamic number of news items.\n\nA news item is a container that consists of an image, the author (CreatedBy column), the date of modification (Modified column), Category tag showing the category label and color\n\nWhen a news item is clicked, it by default opens a modal that shows the Body of the News as well as the other info already shown in the news item before clicking.\n\nIf toggle “Open URL” is true, then instead of opening modal, open link in URL column.\n\nSome more dynamic stuff:\n\nDefault tab\n\n“All News” text\n\nNews per page\n\nImage height (in News item not modal)\n\nNews Title size\n\nNews Title boldness\n\nNews category tab color (active)\n\nToggle to hide Author and Date\n\nToggle Open URL",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [],
+     "time": {
+      "minutes": 960,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 5/Dashboard/News Center/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 846226,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Social Corner",
+     "description": "https://canada1.discourse-cdn.com/flex031/uploads/origamiconnect/original/1X/2e301b019b8188c3199f0902b01f61a3c872a898.gif\n\nhttps://community.origamiconnect.com/t/social-corner-web-part/397\nAcceptance Criteria:\n• Ability to create and/or connect list from sidepane (Same functionality as in User Feedback)\no\nThe connected list will act as our database for posts. If User has no link to a list, they can create one from the sidepane.\no\nAfter list creation, show hyperlink for user to go to the list directly via a hyperlink\no\nList columns:\n▪\nTitle (Single line text)\n▪\nBody (Multi line text)\n▪\nLikes (Multi line text, stringified JSON array)\n▪\nComments (Multi line text, stringified JSON array)\n▪\nAttachment (already exists no need to create via API)\n• User can “Write a post…” from the webpart UI, which creates a new item in the connected list.\no\nUser gives in text Title and body\no\nUser attaches image (which then gets uploaded into the Attachments column in the list)\n• Posts/items are fetched from the list and shown as cards as in the gif above\no\nCard shows author (CreatedBy column)\no\nCard shows posting date (Created column)\no\nCard has Read more functionality for bodies more than 200 chars\no\nOption to see comments\no\nString field to add a comment (comments are then saved as stringified JSON arrays in Comments column of item)\no\nOption to like posts (adds user name or claims to Likes JSON array)\no\nShow number of likes\n• Dynamics:\no\nAccent color\no\nEnglish text",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Ahmed Yehia",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [],
+     "time": {
+      "minutes": 1020,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Ahmed Yehia"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 5/Dashboard/Social Corner/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 188991,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Interactive Video",
+     "description": "Reference: https://community.origamiconnect.com/t/video-on-hover-autoplay/872\n\nAcceptance Criteria:\n• A video uploaded to Sharepoint can have its stream embed added to the property pane\n• Video only plays on hover, no sound\n• Video roundness dynamic",
+     "highlight": null,
+     "status": "done",
+     "type": "bug_fix",
+     "assignee": "Adam Nafie",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 2,
+     "criteria": [],
+     "time": {
+      "minutes": 240,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Adam Nafie"
+     },
+     "media": []
+    },
+    {
+     "title": "Expanding Links WITHOUT Carousel",
+     "description": "We want the links panel from the Carousel with links webpart as its own separate webpart. Name it “Links Carousel”",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 3,
+     "criteria": [],
+     "time": {
+      "minutes": 180,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 5/Dashboard/Expanding Links WITHOUT Carousel/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 248572,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "KPI and Metrics",
+     "description": "https://community.origamiconnect.com/t/kpi-and-metrics-web-part-without-targeting/405\nAccepted Criteria:\n\nAdd/edit/remove KPIs by collapsible, a KPI consists of\nTitle (text)\nValue (text)\n\nKPI Trend (dropdown: “Trending Up”, “Trending Down”, “Do not show”)\nDetails (text, optional shown as tooltip when hovered over KPI)\nURL (optional, when KPI is clicked)\nColor (to base a gradient on maybe?)\nAbility to “Move KPI up/down” to configure sorting\nKPIs to be shown as card in rows\n\nDynamic:\nFont\nText sizes\nCard size\nCard roundness?\nLeft Margin (-50 till 50",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 4,
+     "criteria": [],
+     "time": {
+      "minutes": 900,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 5/Dashboard/KPI and Metrics/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 80699,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Tabs",
+     "description": "https://community.origamiconnect.com/t/tabs-web-part-with-rich-text-images-and-more/671\nAcceptance Criteria:\n\nAbility to add/remove tabs using collapsibles, tabs consist of\nTitle\nIcon (optional)\nColor\nImage (optional, the image shown on the right in the pic above)\nSteps, each step consists of\n\nHighlight (Log in, Navigate, Select for example in pic above)\nRemainder body\nOptional customizable button like “Go to Employee Portal” above which is associated with a URL which",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 5,
+     "criteria": [],
+     "time": {
+      "minutes": 540,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 5/Dashboard/Tabs/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 293807,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Tabs with Cards",
+     "description": "https://community.origamiconnect.com/t/tabs-with-cards-web-part/677\nAcceptance Criteria:\n\nAbility to add/remove tabs\nA tab is just a string associated with a custom color\nAbility to add/edit/remove cards via collapsibles\n\nCards consist of:\nRef to tab\nTitle\nBody\nDynamic Learn More text\nURL\n\nOptional Image (If no image give it a modern UI touch, like border above? Make the color of such accent dynamic in that case)\n\nIf only one tab available, maybe just don’t show tabs at all?\n\nCards with the associated selected tab are shown as a scrollable carousel\n\nDynamic stuff:\nCard width\nColor of Title and Learn More text\nText font\nLearn More URL opens in new tab or not toggle",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Ahmed Yehia",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 6,
+     "criteria": [],
+     "time": {
+      "minutes": 900,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Ahmed Yehia"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 5/Dashboard/Tabs with Cards/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 62667,
+       "slug": "0-image.png"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 6,
+   "name": "Sprint — Week 6",
+   "starts_on": null,
+   "ends_on": null,
+   "status": "closed",
+   "notes": "Openrouter api key: [OpenRouter key redacted]\n\nUse openrouter with Claude Sonnet 4.5 @abdelrahman elkhateeb\n\nAlthough new Change Requests (CRs) shouldn’t take time, they are necessary to ensure the delivery of complete, responsive, pixel-perfect, and error-free components.\n\n@Mohamed Tamer i don’t have time to review the small fixes you added, so it’s up to you to review\n@adam no problem, me ,yehia and khateeb will review it\n\n@Ahmed Yehia after testing please take care of PROMO ALERT",
+   "items": [
+    {
+     "title": "Fix: tabs with cards",
+     "description": "• remove shadow from Tabs with Cards (especially shadow of tabs @Mohamed Tamer )\n• On mobile: Tabs with Cards is buggy and hard hard to use\n• Adam: Tab Border no longer abruptly cut at hover",
+     "highlight": null,
+     "status": "done",
+     "type": "bug_fix",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [],
+     "time": {
+      "minutes": 300,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": []
+    },
+    {
+     "title": "Fix: Instagram Feed",
+     "description": "• instagram and linkedin feed should have the same ui, same pagination",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [],
+     "time": {
+      "minutes": 30,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix Instagram Feed/CleanShot_2025-11-29_at_17.58.29.png",
+       "file_name": "CleanShot_2025-11-29_at_17.58.29.png",
+       "mime": "image/png",
+       "bytes": 24625,
+       "slug": "0-cleanshot-2025-11-29-at-17.58.29.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix Instagram Feed/CleanShot_2025-11-29_at_18.21.02.png",
+       "file_name": "CleanShot_2025-11-29_at_18.21.02.png",
+       "mime": "image/png",
+       "bytes": 543905,
+       "slug": "1-cleanshot-2025-11-29-at-18.21.02.png"
+      }
+     ]
+    },
+    {
+     "title": "Fix: Anniverseries",
+     "description": "• the whole webpart is left aligned, maybe an extra padding, margin, wrong flex alignments",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 2,
+     "criteria": [],
+     "time": {
+      "minutes": 30,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix Anniverseries/CleanShot_2025-11-29_at_18.22.03.png",
+       "file_name": "CleanShot_2025-11-29_at_18.22.03.png",
+       "mime": "image/png",
+       "bytes": 72896,
+       "slug": "0-cleanshot-2025-11-29-at-18.22.03.png"
+      }
+     ]
+    },
+    {
+     "title": "Fix: LinkedIn Feed",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 3,
+     "criteria": [],
+     "time": {
+      "minutes": 30,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix LinkedIn Feed/CleanShot_2025-11-29_at_18.00.33.png",
+       "file_name": "CleanShot_2025-11-29_at_18.00.33.png",
+       "mime": "image/png",
+       "bytes": 202488,
+       "slug": "0-cleanshot-2025-11-29-at-18.00.33.png"
+      }
+     ]
+    },
+    {
+     "title": "Fix: Process and Timeline",
+     "description": "• the text is not clear especially on smaller screen\n @Abdelrahman Elkhateeb u could fix it by putting the text in div that is a little bit elevated.\n• hover is not working properly on smaller screens",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 4,
+     "criteria": [],
+     "time": {
+      "minutes": 240,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix Process and Timeline/CleanShot_2025-11-29_at_18.01.41.png",
+       "file_name": "CleanShot_2025-11-29_at_18.01.41.png",
+       "mime": "image/png",
+       "bytes": 320820,
+       "slug": "0-cleanshot-2025-11-29-at-18.01.41.png"
+      }
+     ]
+    },
+    {
+     "title": "Fix: news center",
+     "description": "Before:\n\nAfter:\n• make the padding on smaler screens as follows:\n\n```css\npadding: 0px 10px;\n```\n\nbut on bigger screens keep the same\n• the scroll bar should only be visible when trying to scroll, (auto) not always",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 5,
+     "criteria": [],
+     "time": {
+      "minutes": 30,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix news center/CleanShot_2025-11-29_at_18.24.35.png",
+       "file_name": "CleanShot_2025-11-29_at_18.24.35.png",
+       "mime": "image/png",
+       "bytes": 177122,
+       "slug": "0-cleanshot-2025-11-29-at-18.24.35.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix news center/Arc_2025-11-29_18.24.17.png",
+       "file_name": "Arc_2025-11-29_18.24.17.png",
+       "mime": "image/png",
+       "bytes": 150302,
+       "slug": "1-arc-2025-11-29-18.24.17.png"
+      }
+     ]
+    },
+    {
+     "title": "Banner Half-image",
+     "description": "Acceptance Criteria:\n• Can add image URL\n• Can add big Title text (can use {firstname}, {lastname}, {fullname})\n• Can add body (can use {firstname}, {lastname}, {fullname})\n• Make the text appear on the left side like in the pic, just make it look.. modern and fancy, maybe add a nice animation if possible when hovering over the banner",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 6,
+     "criteria": [],
+     "time": {
+      "minutes": 360,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Banner Half-image/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 173876,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Promo Alert",
+     "description": "---\n\nAcceptance Criteria:\n• Create Application Customizer that uses the TopPlaceholder functionality (See Urgent Alerts for example)\n• When a page is in edit mode (not preview, maybe query parameter relevant here), show dynamic setting for the promo as in second pic above:\n\no Enable alert (boolean)\no Alert body (rich text allowing links, what do you think)\no Alert color\no Gradient end color\no Alert height\no Alert font size\n• These dynamic settings should be saved in a list on the site, maybe name it PromoAlerts",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 7,
+     "criteria": [
+      {
+       "body": "UI Improvements",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "— center x in circle",
+       "is_done": true,
+       "order_index": 1
+      },
+      {
+       "body": "— add simple shadow? i don’t know it just looks too flat",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "— left border looks odd",
+       "is_done": true,
+       "order_index": 3
+      },
+      {
+       "body": "— Color Picker",
+       "is_done": true,
+       "order_index": 4
+      },
+      {
+       "body": "— rich text editor needs to be more user friendly, don’t spend a lot of time on this (bold italic underline link)",
+       "is_done": true,
+       "order_index": 5
+      }
+     ],
+     "time": {
+      "minutes": 480,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Promo Alert/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 92552,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Promo Alert/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 77310,
+       "slug": "1-image-1.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Promo Alert/image 2.png",
+       "file_name": "image 2.png",
+       "mime": "image/png",
+       "bytes": 320046,
+       "slug": "2-image-2.png"
+      }
+     ]
+    },
+    {
+     "title": "Button Link Plus",
+     "description": "Acceptance Criteria:\n• User can add link\n• Link is shown as button in the UI\n• Add dynamic styling to the button… color, gradient, text font size style, roundness, opacity, border, animation, hover",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 8,
+     "criteria": [],
+     "time": {
+      "minutes": 60,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Button Link Plus/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 6531,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Poll",
+     "description": "Acceptance Criteria:\n• Webpart side pane can create/connect to a list which acts as the database for the polls. The list has following columns:\no Poll question (multiline text)\no Poll answers (single line text, to be populated with stringified json array of strings)\no Poll results (single line text, to be populated with stringified json object with keys being the json answer strings and the value being the number of times this answer was voted)\n• From the side pane, the user can create a new poll or select an already existing one\no Creating a new poll means creating a new row in the connected list\no Select an already existing poll means selecting from the existing list rows from a dropdown (dropdown should show the poll question)\n• In the UI the poll is displayed as above with modern looking radio buttons and a “vote” button\n• The vote button text is dynamic\n• Header should include the question directly, no need for this “Suggest poll” part\n• Colors, font should be dynamic\n•From the poll results, the user is shown after voting a pie chart or bar chart based on one of the libraries here: https://opensource.com/article/18/9/open-source-javascript-chart-libraries\n• In the side pane there should be a dropdown field “Poll view”:\no “Normal”: shows results after voting\no “Results”: shows results only, no UI for voting",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 9,
+     "criteria": [],
+     "time": {
+      "minutes": 300,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Poll/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 34801,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Fix: links Carousel",
+     "description": "• remove fade on the left/right\n• add option to adjust background opacity/brightness of each \"card\", so that he can make for example first card darker, second card lighter ---> do u think it makes sense to actually just give the option to control the color of a card separately?\n• would it be possible to have several rows? he would like to decide which link goes in which row\n• make the shadow height less, because the the shadow is being cut by the webpart border",
+     "highlight": null,
+     "status": "todo",
+     "type": "bug_fix",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 10,
+     "criteria": [],
+     "time": {
+      "minutes": 420,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": []
+    },
+    {
+     "title": "Fix: Banner with news",
+     "description": "• on smaller the banner is much more like a square, this is not the right implementation\n• try to make the image fit, or fill to make it optional on smaller screens to let the bg image visible on smaller screen",
+     "highlight": null,
+     "status": "todo",
+     "type": "change_request",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 11,
+     "criteria": [],
+     "time": {
+      "minutes": 90,
+      "worked_on": "2025-11-17",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix Banner with news/CleanShot_2025-11-29_at_18.05.51.png",
+       "file_name": "CleanShot_2025-11-29_at_18.05.51.png",
+       "mime": "image/png",
+       "bytes": 446367,
+       "slug": "0-cleanshot-2025-11-29-at-18.05.51.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix Banner with news/Arc_2025-11-29_18.05.49.png",
+       "file_name": "Arc_2025-11-29_18.05.49.png",
+       "mime": "image/png",
+       "bytes": 299307,
+       "slug": "1-arc-2025-11-29-18.05.49.png"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 7,
+   "name": "Sprint — Week 7",
+   "starts_on": "2025-12-22",
+   "ends_on": "2025-12-28",
+   "status": "closed",
+   "notes": null,
+   "items": [
+    {
+     "title": "CR: Instagram / LinkedIn Feed",
+     "description": "Removing autoplay for videos (NOT slideshow)",
+     "highlight": null,
+     "status": "dev_started",
+     "type": "change_request",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": "2025-12-29",
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [],
+     "time": {
+      "minutes": 60,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": []
+    },
+    {
+     "title": "CR: Banner",
+     "description": "Banner:\n\nAcceptance Criteria:\n• Responsiveness: On narrow screens keep same aspect ratio of image instead of zooming in… it is okay if the image appears smaller as long as text size is unaffected. Example page: https://evimwi.sharepoint.com/sites/loga —> Toggle dynamically because very dumb\nWide screen now:\n\nNarrow screen now:\n• Slider to position text horizontally (min. value: align-left, max. value: align-right).. do with padding or position, doesn’t matter as long as it is working as expected",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [],
+     "time": {
+      "minutes": 240,
+      "worked_on": "2025-12-28",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Banner/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 43315,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Banner/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 30627,
+       "slug": "1-image-1.png"
+      }
+     ]
+    },
+    {
+     "title": "CR: Contact Cards",
+     "description": "Border of profile pic to be d80345\nreplace the color input filed into color picker\n\nAllow controlling width of cards… they do not want the row of cards to fill up full width if only 2 people for example. Reference page: https://evimwi.sharepoint.com/sites/loga",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": "2025-12-29",
+     "grouping": null,
+     "order_index": 2,
+     "criteria": [],
+     "time": {
+      "minutes": 120,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Contact Cards/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 9144,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "CR: Button Link Plus",
+     "description": "Too much padding around the button\no fit-content\n• Add shadow dynamic settings\no Toggle on/off\no Opacity\no Size\no Etc.",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": "2025-12-29",
+     "grouping": null,
+     "order_index": 3,
+     "criteria": [],
+     "time": {
+      "minutes": 300,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": []
+    },
+    {
+     "title": "CR: Banner Half-Image",
+     "description": "Remove color overlay from on top of image",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": "2025-12-29",
+     "grouping": null,
+     "order_index": 4,
+     "criteria": [],
+     "time": {
+      "minutes": 120,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Banner Half-Image/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 170915,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "CR: Links Carousel / Carousel with expanding Links",
+     "description": "Acceptance Criteria:\n• Remove shadow on hover\n• Remove fade left and right (not visible to me, but visible to both of the people supervising)\n• Remove icon black background\n• Allow opacity slider to have min of 0%\n• Adding dynamic linear gradient functionality for Carousel background\no Option to adjust gradient start, middle and end colors\no Option to adjust gradient angle",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": "2025-12-29",
+     "grouping": null,
+     "order_index": 5,
+     "criteria": [],
+     "time": {
+      "minutes": 240,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Links Carousel Carousel with expanding Links/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 159529,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Links Carousel Carousel with expanding Links/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 6439,
+       "slug": "1-image-1.png"
+      }
+     ]
+    },
+    {
+     "title": "CR: Collapser",
+     "description": "Acceptance Criteria:\n• HTML input field for question and answer. HTML to be parsed in UI.\n• Allow line breaks in question and answer texts to be parsed.\n• There was a very weird UI glitch for someone:",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": "2025-12-29",
+     "grouping": null,
+     "order_index": 6,
+     "criteria": [],
+     "time": {
+      "minutes": 120,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Collapser/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 16325,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "CR: Banner with News",
+     "description": "Acceptance Criteria:\n• Option to hide Banner\n• Allow line break in Main News text\n• Remove padding from around the pic/media of Main News (to be full-width of container) —> add boolean property cover or as is now\n• Let the left container of Main News and the right container of Side News be the same exact height. It can be a static height if it makes things easier.",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": "2025-12-29",
+     "grouping": null,
+     "order_index": 7,
+     "criteria": [],
+     "time": {
+      "minutes": 420,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": []
+    },
+    {
+     "title": "CR: Quick Links Plus",
+     "description": "Acceptance Criteria:\n• Icon is bigger, like this: (in my opinion, just make icon size dynamic with bigger default)\n• Labels/text should be optional\n\no allow text field for each link to be blank\no add in DisplayMode the same 2 options withOUT text hidden\n\nAdd Button no text, Pill no text:\n• Dropdown to align buttons horizontally (left, center, right).\no Example scenario: only 2 links added, they will currently be aligned left as they do not fill row, option to align them center would be nicer\n• Quick Links Plus with display mode Pills/Rectangle is not responsive in a 1/3 column section",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": "2025-12-29",
+     "grouping": null,
+     "order_index": 8,
+     "criteria": [],
+     "time": {
+      "minutes": 180,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Quick Links Plus/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 2245,
+       "slug": "0-image.png"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 8,
+   "name": "Sprint — Week 8",
+   "starts_on": null,
+   "ends_on": null,
+   "status": "closed",
+   "notes": null,
+   "items": [
+    {
+     "title": "Banner with News",
+     "description": "Fix dark overlay on Header and Banner with News. (bug shows up only on narrow screens)\n\nبص الصورة الصفرا مش على طبيعتها من ناحية اللون\n\nscreenshot from this page: http://evimwi.sharepoint.com/\n\nStory 3: Banner with News\n\nOn narrow screens, button text is not vertically aligned properly. It works perfectly on wide screens.\n\nAlso from this page http://evimwi.sharepoint.com/",
+     "highlight": null,
+     "status": "done",
+     "type": "bug_fix",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 8/Dashboard/Banner with News/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 314991,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Quick Links",
+     "description": "Add a slider to allow custom images in Quick Links Plus to be scaled.",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 8/Dashboard/Quick Links/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 61067,
+       "slug": "0-image.png"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 9,
+   "name": "Sprint — Week 9",
+   "starts_on": null,
+   "ends_on": null,
+   "status": "closed",
+   "notes": null,
+   "items": [
+    {
+     "title": "Link Carousel",
+     "description": "• it must allow individuals and microsoft groups as well\n• https://developer.microsoft.com/en-us/fluentui#/controls/web/peoplepicker",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [
+      {
+       "body": "Add PeoplePicker property “Visible only for”",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "If empty, webpart visible for everyone",
+       "is_done": true,
+       "order_index": 1
+      },
+      {
+       "body": "If people selected, only to those people",
+       "is_done": true,
+       "order_index": 2
+      }
+     ],
+     "time": {
+      "minutes": 120,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": []
+    },
+    {
+     "title": "Banner Half-Image",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [
+      {
+       "body": "Make eyebrow color dynamic (default: white)",
+       "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": {
+      "minutes": 60,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 9/Dashboard/Banner Half-Image/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 357900,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "New: Copier",
+     "description": "There is a new extension called Copier. I need you to review and improve UI and UX.\n\nSome thoughts:",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 2,
+     "criteria": [
+      {
+       "body": "Selection boxes need UX improvement",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "Loading after clicking on “copy”",
+       "is_done": true,
+       "order_index": 1
+      },
+      {
+       "body": "Improve text spacing to the left of copy button",
+       "is_done": true,
+       "order_index": 2
+      },
+      {
+       "body": "Improve success/error message",
+       "is_done": true,
+       "order_index": 3
+      }
+     ],
+     "time": {
+      "minutes": 240,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": []
+    },
+    {
+     "title": "Embed Plus",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 3,
+     "criteria": [
+      {
+       "body": "remove gray border",
+       "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": {
+      "minutes": 60,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 9/Dashboard/Embed Plus/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 574474,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Video Carousel",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 4,
+     "criteria": [
+      {
+       "body": "Remove white fade/overlay (example: Softgarden x EVIM – Homepage (https://evimwi.sharepoint.com/sites/EVIM-Softgarden-BMS?xsdata=MDV8MDJ8fDdmNjViZWMzZWI2ZTQ5NzMxMzRlMDhkZTZhMzdlM2U0fDZlZTQ2ZTJjM2YzMDQ0ODY5NWI5NGE0OTkyZDM2NTM2fDB8MHw2MzkwNjQ5ODU0MTIzMDk4Mzh8VW5rbm93bnxWR1ZoYlhOVFpXTjFjbWwwZVZObGNuWnBZMlY4ZXlKRFFTSTZJbFJsWVcxelgwRlVVRk5sY25acFkyVmZVMUJQVEU5R0lpd2lWaUk2SWpBdU1DNHdNREF3SWl3aVVDSTZJbGRwYmpNeUlpd2lRVTRpT2lKUGRHaGxjaUlzSWxkVUlqb3hNWDA9fDF8TDJOb1lYUnpMekU1T20xbFpYUnBibWRmV21wYWExcFVVVEZaYWxWMFRtMVJkMDVwTURCT2VrSnNURmRHYVZwVVJYUlBSRmt6V21wSk5FNTZTbXhaVjAwMFFIUm9jbVZoWkM1Mk1pOXRaWE56WVdkbGN5OHhOemN3T1RBeE56TTVNakUzfGEwZGYyNzNlM2EzMDRkZWExMzRlMDhkZTZhMzdlM2U0fDQ4MmY2ODQwMzM2MTRkOTM5ZDA4ZWMyZjk5MmYyZTZk&sdata=K0NEM2p3cU9LRnY4aUk3YjFnandERFFBR2JESml4blRjSGphb1RMQ2VSQT0%3D&ovuser=6ee46e2c-3f30-4486-95b9-4a4992d36536%2Ch90-anafie%40evim.de))",
+       "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": {
+      "minutes": 60,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 9/Dashboard/Video Carousel/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 176016,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Alerts.",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 5,
+     "criteria": [
+      {
+       "body": "X in Alerts extension to be centered",
+       "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": {
+      "minutes": 300,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 9/Dashboard/Alerts/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 49428,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Quick Links",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 6,
+     "criteria": [
+      {
+       "body": "Option to reduce spaces between icons in Quick Links Plus",
+       "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": {
+      "minutes": 180,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 9/Dashboard/Quick Links/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 32141,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Banner with News",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 7,
+     "criteria": [
+      {
+       "body": "Option to toggle Banner on and off in Banner with News",
+       "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": {
+      "minutes": 60,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 9/Dashboard/Banner with News/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 710551,
+       "slug": "0-image.png"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 10,
+   "name": "Sprint — Week 10",
+   "starts_on": null,
+   "ends_on": null,
+   "status": "closed",
+   "notes": null,
+   "items": [
+    {
+     "title": "Finder",
+     "description": null,
+     "highlight": null,
+     "status": "dev_started",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [
+      {
+       "body": "English text (folder, files) should be German",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "On pc with maximized window there are 4 folders per row in the grid, but when you open a folder, you see only 3 subfolders per row in the grid. Is there extra padding here that makes the grid smaller?",
+       "is_done": false,
+       "order_index": 1
+      }
+     ],
+     "time": null,
+     "media": []
+    },
+    {
+     "title": "Calendar",
+     "description": null,
+     "highlight": null,
+     "status": "dev_started",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [
+      {
+       "body": "English text in popup to be (Wann? Was? Wo?) instead of (Time Description Location)",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Popup not mobile-responsive",
+       "is_done": false,
+       "order_index": 1
+      }
+     ],
+     "time": null,
+     "media": []
+    },
+    {
+     "title": "New webpart: EVIM Lists",
+     "description": null,
+     "highlight": null,
+     "status": "dev_started",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 2,
+     "criteria": [
+      {
+       "body": "Parse dates to be hh:mm dd.mm.yy",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Parse links to be clickable",
+       "is_done": false,
+       "order_index": 1
+      }
+     ],
+     "time": {
+      "minutes": 60,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": []
+    },
+    {
+     "title": "Links Carousel",
+     "description": null,
+     "highlight": null,
+     "status": "dev_started",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 3,
+     "criteria": [
+      {
+       "body": "users not in Global target audience should not see carousel at all, now the title is still visible for them. For example open evimwi.sharepoint.com/sites/Personal (http://evimwi.sharepoint.com/sites/Personal) you will see \"Digitale Personalprozesse\" title with no links, we need the whole webpart to be hidden for nonselected people",
+       "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": null,
+     "media": []
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 11,
+   "name": "Sprint — Week 11",
+   "starts_on": null,
+   "ends_on": null,
+   "status": "closed",
+   "notes": null,
+   "items": [
+    {
+     "title": "Finder1",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [
+      {
+       "body": "English text (folder, files) should be German",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "On pc with maximized window there are 4 folders per row in the grid, but when you open a folder, you see only 3 subfolders per row in the grid. Is there extra padding here that makes the grid smaller?",
+       "is_done": true,
+       "order_index": 1
+      },
+      {
+       "body": "New req: Sort files by alphabetical order of filenames",
+       "is_done": true,
+       "order_index": 2
+      },
+      {
+       "body": "New req: When .url files are clicked, the link should open (in same tab) @Mohamed Tamer @Mohamed Tamer",
+       "is_done": true,
+       "order_index": 3
+      }
+     ],
+     "time": {
+      "minutes": 240,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": []
+    },
+    {
+     "title": "New webpart: EVIM Lists",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [
+      {
+       "body": "Parse dates to be hh:mm dd.mm.yy",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Parse links to be clickable",
+       "is_done": false,
+       "order_index": 1
+      }
+     ],
+     "time": {
+      "minutes": 60,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": []
+    },
+    {
+     "title": "Calendar",
+     "description": "• Change line 309 in Calendar.tsx (https://github.com/MooTamer/microsoft-web-parts-final/blob/797eae05940d30ea6c877f7fdfd5b47ee56d0eaa/Calendar/src/webparts/calendar/components/Calendar.tsx#L309) to include ‘Workspace’ field\n• If it exists, you will get in the response a value for workspace like this one:\n• `{...,\"Workspace\":{\"Description\":\"https://event.eu.on24.com/wcc/r/8000167270/F8824C968EEB4C387B6622662957973A\",\"Url\":\"https://event.eu.on24.com/wcc/r/8000167270/F8824C968EEB4C387B6622662957973A (https://event.eu.on24.com/wcc/r/8000167270/F8824C968EEB4C387B6622662957973A%22,%22Url%22:%22https://event.eu.on24.com/wcc/r/8000167270/F8824C968EEB4C387B6622662957973A)\"},...}`\n• Parse the ‘Url’ property of ‘Workspace’ as a clickable “Link” field in the Calendar popup of an event\n• If Workspace or Url do not exist, then do not include the Link field in the UI design (see design below)\n• See UI design\n\n@Mohamed Tamer @Mohamed Tamer check this out",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 2,
+     "criteria": [
+      {
+       "body": "English text in popup to be (Wann? Was? Wo?) instead of (Time Calendar Location)… Also “Beschreibung” instead of ”Description”",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "Popup not mobile-responsive",
+       "is_done": true,
+       "order_index": 1
+      },
+      {
+       "body": "Links in section ‘Was?’ should be clickable",
+       "is_done": true,
+       "order_index": 2
+      },
+      {
+       "body": "Add ‘Workspace’ to fetched fields",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "Change popup UI to be like this",
+       "is_done": false,
+       "order_index": 4
+      }
+     ],
+     "time": {
+      "minutes": 240,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 11/Dashboard/Calendar/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 140395,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Links Carousel",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 3,
+     "criteria": [
+      {
+       "body": "users not in Global target audience should not see carousel at all, now the title is still visible for them. For example open evimwi.sharepoint.com/sites/Personal (http://evimwi.sharepoint.com/sites/Personal) you will see \"Digitale Personalprozesse\" title with no links, we need the whole webpart to be hidden for nonselected people",
+       "is_done": true,
+       "order_index": 0
+      }
+     ],
+     "time": {
+      "minutes": 60,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": []
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 12,
+   "name": "Sprint — Week 12",
+   "starts_on": null,
+   "ends_on": null,
+   "status": "closed",
+   "notes": null,
+   "items": [
+    {
+     "title": "Link Carousel: Make into grid",
+     "description": "Erik has the problem that the link carousel (the horizontal scrollbar) is not very user friendly on desktop in his opinion.\n\nHe wants on desktop for each section to be a separate grid, where the distance between each row in the grid and the next is EXACTLY the distance between each tile and the next horizontally.\n\nOn mobile it should stay exactly as it is, this carousel is very user-friendly on touch screens.",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [],
+     "time": {
+      "minutes": 240,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 12/Dashboard/Link Carousel Make into grid/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 197561,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Finder: Handle urls",
+     "description": "• use different Icon (➔)\n• hide .url suffix\n• hide file size and date created\n\nSee this screenshot:",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [
+      {
+       "body": "If a file is .url:",
+       "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": {
+      "minutes": 60,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 12/Dashboard/Finder Handle urls/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 43042,
+       "slug": "0-image.png"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 13,
+   "name": "Sprint — Week 13",
+   "starts_on": null,
+   "ends_on": null,
+   "status": "closed",
+   "notes": null,
+   "items": [
+    {
+     "title": "EVIM Banner: Intranet Mode Edits",
+     "description": "ALL changes Intranet mode. Do not touch Workplace\n\nReplace “Department Name” with 2 text Fields “Titel” and “Thema”.\n”Titel” defines word on the left. ”Thema” defines word on the right.",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [
+      {
+       "body": "Switch colors for left and right words as in photo above.",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Use font  *Assistant Extrabold as in photo above for both words*",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "Remove Banner Height slider and make it predefined to have value 30",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "Remove big space between left and right words",
+       "is_done": false,
+       "order_index": 3
+      }
+     ],
+     "time": {
+      "minutes": 60,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 13/Dashboard/EVIM Banner Intranet Mode Edits/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 37428,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 13/Dashboard/EVIM Banner Intranet Mode Edits/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 9189,
+       "slug": "1-image-1.png"
+      }
+     ]
+    },
+    {
+     "title": "EVIM Banner: Modes",
+     "description": "The customization settings are currently too much for some users. We want to create a predefined mode.\n\nOn top of the sidebar settings have a dropdown menu “Modes” with values “Intranet”, “Workplace”.\n\nMode “Intranet”:\n\nCan upload picture in “Background Image URL”\n\n“EVIM” in text predefined and rest of text in field “department name”\n\n„EVIM“ predefined color night blue:\n\n“department name” predefined color:\n\nBehind the text there should be a white background.\n\nFont „Assistant“ text size like in this page: https://evimwi.sharepoint.com/sites/EVIM-Kommunikation\n\nmobile-responsive\n\nMode “Workplace”: Exactly what we have now\n\nAll modes new features:\n• Zoom in, zoom out on background pic (slider)\n• Horizontal slider\n• Vertical slider",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [],
+     "time": {
+      "minutes": 300,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 13/Dashboard/EVIM Banner Modes/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 164519,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 13/Dashboard/EVIM Banner Modes/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 16880,
+       "slug": "1-image-1.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 13/Dashboard/EVIM Banner Modes/image 2.png",
+       "file_name": "image 2.png",
+       "mime": "image/png",
+       "bytes": 20200,
+       "slug": "2-image-2.png"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 14,
+   "name": "Sprint — Week 14",
+   "starts_on": null,
+   "ends_on": null,
+   "status": "closed",
+   "notes": "Figma: https://www.figma.com/design/n5OfGEb5H3CWL5TAvp8pzt/EVIM-Design-%C3%9Cbergabe?node-id=11901-28588&m=dev&t=5rL7Yo5lVJ4Y5AUH-1 (https://eur03.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.figma.com%2Fdesign%2Fn5OfGEb5H3CWL5TAvp8pzt%2FEVIM-Design-%25C3%259Cbergabe%3Fnode-id%3D11901-28588%26m%3Ddev%26t%3D5rL7Yo5lVJ4Y5AUH-1&data=05%7C02%7CAdam.Nafie%40evim.de%7C350013d413124792c2c908deec8eab8f%7C6ee46e2c3f30448695b94a4992d36536%7C0%7C0%7C639208295466026525%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=jzpYXcYgG32qyjNs5mxPwyb%2BC4ENMzoHBRzKkkvRXUs%3D&reserved=0)\nEVIM Corporate Design\n\nTypography of Text Headlines\nAll text fields close seamlessly in a vertical direction; they do not overlap each other. Their width is variable and is based on the text. The individual lines are offset horizontally. The rounded ends of the text or colored rectangles are flush on the left and right, i.e. they form a perfect semicircle.\n\n1. The spacing above and below the headline text to the edge of the text field equals the height of a lowercase letter in square format.\n2. The spacing to the left and right of the headline text to the edge of the text field equals the height of an uppercase letter in square format.\n3. The color of the text fields is white, combined with a simple solid-color fill without any typeface.\n4. The typeface is *Nachtblau*, and the font weight/style is \"Assistant Bold.\"\n5. Content can be emphasized within the headline by using the font color red.\n6. The bottom text field is duplicated and converted into a pure color field in a slightly lighter red (90%). The offset follows a 45° angle. The offset is applied to the right and downward until the horizontal center of the text field above is reached.\nWhen requested to change webpart name, do not change any unique ids. Especially not in config/package-solution.json. Only change in preconfiguredEntries.title.default in src/*/*/*.manifest.json\n\nAugust 4, 2026 6:24 PM  → @Ahmed Yehia  make all ticket dev started, will check them first then update status to ready for review\n\n@adam  → if you faced issue use NODE version 22",
+   "items": [
+    {
+     "title": "EVIM LinkedIn and Instagram Backend",
+     "description": null,
+     "highlight": null,
+     "status": "todo",
+     "type": "story",
+     "assignee": "Adam Nafie",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [],
+     "time": null,
+     "media": []
+    },
+    {
+     "title": "EVIM Locale unifying in Quick Links Plus",
+     "description": "• Create locale .json file which will be saved in Sharepoint\n• Create webpart to edit .json locale\n• Make field labels in Quick Links editable via locale\n• Note: Check permissions",
+     "highlight": null,
+     "status": "in_review",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [],
+     "time": {
+      "minutes": 180,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": []
+    },
+    {
+     "title": "EVIM Collapser (restoring after mistake)",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Ahmed Yehia",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 2,
+     "criteria": [
+      {
+       "body": "Change name to EVIM Akkordeon  ☑️",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Question text size: Heading 3 ☑️",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "Answer text size: 18 ☑️",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "Remove Font size slider from side pane  ☑️",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "Add bar like outlook to make text bold/italic and to use ordered and unordered lists ☑️",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "Change border to to Nachtblau and remove shadows ☑️",
+       "is_done": false,
+       "order_index": 5
+      }
+     ],
+     "time": {
+      "minutes": 210,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Ahmed Yehia"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Collapser (restoring after mistake)/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 197782,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "EVIM Finder",
+     "description": "Change EVIM Finder name to “EVIM Dokumentenbibliothek”",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 3,
+     "criteria": [],
+     "time": {
+      "minutes": 30,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": []
+    },
+    {
+     "title": "EVIM Tabs with Cards",
+     "description": "• Color Nachtblau\n• Size 18\n• evim redish arrow, Nachtblau bold text, size 18\n• steps to reproduce\n    1. click on edit button\n    2. choose page 2 [second page , 2 of 3]\n    3. choose any toggle for example the staff directory\n    4. try to change the title\n\nexpected outcome → title got changed\n\nactual outcome → the whole toggle collapse after each 1 char edit\n\ncan someone check that @Abdelrahman Elkhateeb  @Mohamed Tamer",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Ahmed Yehia",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 4,
+     "criteria": [
+      {
+       "body": "Title color: Nachtblau ☑️",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Title size: Heading 3 (but also customizable) ☑️",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "Optional description ☑️",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "Optional link ☑️",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "Carousel currently fits only 3 cards in a view, it should fit 4 ☑️",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "The cards should always be of the same size ☑️",
+       "is_done": false,
+       "order_index": 5
+      },
+      {
+       "body": "NEW BUG → editing the title collapse the tab",
+       "is_done": true,
+       "order_index": 6
+      }
+     ],
+     "time": {
+      "minutes": 210,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Ahmed Yehia"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Tabs with Cards/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 5166,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Tabs with Cards/Screenshot_2026-08-04_at_8.17.06_PM.png",
+       "file_name": "Screenshot_2026-08-04_at_8.17.06_PM.png",
+       "mime": "image/png",
+       "bytes": 243270,
+       "slug": "1-screenshot-2026-08-04-at-8.17.06-pm.png"
+      }
+     ]
+    },
+    {
+     "title": "EVIM Button Link Plus",
+     "description": "• “Altenhilfe” —> Orange background color\n• “Jugendhilfe” —> Grün background color\n• “Teilhabe” —> Türkis background color\n• “Bildung” —> Lila background color\n• ”Verein” —> Apricot background color",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 5,
+     "criteria": [
+      {
+       "body": "Remove all current settings",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "New webpart name: EVIM Link Kachel (change preconfiguredEntries.title.default in src/*/*/*.manifest.json) ☑️",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "Text color predefined as Nachtblau ☑️",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "Dropdown field “Bereich” with options:  ☑️",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "Mandatory Title ”Überschrift” text field ☑️",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "Optional description multiline text field ☑️",
+       "is_done": false,
+       "order_index": 5
+      },
+      {
+       "body": "Optional link field, if link is added show the button “Zum Download” as in version 3 below ☑️",
+       "is_done": false,
+       "order_index": 6
+      },
+      {
+       "body": "fetch from www.evim.de, espically animation",
+       "is_done": false,
+       "order_index": 7
+      },
+      {
+       "body": "On hover, the button changes to this (check www.evim.de) ☑️",
+       "is_done": false,
+       "order_index": 8
+      }
+     ],
+     "time": {
+      "minutes": 390,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Button Link Plus/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 74523,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Button Link Plus/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 70171,
+       "slug": "1-image-1.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Button Link Plus/image 2.png",
+       "file_name": "image 2.png",
+       "mime": "image/png",
+       "bytes": 7310,
+       "slug": "2-image-2.png"
+      }
+     ]
+    },
+    {
+     "title": "EVIM Quick Links Plus",
+     "description": "Problem: Styling of quick links is too complex for user (2nd page in parameters of the webpart)\n• screenshot\n\nUser wants 2 predefined “modes”. We will keep current settings in a “custom mode” as a third option.\n\nTasks:\n• The dropdown has values “Blue pill” (default), “Red pill” and “Custom” ☑️\n• change preconfiguredEntries.title.default in src/*/*/*.manifest.json\n\n```json\n    {\n      \"$schema\": \"https://developer.microsoft.com/json-schemas/spfx/client-side-web-part-manifest.schema.json\",\n      \"id\": \"89480af8-f501-4126-bdf5-d08159947293\",\n      \"alias\": \"AnniversariesWebPart\",\n      \"componentType\": \"WebPart\",\n\n\"version\": \"*\",\n      \"manifestVersion\": 2,\n\n\"requiresCustomScript\": false,\n      \"supportedHosts\": [\"SharePointWebPart\", \"TeamsPersonalApp\", \"TeamsTab\", \"SharePointFullPage\"],\n      \"supportsThemeVariants\": true,\n\n\"preconfiguredEntries\": [{\n        \"groupId\": \"e6c31b08-8b52-4e9b-93ab-8e2a1f63a777\",\n        \"group\": { \"default\": \"EVIM Webparts\" },\n        \"title\": { \"default\": \"EVIM Anniversaries\" },\n        \"description\": { \"default\": \"Anniversaries description\" },\n        \"officeFabricIconFontName\": \"Page\",\n        \"properties\": {\n          \"description\": \"Anniversaries\"\n        }\n      }]\n    }\n\n```",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Ahmed Yehia",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 6,
+     "criteria": [
+      {
+       "body": "In the styling page of webpart settings (2nd page) add at the top the dropdown “Modes”",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "If Blue pill is chosen then predefine AND DO NOT SHOW the styling settings such that the buttons look like this  (icon is dynamic, but not its color) ☑️",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "If Red pill is chosen then predefine AND DO NOT SHOW the styling settings such that the buttons look like this  (icon is dynamic, but not its color) ☑️",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "Change name of webpart to EVIM Link Buttons ☑️",
+       "is_done": false,
+       "order_index": 3
+      }
+     ],
+     "time": {
+      "minutes": 330,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Ahmed Yehia"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Quick Links Plus/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 20709,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Quick Links Plus/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 14572,
+       "slug": "1-image-1.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Quick Links Plus/image 2.png",
+       "file_name": "image 2.png",
+       "mime": "image/png",
+       "bytes": 8934,
+       "slug": "2-image-2.png"
+      }
+     ]
+    },
+    {
+     "title": "EVIM Banner Intranet Mode",
+     "description": "Last week we added zoom in/out, horizontal and vertical positioning of photo in the EVIM Banner webpart.\n\nRequested change in “Intranet” mode only:",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 7,
+     "criteria": [
+      {
+       "body": "Disregard zoom in/out, horizontal and vertical positioning of photo in mobile.",
+       "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": {
+      "minutes": 120,
+      "worked_on": "2025-12-29",
+      "note": "Imported from Notion — one sprint total; the exact day was never recorded",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": []
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 15,
+   "name": "Sprint — Week 15",
+   "starts_on": "2026-08-03",
+   "ends_on": "2026-08-09",
+   "status": "closed",
+   "notes": null,
+   "items": [
+    {
+     "title": "req form",
+     "description": "digitalize the attached form to a react page\n\nAnforderungs_Dok_1_v0.3.pdf\n\nreference for corporate design: www.evim.de\n\nFigma components to use: https://www.figma.com/design/n5OfGEb5H3CWL5TAvp8pzt/EVIM-Design-%C3%9Cbergabe?node-id=11901-28588&m=dev&t=5rL7Yo5lVJ4Y5AUH-1 (https://eur03.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.figma.com%2Fdesign%2Fn5OfGEb5H3CWL5TAvp8pzt%2FEVIM-Design-%25C3%259Cbergabe%3Fnode-id%3D11901-28588%26m%3Ddev%26t%3D5rL7Yo5lVJ4Y5AUH-1&data=05%7C02%7CAdam.Nafie%40evim.de%7C350013d413124792c2c908deec8eab8f%7C6ee46e2c3f30448695b94a4992d36536%7C0%7C0%7C639208295466026525%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=jzpYXcYgG32qyjNs5mxPwyb%2BC4ENMzoHBRzKkkvRXUs%3D&reserved=0)\n\nSuggestion: make it an interactive form with steps if you think that fits",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": "Mohamed Tamer",
+     "deadline": "2026-08-09",
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 15/Dashboard/req form/Anforderungs_Dok_1_v0.3.pdf",
+       "file_name": "Anforderungs_Dok_1_v0.3.pdf",
+       "mime": "application/pdf",
+       "bytes": 299235,
+       "slug": "0-anforderungs-dok-1-v0.3.pdf"
+      }
+     ]
+    },
+    {
+     "title": "EVIM Link Kachel",
+     "description": "AC:\n\n2 webparts\n\n1.  the old one for backward  comp. [revert changes for commit 7af4c4e]\n2. the new webpart in a separate file",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": "Abdelrahman Elkhateeb",
+     "deadline": "2026-08-09",
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [
+      {
+       "body": "Separate EVIM Button Link Plus changes from last week to new webpart called EVIM Link Kachel.",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Reverse all changes in EVIM Button Link Plus to commit 7af4c4e",
+       "is_done": false,
+       "order_index": 1
+      }
+     ],
+     "time": {
+      "minutes": 30,
+      "worked_on": "2026-08-09",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": []
+    },
+    {
+     "title": "Webparts bug",
+     "description": "Logging in to evimwi.sharepoint.com with\n\n`Tea.Test@schuleamgeisberg.de`\nTea1978!\n\nresults in our webparts not being shown, but microsoft webparts are visible\n\nthis user in a different tenant but web parts should be independent from tenants",
+     "highlight": null,
+     "status": "done",
+     "type": "bug_fix",
+     "assignee": "Ahmed Yehia",
+     "reviewer": null,
+     "deadline": "2026-08-09",
+     "grouping": null,
+     "order_index": 2,
+     "criteria": [],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 15/Dashboard/Webparts bug/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 8479,
+       "slug": "0-image.png"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 16,
+   "name": "Sprint — Week 16",
+   "starts_on": "2026-08-10",
+   "ends_on": "2026-08-16",
+   "status": "closed",
+   "notes": null,
+   "items": [
+    {
+     "title": "EVIM Newspart",
+     "description": "https://evimwi.sharepoint.com/Lists/EVIM News Center/AllItems.aspx (https://evimwi.sharepoint.com/Lists/EVIM%20News%20Center/AllItems.aspx)\nEdit in a copy of EVIM News Center webpart:\n• EVIM\n• Verein\n• Jugendhilfe\n• Altenhilfe\n• Teilhabe\n• Bildung\n• MAV\n• Use for each department its corporate color\n• EVIM default department",
+     "highlight": null,
+     "status": "draft",
+     "type": "story",
+     "assignee": "Ahmed Yehia",
+     "reviewer": "Ahmed Yehia",
+     "deadline": "2026-08-17",
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [
+      {
+       "body": "`create a copy from  EVIM News Center webpart [the EXCAT code just copy]`",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "Name of copy: EVIM Newspart",
+       "is_done": true,
+       "order_index": 1
+      },
+      {
+       "body": "create a new list and get it’s link",
+       "is_done": true,
+       "order_index": 2
+      },
+      {
+       "body": "Remove data source settings [step 1] , make it a predefined list [the example one u created step before] so the UI doesn’t have the data source settings but the backend hard code the exmaple data source",
+       "is_done": true,
+       "order_index": 3
+      },
+      {
+       "body": "`We will rename step 2 from “Categories” to departments`",
+       "is_done": true,
+       "order_index": 4
+      },
+      {
+       "body": "Predefine department and department colors (per design system):",
+       "is_done": true,
+       "order_index": 5
+      },
+      {
+       "body": "Remove Categories and Colors from sidepane",
+       "is_done": false,
+       "order_index": 6
+      },
+      {
+       "body": "We will add a new “tag” next to “department”",
+       "is_done": false,
+       "order_index": 7
+      },
+      {
+       "body": "— Call the tag setting “category”",
+       "is_done": false,
+       "order_index": 8
+      },
+      {
+       "body": "the 2 tags in colors of departments",
+       "is_done": false,
+       "order_index": 9
+      },
+      {
+       "body": "— department",
+       "is_done": false,
+       "order_index": 10
+      },
+      {
+       "body": "— category",
+       "is_done": false,
+       "order_index": 11
+      },
+      {
+       "body": "remove all news, EVIM is the all news",
+       "is_done": false,
+       "order_index": 12
+      },
+      {
+       "body": "Each News can be given more than one department/tag",
+       "is_done": false,
+       "order_index": 13
+      },
+      {
+       "body": "Remove step 3 and hardcode:",
+       "is_done": true,
+       "order_index": 14
+      },
+      {
+       "body": "— News items per page: fix 3 news card next to each other",
+       "is_done": true,
+       "order_index": 15
+      },
+      {
+       "body": "— Title font size heading 3",
+       "is_done": true,
+       "order_index": 16
+      },
+      {
+       "body": "— Teaser/body text size 18",
+       "is_done": true,
+       "order_index": 17
+      },
+      {
+       "body": "— Text color black",
+       "is_done": true,
+       "order_index": 18
+      },
+      {
+       "body": "— Background white",
+       "is_done": true,
+       "order_index": 19
+      },
+      {
+       "body": "Remove add news card button",
+       "is_done": true,
+       "order_index": 20
+      }
+     ],
+     "time": {
+      "minutes": 600,
+      "worked_on": "2026-08-17",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Ahmed Yehia"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Newspart/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 9183,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Newspart/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 40998,
+       "slug": "1-image-1.png"
+      }
+     ]
+    },
+    {
+     "title": "EVIM Newspart Changes",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": "Ahmed Yehia",
+     "deadline": "2026-08-17",
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [
+      {
+       "body": "Change the filters to be like in the Redaktionsseite (layout & department names):",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "“Alle News” filter in addition to the other filters",
+       "is_done": true,
+       "order_index": 1
+      },
+      {
+       "body": "Show cards vertically not horizontally",
+       "is_done": true,
+       "order_index": 2
+      },
+      {
+       "body": "— picture on left side",
+       "is_done": true,
+       "order_index": 3
+      },
+      {
+       "body": "— Replace Author with category in text, while department tag stays as it is",
+       "is_done": true,
+       "order_index": 4
+      },
+      {
+       "body": "— Make sure it looks perfect in two third columns",
+       "is_done": true,
+       "order_index": 5
+      },
+      {
+       "body": "— Bottom right put arrow like this with label “Mehr”",
+       "is_done": true,
+       "order_index": 6
+      },
+      {
+       "body": "Do not capitalize department tag in a card",
+       "is_done": true,
+       "order_index": 7
+      },
+      {
+       "body": "Bottom right next to page picker: “Mehr News anzeigen”",
+       "is_done": true,
+       "order_index": 8
+      },
+      {
+       "body": "Make sure animation of cards is like: https://www.evim.de/presse",
+       "is_done": true,
+       "order_index": 9
+      }
+     ],
+     "time": {
+      "minutes": 240,
+      "worked_on": "2026-08-17",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Newspart Changes/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 18244,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Newspart Changes/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 3179,
+       "slug": "1-image-1.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Newspart Changes/image 2.png",
+       "file_name": "image 2.png",
+       "mime": "image/png",
+       "bytes": 10553,
+       "slug": "2-image-2.png"
+      }
+     ]
+    },
+    {
+     "title": "EVIM Banner news mode",
+     "description": "All changes below in “News” mode only!!!\n• Jugendhilfe\n• Altenhilfe\n• Teilhabe\n• Bildung\n• Verein\n\nadd input filed “id”",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Ahmed Yehia",
+     "reviewer": "Ahmed Yehia",
+     "deadline": "2026-08-17",
+     "grouping": null,
+     "order_index": 2,
+     "criteria": [
+      {
+       "body": "Add new mode in EVIM Banner: “News”",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "Show date, title",
+       "is_done": true,
+       "order_index": 1
+      },
+      {
+       "body": "Show tags topic, department",
+       "is_done": true,
+       "order_index": 2
+      },
+      {
+       "body": "— make the corners semi circles per design system",
+       "is_done": true,
+       "order_index": 3
+      },
+      {
+       "body": "Department dropdown field with values",
+       "is_done": true,
+       "order_index": 4
+      },
+      {
+       "body": "Based on department choose banner color",
+       "is_done": true,
+       "order_index": 5
+      },
+      {
+       "body": "Text color black",
+       "is_done": true,
+       "order_index": 6
+      },
+      {
+       "body": "Title font assistant bold with same size and type as in mode “intranet”",
+       "is_done": true,
+       "order_index": 7
+      },
+      {
+       "body": "Add 2nd page to sidepane",
+       "is_done": true,
+       "order_index": 8
+      },
+      {
+       "body": "— Add sliders for font size",
+       "is_done": true,
+       "order_index": 9
+      },
+      {
+       "body": "— Add color picker for text colors",
+       "is_done": true,
+       "order_index": 10
+      }
+     ],
+     "time": {
+      "minutes": 330,
+      "worked_on": "2026-08-17",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Ahmed Yehia"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Banner news mode/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 13910,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Banner news mode/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 5292,
+       "slug": "1-image-1.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Banner news mode/image 2.png",
+       "file_name": "image 2.png",
+       "mime": "image/png",
+       "bytes": 23619,
+       "slug": "2-image-2.png"
+      }
+     ]
+    },
+    {
+     "title": "Change all text color in ALL webparts to black",
+     "description": "• Replace Nachtblau only  in all webparts to black!!!!!!!\n• if text isn’t Nachtblau for example white or anything else  leave it without change\n\n@Mohamed Tamer Design system for sharepoint should use black not Nachtblau for text…\nAffected components\n\n| Component | Change |\n| --- | --- |\n| Banner | Nachtblau title text changed to black |\n| EVIM Newspart | Department text fallback changed to black |\n| Link Kachel | Title, description, and placeholder text changed to black |\n| Tabs with Cards | Title, body, and link-label text changed to black; existing Nachtblau defaults migrate to black |\n| ButtonLinkPlus | EVIM shared text token changed to black |\n| Collapser | EVIM shared text token changed to black |\n| EVIM Locale Editor | EVIM shared text token changed to black |\n| Quick Links Plus | EVIM shared text token changed to black |\n| Design system | Added an explicit EVIM black text token |\n| Custom-brand validation | Brands without `color.text` continue deriving accessible text from their surface |\n| Regression tests | Added coverage preventing black text on dark custom surfaces |\n\nNachtblau backgrounds, borders, shadows, accents, and category colors remain unchanged.",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Ahmed Yehia",
+     "reviewer": "Mohamed Tamer",
+     "deadline": "2026-08-17",
+     "grouping": null,
+     "order_index": 3,
+     "criteria": [],
+     "time": {
+      "minutes": 90,
+      "worked_on": "2026-08-17",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Ahmed Yehia"
+     },
+     "media": []
+    },
+    {
+     "title": "[REACT] EVIM News Redakteurseite",
+     "description": "React app to manage following sharepoint list (rows are news articles, columns are shown below)\n\nAuswahl—>Dropdown\n\nDatum —> Date\n\nAC:\n• Be able to see and edit old news in list and add new news in list\n• Be able to draft news and publish them\n• Show news by department (use evim corporate colors for each department [figma])\n• Each news has teaser text, headline, category, department, editor, Link to image, link to news\n• Everything in German!!\n• Placeholder values first\n• Deploy and send link to test (will forward to EVIM for immediate feedback)\n\nDeployed at: https://evim-redaktion.vercel.app/",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Ahmed Yehia",
+     "reviewer": "Abdelrahman Elkhateeb",
+     "deadline": "2026-08-14",
+     "grouping": null,
+     "order_index": 4,
+     "criteria": [],
+     "time": {
+      "minutes": 810,
+      "worked_on": "2026-08-14",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Ahmed Yehia"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/[REACT] EVIM News Redakteurseite/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 19701,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "EVIM Tabs with Cards",
+     "description": "• Goal: to be like Link Kachel (make sure), also on hover",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": "Ahmed Yehia",
+     "deadline": "2026-08-17",
+     "grouping": null,
+     "order_index": 5,
+     "criteria": [
+      {
+       "body": "Change name to “EVIM Themen Kachel”",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Remove background gradient (solid white)",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "Remove tabs and remove tab name (aka no grouping)",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "Predefine font size of card title to heading 3 (sharepoint standard 24)",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "Predefine font color to black",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "Predefine card body text to be size 18 (sharepoint standard), normal",
+       "is_done": false,
+       "order_index": 5
+      },
+      {
+       "body": "Fix card alignment",
+       "is_done": false,
+       "order_index": 6
+      },
+      {
+       "body": "— Card to be 1/3 pic 2/3 text",
+       "is_done": false,
+       "order_index": 7
+      },
+      {
+       "body": "— padding between link and text to be same as padding between test and title",
+       "is_done": false,
+       "order_index": 8
+      },
+      {
+       "body": "— limit characters in sidepane to ensure fixed height",
+       "is_done": false,
+       "order_index": 9
+      },
+      {
+       "body": "Change from Carousel to grid (EVIM want each row to have exactly 4 cards…)",
+       "is_done": false,
+       "order_index": 10
+      },
+      {
+       "body": "Redesign to evim design system",
+       "is_done": false,
+       "order_index": 11
+      },
+      {
+       "body": "Link icon arrow to be ChromeBackMirrored",
+       "is_done": false,
+       "order_index": 12
+      },
+      {
+       "body": "Fluent UI sidepane to add cards intuitively",
+       "is_done": false,
+       "order_index": 13
+      },
+      {
+       "body": "Remove settings in 3rd sidepane page and add fluentui settings:",
+       "is_done": false,
+       "order_index": 14
+      },
+      {
+       "body": "— slider for title size",
+       "is_done": false,
+       "order_index": 15
+      },
+      {
+       "body": "— slider body text size",
+       "is_done": false,
+       "order_index": 16
+      },
+      {
+       "body": "— text color picker",
+       "is_done": false,
+       "order_index": 17
+      }
+     ],
+     "time": {
+      "minutes": 330,
+      "worked_on": "2026-08-17",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Tabs with Cards/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 191298,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Tabs with Cards/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 9292,
+       "slug": "1-image-1.png"
+      }
+     ]
+    },
+    {
+     "title": "EVIM Akkordeon (Collapser)",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Ahmed Yehia",
+     "reviewer": "Ahmed Yehia",
+     "deadline": "2026-08-17",
+     "grouping": null,
+     "order_index": 6,
+     "criteria": [
+      {
+       "body": "Question font size to be default “Heading 3” (`by Sharepoint standard 24`)",
+       "is_done": true,
+       "order_index": 0
+      },
+      {
+       "body": "Answer font type normal with default size 18 (`Sharepoint standard`)",
+       "is_done": true,
+       "order_index": 1
+      },
+      {
+       "body": "Add sliders on sidepane second page",
+       "is_done": true,
+       "order_index": 2
+      },
+      {
+       "body": "— slider for font size of question",
+       "is_done": true,
+       "order_index": 3
+      },
+      {
+       "body": "— slider for font size of answer",
+       "is_done": true,
+       "order_index": 4
+      },
+      {
+       "body": "Arrow and border should be the same color",
+       "is_done": true,
+       "order_index": 5
+      },
+      {
+       "body": "— use field “Chevron color” as basis (do not fix border color)",
+       "is_done": true,
+       "order_index": 6
+      },
+      {
+       "body": "Make corners semi circle (pill)",
+       "is_done": true,
+       "order_index": 7
+      }
+     ],
+     "time": {
+      "minutes": 120,
+      "worked_on": "2026-08-17",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Ahmed Yehia"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Akkordeon (Collapser)/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 21076,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "EVIM Link Kachel",
+     "description": "• do u mean alignment for the text inside the card ? @adam\n• @Ahmed Yehia ignore this requirement for now. because now we're going to display the Kachels in a grid. we didn't dicuss this in the call, but i added it immediately after",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Ahmed Yehia",
+     "reviewer": "Abdelrahman Elkhateeb",
+     "deadline": "2026-08-17",
+     "grouping": null,
+     "order_index": 7,
+     "criteria": [
+      {
+       "body": "[No Code change required] Which font size is used in the title and description? Please answer in Sharepoint standards",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Using FluentUI sidepane settings, allow adding new Link Kachels in a grid. A row on desktop should take 3 cards. @Mohamed Tamer I told them your idea and they liked it.",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "In the download button use icon ChromeBackMirrored icon instead of this right arrow",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "— make sure it is scaled like in this photo relative to the text",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "Make Zum Download button to be pill exactly as in Quick Links Plus and pic above [aka rounded]",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "add example data `in German`for the new empty link kachle",
+       "is_done": false,
+       "order_index": 5
+      },
+      {
+       "body": "width should remain the same for both 30% or 100% of the section",
+       "is_done": false,
+       "order_index": 6
+      },
+      {
+       "body": "Maximum character count for description field: 30 characters",
+       "is_done": false,
+       "order_index": 7
+      },
+      {
+       "body": "Reduce Padding between Zum Download and description to be as the padding between title and description",
+       "is_done": false,
+       "order_index": 8
+      },
+      {
+       "body": "Make sure height is fixed with and without link based on the padding and maximum character count described above",
+       "is_done": false,
+       "order_index": 9
+      },
+      {
+       "body": "right, center, left alignment option",
+       "is_done": false,
+       "order_index": 10
+      },
+      {
+       "body": "remove text adjs.",
+       "is_done": true,
+       "order_index": 11
+      },
+      {
+       "body": "adjust the fulet ui like EVIM Link Buttons",
+       "is_done": true,
+       "order_index": 12
+      }
+     ],
+     "time": {
+      "minutes": 210,
+      "worked_on": "2026-08-17",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Ahmed Yehia"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Link Kachel/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 4178,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Link Kachel/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 57616,
+       "slug": "1-image-1.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Link Kachel/image 2.png",
+       "file_name": "image 2.png",
+       "mime": "image/png",
+       "bytes": 14435,
+       "slug": "2-image-2.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Link Kachel/image 3.png",
+       "file_name": "image 3.png",
+       "mime": "image/png",
+       "bytes": 9860,
+       "slug": "3-image-3.png"
+      }
+     ]
+    },
+    {
+     "title": "EVIM Quick Links Plus",
+     "description": "All changes below are for red and blue pill modes `ONLY`  while leaving other modes without changes",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Ahmed Yehia",
+     "reviewer": "Ahmed Yehia",
+     "deadline": "2026-08-17",
+     "grouping": null,
+     "order_index": 8,
+     "criteria": [
+      {
+       "body": "Make sure padding right of the blue and red pill modes is same as padding left",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Decrease font size to size 18 by `Sharepoint standards!!` Please inspect in Sharepoint to understand what this standard is.",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "Decrease height of buttons (padding top and bottom seem to be too much)",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "Modes currently are globally set, we want to be able to override specifically for each link",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "— per link here we should have a drop down menu to override the global one, the drop down menu for the modes",
+       "is_done": false,
+       "order_index": 4
+      }
+     ],
+     "time": {
+      "minutes": 210,
+      "worked_on": "2026-08-17",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Ahmed Yehia"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Quick Links Plus/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 9603,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Quick Links Plus/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 33198,
+       "slug": "1-image-1.png"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "project": "meinevim",
+   "number": 17,
+   "name": "Sprint — Week 17",
+   "starts_on": "2026-08-17",
+   "ends_on": "2026-08-23",
+   "status": "active",
+   "notes": "@Abdelrahman Elkhateeb @Mohamed Tamer @Ahmed Yehia\n\n• please work this sprint on the issues in the order they are sorted in.\n\n• Stories with the same color/grouping are preferred to be implemented by the same developer because they overlap in some logic/UI.\n\n• In the stories, there are highlighted sections, which means you need to discuss something with me and not implement immediately. So please reach out",
+   "items": [
+    {
+     "title": "Add optional titles to all webparts",
+     "description": "We want to add a unified optional title field to all webparts.\n\nAcceptance Criteria:",
+     "highlight": null,
+     "status": "in_review",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": "Abdelrahman Elkhateeb",
+     "deadline": "2026-08-23",
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [
+      {
+       "body": "In each webpart there is a toggle at the very top of the settings “Show Title” (”Überschrift anzeigen”)",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "The “Show Title” toggle is on by default",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "When the “Show Title” toggle is on, then the title should show above the webpart directly.",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "When ?Mode=Edit then the title should be editable from the webpart directly like in screenshot below, with same options",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "When toggle is on, make sure your implementation behaves exactly like the Title which is added when adding Sharepoint standard Webpart “Events” for example. PLEASE do not implement before trying out the “Events” webpart. This is an AC.",
+       "is_done": false,
+       "order_index": 4
+      }
+     ],
+     "time": {
+      "minutes": 480,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Add optional titles to all webparts/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 44505,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Tabs with Cards",
+     "description": "Change title font size to 22px",
+     "highlight": null,
+     "status": "ready_for_peer_review",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": "Abdelrahman Elkhateeb",
+     "deadline": "2026-08-23",
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [],
+     "time": {
+      "minutes": 30,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": []
+    },
+    {
+     "title": "Tabs with Cards: height logic fix",
+     "description": "The height logic is great, thank you for implementing last time. We have an issue though:\n\nWhen you add 4 cards and the 4th card does not have any description, it overflows to a new row but its height is different to the heights in the first row.\n\nExpected behavior:",
+     "highlight": null,
+     "status": "ready_for_peer_review",
+     "type": "bug_fix",
+     "assignee": "Mohamed Tamer",
+     "reviewer": "Abdelrahman Elkhateeb",
+     "deadline": "2026-08-23",
+     "grouping": 1,
+     "order_index": 2,
+     "criteria": [
+      {
+       "body": "All Link Kachels must have same height, even if they are not in same row",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "The height is determined by the Link Kachel which has the most text (the least acceptable height for it to show properly)",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "There is no min height",
+       "is_done": false,
+       "order_index": 2
+      }
+     ],
+     "time": {
+      "minutes": 120,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": []
+    },
+    {
+     "title": "Link Kachel changes",
+     "description": "• Our goal is to avoid this space as much as possible:",
+     "highlight": null,
+     "status": "ready_for_peer_review",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": "Abdelrahman Elkhateeb",
+     "deadline": "2026-08-23",
+     "grouping": 1,
+     "order_index": 3,
+     "criteria": [
+      {
+       "body": "Change character limit for text to be 85 chars instead of 30 chars",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Überschrift font size to be fixed at 22px",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "Add toggle “Button Link” in specific Link Kachel settings",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "— If toggle on, show extra a text field “Linkbeschriftung” which is the label of the pill by default “Zum Download”",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "— If toggle off, do not show text field “Linkbeschriftung” and do not show the “Zum Download” pill at all",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "Decrease height of Link Kachel. We want the height logic to work like the logic from “Tabs with Cards” webpart:",
+       "is_done": false,
+       "order_index": 5
+      },
+      {
+       "body": "— All Link Kachels must have same height, even if they are not in same row",
+       "is_done": false,
+       "order_index": 6
+      },
+      {
+       "body": "— The height is determined by the Link Kachel which has the most text (the least acceptable height for it to show properly)",
+       "is_done": false,
+       "order_index": 7
+      },
+      {
+       "body": "— There is no min height",
+       "is_done": false,
+       "order_index": 8
+      }
+     ],
+     "time": {
+      "minutes": 180,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Link Kachel changes/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 27229,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Link Kachel changes/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 12953,
+       "slug": "1-image-1.png"
+      }
+     ]
+    },
+    {
+     "title": "Newspart changes",
+     "description": null,
+     "highlight": null,
+     "status": "dev_started",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": "2026-08-23",
+     "grouping": 2,
+     "order_index": 4,
+     "criteria": [
+      {
+       "body": "Change name to “EVIM News”",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "We want to make the filter pills have less padding so they’re less bulky. We want to stick to evim corporate design",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "— Remove filter pill min height",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "— make the top-bottom padding --evimds-space-200",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "— make right-left padding --evimds-space-150",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "— please contact me after implementing to talk about this for future implementation",
+       "is_done": false,
+       "order_index": 5
+      },
+      {
+       "body": "Filter pills starting from Vorstand till the end should have Aprikot color instead of EVIM Kirschrot",
+       "is_done": false,
+       "order_index": 6
+      },
+      {
+       "body": "Completely replace “Kommunikation” department with “MAV”",
+       "is_done": false,
+       "order_index": 7
+      },
+      {
+       "body": "Completely remove department “Servicestelle Drittmittel”",
+       "is_done": false,
+       "order_index": 8
+      },
+      {
+       "body": "We want to change where the “category” is shown. In the example screenshot below the category is “test”. We want it to show in a separate row before the title with size 16px and bold style. Date and Department pill stay the same",
+       "is_done": false,
+       "order_index": 9
+      },
+      {
+       "body": "Remove any sharp corners and make all the corners round with roundness of Link Kachel.",
+       "is_done": false,
+       "order_index": 10
+      },
+      {
+       "body": "— Basically: Replicate the on hover shape to be standard. Remove any animation to the news card",
+       "is_done": false,
+       "order_index": 11
+      },
+      {
+       "body": "— Please make sure roundness is visually unified everywhere as Newspart shouldn’t appear different than Link Kachel nor Tabs with Cards!!!",
+       "is_done": false,
+       "order_index": 12
+      },
+      {
+       "body": "On narrow screens:",
+       "is_done": false,
+       "order_index": 13
+      },
+      {
+       "body": "— Replace filter pills with a pill dropdown with the same style and padding",
+       "is_done": false,
+       "order_index": 14
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Newspart changes/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 20360,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Newspart changes/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 31927,
+       "slug": "1-image-1.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Newspart changes/image 2.png",
+       "file_name": "image 2.png",
+       "mime": "image/png",
+       "bytes": 80032,
+       "slug": "2-image-2.png"
+      }
+     ]
+    },
+    {
+     "title": "Banner News Mode",
+     "description": "Implement all the following changes only in News mode. Our goal is to carryover the Banner Half-Image webpart with EVIM corporate design to our Banner News mode logic:\n\nrow 1: date     <pill with department name>\n\nrow 2: Category with bigger font size\n\nrow 3: Title with biggest font size (do not change its current size)\n\nrow 4: Teaser",
+     "highlight": null,
+     "status": "dev_started",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": "2026-08-23",
+     "grouping": 2,
+     "order_index": 5,
+     "criteria": [
+      {
+       "body": "Make sure Banner is same width across ALL modes.",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "— Currently News mode is narrower than Intranet mode for example",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "News Banner should be same height as Intranet mode",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "Right side of the banner should be the image fetched from the list with same ratio as banner half-image",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "— Corners of image all rounded",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "— I personally prefer the following way of representing the image, but Vanessa prefers the screenshot above. Can you show us a comparison between both?",
+       "is_done": false,
+       "order_index": 5
+      },
+      {
+       "body": "MAV department to take EVIM beige department color",
+       "is_done": false,
+       "order_index": 6
+      },
+      {
+       "body": "Layout from the upper left corner to be like the text in the news part",
+       "is_done": false,
+       "order_index": 7
+      },
+      {
+       "body": "Change text color in entire news mode to Nachtblau",
+       "is_done": false,
+       "order_index": 8
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner News Mode/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 175843,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner News Mode/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 122883,
+       "slug": "1-image-1.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner News Mode/image 2.png",
+       "file_name": "image 2.png",
+       "mime": "image/png",
+       "bytes": 1026729,
+       "slug": "2-image-2.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner News Mode/image 3.png",
+       "file_name": "image 3.png",
+       "mime": "image/png",
+       "bytes": 31927,
+       "slug": "3-image-3.png"
+      }
+     ]
+    },
+    {
+     "title": "Responsiveness for Link Kachel, Tabs with Cards, Newspart",
+     "description": "Link Kachel:\n\nLink Kachel, Tabs with Cards, Newspart:\n\nIn all 3 webparts I have cards which are shown in a grid (In Newspart the card takes up all the grid columns). I want unified responsiveness logic for all the 3 webparts IF AND ONLY IF there is more than 1 card defined.",
+     "highlight": null,
+     "status": "ready_for_peer_review",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": "Mohamed Tamer",
+     "deadline": "2026-08-23",
+     "grouping": null,
+     "order_index": 6,
+     "criteria": [
+      {
+       "body": "When I add a single Link Kachel in a section with 3 or 2 columns it is not filling up the entire space. I want it to fill up the entire space.",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "For more than 1 card we want to have a swipe carousel similar to instagram posts with slides.",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "— We already implemented this for Banner and News webpart before, as well as LinkedIn Feed and Instagram Feed. We want to carry over the “dots”",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "— Make sure the cards still appear in the carousel with same shape (EVIM shape)",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "Add a toggle to be able to display the cards below each other instead of in a carousel, but carousel by default",
+       "is_done": false,
+       "order_index": 4
+      }
+     ],
+     "time": {
+      "minutes": 240,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Responsiveness for Link Kachel, Tabs with Cards, N/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 18574,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Responsiveness for Link Kachel, Tabs with Cards, N/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 439,
+       "slug": "1-image-1.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Responsiveness for Link Kachel, Tabs with Cards, N/image 2.png",
+       "file_name": "image 2.png",
+       "mime": "image/png",
+       "bytes": 32355,
+       "slug": "2-image-2.png"
+      }
+     ]
+    },
+    {
+     "title": "Calendar",
+     "description": "We want to update EVIM Calendar webpart. Really important: We will be displaying the EVIM calendar in 1 column next to EVIM Newspart in 2 columns. Please make sure the UI and UX of both calendar and newspart are fitting. Follow Corporate Design from Figma",
+     "highlight": "Below the AC for EVIM Calendar new mode “Startseite”, please only make changes in this mode!!",
+     "status": "dev_started",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": "2026-08-23",
+     "grouping": null,
+     "order_index": 7,
+     "criteria": [
+      {
+       "body": "Create Mode “Startseite” for EVIM Calendar, current mode becomes “Custom” and custom is default mode",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Hardcode 1 Calendar and remove page 2 (Calendar Sources) from the sidepane entirely",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "— The hardcoded calendar has a “Bereich” property",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "Ability to filter shown Events by Bereich",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "Shown events take on a color based on department",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "— Text color is black (even for date)",
+       "is_done": false,
+       "order_index": 5
+      },
+      {
+       "body": "— Pill background color takes on department color (also EVIM pill shape)",
+       "is_done": false,
+       "order_index": 6
+      },
+      {
+       "body": "— The points in the calendar should also take the color of the department",
+       "is_done": false,
+       "order_index": 7
+      },
+      {
+       "body": "Set max height of Calendar to height of EVIM Newspart (which is fixed)",
+       "is_done": false,
+       "order_index": 8
+      },
+      {
+       "body": "Only starting current show 4 weeks (4 rows with calendar numbers)",
+       "is_done": false,
+       "order_index": 9
+      },
+      {
+       "body": "— Only show Sunday and Saturday if there is an event on these days",
+       "is_done": false,
+       "order_index": 10
+      },
+      {
+       "body": "Display date in <Day abbreviation>, dd.mm.yy format",
+       "is_done": false,
+       "order_index": 11
+      },
+      {
+       "body": "— day abbreviation in German",
+       "is_done": false,
+       "order_index": 12
+      },
+      {
+       "body": "— Example: Fr, 06.08.26",
+       "is_done": false,
+       "order_index": 13
+      },
+      {
+       "body": "German locale:",
+       "is_done": false,
+       "order_index": 14
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Calendar/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 30845,
+       "slug": "0-image.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Calendar/image 1.png",
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 735,
+       "slug": "1-image-1.png"
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Calendar/image 2.png",
+       "file_name": "image 2.png",
+       "mime": "image/png",
+       "bytes": 24390,
+       "slug": "2-image-2.png"
+      }
+     ]
+    },
+    {
+     "title": "Unifying pill button: arrow and animation",
+     "description": "The EVIM pill button used is in Quick Links Plus, Link Kachel and Newspart\n\nAcceptance Criteria:\n\nTechnical Requirement:",
+     "highlight": null,
+     "status": "todo",
+     "type": "story",
+     "assignee": null,
+     "reviewer": null,
+     "deadline": "2026-08-23",
+     "grouping": null,
+     "order_index": 8,
+     "criteria": [
+      {
+       "body": "Arrow is the same svg and boldness in all pills. The correct arrow is currently in Quick Links Plus",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Animation on hover is same in all pills. The correct animation is currently in Link Kachel (text moves to the right)",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "Have a unified css class and/or components for buttons of this type",
+       "is_done": false,
+       "order_index": 2
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Unifying pill button arrow and animation/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 3412,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Banner Intranet Mode",
+     "description": "In Banner Intranet mode change the right part of the title back to Nachtblau from black.",
+     "highlight": null,
+     "status": "todo",
+     "type": "change_request",
+     "assignee": null,
+     "reviewer": null,
+     "deadline": "2026-08-23",
+     "grouping": null,
+     "order_index": 9,
+     "criteria": [],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner Intranet Mode/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 169569,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "[React] Redakteurseite",
+     "description": null,
+     "highlight": null,
+     "status": "draft",
+     "type": "change_request",
+     "assignee": null,
+     "reviewer": null,
+     "deadline": "2026-08-23",
+     "grouping": null,
+     "order_index": 10,
+     "criteria": [
+      {
+       "body": "Filter pills from Vorstand till IT&Digitalisierung are switched from EVIM Kirschrot to EVIM Aprikot color",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "— Filter pills on start page",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "— Filter pills after clicking “Neuer Beitrag”",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "Completely replace “Kommunikation” department with “MAV”",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "Completely remove department “Servicestelle Drittmittel”",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "In “Kategorie” dropdown add the option “Veranstaltung”",
+       "is_done": false,
+       "order_index": 5
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/[React] Redakteurseite/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 37048,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Rollover Contact Cards",
+     "description": null,
+     "highlight": null,
+     "status": "todo",
+     "type": "change_request",
+     "assignee": null,
+     "reviewer": null,
+     "deadline": "2026-08-23",
+     "grouping": null,
+     "order_index": 11,
+     "criteria": [
+      {
+       "body": "Remove username Adam.Nafie",
+       "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Rollover Contact Cards/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 43819,
+       "slug": "0-image.png"
+      }
+     ]
+    },
+    {
+     "title": "Quick Links Plus Open New Tab bug",
+     "description": "When Open New Tab for a link is toggled, any link with base URL evimwi.sharepoint.com does not open in a new tab.\n\nExpected behavior:\n\nAfter fixing this bug please contact me so that we can solve this for all webparts as this is a recurring issue!!!",
+     "highlight": null,
+     "status": "todo",
+     "type": "bug_fix",
+     "assignee": null,
+     "reviewer": null,
+     "deadline": "2026-08-23",
+     "grouping": null,
+     "order_index": 12,
+     "criteria": [
+      {
+       "body": "When open new tab is toggled on anywhere, then ALL links regardless of base url should open in a new tab",
+       "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": null,
+     "media": []
+    },
+    {
+     "title": "[React] Redakteurkalendar",
+     "description": "As a Redakteur I want to have an internal calendar to plan",
+     "highlight": null,
+     "status": "draft",
+     "type": "story",
+     "assignee": null,
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 13,
+     "criteria": [],
+     "time": null,
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/[React] Redakteurkalendar/image.png",
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 53321,
+       "slug": "0-image.png"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "project": "converso",
+   "number": 1,
+   "name": "Sprint — Converso review",
+   "starts_on": null,
+   "ends_on": null,
+   "status": "planned",
+   "notes": null,
+   "items": [
+    {
+     "title": "Evaluate existing frontend performance",
+     "description": "• login: [redacted]\n• pass: [redacted] [redacted] PLEASE KEEP SECRET",
+     "highlight": null,
+     "status": "todo",
+     "type": "story",
+     "assignee": null,
+     "reviewer": null,
+     "deadline": "2025-03-02",
+     "grouping": null,
+     "order_index": 0,
+     "criteria": [
+      {
+       "body": "Home page: https://www.converso.ai/",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "Platform for testing: https://develop.app.converso.ai/",
+       "is_done": false,
+       "order_index": 1
+      }
+     ],
+     "time": null,
+     "media": []
+    }
+   ]
+  }
+ ]
+}

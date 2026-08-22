@@ -1,4 +1,4 @@
-import { SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixtures";
+import { SEED, SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
 
@@ -8,7 +8,7 @@ test.describe("new item", () => {
   // first of them pays for compiling both. The assertions themselves are fast.
   test.describe.configure({ mode: "serial", timeout: 60_000 });
   // Creating an item moves the sprint's estimate, so nothing may read
-  // "16.0 / 46.0" while one is in flight.
+  // the footer totals while one is in flight.
   test.use({ sprintTotals: "write" });
 
   test.afterEach(async () => {
@@ -86,7 +86,7 @@ test.describe("new item", () => {
     // Blank lines dropped, the "- " bullet stripped.
     expect(row.criteria).toBe("2");
     // The key came from the sequence, above everything already seeded.
-    expect(Number(row.key.replace("COD-", ""))).toBeGreaterThan(151);
+    expect(Number(row.key.replace("COD-", ""))).toBeGreaterThan(SEED.highestKey);
   });
 
   test("a new item joins the end of the order, never the top", async ({ adminPage: page }) => {
@@ -100,7 +100,7 @@ test.describe("new item", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(SPRINT);
     await page.getByRole("button", { name: "New item" }).click();
-    // Scoped to the dialog: the table behind it has a "Reorder COD-140 — Add
+    // Scoped to the dialog: the table behind it has a "Reorder COD-229 — Add
     // optional titles…" handle whose label also contains the word Title.
     await page
       .getByRole("dialog", { name: "New work item" })

@@ -1,4 +1,4 @@
-import { expect, query, test } from "./fixtures";
+import { SEED, expect, query, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
 
@@ -27,8 +27,8 @@ test.describe("export dialog", () => {
     const preview = dialog.locator("pre");
     await expect(preview).toContainText("# EVIM — Sprint — Week 17");
     await expect(preview).toContainText("- project: MEINEvim components (EVIM, www.evim.de)");
-    await expect(preview).toContainText("- items in export: 12 of 12");
-    await expect(preview).toContainText("- hours: 16.0 logged / 46.0 estimated");
+    await expect(preview).toContainText(`- items in export: ${SEED.itemCount} of ${SEED.itemCount}`);
+    await expect(preview).toContainText(`- hours: ${SEED.totals.replace(" / ", " logged / ")} estimated`);
     await expect(preview).toContainText("convention: a highlighted block means discuss before implementing");
     await expect(preview).toContainText("> **Discuss before implementing:**");
   });
@@ -41,8 +41,8 @@ test.describe("export dialog", () => {
     await expect(preview).toContainText(
       "key,title,status,type,grouping,assignee,reviewer,deadline,estimate_hours,hours_logged"
     );
-    await expect(preview).toContainText("COD-140");
-    await expect(preview).toContainText("7.50");
+    await expect(preview).toContainText("COD-229");
+    await expect(preview).toContainText("8.00");
   });
 
   test("Include toggles change the output", async ({ adminPage: page }) => {
@@ -56,25 +56,27 @@ test.describe("export dialog", () => {
 
   test("the item selector narrows the export, and the count follows", async ({ adminPage: page }) => {
     const dialog = await openDialog(page);
-    await expect(dialog.getByText("12 of 12 items")).toBeVisible();
+    await expect(dialog.getByText(`${SEED.itemCount} of ${SEED.itemCount} items`)).toBeVisible();
 
     // Drop the two drafts.
     await dialog.getByRole("button", { name: "drop drafts" }).click();
-    await expect(dialog.getByText("10 of 12 items")).toBeVisible();
-    await expect(dialog.locator("pre")).toContainText("- items in export: 10 of 12");
-    await expect(dialog.locator("pre")).not.toContainText("COD-150");
+    const kept = `${SEED.nonDraftCount} of ${SEED.itemCount}`;
+    await expect(dialog.getByText(`${kept} items`)).toBeVisible();
+    await expect(dialog.locator("pre")).toContainText(`- items in export: ${kept}`);
+    await expect(dialog.locator("pre")).not.toContainText(SEED.draft);
   });
 
   test("the selection persists across a reload", async ({ adminPage: page }) => {
     const dialog = await openDialog(page);
     await dialog.getByRole("button", { name: "drop drafts" }).click();
-    await expect(dialog.getByText("10 of 12 items")).toBeVisible();
+    const kept = `${SEED.nonDraftCount} of ${SEED.itemCount} items`;
+    await expect(dialog.getByText(kept)).toBeVisible();
 
     await page.reload();
     const reopened = await openDialog(page);
     // The team exports the same subset repeatedly; re-ticking every time is the
     // friction that stops people producing the report at all.
-    await expect(reopened.getByText("10 of 12 items")).toBeVisible();
+    await expect(reopened.getByText(kept)).toBeVisible();
   });
 
   test("PDF offers the report route rather than a text preview", async ({ adminPage: page }) => {
@@ -133,7 +135,7 @@ test.describe("the client report", () => {
   });
 
   test("a selection in the URL narrows the report", async ({ adminPage: page }) => {
-    await page.goto(`${SPRINT}/report?items=COD-140,COD-142`);
+    await page.goto(`${SPRINT}/report?items=COD-229,COD-231`);
     const body = page.locator(".report-body");
     await expect(body).toContainText("Add optional titles to all webparts");
     await expect(body).toContainText("Tabs with Cards: height logic fix");
@@ -143,7 +145,7 @@ test.describe("the client report", () => {
 
   test("charts carry aria-labels naming the real values", async ({ adminPage: page }) => {
     await page.goto(`${SPRINT}/report`);
-    await expect(page.getByRole("img", { name: /Status distribution: In progress 1/ })).toBeVisible();
+    await expect(page.getByRole("img", { name: new RegExp(`Status distribution: In progress ${SEED.devStartedCount}`) })).toBeVisible();
     await expect(
       page.getByRole("img", { name: /Cumulative hours logged across the sprint/ })
     ).toBeVisible();
@@ -188,7 +190,7 @@ test.describe("export scoping — one client's work can never appear under anoth
     await page.getByRole("button", { name: "Export" }).click();
 
     const preview = page.getByRole("dialog", { name: /^Export EVIM/ }).locator("pre");
-    await expect(preview).toContainText("COD-140");
+    await expect(preview).toContainText("COD-229");
     const text = await preview.innerText();
 
     for (const row of outside) {

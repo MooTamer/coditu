@@ -1,7 +1,7 @@
-import { expect, query, test } from "./fixtures";
+import { SEED, expect, query, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
-const ITEM = `${SPRINT}/items/COD-150`;
+const ITEM = `${SPRINT}/items/COD-241`;
 
 /**
  * The comment renderer is a security boundary, so this suite attacks it with
@@ -25,7 +25,7 @@ async function seedComment(doc: unknown, text = "seeded") {
  * would quietly send valid data down the wrong road.
  */
 async function seedRawComment(body: string, text = "seeded") {
-  const [item] = await query<{ id: string }>(`select id from work_items where key = 'COD-150'`);
+  const [item] = await query<{ id: string }>(`select id from work_items where key = 'COD-241'`);
   const [author] = await query<{ id: string }>(
     // By email, not by name: two profiles are called "Mohamed Tamer", and
     // `[author]` would silently take whichever the planner returned first.
@@ -42,7 +42,7 @@ async function seedRawComment(body: string, text = "seeded") {
 
 async function clearComments() {
   await query(
-    `delete from comments where work_item_id = (select id from work_items where key = 'COD-150')`
+    `delete from comments where work_item_id = (select id from work_items where key = 'COD-241')`
   );
 }
 
@@ -223,7 +223,7 @@ test.describe("comment rendering is inert against hostile JSON", () => {
     const response = await page.goto(ITEM);
     expect(response?.status()).toBe(200);
     // The page rendered rather than throwing a 500 from a stack overflow.
-    await expect(page.getByRole("heading", { level: 1, name: "Calendar" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: SEED.hostileThreadTitle })).toBeVisible();
   });
 
   test("a malformed document degrades to a message, not a broken thread", async ({ adminPage: page }) => {
@@ -232,7 +232,7 @@ test.describe("comment rendering is inert against hostile JSON", () => {
     await page.goto(ITEM);
     await expect(page.getByText("This comment could not be displayed.")).toBeVisible();
     // The rest of the page is intact.
-    await expect(page.getByRole("heading", { level: 1, name: "Calendar" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: SEED.hostileThreadTitle })).toBeVisible();
   });
 
   test("a legitimate document renders its formatting", async ({ adminPage: page }) => {
@@ -324,7 +324,7 @@ test.describe("comment rendering is inert against hostile JSON", () => {
     });
 
     await page.goto(`${prodUrl}${ITEM}`);
-    await expect(page.getByRole("heading", { level: 1, name: "Calendar" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: SEED.hostileThreadTitle })).toBeVisible();
     await page.waitForTimeout(800);
 
     const loadedEditor = await Promise.all(

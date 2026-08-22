@@ -32,7 +32,7 @@ test.describe("the navigation rail", () => {
   });
 
   test("an item opened over the sprint keeps Sprint current", async ({ adminPage: page }) => {
-    await page.goto(`${SPRINT}/items/COD-140`);
+    await page.goto(`${SPRINT}/items/COD-229`);
     expect(await currentItems(page)).toEqual(["Sprint"]);
   });
 

@@ -16,6 +16,71 @@ const DB_URL = process.env.E2E_DATABASE_URL ?? "postgresql://postgres:postgres@1
 export const SEED_ADMIN = { email: "mohamed@coditu.com", password: "coditu" };
 export const SEED_ENGINEER = { email: "ahmed@coditu.com", password: "coditu" };
 
+/**
+ * The seed's item keys, named by the role each one plays in a test.
+ *
+ * They used to be written out as `COD-140` in twelve different spec files, and
+ * re-importing the Notion export moved every one of them — Week 17 now runs
+ * COD-229 to COD-242, because the import numbers all fifteen sprints in order
+ * and Week 3 comes first. Thirty-nine specs failed for one reason.
+ *
+ * So the keys live here once. A test asks for the item with the property it
+ * needs, and the next import changes this block and nothing else. Anything a
+ * test can read from the database at run time it still should — these are only
+ * for choosing *which* row to look at.
+ */
+export const SEED = {
+  sprint: "/app/projects/meinevim/sprints/17",
+
+  /** First row of Week 17. Has criteria, logged time, an assignee and a reviewer. */
+  item: "COD-229",
+  /** Second row, for "navigate to a different item" assertions. */
+  otherItem: "COD-230",
+  /** Carries grouping 1, so its row is tinted. */
+  grouped: "COD-231",
+  /** A criterion on `grouped`, verbatim — the tick-and-persist target. */
+  groupedCriterion: "There is no min height",
+  /** Nothing logged against it yet, so a test may log an hour and take it back. */
+  unstarted: "COD-237",
+  /**
+   * Two quiet items with no thread of their own. The composer and comment-
+   * rendering suites each seed and clear comments on one of them, so they have
+   * to be different rows or the two suites race.
+   */
+  thread: "COD-240",
+  hostileThread: "COD-241",
+  hostileThreadTitle: "Quick Links Plus Open New Tab bug",
+  /** A key prefix that matches several Week 17 rows, for palette fuzzy search. */
+  keyPrefix: "COD-23",
+  /**
+   * A word appearing in exactly one item title across the whole project, and a
+   * subsequence of that same title. The palette searches every sprint and caps
+   * at twelve results, so a term like "banner" now fills the list from fifteen
+   * sprints of web parts and says nothing about whether matching works.
+   */
+  uniqueTerm: "rollover",
+  uniqueSubsequence: "rlvrcntct",
+  uniqueTitle: "Rollover Contact Cards",
+  /** The one Week 17 item carrying a discuss-before-implementing highlight. */
+  highlighted: "COD-236",
+  highlightText: "please only make changes in this mode",
+  /** Last row of the sprint. */
+  last: "COD-242",
+  /** Highest key in the seed; a newly created item must exceed it. */
+  highestKey: 243,
+
+  /** Week 17's footer: hours logged over hours estimated. */
+  totals: "17.5 / 0.0",
+  /** How many rows Week 17 holds, and how many survive "drop drafts". */
+  itemCount: 14,
+  nonDraftCount: 12,
+  /** A Week 17 row in `draft`, so "drop drafts" removes it from an export. */
+  draft: "COD-242",
+  /** Week 17's status spread, as the sprint table and the report each phrase it. */
+  devStartedCount: 3,
+  peerReviewCount: 4,
+} as const;
+
 async function anonKey(): Promise<string> {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!key) throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not set — source .env.local");
@@ -65,7 +130,7 @@ export async function query<T = Record<string, unknown>>(sql: string, params: un
 
 /**
  * The suite runs in parallel against ONE seeded database, so a test that logs
- * an hour into the sprint and a test that asserts "16.0 / 46.0" are a race
+ * an hour into the sprint and a test that asserts the footer totals are a race
  * waiting to happen — and it is the second run that finds it, not the first.
  *
  * Postgres already has the right primitive. A test that moves a sprint-wide

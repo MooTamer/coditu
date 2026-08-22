@@ -1,7 +1,7 @@
-import { expect, query, test } from "./fixtures";
+import { SEED, expect, query, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
-const ITEM = `${SPRINT}/items/COD-140`;
+const ITEM = `${SPRINT}/items/COD-229`;
 
 test.describe("item detail", () => {
   test.beforeEach(async ({ adminPage: page }) => {
@@ -68,7 +68,7 @@ test.describe("item detail", () => {
       `select count(*) filter (where c.is_done)::text as done, count(*)::text as total
        from acceptance_criteria c
        join work_items w on w.id = c.work_item_id
-       where w.key = 'COD-140'`
+       where w.key = 'COD-229'`
     );
 
     await page.goto(ITEM);
@@ -85,10 +85,10 @@ test.describe("item detail", () => {
   test("ticking a criterion persists, and the ring follows", async ({ adminPage: page }) => {
     await page.goto(ITEM);
 
-    const criterion = page.getByRole("button", { name: /No min-height/ });
-    await page.goto(`${SPRINT}/items/COD-142`);
+    const criterion = page.getByRole("button", { name: new RegExp(SEED.groupedCriterion) });
+    await page.goto(`${SPRINT}/items/COD-231`);
 
-    const target = page.getByRole("button", { name: /No min-height/ });
+    const target = page.getByRole("button", { name: new RegExp(SEED.groupedCriterion) });
     const before = await target.getAttribute("aria-pressed");
     await target.click();
 
@@ -100,7 +100,8 @@ test.describe("item detail", () => {
         const [row] = await query<{ is_done: boolean }>(
           `select c.is_done from acceptance_criteria c
            join work_items w on w.id = c.work_item_id
-           where w.key = 'COD-142' and c.body = 'No min-height'`
+           where w.key = $1 and c.body = $2`,
+          [SEED.grouped, SEED.groupedCriterion]
         );
         return String(row.is_done);
       }, { timeout: 5000 })
@@ -120,8 +121,8 @@ test.describe("item detail", () => {
    * the bottom of the screen — with the close button scrolled away above it.
    */
   test("the dialog fits the viewport and scrolls its own body", async ({ adminPage: page }) => {
-    // Short enough that COD-140 — five criteria, two comments, an activity
-    // feed — cannot possibly fit.
+    // Short enough that the first row — five criteria and an activity feed —
+    // cannot possibly fit.
     await page.setViewportSize({ width: 1280, height: 560 });
     await page.goto(SPRINT);
     await page.getByRole("link", { name: "Add optional titles to all webparts" }).click();
@@ -159,25 +160,25 @@ test.describe("item detail", () => {
   });
 
   test("the highlight is announced, not just coloured", async ({ adminPage: page }) => {
-    await page.goto(ITEM);
+    await page.goto(`${SPRINT}/items/${SEED.highlighted}`);
     // The amber rule is invisible to a screen reader, so the meaning is in text.
     await expect(page.getByText("Discuss before implementing:")).toBeAttached();
-    await expect(page.getByText(/Confirm with EVIM whether the toggle default/)).toBeVisible();
+    await expect(page.getByText(new RegExp(SEED.highlightText))).toBeVisible();
   });
 
   test.describe("logging time", () => {
     // This is the only test that moves the sprint's totals. It takes the
-    // write lock so no test asserting "16.0 / 46.0" can observe the hour
+    // write lock so no test asserting the sprint totals can observe the hour
     // between the write and the cleanup below.
     test.use({ sprintTotals: "write" });
 
     test("logging time updates the item and the sprint sum", async ({ adminPage: page }) => {
       const before = await query<{ minutes: string }>(
-        `select minutes_logged::text as minutes from work_items where key = 'COD-147'`
+        `select minutes_logged::text as minutes from work_items where key = 'COD-237'`
       );
       const start = Number(before[0].minutes);
 
-      await page.goto(`${SPRINT}/items/COD-147`);
+      await page.goto(`${SPRINT}/items/COD-237`);
       // Default is 1.5h; step down once to log 1.0h.
       await page.getByRole("button", { name: "Half an hour less" }).click();
       await page.getByRole("button", { name: /^Log 1\.0 h$/ }).click();
@@ -185,22 +186,22 @@ test.describe("item detail", () => {
       await expect
         .poll(async () => {
           const [row] = await query<{ minutes: string }>(
-            `select minutes_logged::text as minutes from work_items where key = 'COD-147'`
+            `select minutes_logged::text as minutes from work_items where key = 'COD-237'`
           );
           return Number(row.minutes);
         }, { timeout: 8000 })
         .toBe(start + 60);
 
-      // Clean up so the 16.0 / 46.0 assertion elsewhere keeps holding.
+      // Clean up so the footer-total assertions elsewhere keep holding.
       await query(
         `delete from time_entries where id in (
            select t.id from time_entries t join work_items w on w.id = t.work_item_id
-           where w.key = 'COD-147' order by t.created_at desc limit 1)`
+           where w.key = 'COD-237' order by t.created_at desc limit 1)`
       );
       await expect
         .poll(async () => {
           const [row] = await query<{ minutes: string }>(
-            `select minutes_logged::text as minutes from work_items where key = 'COD-147'`
+            `select minutes_logged::text as minutes from work_items where key = 'COD-237'`
           );
           return Number(row.minutes);
         }, { timeout: 5000 })
@@ -209,9 +210,9 @@ test.describe("item detail", () => {
   });
 
   test("an item cannot be reached under another client's URL", async ({ adminPage: page }) => {
-    // Invariant 1. COD-140 is EVIM's; asking for it under Nile Atelier must not
+    // Invariant 1. COD-229 is EVIM's; asking for it under Nile Atelier must not
     // render it with Nile's name in the breadcrumb.
-    const response = await page.goto("/app/projects/nile-atelier/sprints/1/items/COD-140");
+    const response = await page.goto("/app/projects/nile-atelier/sprints/1/items/COD-229");
     expect(response?.status()).toBe(404);
   });
 });

@@ -1,10 +1,10 @@
 import { expect, query, test } from "./fixtures";
 
-const ITEM = "/app/projects/meinevim/sprints/17/items/COD-149";
+const ITEM = "/app/projects/meinevim/sprints/17/items/COD-240";
 
 async function clearComments() {
   await query(
-    `delete from comments where work_item_id = (select id from work_items where key = 'COD-149')`
+    `delete from comments where work_item_id = (select id from work_items where key = 'COD-240')`
   );
 }
 
@@ -41,7 +41,7 @@ test.describe("comment composer", () => {
         const rows = await query<{ body_text: string }>(
           `select c.body_text from comments c
            join work_items w on w.id = c.work_item_id
-           where w.key = 'COD-149'`
+           where w.key = 'COD-240'`
         );
         return rows[0]?.body_text?.trim() ?? "";
       }, { timeout: 8000 })
@@ -62,7 +62,7 @@ test.describe("comment composer", () => {
       .poll(async () => {
         const rows = await query<{ n: string }>(
           `select count(*)::text as n from comments c
-           join work_items w on w.id = c.work_item_id where w.key = 'COD-149'`
+           join work_items w on w.id = c.work_item_id where w.key = 'COD-240'`
         );
         return Number(rows[0].n);
       }, { timeout: 8000 })
@@ -87,7 +87,7 @@ test.describe("comment composer", () => {
       .poll(async () => {
         const rows = await query<{ n: string }>(
           `select count(*)::text as n from comments c
-           join work_items w on w.id = c.work_item_id where w.key = 'COD-149'`
+           join work_items w on w.id = c.work_item_id where w.key = 'COD-240'`
         );
         return Number(rows[0].n);
       }, { timeout: 8000 })
@@ -97,7 +97,7 @@ test.describe("comment composer", () => {
     // the row lands before the client's await resolves and clears the draft. So
     // the draft is polled too, rather than read once at the wrong moment.
     await expect
-      .poll(() => page.evaluate(() => window.localStorage.getItem("coditu.draft.COD-149")), {
+      .poll(() => page.evaluate(() => window.localStorage.getItem("coditu.draft.COD-240")), {
         timeout: 5000,
       })
       .toBeNull();
@@ -123,7 +123,7 @@ test.describe("comment composer", () => {
       .poll(async () => {
         const rows = await query<{ doc: string }>(
           `select c.body_json::text as doc from comments c
-           join work_items w on w.id = c.work_item_id where w.key = 'COD-149'`
+           join work_items w on w.id = c.work_item_id where w.key = 'COD-240'`
         );
         return rows[0]?.doc ?? "";
       }, { timeout: 8000 })
@@ -136,7 +136,7 @@ test.describe("comment composer", () => {
           `select count(*)::text as n from comment_mentions m
            join comments c on c.id = m.comment_id
            join work_items w on w.id = c.work_item_id
-           where w.key = 'COD-149' and m.profile_id = $1`,
+           where w.key = 'COD-240' and m.profile_id = $1`,
           [adam.id]
         );
         return Number(rows[0].n);
@@ -162,9 +162,9 @@ test.describe("comment composer", () => {
 
     // The editor is still mounted and the words are still in it.
     await expect(page.locator(".coditu-prose")).toContainText("Still here");
-    const draft = await page.evaluate(() => window.localStorage.getItem("coditu.draft.COD-149"));
+    const draft = await page.evaluate(() => window.localStorage.getItem("coditu.draft.COD-240"));
     expect(draft).toContain("Still here");
 
-    await page.evaluate(() => window.localStorage.removeItem("coditu.draft.COD-149"));
+    await page.evaluate(() => window.localStorage.removeItem("coditu.draft.COD-240"));
   });
 });

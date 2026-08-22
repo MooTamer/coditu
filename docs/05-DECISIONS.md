@@ -1546,3 +1546,103 @@ admin can still delete an object, which is the moderation escape hatch the other
   on an address with no user returns 200 and sends nothing, precisely so the endpoint cannot be used
   to find out who works here — and the spec then fails at "no mail was sent", pointing at the mail
   server. The describe is `serial` now, which keeps the sweep's purpose and removes the race.
+
+---
+
+## 2026-08-22 · The seed is the Notion export, transcribed — not the design bundle
+
+**Decision.** `supabase/seed.sql` is generated from the team's own Notion workspace export by
+`scripts/import-notion-export.mjs`, and holds all of it: fifteen EVIM sprints (Week 3, November 2025,
+through Week 17, August 2026), 104 work items, 275 acceptance criteria with their ticked state, 280
+hours of logged effort, 104 attachments, and each sprint's notes. Converso joins as a fifth client
+with one project, one sprint and its single task. The hand-transcribed Week 17 from
+`design/project/Coditu App.dc.html` and the synthetic Week 16 are both gone.
+
+**Why.** The bundle's Week 17 was a twelve-item paraphrase of a real fourteen-item sprint, with
+statuses that had drifted, and Week 16 was nine rows of `Week 16 item N (synthetic history)`. Both
+existed because the real data was not available yet. It is available now, and a delivery tool whose
+whole credibility is its sums should not be seeded with a paraphrase of the work it is reporting on.
+
+**What this cost.** Thirty-nine e2e specs failed at once, because twelve of them wrote `COD-140`
+literally and the import renumbers every key — Week 17 now runs COD-229 to COD-242, since keys are
+assigned in sprint order and Week 3 comes first. The keys now live in one `SEED` block in
+`e2e/fixtures.ts`, named by the role each item plays in a test, so the next import touches one file.
+`supabase/tests/seed.sql` asserts the export's real figures rather than the bundle's.
+
+**Rejected.** *Keeping Week 16 and 17 as they were and importing only Weeks 3–15* — leaves the active
+sprint, the one every screenshot and export is taken from, permanently two items short and wrong about
+three statuses. *Renumbering so Week 17 keeps COD-140…151* — bends the data to fit the tests, which is
+the wrong direction, and would have left the earlier sprints with keys chosen to avoid a collision.
+
+---
+
+## 2026-08-22 · Where the export is silent, the column stays NULL
+
+**Decision.** Four columns are left NULL rather than filled with something plausible.
+
+- **`work_items.estimate_minutes`, everywhere.** Notion records one number per item, "Hours Worked",
+  and that is time spent. It becomes a `time_entries` row. There is no estimate in the source.
+- **`sprints.starts_on` / `ends_on` for nine of fifteen sprints.** Six are evidenced: Week 17 by its
+  item deadlines, Weeks 15 and 16 by stepping back from it in Monday-to-Sunday weeks, Week 3 by a
+  screen recording filed as `20251106-…mp4` and deadlines on the 7th and 9th, Week 4 by a deadline of
+  the 16th and a note dated the 13th, Week 7 by eight deadlines of 29/12/2025. The rest cannot be
+  derived: Week 7 closes in December 2025 and Week 15 opens in August 2026, which is seven sprints
+  across thirty-one weeks, so the sprints are demonstrably not weekly-contiguous and there is nothing
+  to interpolate between.
+- **`sprints.notes_author_id`, everywhere.** Notion does not record who wrote a sprint note. The app
+  prints the author's first name beside the text, so a guess here is a guess printed under somebody's
+  name.
+
+**Why.** A NULL renders as "—", which reads as *not recorded*. A fabricated value reads as fact, and
+this file already records several bugs whose whole character was that they failed by looking right.
+
+**What it costs, visibly.** The sprint footer reads `17.5 / 0.0` and the burn-up target line sits at
+zero, because nothing is estimated. That is accurate but uninformative, and the data layer currently
+coerces `estimate_minutes ?? 0`, so the app cannot yet tell "no estimate" from "estimated zero".
+Threading the null through `lib/data/sprint.ts`, the table, the cards, the CSV and the PDF so it
+renders "—" is worth doing and is not part of this import.
+
+**Rejected.** *Treating "Hours Worked" as the estimate* — the bundle did, and it is what produced the
+46.0 figure the old seed asserted; `lib/import/notion.ts` has always mapped that column to
+`time_entries`, which is right. *Spreading the nine undated sprints evenly between the anchored ones* —
+fifteen date ranges that all look equally authoritative, nine of them invented.
+
+---
+
+## 2026-08-22 · Logged hours keep their day where one exists, and say so where it does not
+
+**Decision.** Every item with hours becomes exactly one `time_entries` row, attributed to the person
+the work was assigned to. `worked_on` is the item's own deadline where it has one, else the sprint's
+last day; for the nine sprints with no window it is the day after the previous evidenced sprint closed
+— the earliest day the work provably could have happened. Every imported entry carries a note saying
+the exact day was never recorded.
+
+**Why.** Notion holds one sprint-level total per item and no daily breakdown, so no per-day date
+exists anywhere in the source — but `worked_on` is `not null`, and 183 of the 280 hours sit in sprints
+with no window. Dropping them would have left Weeks 5, 6 and 8–13 reading 0.0 logged against real
+work. The note is what keeps the date from being read as a record.
+
+**Why the assignee, not the importer.** `lib/actions/import.ts` attributes to whoever clicks Commit,
+because the `log own time` RLS policy will not let it do otherwise. The seed runs as the privileged
+writer, so it can put the hours against the person who worked them, and the People view is right as a
+result — Ahmed's 39.5 hours in Week 16 are his.
+
+---
+
+## 2026-08-22 · The export's credentials never reach the database
+
+**Decision.** `scripts/import-notion-export.mjs` redacts secret-shaped strings from every string it
+emits, refuses to write the file if any survive, and `supabase/tests/seed.sql` re-checks the database
+itself. The Notion export is not committed.
+
+**Why.** The export carries, in prose that otherwise belongs in the database: a SharePoint account and
+password on the EVIM project page, an OpenAI key in the Week 5 note, an OpenRouter key in Week 6, and
+a test login with "PLEASE KEEP SECRET" beside it in the Converso task. Sprint notes and project scope
+are read by the whole team and go out in client exports. Two checks rather than one because a scrubber
+that only runs on the paths its author thought of is not a scrubber.
+
+**Also.** The Converso sprint is `planned`, not `active`. Its one task is "Not started" and the sprint
+is a container invented to satisfy invariant 1 — but the deciding reason is that `/app/people` picks
+load from *the first project it finds with an active sprint*, so a second active sprint anywhere makes
+which one it shows a coin-toss. It showed Converso's empty load instead of Week 17's. Scoping that
+page properly is a real fix and is not part of this import.

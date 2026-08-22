@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 
-import { expect, query, test } from "./fixtures";
+import { SEED, expect, query, test } from "./fixtures";
 
 /**
  * The command palette and realtime — §8 and §5.
@@ -12,7 +12,7 @@ import { expect, query, test } from "./fixtures";
  */
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
-const ITEM = `${SPRINT}/items/COD-140`;
+const ITEM = `${SPRINT}/items/COD-229`;
 
 /**
  * Watch the realtime socket.
@@ -140,34 +140,36 @@ test.describe("command palette", () => {
   test("fuzzy matching finds items by key and by title", async ({ adminPage: page }) => {
     const dialog = await openPalette(page);
 
-    // By title.
-    await page.keyboard.type("banner");
-    await expect(dialog.getByRole("option")).toHaveCount(2);
-    await expect(dialog.getByRole("option").first()).toContainText("Banner News Mode");
+    // By title. The term appears in exactly one item across the project, so the
+    // count is an assertion rather than the palette's twelve-result cap.
+    await page.keyboard.type(SEED.uniqueTerm);
+    await expect(dialog.getByRole("option")).toHaveCount(1);
+    await expect(dialog.getByRole("option").first()).toContainText(SEED.uniqueTitle);
 
     // By key.
-    await page.locator('[role="dialog"] input').fill("COD-142");
+    await page.locator('[role="dialog"] input').fill(SEED.grouped);
+    await expect(dialog.getByRole("option")).toHaveCount(1);
     await expect(dialog.getByRole("option").first()).toContainText("Tabs with Cards: height logic fix");
 
     // A subsequence, not a substring — this is what makes it fuzzy.
-    await page.locator('[role="dialog"] input').fill("tbwc");
-    await expect(dialog.getByRole("option").first()).toContainText("Tabs with Cards");
+    await page.locator('[role="dialog"] input').fill(SEED.uniqueSubsequence);
+    await expect(dialog.getByRole("option").first()).toContainText(SEED.uniqueTitle);
   });
 
   test("Enter on the highlighted row navigates", async ({ adminPage: page }) => {
     await openPalette(page);
-    await page.keyboard.type("newspart");
-    await expect(page.getByRole("option").first()).toContainText("Newspart changes");
+    await page.keyboard.type(SEED.uniqueTerm);
+    await expect(page.getByRole("option").first()).toContainText(SEED.uniqueTitle);
     await page.keyboard.press("Enter");
 
-    await expect(page).toHaveURL(/\/items\/COD-144$/);
+    await expect(page).toHaveURL(new RegExp(`/items/${SEED.thread}$`));
   });
 
   test("the arrows move the highlight, and it stays a single selection", async ({
     adminPage: page,
   }) => {
     await openPalette(page);
-    await page.keyboard.type("cod-14");
+    await page.keyboard.type(SEED.keyPrefix.toLowerCase());
 
     const options = page.getByRole("option");
     // The list is still settling while the query is typed. Pressing ArrowDown
@@ -192,14 +194,14 @@ test.describe("command palette", () => {
     // On the sprint, no item is focused, so "set status" would have nothing to
     // act on — a dead row teaches people the palette is unreliable.
     await openPalette(page);
-    await page.keyboard.type("set cod-140");
+    await page.keyboard.type(`set ${SEED.item.toLowerCase()}`);
     await expect(page.getByRole("option")).toHaveCount(0);
     await page.keyboard.press("Escape");
 
     await page.goto(ITEM);
     await openPalette(page);
-    await page.keyboard.type("set COD-140 to blocked");
-    await expect(page.getByRole("option").first()).toContainText("Set COD-140 to blocked");
+    await page.keyboard.type("set COD-229 to blocked");
+    await expect(page.getByRole("option").first()).toContainText("Set COD-229 to blocked");
   });
 
   test("axe finds nothing in the palette", async ({ adminPage: page }) => {
@@ -236,20 +238,20 @@ test.describe("command palette — it actually writes", () => {
     adminPage: page,
   }) => {
     const [before] = await query<{ status: string }>(
-      `select status::text from work_items where key = 'COD-140'`
+      `select status::text from work_items where key = 'COD-229'`
     );
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(ITEM);
     await openPalette(page);
-    await page.keyboard.type("Set COD-140 to blocked");
+    await page.keyboard.type("Set COD-229 to blocked");
     await page.getByRole("option").first().click();
 
     await expect
       .poll(
         async () => {
           const [row] = await query<{ status: string }>(
-            `select status::text from work_items where key = 'COD-140'`
+            `select status::text from work_items where key = 'COD-229'`
           );
           return row.status;
         },
@@ -258,7 +260,7 @@ test.describe("command palette — it actually writes", () => {
       .toBe("blocked");
 
     // Put it back, so the suite is re-runnable.
-    await query(`update work_items set status = $1::work_item_status where key = 'COD-140'`, [
+    await query(`update work_items set status = $1::work_item_status where key = 'COD-229'`, [
       before.status,
     ]);
   });

@@ -38,7 +38,7 @@ test.describe("sprint notes", () => {
     const editor = page.getByRole("textbox", { name: "Sprint notes" });
     await expect(editor).toBeVisible();
     // It opens holding exactly what was on screen a moment ago.
-    await expect(editor).toHaveValue(/Please work this sprint on the issues/);
+    await expect(editor).toHaveValue(/please work this sprint on the issues/);
 
     await editor.fill("Rewritten by the suite.\n\n**Ask before touching the importer.**");
     await page.getByRole("button", { name: "Save notes" }).click();
@@ -74,7 +74,7 @@ test.describe("sprint notes", () => {
     await editor.press("Escape");
 
     await expect(page.getByRole("textbox", { name: "Sprint notes" })).toHaveCount(0);
-    await expect(page.getByText(/Please work this sprint on the issues/)).toBeVisible();
+    await expect(page.getByText(/please work this sprint on the issues/)).toBeVisible();
 
     const [row] = await query<{ notes: string }>(
       `select s.notes from sprints s join projects p on p.id = s.project_id
@@ -88,7 +88,7 @@ test.describe("sprint notes", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(SPRINT);
 
-    await expect(page.getByText(/Please work this sprint on the issues/)).toBeVisible();
+    await expect(page.getByText(/please work this sprint on the issues/)).toBeVisible();
     // No dead control to tab through, and no button that would fail.
     await expect(page.getByTitle("Click to edit the sprint notes")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Edit the sprint notes" })).toHaveCount(0);

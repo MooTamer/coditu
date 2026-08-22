@@ -12,7 +12,7 @@ import { expect, test } from "./fixtures";
  */
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
-const ITEM = `${SPRINT}/items/COD-140`;
+const ITEM = `${SPRINT}/items/COD-229`;
 
 /** Every failing node by selector, so a regression names itself. */
 async function audit(page: Page, only?: string): Promise<string[]> {
@@ -81,7 +81,7 @@ test.describe("accessibility", () => {
 
   test("axe: the comment composer, open and typed into", async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`${SPRINT}/items/COD-149`);
+    await page.goto(`${SPRINT}/items/COD-240`);
 
     await page.getByText("Write a comment — @ to mention").click();
     await expect(page.locator(".coditu-prose")).toBeVisible();

@@ -1,4 +1,4 @@
-import { SEED_ENGINEER, expect, query, signIn, test } from "./fixtures";
+import { SEED, SEED_ENGINEER, expect, query, signIn, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
 
@@ -36,7 +36,7 @@ test.describe("sprint table", () => {
     await expect(footer).toContainText(`${loggedHours} / ${estimateHours}`);
 
     // And the value the bundle specifies, so a wrong seed fails too.
-    await expect(footer).toContainText("16.0 / 46.0");
+    await expect(footer).toContainText(SEED.totals);
     await expect(page.locator("tbody tr")).toHaveCount(Number(totals.items));
   });
 
@@ -92,7 +92,7 @@ test.describe("sprint table", () => {
     // table, and the table's own sum is hidden at this width.
     const cardSum = page.getByText(/^Sum/).last();
     await expect(cardSum).toBeVisible();
-    await expect(cardSum.locator("xpath=..")).toContainText("16.0 / 46.0");
+    await expect(cardSum.locator("xpath=..")).toContainText(SEED.totals);
 
     // Zero horizontal scroll at 320.
     const overflow320 = await page.evaluate(
@@ -114,9 +114,9 @@ test.describe("sprint table", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(SPRINT);
 
-    // COD-142 carries grouping 1, so its row is tinted and its sticky cell has
+    // COD-231 carries grouping 1, so its row is tinted and its sticky cell has
     // to be a solid colour — a translucent one goes see-through while scrolling.
-    const cell = page.locator("tbody tr", { hasText: "COD-142" }).locator("td").first();
+    const cell = page.locator("tbody tr", { hasText: "COD-231" }).locator("td").first();
     const background = await cell.evaluate((el) => getComputedStyle(el).backgroundColor);
 
     expect(background).not.toContain("rgba");
@@ -293,11 +293,13 @@ test.describe("sprint table", () => {
     await page.goto(SPRINT);
 
     const bar = page.getByRole("img", { name: /Status distribution/ });
-    await expect(bar).toHaveAttribute("aria-label", /dev started 1/);
-    await expect(bar).toHaveAttribute("aria-label", /peer review 4/);
+    await expect(bar).toHaveAttribute("aria-label", new RegExp(`dev started ${SEED.devStartedCount}`));
+    await expect(bar).toHaveAttribute("aria-label", new RegExp(`peer review ${SEED.peerReviewCount}`));
 
     const burn = page.getByRole("img", { name: /Cumulative hours logged/ });
-    await expect(burn).toHaveAttribute("aria-label", /against 46\.0 estimated/);
+    // Nothing in the Notion export is estimated, so the burn-up line sits at 0.
+    const estimated = SEED.totals.split(" / ")[1];
+    await expect(burn).toHaveAttribute("aria-label", new RegExp(`against ${estimated} estimated`));
 
     // ...and the estimate label is fully inside the viewBox. It sits above the
     // dashed line, and at 8px type a baseline four units below the line puts

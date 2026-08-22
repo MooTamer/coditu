@@ -12,6 +12,7 @@
     "db:migrate": "supabase migration up",
     "db:reset": "supabase db reset",
     "db:seed": "supabase db reset",
+    "db:attachments": "node scripts/upload-notion-attachments.mjs",
     "db:test": "supabase test db",
     "db:start": "supabase start",
     "db:stop": "supabase stop",

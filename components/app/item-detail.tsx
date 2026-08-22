@@ -67,16 +67,23 @@ export function ItemDetailBody({
       <div className="flex min-w-0 flex-col gap-6 p-6">
         <h1 className="text-[22px] font-bold leading-[1.25] tracking-[-0.02em]">{item.title}</h1>
 
+        {/* `whitespace-pre-line` on both: a description written as a list of
+            requirements is a list of requirements, and collapsing its newlines
+            turns fifty-eight of the imported items into one unreadable run-on
+            paragraph. Only line breaks are preserved — runs of spaces still
+            collapse, so nothing else about the type changes. */}
         <div className="flex flex-col gap-3">
           {item.description ? (
-            <p className="text-[14.5px] leading-[1.6] text-[var(--ink-muted)]">{item.description}</p>
+            <p className="whitespace-pre-line text-[14.5px] leading-[1.6] text-[var(--ink-muted)]">
+              {item.description}
+            </p>
           ) : null}
 
           {/* The highlight is a first-class column, and it renders as a rule
               rather than a callout box — "discuss this first", not an alert. */}
           {item.highlight ? (
             <p
-              className="border-l-2 pl-[14px] text-[14.5px] leading-[1.6] text-[var(--ink)]"
+              className="whitespace-pre-line border-l-2 pl-[14px] text-[14.5px] leading-[1.6] text-[var(--ink)]"
               style={{ borderColor: "var(--amber)" }}
             >
               <span className="sr-only">Discuss before implementing: </span>

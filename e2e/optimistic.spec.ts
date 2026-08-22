@@ -19,7 +19,7 @@ import { expect, query, test } from "./fixtures";
  */
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
-const ITEM = `${SPRINT}/items/COD-140`;
+const ITEM = `${SPRINT}/items/COD-229`;
 
 /** The panel's own running total, as rendered. */
 async function loggedTotal(page: import("@playwright/test").Page): Promise<string> {
@@ -45,7 +45,7 @@ test.describe("logging time is optimistic", () => {
       `select coalesce(sum(minutes), 0)::text as minutes
          from time_entries t
          join work_items w on w.id = t.work_item_id
-        where w.key = 'COD-140'`
+        where w.key = 'COD-229'`
     );
 
     let entryId: string | null = null;
@@ -82,7 +82,7 @@ test.describe("logging time is optimistic", () => {
               `select coalesce(sum(minutes), 0)::text as minutes
                  from time_entries t
                  join work_items w on w.id = t.work_item_id
-                where w.key = 'COD-140'`
+                where w.key = 'COD-229'`
             );
             return Number(now.minutes);
           },
@@ -95,7 +95,7 @@ test.describe("logging time is optimistic", () => {
       const [written] = await query<{ id: string }>(
         `select t.id from time_entries t
            join work_items w on w.id = t.work_item_id
-          where w.key = 'COD-140' order by t.created_at desc limit 1`
+          where w.key = 'COD-229' order by t.created_at desc limit 1`
       );
       entryId = written.id;
     } finally {
@@ -106,7 +106,7 @@ test.describe("logging time is optimistic", () => {
       `select coalesce(sum(minutes), 0)::text as minutes
          from time_entries t
          join work_items w on w.id = t.work_item_id
-        where w.key = 'COD-140'`
+        where w.key = 'COD-229'`
     );
     expect(after.minutes).toBe(before.minutes);
   });
@@ -116,7 +116,7 @@ test.describe("logging time is optimistic", () => {
       `select coalesce(sum(minutes), 0)::text as minutes
          from time_entries t
          join work_items w on w.id = t.work_item_id
-        where w.key = 'COD-140'`
+        where w.key = 'COD-229'`
     );
 
     await page.goto(ITEM);
@@ -135,7 +135,7 @@ test.describe("logging time is optimistic", () => {
       `select coalesce(sum(minutes), 0)::text as minutes
          from time_entries t
          join work_items w on w.id = t.work_item_id
-        where w.key = 'COD-140'`
+        where w.key = 'COD-229'`
     );
     expect(after.minutes, "a failed write must not have written").toBe(before.minutes);
   });
@@ -184,7 +184,7 @@ test.describe("posting a comment is optimistic", () => {
       const [row] = await query<{ id: string }>(
         `select c.id from comments c
            join work_items w on w.id = c.work_item_id
-          where w.key = 'COD-140' and c.body_text like $1`,
+          where w.key = 'COD-229' and c.body_text like $1`,
         [`%${body}%`]
       );
       expect(row, "the comment reached the database").toBeTruthy();
@@ -216,7 +216,7 @@ test.describe("posting a comment is optimistic", () => {
 
     const rows = await query(
       `select 1 from comments c join work_items w on w.id = c.work_item_id
-        where w.key = 'COD-140' and c.body_text like $1`,
+        where w.key = 'COD-229' and c.body_text like $1`,
       [`%${body}%`]
     );
     expect(rows.length, "a failed post must not have written").toBe(0);

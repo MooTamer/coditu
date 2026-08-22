@@ -1,4 +1,4 @@
-import { SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixtures";
+import { SEED, SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixtures";
 
 /**
  * Managing sprints, on the project that owns them.
@@ -124,12 +124,12 @@ test.describe("managing sprints", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(PROJECT);
 
-    // Week 17 holds twelve items. Deleting it would cascade to their time
+    // Week 17 holds fourteen items. Deleting it would cascade to their time
     // entries — hours a client has already been shown.
     const row = page.locator("[data-sprint-row]", { hasText: "Sprint — Week 17" });
     const remove = row.getByRole("button", { name: /^Delete sprint/ });
     await expect(remove).toBeDisabled();
-    await expect(remove).toHaveAttribute("title", /holds 12 items/);
+    await expect(remove).toHaveAttribute("title", new RegExp(`holds ${SEED.itemCount} items`));
   });
 
   test("an empty sprint can be deleted, in two clicks", async ({ adminPage: page }) => {

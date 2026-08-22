@@ -1,9 +1,11 @@
--- Coditu — the seed must reproduce the design bundle exactly.
+-- Coditu — the seed must reproduce the Notion export exactly.
 --
--- Week 17 is transcribed from the ITEMS constant in
--- design/project/Coditu App.dc.html, and the sprint table footer has to read
--- 16.0 / 46.0 across 12 items. If any of these fail, either the seed drifted or
--- somebody "corrected" a number that was right.
+-- Every number below was read off the export, not off the database: 104 items
+-- across fifteen EVIM sprints and one Converso sprint, 275 acceptance criteria,
+-- 280 hours logged. If one of these fails, either the seed drifted or somebody
+-- "corrected" a figure that was right. Re-generate with
+-- `node scripts/import-notion-export.mjs <export-dir>` rather than editing
+-- supabase/seed.sql by hand.
 --
 -- Run with: npm run db:test
 
@@ -22,42 +24,53 @@ as $$
   select u.id from auth.users u where lower(u.email) = lower(p_email);
 $$;
 
-select plan(23);
+select plan(26);
 
 -- ---------------------------------------------------------------------------
 -- The headline numbers
 -- ---------------------------------------------------------------------------
 
 select is(
+  (select count(*)::int from public.work_items),
+  104,
+  '104 work items came across — 103 EVIM, 1 Converso'
+);
+
+select is(
   (select count(*)::int from public.work_items w
    join public.sprints s on s.id = w.sprint_id where s.number = 17),
-  12,
-  'Week 17 has 12 items'
+  14,
+  'Week 17 has 14 items'
 );
 
 select is(
   (select round(sum(w.minutes_logged) / 60.0, 1) from public.work_items w
    join public.sprints s on s.id = w.sprint_id where s.number = 17),
-  16.0,
-  'the footer sum reads 16.0 hours logged'
+  17.5,
+  'the Week 17 footer reads 17.5 hours logged'
 );
 
 select is(
-  (select round(sum(w.estimate_minutes) / 60.0, 1) from public.work_items w
-   join public.sprints s on s.id = w.sprint_id where s.number = 17),
-  46.0,
-  'the footer sum reads 46.0 hours estimated'
+  (select round(sum(minutes) / 60.0, 1) from public.time_entries),
+  280.0,
+  '280 hours of logged effort across every sprint'
 );
 
 -- Invariant 2, end to end: the denormalised rollup must equal the entries it
 -- summarises. A drift here is invisible in the UI and fatal to the report.
 select is(
-  (select sum(w.minutes_logged)::int from public.work_items w
-   join public.sprints s on s.id = w.sprint_id where s.number = 17),
-  (select sum(t.minutes)::int from public.time_entries t
-   join public.work_items w on w.id = t.work_item_id
-   join public.sprints s on s.id = w.sprint_id where s.number = 17),
+  (select sum(minutes_logged)::int from public.work_items),
+  (select sum(minutes)::int from public.time_entries),
   'the rollup equals the sum of the time entries it rolls up'
+);
+
+-- Notion holds one number per item — hours *worked*. There is no estimate
+-- anywhere in the export, and none was invented. This assertion exists so that
+-- somebody filling the column in later has to mean it.
+select is(
+  (select count(*)::int from public.work_items where estimate_minutes is not null),
+  0,
+  'no item carries an estimate, because the export has none'
 );
 
 -- ---------------------------------------------------------------------------
@@ -66,32 +79,31 @@ select is(
 
 select is(
   (select round(sum(t.minutes) / 60.0, 1) from public.time_entries t
-   join public.profiles p on p.id = t.profile_id
    join public.work_items w on w.id = t.work_item_id
    join public.sprints s on s.id = w.sprint_id
-   where s.number = 17 and p.id = public.seeded_profile('mohamed@coditu.com')),
-  12.5,
-  'per person: Mohamed logged 12.5h'
+   where s.number = 17 and t.profile_id = public.seeded_profile('mohamed@coditu.com')),
+  13.5,
+  'per person: Mohamed logged 13.5h in Week 17'
 );
 
 select is(
   (select round(sum(t.minutes) / 60.0, 1) from public.time_entries t
-   join public.profiles p on p.id = t.profile_id
    join public.work_items w on w.id = t.work_item_id
    join public.sprints s on s.id = w.sprint_id
-   where s.number = 17 and p.id = public.seeded_profile('abdelrahman@coditu.com')),
-  3.0,
-  'per person: Abdelrahman logged 3.0h'
+   where s.number = 17 and t.profile_id = public.seeded_profile('abdelrahman@coditu.com')),
+  4.0,
+  'per person: Abdelrahman logged 4.0h in Week 17'
 );
 
+-- Time is attributed to the person who did the work, never to whoever ran the
+-- import. Ahmed carried Week 16 almost alone, and that has to be visible.
 select is(
   (select round(sum(t.minutes) / 60.0, 1) from public.time_entries t
-   join public.profiles p on p.id = t.profile_id
    join public.work_items w on w.id = t.work_item_id
    join public.sprints s on s.id = w.sprint_id
-   where s.number = 17 and p.id = public.seeded_profile('ahmed@coditu.com')),
-  0.5,
-  'per person: Ahmed logged 0.5h'
+   where s.number = 16 and t.profile_id = public.seeded_profile('ahmed@coditu.com')),
+  39.5,
+  'per person: Ahmed logged 39.5h in Week 16'
 );
 
 -- ---------------------------------------------------------------------------
@@ -99,52 +111,67 @@ select is(
 -- ---------------------------------------------------------------------------
 
 select is(
-  (select array_agg(w.key order by w.key)::text from public.work_items w
-   join public.sprints s on s.id = w.sprint_id where s.number = 17),
-  '{COD-140,COD-141,COD-142,COD-143,COD-144,COD-145,COD-146,COD-147,COD-148,COD-149,COD-150,COD-151}',
-  'keys run COD-140 to COD-151 with no gaps'
+  (select count(*)::int from public.work_items
+   where key ~ '^COD-\d+$'
+     and substring(key from 5)::int between 140 and 243),
+  104,
+  'keys run COD-140 to COD-243 with no gaps'
+);
+
+-- The sequence has to be ahead of every transcribed key or the first new item
+-- collides with one of them.
+select cmp_ok(
+  (select last_value from public.work_item_key_seq),
+  '>=',
+  (select max(substring(key from 5)::int) from public.work_items)::bigint,
+  'the key sequence is ahead of the highest seeded key'
 );
 
 select is(
   (select count(*)::int from public.work_items w
    join public.sprints s on s.id = w.sprint_id where s.number = 17 and w.grouping = 1),
-  2, 'grouping 1 covers two items'
+  2, 'grouping 1 covers two Week 17 items'
 );
 
 select is(
   (select count(*)::int from public.work_items w
    join public.sprints s on s.id = w.sprint_id where s.number = 17 and w.grouping = 2),
-  2, 'grouping 2 covers two items'
+  2, 'grouping 2 covers two Week 17 items'
 );
 
 select is(
-  (select count(*)::int from public.work_items w
-   join public.sprints s on s.id = w.sprint_id
-   where s.number = 17 and w.highlight is not null),
+  (select count(*)::int from public.work_items where highlight is not null),
   2, 'two items carry a discuss-before-implementing highlight'
 );
 
 select is(
-  (select count(*)::int from public.acceptance_criteria c
-   join public.work_items w on w.id = c.work_item_id
-   join public.sprints s on s.id = w.sprint_id where s.number = 17),
-  14, 'fourteen acceptance criteria across the sprint'
+  (select count(*)::int from public.acceptance_criteria),
+  275, '275 acceptance criteria came across'
 );
 
 select is(
-  (select count(*)::int from public.comments c
-   join public.work_items w on w.id = c.work_item_id
-   join public.sprints s on s.id = w.sprint_id where s.number = 17),
-  4, 'four comments across the sprint'
+  (select count(*)::int from public.acceptance_criteria where is_done),
+  95, '95 of them were already ticked in Notion'
+);
+
+select is(
+  (select count(*)::int from public.attachments),
+  104, '104 attachments — every image, GIF and PDF embedded in an item'
+);
+
+-- An attachment row whose path is empty points at nothing, and the item detail
+-- would render a broken link rather than an error.
+select is(
+  (select count(*)::int from public.attachments
+   where storage_path is null or storage_path = '' or file_name = ''),
+  0, 'every attachment names a real object path and file'
 );
 
 -- Activity is trigger-written, so a seeded item that never got one means the
 -- trigger is not firing.
 select cmp_ok(
-  (select count(*)::int from public.activity a
-   join public.work_items w on w.id = a.work_item_id
-   join public.sprints s on s.id = w.sprint_id where s.number = 17),
-  '>=', 12,
+  (select count(*)::int from public.activity),
+  '>=', 104,
   'every seeded item produced at least a created activity row'
 );
 
@@ -153,9 +180,17 @@ select cmp_ok(
 -- ---------------------------------------------------------------------------
 
 select is(
-  (select notes_author_id from public.sprints where number = 17),
-  public.seeded_profile('adam@coditu.com'),
-  'sprint notes are attributed to Adam'
+  (select count(*)::int from public.sprints),
+  16, 'fifteen EVIM sprints plus one for Converso'
+);
+
+-- Six sprint windows are evidenced by the export — Weeks 3, 4, 7, 15, 16, 17.
+-- The other nine are NULL on purpose: the sprints are not weekly-contiguous, so
+-- there is nothing to interpolate from and a filled-in range would be a
+-- fabrication that reads as fact.
+select is(
+  (select count(*)::int from public.sprints where starts_on is not null),
+  6, 'only the six datable sprints carry a window'
 );
 
 select matches(
@@ -171,15 +206,8 @@ select is(
   1, 'EVIM has exactly one active sprint'
 );
 
-select is(
-  (select count(*)::int from public.work_items w
-   join public.sprints s on s.id = w.sprint_id
-   where s.number = 16 and w.status = 'done'),
-  9, 'Week 16 carries nine closed items as history'
-);
-
--- Only EVIM is on a sprint cadence. The other three projects exist so the
--- no-sprint empty state and the project switcher have something real to show.
+-- Nile Atelier, Ops Console and NVRMiss hold no work. They exist so the
+-- no-sprint empty state and the project switcher have something to show.
 select is(
   (select count(*)::int from public.projects p
    where not exists (select 1 from public.sprints s where s.project_id = p.id)),
@@ -195,40 +223,27 @@ select is(
 );
 
 -- =========================================================================
--- v_person_load must not multiply hours by item count
---
--- Joining work_items and time_entries in one query and then aggregating does
--- exactly that: Mohamed holds or reviews five items and logged 750 minutes, and
--- the first version of this view reported 3750. The counts looked right the
--- whole time, because they used count(distinct).
+-- The export carried live secrets — a SharePoint password, an OpenAI key, an
+-- OpenRouter key, a test login — in prose that otherwise belongs in the
+-- database. scripts/import-notion-export.mjs redacts them and re-checks its own
+-- output; this checks the database itself, which is the thing that actually
+-- gets read by four people and exported to clients.
 -- =========================================================================
 
 select is(
-  (select v.minutes_logged::int from public.v_person_load v
-   join public.profiles p on p.id = v.profile_id
-   join public.sprints s on s.id = v.sprint_id
-   where s.number = 17 and p.id = public.seeded_profile('mohamed@coditu.com')),
-  750,
-  'person load: Mohamed logged 750 minutes, not a multiple of it'
-);
-
-select is(
-  (select sum(v.minutes_logged)::int from public.v_person_load v
-   join public.sprints s on s.id = v.sprint_id where s.number = 17),
-  (select sum(t.minutes)::int from public.time_entries t
-   join public.work_items w on w.id = t.work_item_id
-   join public.sprints s on s.id = w.sprint_id where s.number = 17),
-  'person load: the per-person hours add up to the sprint total'
-);
-
-select is(
-  (select v.assigned_count::int || '/' || v.review_queue_count::int
-   from public.v_person_load v
-   join public.profiles p on p.id = v.profile_id
-   join public.sprints s on s.id = v.sprint_id
-   where s.number = 17 and p.id = public.seeded_profile('abdelrahman@coditu.com')),
-  '1/3',
-  'person load: Abdelrahman has 1 assigned and 3 in his review queue'
+  (select count(*)::int from (
+     select notes as t from public.sprints
+     union all select scope from public.projects
+     union all select description from public.work_items
+     union all select highlight from public.work_items
+     union all select body from public.acceptance_criteria
+   ) prose
+   where t ~ 'sk-proj-[A-Za-z0-9_-]{16,}'
+      or t ~ 'sk-or-v1-[A-Za-z0-9]{16,}'
+      or t ~ 'sk-ant-[A-Za-z0-9_-]{16,}'
+      or t ~ 'gh[pousr]_[A-Za-z0-9]{20,}'),
+  0,
+  'no API key survived the import into any prose column'
 );
 
 select * from finish();
