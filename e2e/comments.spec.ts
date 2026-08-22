@@ -75,14 +75,16 @@ test.describe("comment rendering is inert against hostile JSON", () => {
       "hostile script node"
     );
 
-    let pageErrors = 0;
-    page.on("pageerror", () => (pageErrors += 1));
+    // Collected as messages rather than counted. "expected 0, received 1" sends
+    // the next person hunting; the message says which script threw.
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
 
     await page.goto(ITEM);
 
     // Nothing ran.
     expect(await page.evaluate(() => "__pwned" in window)).toBe(false);
-    expect(pageErrors).toBe(0);
+    expect(pageErrors).toEqual([]);
 
     // No <script> reached the DOM from the comment.
     const scriptSrcs = await page.evaluate(() =>

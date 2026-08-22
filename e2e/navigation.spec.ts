@@ -1,0 +1,279 @@
+import { existsSync } from "node:fs";
+
+import { auditA11y, expect, query, signIn, test } from "./fixtures";
+
+/**
+ * Navigation you can see, and an account you can leave.
+ *
+ * Three separate holes, all of them only visible on a phone:
+ *
+ *  - Nothing under `/app` had a `loading.tsx`, and nothing is prefetched, so a
+ *    tap produced no feedback at all until the whole dynamic render returned.
+ *  - `signOut` was reachable only from the ⌘K palette, whose trigger is
+ *    `hidden … sm:flex` — so on a phone there was no way to sign out.
+ *  - `/app/settings` rendered and worked and nothing linked to it, so the only
+ *    way in was to type the URL, which an installed PWA cannot do.
+ */
+
+const SPRINT = "/app/projects/meinevim/sprints/17";
+const PHONE = { width: 390, height: 844 };
+
+test.describe("navigation feedback", () => {
+  test("every route under /app declares a loading state", async () => {
+    // A structural assertion on purpose. The alternative — driving to each
+    // route and racing the skeleton — passes on a fast machine whether or not
+    // the file exists, which is the failure mode this is guarding against.
+    const segments = [
+      "app/app",
+      "app/app/projects",
+      "app/app/projects/[slug]",
+      "app/app/projects/[slug]/sprints/[number]",
+      "app/app/my-work",
+      "app/app/people",
+      "app/app/import",
+      "app/app/settings",
+    ];
+
+    const missing = segments.filter((segment) => !existsSync(`${segment}/loading.tsx`));
+    expect(missing, "segments with no loading.tsx").toEqual([]);
+
+    for (const file of ["app/app/error.tsx", "app/app/not-found.tsx", "app/global-error.tsx"]) {
+      expect(existsSync(file), `${file} is missing`).toBe(true);
+    }
+  });
+
+  test("a tapped rail item marks itself pending before the destination renders", async ({
+    adminPage: page,
+  }) => {
+    await page.goto(SPRINT);
+    await expect(page.getByRole("link", { name: "People" })).toBeVisible();
+
+    // Hold the destination's payload so the in-flight state is observable.
+    // Nothing is prefetched, so this route is only ever hit by the click.
+    await page.route("**/app/people*", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await route.continue();
+    });
+
+    await page.getByRole("link", { name: "People" }).click();
+
+    // The whole point: this must be true while the server is still thinking.
+    const pending = page.locator("[data-nav-pending]");
+    await expect(pending).toHaveCount(1);
+    await expect(page.getByRole("link", { name: "People" })).toContainText("People");
+
+    await page.unroute("**/app/people*");
+    await expect(page).toHaveURL(/\/app\/people$/);
+    // …and gone again once it lands.
+    await expect(page.locator("[data-nav-pending]")).toHaveCount(0);
+  });
+
+  test("a cold sprint page flushes its skeleton before its table", async ({ adminPage: page }) => {
+    // Read off the wire, not off the screen, and deliberately so.
+    //
+    // A `loading.tsx` is a `<Suspense fallback>`: the server flushes the shell
+    // and the fallback, then streams the page in behind it. That is the state a
+    // phone actually spends time in — a cold PWA launch or a pull-to-refresh,
+    // where there is no previous page to leave on screen.
+    //
+    // Racing it in the DOM does not work and it is worth saying why, because
+    // the obvious spec is a trap: delaying the response with `page.route`
+    // delays the *whole* response, fallback included, so nothing appears any
+    // earlier and the assertion fails while the feature works. The byte order
+    // in the stream is the thing that is actually true.
+    const html = await (await page.request.get(SPRINT)).text();
+
+    const skeleton = html.indexOf("Loading the sprint");
+    const table = html.indexOf("<table");
+    expect(skeleton, "the sprint's own fallback is not in the stream").toBeGreaterThan(-1);
+    expect(table, "the table is not in the stream").toBeGreaterThan(-1);
+    expect(skeleton, "the skeleton must be flushed ahead of the table").toBeLessThan(table);
+
+    // Shaped like the screen: twelve rows at the same 52px the table draws at
+    // the default density, so the real thing replaces it instead of shoving it.
+    // One element, not twelve — a fallback is carried in the flight payload of
+    // every page below its boundary, so `.cd-skeleton-rows` paints them.
+    expect(html).toMatch(/data-skeleton-rows="12"/);
+    expect(html).toMatch(/--row-h:\s*52px/);
+  });
+
+  test("each screen flushes its own shape, not one shared spinner", async ({ adminPage: page }) => {
+    const shapes: Array<[string, string]> = [
+      ["/app/people", "Loading the team"],
+      ["/app/my-work", "Loading your work"],
+      ["/app/projects", "Loading projects"],
+      ["/app/import", "Loading the importer"],
+      ["/app/settings", "Loading your settings"],
+    ];
+
+    for (const [path, label] of shapes) {
+      const html = await (await page.request.get(path)).text();
+      expect(html, `${path} did not flush "${label}"`).toContain(label);
+    }
+  });
+
+  test("opening an item leaves the sprint table standing behind it", async ({
+    adminPage: page,
+  }) => {
+    // The sprint segment now owns a `loading.tsx`. An item is intercepted into
+    // the `@modal` slot, so the children slot must not be torn down and
+    // replaced by that skeleton — which would blank the table behind the modal.
+    await page.goto(SPRINT);
+    await page.getByRole("link", { name: "Add optional titles to all webparts" }).click();
+
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByRole("status", { name: "Loading the sprint" })).toHaveCount(0);
+  });
+
+  test("an address that names nothing says so, and offers the way back", async ({
+    adminPage: page,
+  }) => {
+    await page.goto("/app/projects/no-such-project");
+    await expect(
+      page.getByRole("heading", { name: "There is nothing at this address." })
+    ).toBeVisible();
+
+    await page.getByRole("link", { name: "Go to the current sprint" }).click();
+    await expect(page).toHaveURL(/\/sprints\/\d+$/);
+  });
+});
+
+/**
+ * Signing out has to be done as somebody else, and that is not fussiness.
+ *
+ * `supabase.auth.signOut()` defaults to `scope: "global"` — it revokes **every**
+ * session that account holds, not the one in this browser. The suite runs
+ * fully parallel against one seeded database and shares `mohamed@coditu.com`
+ * across nearly every spec, so a sign-out here logs out eight other workers
+ * mid-assertion. It does not fail as "signed out" either: they get a redirect to
+ * `/login?next=…` and report whatever they were looking for as missing.
+ *
+ * So this creates a throwaway account with a password only it knows, exactly
+ * the way `password.spec.ts` builds its claimable ones, and signs *that* out.
+ */
+const PROBE = { email: "signout-probe@coditu.test", password: "probe-signs-out-2026" };
+
+async function createProbeAccount() {
+  await removeProbeAccount();
+  await query(`insert into allowed_emails (email, note) values ($1, 'e2e navigation spec')`, [
+    PROBE.email,
+  ]);
+  await query(
+    `insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+       email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data,
+       confirmation_token, recovery_token, email_change_token_new, email_change,
+       email_change_token_current, phone_change, phone_change_token, reauthentication_token)
+     values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated',
+       'authenticated', $1, crypt($2, gen_salt('bf')), now(), now(), now(),
+       '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Signout Probe"}'::jsonb,
+       '', '', '', '', '', '', '', '')`,
+    [PROBE.email, PROBE.password]
+  );
+  await query(
+    `insert into auth.identities (id, user_id, provider_id, identity_data, provider,
+       last_sign_in_at, created_at, updated_at)
+     select u.id, u.id, u.id::text,
+       jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true,
+                          'phone_verified', false),
+       'email', now(), now(), now()
+     from auth.users u where u.email = $1`,
+    [PROBE.email]
+  );
+}
+
+async function removeProbeAccount() {
+  await query(`delete from auth.users where email = $1`, [PROBE.email]);
+  await query(`delete from public.allowed_emails where email = $1`, [PROBE.email]);
+}
+
+test.describe("the account menu", () => {
+  test("sign out is reachable by tapping, on a phone", async ({ page }) => {
+    await createProbeAccount();
+    try {
+      await signIn(page, PROBE);
+      await page.setViewportSize(PHONE);
+      await page.goto(SPRINT);
+
+      // The palette — the only previous home for sign-out — is not offered here.
+      await expect(page.getByRole("button", { name: /Search items/ })).toBeHidden();
+
+      const trigger = page.getByRole("button", { name: /— account$/ });
+      const box = await trigger.boundingBox();
+      expect(box, "the account trigger has a box").not.toBeNull();
+      expect(box!.width, "44px target").toBeGreaterThanOrEqual(44);
+      expect(box!.height, "44px target").toBeGreaterThanOrEqual(44);
+
+      await trigger.click();
+      await expect(page.getByRole("menu", { name: "Account" })).toBeVisible();
+      // Who, before what.
+      await expect(page.getByText(PROBE.email)).toBeVisible();
+
+      await page.getByRole("menuitem", { name: "Sign out" }).click();
+      await expect(page).toHaveURL(/\/login$/);
+
+      // And it really is signed out, not just redirected.
+      await page.goto(SPRINT);
+      await expect(page).toHaveURL(/\/login\?next=/);
+    } finally {
+      await removeProbeAccount();
+    }
+  });
+
+  test("settings is reachable by clicking, from a cold /app", async ({ adminPage: page }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto("/app");
+
+    // Retried, and the retry is the honest part: a tap that lands before React
+    // has hydrated does nothing, here and on every other client control in this
+    // app. Playwright waits for *actionability*, which a server-rendered button
+    // satisfies while its handler does not yet exist.
+    await expect(async () => {
+      await page.getByRole("button", { name: /— account$/ }).click();
+      await expect(page.getByRole("menu", { name: "Account" })).toBeVisible({ timeout: 1000 });
+    }).toPass();
+
+    await page.getByRole("menuitem", { name: "Settings" }).click();
+    await expect(page).toHaveURL(/\/app\/settings$/);
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  });
+
+  test("it opens, traverses and closes on the keyboard, and returns focus", async ({
+    adminPage: page,
+  }) => {
+    await page.goto(SPRINT);
+    const trigger = page.getByRole("button", { name: /— account$/ });
+
+    await trigger.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByRole("menu", { name: "Account" })).toBeVisible();
+
+    // The first item takes focus on open.
+    await expect(page.getByRole("menuitem", { name: "Settings" })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByRole("menuitem", { name: "Settings" })).toBeFocused();
+    await page.keyboard.press("End");
+    await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu", { name: "Account" })).toHaveCount(0);
+    // Escape must not drop a keyboard user at the top of the document.
+    await expect(trigger).toBeFocused();
+  });
+
+  test("axe finds nothing with the account menu open", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(SPRINT);
+    await page.getByRole("button", { name: /— account$/ }).click();
+    await expect(page.getByRole("menu", { name: "Account" })).toBeVisible();
+    // The panel enters on the `surface` tier. Axe sampling an element mid-fade
+    // computes the BLENDED colour and reports a contrast failure that is not
+    // there once it lands — a trap `fixtures.ts` says has been diagnosed three
+    // times already. `auditA11y` settles animations, but its wait is capped, so
+    // this gates on the one element this test just put on screen.
+    await expect(page.locator("[data-account-menu]")).toHaveCSS("opacity", "1");
+    expect(await auditA11y(page)).toEqual([]);
+  });
+});

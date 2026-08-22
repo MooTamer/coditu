@@ -1646,3 +1646,51 @@ is a container invented to satisfy invariant 1 — but the deciding reason is th
 load from *the first project it finds with an active sprint*, so a second active sprint anywhere makes
 which one it shows a coin-toss. It showed Converso's empty load instead of Week 17's. Scoping that
 page properly is a real fix and is not part of this import.
+
+---
+
+## 2026-08-22 · A streamed screen cannot be a 404, and the loading state is worth more
+
+**Decision.** Every route segment under `/app` gets a `loading.tsx`. The consequence, accepted
+knowingly: a `notFound()` raised by any page below one of those boundaries now returns **HTTP 200**
+instead of 404. The two specs that asserted the status assert the security property directly
+instead — that the other client's work is not rendered — plus the `<meta name="next-error">` marker
+Next leaves on a streamed not-found.
+
+**Why.** A `loading.tsx` is a `<Suspense fallback>`: Next flushes the shell and the fallback before
+the page body runs. The status line is on the wire by then, and nothing can take it back. Verified
+by removing the boundaries and watching `/app/projects/no-such-project` go back to 404.
+
+The trade is one-sided. The 404 status bought nothing here: `/app` is `noindex, nofollow` and behind
+auth, so no crawler ever sees it, and nothing monitors 404 rates. The loading state buys the thing
+the team actually complained about — on a phone, on mobile latency, a tap into a dynamic route that
+is deliberately **not** prefetched produced no feedback at all until the whole render returned.
+
+**Rejected.** Dropping `loading.tsx` from `projects/[slug]` and `sprints/[number]` to keep the two
+404s — those are the two slowest screens in the app and the two where a skeleton matters most, so
+the fix would have removed the feature from precisely where it was needed. Also rejected: moving the
+scope check into `generateMetadata` so it throws before the flush — Next streams metadata too, so it
+would have been a race dressed up as a guarantee.
+
+---
+
+## 2026-08-22 · Skeleton rows are painted, not built
+
+**Decision.** `.cd-skeleton-rows` draws a list of loading rows as four repeating background
+gradients on **one** element, tiled every `--row-h`, with the block's height computed from
+`--skeleton-rows`. A twelve-row table skeleton is one DOM node.
+
+**Why.** A `<Suspense>` fallback is serialized into the flight payload of every page beneath its
+boundary, and `/app` now has boundaries four deep. The first version drew each row out of three or
+four `<span>`s, and the outermost fallback alone — forty-odd elements nobody ever sees on a leaf
+route — measured at **+44KB per page view** in dev: `/app/import` went 77KB → 128KB, `/app/people`
+109KB → 181KB, the sprint page 459KB → 641KB. That is roughly 1KB per element, and it was enough to
+push hydration late enough that the e2e suite started failing on races that had never flaked.
+
+After: 42 skeleton elements on the sprint page instead of 275, and in a **production** build the
+whole of workstream A costs +1.4KB gzipped on `/app/import`, +1.2KB on `/app/people` and +2.0KB on
+the sprint page — for loading states, an error boundary, a not-found boundary and the account menu.
+
+**Rejected.** Fewer rows, or a lighter bar per row — the cost is per element, so halving it halves
+nothing that matters. Also rejected: dropping the outer `loading.tsx` files to avoid the nesting,
+which would have taken the loading state away from `/app` itself.

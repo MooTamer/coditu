@@ -158,9 +158,29 @@ test.describe("export scoping — one client's work can never appear under anoth
 
   test("a sprint number from another project does not resolve", async ({ adminPage: page }) => {
     // EVIM has sprint 17; Nile Atelier does not. Asking for it under Nile must
-    // 404 rather than quietly rendering EVIM's sprint with Nile's name on it.
-    const response = await page.goto("/app/projects/nile-atelier/sprints/17/report");
-    expect(response?.status()).toBe(404);
+    // not quietly render EVIM's sprint with Nile's name on it.
+    //
+    // This asserted `status() === 404` until `/app` gained its loading states.
+    // A `loading.tsx` anywhere above a route makes it STREAM: the shell and the
+    // fallback are flushed — with a 200 — before the page body runs and calls
+    // `notFound()`, and a status already on the wire cannot be taken back. Next
+    // marks the response instead, with `<meta name="next-error">`, which is the
+    // signal that survives streaming. Recorded in `docs/05-DECISIONS.md`.
+    //
+    // The security property is unchanged and is what is actually checked here:
+    // no EVIM row appears under a Nile URL.
+    await page.goto("/app/projects/nile-atelier/sprints/17/report");
+
+    await expect(
+      page.getByRole("heading", { name: "There is nothing at this address." })
+    ).toBeVisible();
+    // Read off the wire rather than out of the DOM: React reconciles metadata
+    // during hydration, so a `locator("meta[…]")` count is a race, and this is
+    // the one marker Next leaves on a streamed not-found.
+    const html = await (await page.request.get("/app/projects/nile-atelier/sprints/17/report")).text();
+    expect(html).toMatch(/name="next-error"[^>]*content="not-found"/);
+    await expect(page.getByText("EVIM")).toHaveCount(0);
+    await expect(page.getByText("Add optional titles to all webparts")).toHaveCount(0);
   });
 
   test("selected keys from another project are ignored, not imported", async ({ adminPage: page }) => {

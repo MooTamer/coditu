@@ -503,6 +503,95 @@
    with nothing in the output to explain why.
    ========================================================================== */
 
+/* --- loading skeletons -----------------------------------------------------
+   A `loading.tsx` skeleton has one job: hold the same box the real screen will
+   occupy, so the arriving content replaces it instead of pushing it out of the
+   way. Every bar is drawn in `--hairline`, which is the same rule colour the
+   real rows are separated by, and the pulse is opacity ONLY — a gradient sweep
+   across forty bars is a full-width repaint every frame for a state that is
+   supposed to last 200ms.
+   -------------------------------------------------------------------------- */
+
+@keyframes cd-skeleton {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.cd-skeleton,
+.cd-skeleton-rows {
+  animation: cd-skeleton 1.5s var(--ease-drift) infinite;
+}
+
+.cd-skeleton {
+  background: var(--hairline);
+  border-radius: var(--radius-chip);
+}
+
+/* --- a whole list of rows, in one element ----------------------------------
+   Measured, not stylistic. The first version of these skeletons drew every row
+   out of three or four `<span>`s, and a Suspense fallback is serialized into
+   the flight payload of **every** page beneath its boundary — so `/app/import`,
+   whose own skeleton is three bars, was carrying the forty-odd elements of the
+   `/app` fallback above it as well. In dev that is about 1KB per element:
+   `/app/import` went 77KB → 128KB and `/app/people` 109KB → 181KB, and the
+   e2e suite started failing on hydration races that had never flaked before.
+
+   So the rows are painted rather than built. Four repeating layers — a rule,
+   a key, a title and a right-hand figure — tiled every `--row-h`, with the
+   block's height set from `--skeleton-rows`. Twelve rows cost one element and
+   occupy exactly the box the real twelve will.
+   -------------------------------------------------------------------------- */
+
+.cd-skeleton-rows {
+  --row-h: 52px;
+  --skeleton-rows: 6;
+  height: calc(var(--skeleton-rows) * var(--row-h));
+  background-repeat: repeat-y;
+  background-image:
+    /* the row's bottom rule */
+    linear-gradient(
+      to bottom,
+      transparent 0 calc(var(--row-h) - 1px),
+      var(--hairline) calc(var(--row-h) - 1px) var(--row-h)
+    ),
+    /* the key */
+    linear-gradient(
+      to bottom,
+      transparent 0 calc(50% - 6px),
+      var(--hairline) calc(50% - 6px) calc(50% + 6px),
+      transparent calc(50% + 6px) 100%
+    ),
+    /* the title */
+    linear-gradient(
+      to bottom,
+      transparent 0 calc(50% - 7px),
+      var(--hairline) calc(50% - 7px) calc(50% + 7px),
+      transparent calc(50% + 7px) 100%
+    ),
+    /* the figure on the right */
+    linear-gradient(
+      to bottom,
+      transparent 0 calc(50% - 6px),
+      var(--hairline) calc(50% - 6px) calc(50% + 6px),
+      transparent calc(50% + 6px) 100%
+    );
+  background-size:
+    100% var(--row-h),
+    54px var(--row-h),
+    38% var(--row-h),
+    64px var(--row-h);
+  background-position:
+    0 0,
+    16px 0,
+    86px 0,
+    right 16px top 0;
+}
+
 /* The app's only spinner is the rotating Coditu mark. */
 .cd-spin {
   animation: cd-spin 1.4s linear infinite;
@@ -657,7 +746,9 @@
   }
 
   .cd-spin,
-  .cd-pulse {
+  .cd-pulse,
+  .cd-skeleton,
+  .cd-skeleton-rows {
     animation: none !important;
   }
 

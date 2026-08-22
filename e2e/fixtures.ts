@@ -144,6 +144,55 @@ const SPRINT_TOTALS_LOCK = 20260817;
 
 export type SprintTotals = "off" | "read" | "write";
 
+/**
+ * Every `page.goto` waits for the page to be INTERACTIVE, not merely loaded.
+ *
+ * ── Why this had to be added ───────────────────────────────────────────────
+ * `/app` gained a `loading.tsx` per route segment, which means every screen is
+ * now inside a `<Suspense>` and STREAMS. That is the point of it — the shell
+ * and a shaped skeleton are flushed while the query runs — but it also changes
+ * something the whole suite had quietly relied on: React hydrates a streamed
+ * boundary *after* the document has loaded, so `goto` can return with the real
+ * markup on screen and no event handlers attached to it yet.
+ *
+ * The symptom was not a clean failure. Fifteen specs across eight files started
+ * failing at a rate of one to four per run, never the same ones twice:
+ * `setInputFiles` on a file input that had no `onChange` yet, a click on a
+ * filter that did nothing, a `page.evaluate` finding an empty `<tbody>`.
+ * Every one of them looked like a bug in the thing it was testing.
+ *
+ * `__reactFiber$…` is the honest signal. React writes that key onto a DOM node
+ * when — and only when — it hydrates it, so asking the page's own `<main>` for
+ * one is asking "has React taken ownership of this yet". Waiting for
+ * `[data-loading-skeleton]` to be gone first is what stops the question being
+ * answered by the fallback's `<main>` instead of the page's.
+ *
+ * It lives here rather than in fifteen specs because it is one fact about how
+ * this app now loads, not fifteen separate waits.
+ */
+async function waitForInteractive(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      if (document.querySelector("[data-loading-skeleton]")) return false;
+      const root = document.querySelector("main") ?? document.body;
+      if (!root) return false;
+      return Object.keys(root).some((key) => key.startsWith("__reactFiber$"));
+    },
+    undefined,
+    { timeout: 20_000 }
+  );
+}
+
+/** Wraps `goto` in place, so no spec has to remember to call it. */
+function waitAfterEveryGoto(page: Page): void {
+  const goto = page.goto.bind(page);
+  page.goto = async (url: string, options?: Parameters<Page["goto"]>[1]) => {
+    const response = await goto(url, options);
+    await waitForInteractive(page);
+    return response;
+  };
+}
+
 export const test = base.extend<{
   sprintTotals: SprintTotals;
   sprintTotalsLock: void;
@@ -174,6 +223,11 @@ export const test = base.extend<{
     },
     { auto: true },
   ],
+
+  page: async ({ page }, use) => {
+    waitAfterEveryGoto(page);
+    await use(page);
+  },
 
   adminPage: async ({ page }, use) => {
     await signIn(page, SEED_ADMIN);

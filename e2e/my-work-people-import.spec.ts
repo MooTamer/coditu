@@ -200,6 +200,22 @@ test.describe("notion import", () => {
     // happened to exist in one developer's database, which is a test that passes
     // for a reason unrelated to the code and fails everywhere else.
     const TWIN = "import-twin@example.com";
+
+    // Deleted first, and cleaned up in a `finally` below, because this test
+    // used to poison the shared database for every run after it. The insert
+    // below has no `on conflict` — `auth.users`' unique index on email is a
+    // PARTIAL one, so it cannot be inferred — and the cleanup used to be the
+    // last statement of the test body. One failed assertion, one aborted run,
+    // and the twin survived; every later run then failed at
+    // `duplicate key value violates unique constraint "users_email_partial_key"`,
+    // which points at the fixture rather than at the test that left it there.
+    // Same shape as the `claim-%` sweep in `password.spec.ts`.
+    const removeTwin = async () => {
+      await query(`delete from auth.users where email = $1`, [TWIN]);
+      await query(`delete from public.allowed_emails where email = $1`, [TWIN]);
+    };
+    await removeTwin();
+
     await query(`insert into public.allowed_emails (email, note) values ($1, 'e2e twin')
                  on conflict (email) do nothing`, [TWIN]);
     await query(
@@ -217,6 +233,13 @@ test.describe("notion import", () => {
       [TWIN]
     );
 
+    try {
+      await runTheAmbiguousImport();
+    } finally {
+      await removeTwin();
+    }
+
+    async function runTheAmbiguousImport() {
     const [duplicates] = await query<{ n: string }>(
       `select count(*)::text as n from profiles
        where is_active and full_name = 'Mohamed Tamer'`
@@ -244,10 +267,7 @@ test.describe("notion import", () => {
       `select count(*)::text as n from work_items where title = 'Imported ambiguous person'`
     );
     expect(written.n).toBe("0");
-
-    await query(`delete from public.profiles where id in (select id from auth.users where email = $1)`, [TWIN]);
-    await query(`delete from auth.users where email = $1`, [TWIN]);
-    await query(`delete from public.allowed_emails where email = $1`, [TWIN]);
+    }
   });
 
   test("the commit writes into the sprint, so it cannot land under another client", async ({

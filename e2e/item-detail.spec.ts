@@ -212,7 +212,22 @@ test.describe("item detail", () => {
   test("an item cannot be reached under another client's URL", async ({ adminPage: page }) => {
     // Invariant 1. COD-229 is EVIM's; asking for it under Nile Atelier must not
     // render it with Nile's name in the breadcrumb.
-    const response = await page.goto("/app/projects/nile-atelier/sprints/1/items/COD-229");
-    expect(response?.status()).toBe(404);
+    //
+    // The status is 200 now and that is not the regression it looks like: the
+    // sprint segment owns a `loading.tsx`, so the shell is flushed before the
+    // page runs and `notFound()` can no longer change a status that has already
+    // been sent. See `docs/05-DECISIONS.md`. What matters — that the item is
+    // NOT rendered under a foreign slug — is asserted directly.
+    await page.goto("/app/projects/nile-atelier/sprints/1/items/COD-229");
+
+    await expect(
+      page.getByRole("heading", { name: "There is nothing at this address." })
+    ).toBeVisible();
+    // Read off the wire rather than out of the DOM: React reconciles metadata
+    // during hydration, so a `locator("meta[…]")` count is a race, and this is
+    // the one marker Next leaves on a streamed not-found.
+    const html = await (await page.request.get("/app/projects/nile-atelier/sprints/1/items/COD-229")).text();
+    expect(html).toMatch(/name="next-error"[^>]*content="not-found"/);
+    await expect(page.getByText("Add optional titles to all webparts")).toHaveCount(0);
   });
 });

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Download, Plus, Search } from "lucide-react";
 
+import { AccountMenu, type AccountIdentity } from "@/components/app/account-menu.client";
 import { CommandPalette } from "@/components/app/command-palette.client";
 import { ExportDialog } from "@/components/app/export-dialog.client";
 import { NewItemDialog } from "@/components/app/new-item-dialog.client";
@@ -27,6 +28,7 @@ export function Topbar({
   projects,
   people,
   canCreate,
+  me,
 }: {
   projects: ProjectSummary[];
   /** Active profiles, for the New item dialog's owner pickers. */
@@ -34,6 +36,8 @@ export function Topbar({
   /** Admin or lead. RLS refuses an engineer's insert; the button says so
    *  rather than opening a form that cannot be submitted. */
   canCreate: boolean;
+  /** The signed-in person. Their face is the account menu's trigger. */
+  me: AccountIdentity;
 }) {
   const pathname = usePathname();
   const [exportOpen, setExportOpen] = useState(false);
@@ -157,6 +161,10 @@ export function Topbar({
           <Plus size={14} strokeWidth={2.4} aria-hidden />
           <span className="hidden sm:inline">New item</span>
         </button>
+
+        {/* Last in the cluster, which is where a person expects their own face
+            to be — and, on a phone, the only route to Settings or Sign out. */}
+        <AccountMenu me={me} />
       </div>
 
       {exportOpen && activeSprint && exportSlugName ? (

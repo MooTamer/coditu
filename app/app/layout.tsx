@@ -48,6 +48,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             projects={projects}
             people={people}
             canCreate={profile.role === "admin" || profile.role === "lead"}
+            me={{
+              fullName: profile.full_name,
+              initials: profile.initials,
+              avatarUrl: profile.avatar_url,
+              email: profile.email,
+              role: profile.role,
+            }}
           />
           {children}
         </div>
