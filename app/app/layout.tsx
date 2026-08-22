@@ -34,7 +34,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <ToastProvider>
       <div className="flex min-h-dvh bg-[var(--canvas)] text-[var(--ink)]">
-        <Rail profileName={profile.full_name} role={profile.role} unreadCount={unreadCount} />
+        <Rail
+          me={{
+            fullName: profile.full_name,
+            initials: profile.initials,
+            avatarUrl: profile.avatar_url,
+          }}
+          role={profile.role}
+          unreadCount={unreadCount}
+        />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar
             projects={projects}

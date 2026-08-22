@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { RotateCcw, UserMinus } from "lucide-react";
 
+import { PersonAvatar } from "@/components/app/person-avatar";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { ToneChip } from "@/components/coditu/status-chip";
@@ -156,12 +157,14 @@ function PersonRow({
       )}
     >
       <div className="flex items-center gap-3">
-        <span
-          className="flex size-[34px] shrink-0 items-center justify-center rounded-pill border border-[var(--hairline-strong)]"
+        <PersonAvatar
+          person={person}
+          size={34}
+          fontSize={11}
+          // Deactivated people are dimmed rather than hidden — an admin has to
+          // be able to see who they are in order to bring them back.
           style={{ opacity: active ? 1 : 0.55 }}
-        >
-          <Mono size="meta">{person.initials}</Mono>
-        </span>
+        />
         <span className="min-w-0">
           <span className="flex items-center gap-2">
             <span className="truncate text-[15px] font-semibold">

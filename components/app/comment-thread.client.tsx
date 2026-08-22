@@ -2,6 +2,7 @@
 
 import { useOptimistic, type ReactNode } from "react";
 
+import { PersonAvatar } from "@/components/app/person-avatar";
 import { CommentComposer } from "@/components/app/comment-composer.client";
 import { Mono } from "@/components/coditu/mono";
 import { flattenToText } from "@/lib/comments/schema";
@@ -53,7 +54,7 @@ export function CommentThread({
   itemKey: string;
   people: ProfileRef[];
   /** The signed-in reader, so their own comment can carry their name. */
-  me: { fullName: string; initials: string };
+  me: { fullName: string; initials: string; avatarUrl: string | null };
   /** Whether the server-rendered thread is empty — it cannot be read from `children`. */
   isEmpty: boolean;
   /** The real thread, rendered on the server. */
@@ -74,11 +75,7 @@ export function CommentThread({
 
         {pending.map((comment) => (
           <article key={comment.id} data-reveal="micro" className="flex gap-3">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-pill border border-[var(--hairline-strong)]">
-              <Mono size="eyebrow" className="text-[10px] normal-case tracking-normal">
-                {me.initials}
-              </Mono>
-            </span>
+            <PersonAvatar person={me} size={28} fontSize={10} />
             <div className="min-w-0">
               <div className="flex items-baseline gap-2">
                 <span className="text-[13.5px] font-semibold">{me.fullName}</span>

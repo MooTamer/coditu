@@ -168,6 +168,21 @@ These follow the bundle. The **Notion importer** maps:
 It shows a **preview table flagging every unmatched value — including the non-integer grouping case
 (`"1a"`) — before committing anything.**
 
+## Settings · your picture
+
+The one thing on a profile its owner sets. Choose, replace, or remove; the browser centre-crops to
+256px WebP before it uploads, and the caption names your initials while there is no picture. It then
+replaces the initials **everywhere a person appears** — the rail, the sprint header, the board cards,
+the assignee and reviewer columns, the mobile cards, the People list, the mention menu, every comment
+and every logged hour. Wherever a person has no picture, the initials stay.
+
+Every one of those is `<PersonAvatar>`, which always draws the initials and lays the picture over
+them: a missing or broken image degrades to initials with no JavaScript involved. Role, capacity and
+access stay on **People** — they are decisions *about* a person and are an admin's to make.
+
+Exports are unchanged. `04-EXPORT-SPEC.md` states people as name and initials, and a CSV is not a
+place for a photograph.
+
 ## Command palette
 
 `⌘K` / `Ctrl+K`. Jump to project, sprint, or item; change status; log time; assign; toggle theme; sign

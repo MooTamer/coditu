@@ -143,6 +143,7 @@ role is never trusted.
 | `comments` | author may update or soft-delete their own; admin may soft-delete any; nobody hard-deletes. |
 | `notifications` | a profile reads and updates only its own rows. |
 | `attachments` + buckets `work-attachments`, `comment-images` | Both private. Authenticated read; insert by any active profile; delete by uploader or admin. Signed URLs, 1 hour TTL. |
+| bucket `avatars` | **Public**, 2MB, no SVG. Insert and delete only under your own `<profile id>/` prefix; an admin may delete anyone's. `profiles.avatar_url` holds the full public URL and is constrained to be one of our own objects or null — the column is client-writable, so without that it is an arbitrary URL in an `<img>` on every screen. See `05-DECISIONS.md`, 2026-08-22. |
 | `activity` | read-only; written by triggers. |
 
 ### `supabase/tests/rls.sql`

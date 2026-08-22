@@ -1471,3 +1471,78 @@ redirected it away from the form. It uses a third, clean context now.
 secret an admin also knows. And handling the older implicit flow (`#access_token=` in the fragment):
 `@supabase/ssr` uses PKCE, the fragment never reaches the server, and writing a client-side branch for
 a flow this project does not use is surface with no reader.
+
+---
+
+## 2026-08-22 · A profile picture is public, and the column can only point at ours
+
+**Decision.** People set their own picture in Settings, it is stored in a new **public** `avatars`
+bucket, and `profiles.avatar_url` holds the full public URL — constrained by the database to be one of
+our own objects and nothing else. Every place a person appeared as two initials in a circle now shows
+that picture, falling back to the initials when there is none.
+
+**Why public, when the other two buckets are private.** `work-attachments` and `comment-images` hold
+client work; a screenshot in a comment can carry anything, and a signed URL with a one-hour TTL is the
+right shape for them. A face is not that. It appears in the rail, on every board card, in every table
+row, in the sprint header and beside every comment — dozens of times per page, on pages that
+re-render constantly. Signing it would mean either a storage round-trip per person per render, or a
+URL that expires an hour into an open tab and leaves a broken image with no error to show for it. The
+second is the failure mode this log keeps recording: **it fails by appearing to work**, and only for
+the person who left the tab open. Public means one stable URL, cached by the browser, that cannot
+expire. The trade is that anybody holding the URL can fetch the image; the path is
+`<profile id>/<random uuid>.<ext>`, the bucket cannot be listed, and what the URL is worth is a
+photograph its owner published to their colleagues.
+
+**Why the column is constrained.** `avatar_url` is client-writable — the "own profile update" policy
+lets you write your own row, and `guard_profile_privilege_columns` deliberately says nothing about a
+picture, because a picture is not a privilege. But that write goes through PostgREST with the anon
+key, which ships in the browser bundle. Without a constraint, "set your picture" is really "put any
+URL you like into an `<img>` on every teammate's screen" — a way to serve them arbitrary content and
+collect their addresses from a page they trust. `profiles_avatar_is_our_own_storage` requires the
+value to be `null` or an object in our own `avatars` bucket. Same lesson as `handle_new_user` reading
+`raw_user_meta_data`: the form is not the boundary, the endpoint is.
+
+**Why a new random path on every replacement.** Uploading over the same key would be less code and
+would be wrong: the public URL would not change, and every browser holding the previous picture would
+go on serving it. You would change your photograph, see the old one, and have no way to tell whether
+the write failed. The old object is deleted *after* the profile is repointed, and that delete is best
+effort — an orphan costs 20KB, a profile pointing at a deleted object costs a broken face everywhere.
+
+**Why the browser resizes before it uploads.** A phone photograph is 3–5MB and would be downloaded in
+full to draw a 20px circle on a board card. `createImageBitmap` + canvas centre-crops to 256px WebP,
+about 20KB, with `imageOrientation: "from-image"` so portrait photographs do not arrive on their side.
+The server cap of 2MB and the bucket's own limit are the boundary; the resize is the courtesy. If it
+fails for any reason the original file is sent and the cap decides — a browser that cannot resize
+should not be a browser that cannot set a picture.
+
+**Why the initials are still rendered underneath.** `<PersonAvatar>` always draws the initials and
+lays the `<img alt="">` over them. A picture that 404s, or a profile that never had one, shows
+initials rather than a broken-image glyph — with no JavaScript involved, and no `onError` handler,
+which is why the component works unchanged inside a Server Component and inside a client one. Half
+the places a person appears are the second kind.
+
+**Rejected.** *Signed URLs, for consistency with the other two buckets* — the expiry problem above.
+*`next/image`* — the host is whichever Supabase project the environment points at, so `remotePatterns`
+would have to be built at build time from an env var that differs between local and production, and
+`npm run build` reads `.env.production.local`; the payoff would be optimising a 256px thumbnail the
+browser already caches. `CommentImage` reached the same conclusion for the same reason. *Letting an
+admin set someone else's picture* — role, capacity and access are administered on People because they
+are decisions about a person; a picture is the one thing on a profile that belongs to its owner. An
+admin can still delete an object, which is the moderation escape hatch the other two buckets have.
+
+**Two things this turned up on the way, both pre-existing.**
+
+- **`<Reveal>` was dropping `aria-labelledby`.** It takes an explicit prop list and does not spread a
+  rest parameter, and TypeScript does not check JSX attributes whose names are not valid identifiers —
+  every `aria-*` and `data-*` one. So `<Reveal as="section" aria-labelledby="team">` compiled, read as
+  finished, and put nothing in the DOM: the `<section>` arrived with no accessible name, which means
+  it is not exposed as a landmark at all. Settings and People had been doing this since they were
+  written. `Reveal` declares and forwards `aria-labelledby` and `aria-label` now, and
+  `e2e/avatar.spec.ts` finds the picture section by its landmark role rather than by a CSS path, so
+  the label is asserted rather than assumed.
+- **`e2e/password.spec.ts` had a race across workers.** Its `afterAll` sweeps `claim-%` addresses and
+  `afterAll` runs once *per worker*, so the worker that finished the two fast tests deleted the slow
+  test's account while it was still running. The symptom is not an error, it is silence: `/recover`
+  on an address with no user returns 200 and sends nothing, precisely so the endpoint cannot be used
+  to find out who works here — and the spec then fails at "no mail was sent", pointing at the mail
+  server. The describe is `serial` now, which keeps the sweep's purpose and removes the race.

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 
+import { PersonAvatar } from "@/components/app/person-avatar";
 import { CellPopover, optionListKeyDown } from "@/components/app/cell-popover.client";
 import { Mono } from "@/components/coditu/mono";
 import { StatusChipDot } from "@/components/coditu/status-chip";
@@ -203,14 +204,7 @@ function PersonFace({
 }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-2 whitespace-nowrap">
-      <span
-        className="flex size-6 shrink-0 items-center justify-center rounded-pill border border-[var(--hairline-strong)]"
-        style={{ color: person ? "var(--ink)" : "var(--ink-faint)" }}
-      >
-        <Mono size="eyebrow" className="text-[9.5px] normal-case tracking-normal">
-          {person?.initials ?? "··"}
-        </Mono>
-      </span>
+      <PersonAvatar person={person} size={24} fontSize={9.5} />
       <span
         className="truncate text-[13.5px]"
         style={{ color: person ? "var(--ink)" : "var(--ink-faint)" }}

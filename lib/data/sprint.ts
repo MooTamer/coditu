@@ -41,6 +41,8 @@ export interface PersonRef {
   id: string;
   fullName: string;
   initials: string;
+  /** Null means no picture: every avatar falls back to the initials. */
+  avatarUrl: string | null;
 }
 
 export interface SprintDetail {
@@ -67,12 +69,12 @@ export interface SprintDetail {
  * hand it a computed string and every field comes back as `GenericStringError`.
  */
 const SPRINT_TAIL = `created_at,
-     notes_author:profiles!sprints_notes_author_id_fkey ( id, full_name, initials ),
+     notes_author:profiles!sprints_notes_author_id_fkey ( id, full_name, initials, avatar_url ),
      work_items (
        id, key, title, description, highlight, status, type, deadline,
        estimate_minutes, minutes_logged, grouping, order_index,
-       assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials ),
-       reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials ),
+       assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials, avatar_url ),
+       reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials, avatar_url ),
        acceptance_criteria ( is_done )
      )` as const;
 
@@ -161,8 +163,12 @@ export const getSprint = cache(
   }
 );
 
-function toPerson(row: { id: string; full_name: string; initials: string } | null): PersonRef | null {
-  return row ? { id: row.id, fullName: row.full_name, initials: row.initials } : null;
+function toPerson(
+  row: { id: string; full_name: string; initials: string; avatar_url: string | null } | null
+): PersonRef | null {
+  return row
+    ? { id: row.id, fullName: row.full_name, initials: row.initials, avatarUrl: row.avatar_url }
+    : null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -266,6 +272,7 @@ export function daysRemaining(endsOn: string | null, today = todayInCairo()): nu
 export interface SprintMember {
   initials: string;
   fullName: string;
+  avatarUrl: string | null;
   minutes: number;
 }
 
@@ -282,13 +289,13 @@ export const getSprintMembers = cache(async (sprintId: string): Promise<SprintMe
   const [{ data: entries }, { data: items }] = await Promise.all([
     supabase
       .from("time_entries")
-      .select("minutes, profiles!inner ( id, full_name, initials ), work_items!inner ( sprint_id )")
+      .select("minutes, profiles!inner ( id, full_name, initials, avatar_url ), work_items!inner ( sprint_id )")
       .eq("work_items.sprint_id", sprintId),
     supabase
       .from("work_items")
       .select(
-        `assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials ),
-         reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials )`
+        `assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials, avatar_url ),
+         reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials, avatar_url )`
       )
       .eq("sprint_id", sprintId),
   ]);
@@ -300,7 +307,12 @@ export const getSprintMembers = cache(async (sprintId: string): Promise<SprintMe
   for (const item of items ?? []) {
     for (const person of [item.assignee, item.reviewer]) {
       if (person && !members.has(person.id)) {
-        members.set(person.id, { initials: person.initials, fullName: person.full_name, minutes: 0 });
+        members.set(person.id, {
+          initials: person.initials,
+          fullName: person.full_name,
+          avatarUrl: person.avatar_url,
+          minutes: 0,
+        });
       }
     }
   }
@@ -309,7 +321,13 @@ export const getSprintMembers = cache(async (sprintId: string): Promise<SprintMe
     const person = entry.profiles;
     const existing = members.get(person.id);
     if (existing) existing.minutes += entry.minutes;
-    else members.set(person.id, { initials: person.initials, fullName: person.full_name, minutes: entry.minutes });
+    else
+      members.set(person.id, {
+        initials: person.initials,
+        fullName: person.full_name,
+        avatarUrl: person.avatar_url,
+        minutes: entry.minutes,
+      });
   }
 
   return [...members.values()].sort((a, b) => b.minutes - a.minutes);

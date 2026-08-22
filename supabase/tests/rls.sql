@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(49);
+select plan(59);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -562,6 +562,128 @@ select throws_ok(
   '42501',
   null,
   'negative: sign-up is refused for an address that is not on the allowlist'
+);
+
+-- =========================================================================
+-- Storage — profile pictures
+--
+-- `avatars` is the one PUBLIC bucket, which makes reads a non-question and the
+-- WRITE side the whole of the access control. Every case below is about the
+-- path prefix, because that is the only thing standing between "I set my
+-- picture" and "I set yours".
+-- =========================================================================
+
+select is(
+  (select public from storage.buckets where id = 'avatars'),
+  true,
+  'positive: the avatars bucket is public — a stable URL, not a signed one that expires mid-session'
+);
+
+select is(
+  (select file_size_limit from storage.buckets where id = 'avatars'),
+  (2 * 1024 * 1024)::bigint,
+  'positive: the bucket enforces its own 2MB cap, independently of the server action'
+);
+
+select ok(
+  not ('image/svg+xml' = any (select unnest(allowed_mime_types) from storage.buckets where id = 'avatars')),
+  'negative: SVG is not an accepted picture — it is a document format that can carry script'
+);
+
+-- Eve sets her own picture.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select lives_ok(
+  $$insert into storage.objects (bucket_id, name, owner_id)
+    values ('avatars', '33333333-3333-3333-3333-333333333333/aaaaaaaa-0000-0000-0000-000000000001.webp',
+            '33333333-3333-3333-3333-333333333333')$$,
+  'positive: a member uploads into their own folder'
+);
+
+-- ...and cannot set Otto's.
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name, owner_id)
+    values ('avatars', '44444444-4444-4444-4444-444444444444/aaaaaaaa-0000-0000-0000-000000000002.webp',
+            '33333333-3333-3333-3333-333333333333')$$,
+  '42501',
+  null,
+  'negative: a member cannot upload into somebody else''s folder'
+);
+select pg_temp.act_as_owner();
+
+-- Otto cannot delete the picture Eve just set. Replacing a picture deletes the
+-- one it replaces, so this is the policy that stops one member erasing another.
+-- Two guards sit in front of a delete and only the second one is the policy.
+-- `storage.protect_objects_delete` refuses ANY hand-written DELETE unless
+-- `storage.allow_delete_query` is set — which is what the Storage API sets, and
+-- what `removeStoredAvatar` therefore goes through. Setting it here is not
+-- weakening the test; it is getting past the "you meant to use the API" guard so
+-- the RLS policy underneath can be the thing being tested.
+--
+-- And RLS refuses a delete by making the row invisible, not by raising — so the
+-- statement "succeeds" and removes nothing. Assert on what is LEFT, never on the
+-- absence of an error.
+select pg_temp.act_as('44444444-4444-4444-4444-444444444444');
+set local storage.allow_delete_query = 'true';
+delete from storage.objects
+where bucket_id = 'avatars'
+  and name = '33333333-3333-3333-3333-333333333333/aaaaaaaa-0000-0000-0000-000000000001.webp';
+select pg_temp.act_as_owner();
+
+select is(
+  (select count(*)::int from storage.objects
+   where bucket_id = 'avatars'
+     and name = '33333333-3333-3333-3333-333333333333/aaaaaaaa-0000-0000-0000-000000000001.webp'),
+  1,
+  'negative: a member cannot delete another member''s picture'
+);
+
+-- An admin can, which is the same moderation escape hatch the other two
+-- buckets have: somebody has to be able to take down a picture that should not
+-- be on the screen.
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+set local storage.allow_delete_query = 'true';
+delete from storage.objects
+where bucket_id = 'avatars'
+  and name = '33333333-3333-3333-3333-333333333333/aaaaaaaa-0000-0000-0000-000000000001.webp';
+select pg_temp.act_as_owner();
+
+select is(
+  (select count(*)::int from storage.objects
+   where bucket_id = 'avatars'
+     and name = '33333333-3333-3333-3333-333333333333/aaaaaaaa-0000-0000-0000-000000000001.webp'),
+  0,
+  'positive: an admin can remove anyone''s picture'
+);
+set local storage.allow_delete_query = 'false';
+
+-- A picture is not a privilege: `guard_profile_privilege_columns` names role,
+-- is_active and capacity, and deliberately does not name avatar_url.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select lives_ok(
+  $$update public.profiles set avatar_url =
+      'http://127.0.0.1:54421/storage/v1/object/public/avatars/33333333-3333-3333-3333-333333333333/aaaaaaaa-0000-0000-0000-000000000003.webp'
+    where id = '33333333-3333-3333-3333-333333333333'$$,
+  'positive: a member sets their own avatar_url without an admin'
+);
+
+-- The column is writable through PostgREST with the anon key, so an arbitrary
+-- URL here would render in an <img> on every teammate's screen.
+select throws_ok(
+  $$update public.profiles set avatar_url = 'https://evil.example/tracker.gif'
+    where id = '33333333-3333-3333-3333-333333333333'$$,
+  '23514',
+  null,
+  'negative: a profile picture cannot point anywhere but our own avatars bucket'
+);
+
+update public.profiles set avatar_url = 'http://example.test/nope.webp'
+where id = '44444444-4444-4444-4444-444444444444';
+select pg_temp.act_as_owner();
+
+select is(
+  (select avatar_url from public.profiles where id = '44444444-4444-4444-4444-444444444444'),
+  null,
+  'negative: a member cannot set another member''s picture'
 );
 
 select * from finish();

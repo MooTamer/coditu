@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { AVATAR_BUCKET, avatarObjectKey } from "@/lib/avatar";
+import { extensionFor, isAllowedImageType, looksLikeImage } from "@/lib/images";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { APP_ROLES } from "@/lib/work-items";
 
@@ -151,4 +153,132 @@ export async function setProfileActive(input: unknown): Promise<ProfileResult> {
 
   revalidatePath("/app/people");
   return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Your own picture.                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A picture is the one thing on a profile that its owner sets and nobody else
+ * does. Role, capacity and access are administered on `/app/people` by an
+ * admin; this is administered in Settings, by you, and there is deliberately no
+ * "set someone else's photograph" path — `guard_profile_privilege_columns` does
+ * not need to say anything about `avatar_url` because a picture is not a
+ * privilege, and the storage policy already refuses a write outside your own
+ * folder.
+ */
+
+/**
+ * 2MB, and the bucket says so too.
+ *
+ * The browser downscales to 256px before it uploads, so a real picture arrives
+ * at about 20KB and this cap is never the thing anyone meets. It is here for
+ * the request that did not come from our form.
+ */
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+
+export interface AvatarResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Every replacement lands on a NEW random path, and the old object is deleted
+ * after the profile has been repointed.
+ *
+ * Uploading over the same path would be less code and would be wrong: the
+ * public URL would not change, and every browser and CDN holding the previous
+ * picture would go on serving it. You would change your photograph, see the old
+ * one, and have no way to tell whether the write failed. Ordering matters too —
+ * the delete happens last and its failure is swallowed, because an orphaned
+ * object costs 20KB and a profile pointing at a deleted object costs a broken
+ * face on every screen.
+ */
+export async function setMyAvatar(formData: FormData): Promise<AvatarResult> {
+  const profile = await getCurrentProfile();
+  if (!profile) return { ok: false, error: "You are not signed in." };
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) return { ok: false, error: "No file was received." };
+
+  if (!isAllowedImageType(file.type)) {
+    return { ok: false, error: "Pictures only — PNG, JPEG, WebP, GIF or AVIF." };
+  }
+  if (file.size > MAX_AVATAR_BYTES) {
+    return { ok: false, error: "That picture is over 2MB, even after resizing. Try a smaller one." };
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (!looksLikeImage(bytes, file.type)) {
+    return { ok: false, error: "That file is not the image type it claims to be." };
+  }
+
+  const supabase = await createClient();
+  const path = `${profile.id}/${crypto.randomUUID()}.${extensionFor(file.type)}`;
+
+  const upload = await supabase.storage.from(AVATAR_BUCKET).upload(path, bytes, {
+    contentType: file.type,
+    upsert: false,
+  });
+  if (upload.error) return { ok: false, error: "That upload failed. Try again." };
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ avatar_url: publicUrl })
+    .eq("id", profile.id);
+
+  if (error) {
+    // The row still points at the previous picture, so take the orphan back out
+    // rather than leaving a file nothing references.
+    await supabase.storage.from(AVATAR_BUCKET).remove([path]);
+    return { ok: false, error: "The picture uploaded but did not save. Try again." };
+  }
+
+  await removeStoredAvatar(supabase, profile.avatar_url);
+  revalidateEverywhereAPersonAppears();
+  return { ok: true };
+}
+
+/** Back to initials. */
+export async function removeMyAvatar(): Promise<AvatarResult> {
+  const profile = await getCurrentProfile();
+  if (!profile) return { ok: false, error: "You are not signed in." };
+  if (!profile.avatar_url) return { ok: true };
+
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("profiles").update({ avatar_url: null }).eq("id", profile.id);
+  if (error) return { ok: false, error: "That did not save. Your picture is still there — try again." };
+
+  await removeStoredAvatar(supabase, profile.avatar_url);
+  revalidateEverywhereAPersonAppears();
+  return { ok: true };
+}
+
+/**
+ * Deletes the object a stored public URL points at. Best effort, by design:
+ * anything that is not one of ours is left alone, and a failed delete leaves an
+ * orphan rather than a profile pointing at nothing.
+ */
+async function removeStoredAvatar(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  storedUrl: string | null
+): Promise<void> {
+  const key = avatarObjectKey(storedUrl);
+  if (!key) return;
+  await supabase.storage.from(AVATAR_BUCKET).remove([key]);
+}
+
+/**
+ * A face is on nearly every screen in the app — the rail, the board, the table,
+ * the People list, every comment — so the picture changing invalidates the
+ * whole `/app` subtree rather than the one page Settings happens to be.
+ */
+function revalidateEverywhereAPersonAppears(): void {
+  revalidatePath("/app", "layout");
 }

@@ -13,6 +13,7 @@ import { Bold, Code, Italic, ImagePlus, Link2, List, SquareCode } from "lucide-r
 
 import { Mono } from "@/components/coditu/mono";
 import { uploadCommentImage } from "@/lib/actions/comments";
+import { IMAGE_ACCEPT } from "@/lib/images";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { CODE_LANGUAGES } from "@/lib/comments/schema";
 import { cn } from "@/lib/utils";
@@ -258,7 +259,7 @@ export function CommentEditor({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+          accept={IMAGE_ACCEPT}
           aria-label="Attach an image to this comment"
           tabIndex={-1}
           className="sr-only"

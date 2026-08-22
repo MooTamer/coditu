@@ -1,3 +1,4 @@
+import { PersonAvatar } from "@/components/app/person-avatar";
 import { ClientMark } from "@/components/app/client-mark";
 import { SprintNotes } from "@/components/app/sprint-notes.client";
 import { Mono } from "@/components/coditu/mono";
@@ -39,7 +40,7 @@ export function SprintHeader({
   sprint: SprintDetail;
   burn: BurnPoint[];
   daysLeft: number | null;
-  members: Array<{ initials: string; fullName: string; minutes: number }>;
+  members: Array<{ initials: string; fullName: string; avatarUrl: string | null; minutes: number }>;
   /** Admin or lead. Sprints are theirs to change. */
   canEdit: boolean;
 }) {
@@ -109,17 +110,16 @@ export function SprintHeader({
           {members.length > 0 ? (
             <div className="mt-5 flex flex-wrap items-center gap-2">
               {members.map((member) => (
-                <span
+                <PersonAvatar
                   key={member.initials}
+                  person={member}
+                  size={30}
+                  fontSize={10.5}
+                  className="bg-[var(--canvas)]"
                   // The tooltip carries the per-person load, exactly as the
-                  // bundle does — the avatars are otherwise just initials.
+                  // bundle does — a face alone does not say who is at capacity.
                   title={`${member.fullName} — ${hoursLabel(member.minutes)} logged`}
-                  className="flex size-[30px] items-center justify-center rounded-pill border border-[var(--hairline-strong)] bg-[var(--canvas)]"
-                >
-                  <Mono size="eyebrow" className="normal-case tracking-normal">
-                    {member.initials}
-                  </Mono>
-                </span>
+                />
               ))}
               <Mono size="meta" className="ml-[6px] text-[var(--ink-faint)]">
                 hover for per-person load

@@ -61,10 +61,28 @@ export function buildMentionSuggestion(people: ProfileRef[]): Omit<SuggestionOpt
             index === selected ? "bg-[var(--canvas)] text-[var(--ink)]" : "text-[var(--ink-muted)]",
           ].join(" ");
 
+          // Hand-built DOM rather than `<PersonAvatar>`: tiptap's suggestion
+          // renderer owns this node and there is no React tree to mount into.
+          // Same structure as the component — initials underneath, picture on
+          // top with an empty alt — so a missing or broken image falls back the
+          // same way it does everywhere else.
           const badge = document.createElement("span");
-          badge.textContent = person.initials;
           badge.className =
-            "flex size-6 items-center justify-center rounded-full border border-[var(--hairline-strong)] font-mono text-[9.5px]";
+            "relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--hairline-strong)]";
+
+          const mark = document.createElement("span");
+          mark.textContent = person.initials;
+          mark.className = "font-mono text-[9.5px] leading-none";
+          badge.append(mark);
+
+          if (person.avatarUrl) {
+            const face = document.createElement("img");
+            face.src = person.avatarUrl;
+            face.alt = "";
+            face.loading = "lazy";
+            face.className = "absolute inset-0 size-full object-cover";
+            badge.append(face);
+          }
 
           const name = document.createElement("span");
           name.textContent = person.fullName;

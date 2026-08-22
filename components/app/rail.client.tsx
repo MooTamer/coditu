@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { CheckCheck, FolderOpen, Import, Rows3, Users } from "lucide-react";
 
+import { PersonAvatar, type AvatarPerson } from "@/components/app/person-avatar";
 import { CoditusMark } from "@/components/coditu/coditus-mark";
 import { usePersistentFlag } from "@/lib/hooks/use-client-state";
 import { cn } from "@/lib/utils";
@@ -68,11 +69,11 @@ const NAV = [
 const PIN_KEY = "coditu.rail.pinned";
 
 export function Rail({
-  profileName,
+  me,
   role,
   unreadCount,
 }: {
-  profileName: string;
+  me: AvatarPerson;
   role: string;
   /** Unread notifications. Surfaces as a dot on My work. */
   unreadCount: number;
@@ -176,19 +177,15 @@ export function Rail({
       </nav>
 
       <div className="mt-auto flex h-11 items-center gap-3 border-t border-[var(--hairline)] px-3">
-        <span className="flex size-[26px] shrink-0 items-center justify-center rounded-pill border border-[var(--hairline-strong)] font-mono text-[10px]">
-          {profileName
-            .split(" ")
-            .map((part) => part[0])
-            .slice(0, 2)
-            .join("")
-            .toUpperCase()}
-        </span>
+        {/* Initials came from splitting the display name here, which is a
+            second answer to a question `profiles.initials` already answers.
+            It reads the column now, like every other face in the app. */}
+        <PersonAvatar person={me} size={26} fontSize={10} />
         <span
           className="whitespace-nowrap text-[13px] text-[var(--ink-muted)]"
           style={{ opacity: open ? 1 : 0, transition: "opacity 160ms" }}
         >
-          {profileName.split(" ")[0]} · {role}
+          {me.fullName.split(" ")[0]} · {role}
         </span>
       </div>
     </aside>

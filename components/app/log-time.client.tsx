@@ -3,6 +3,7 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { PersonAvatar } from "@/components/app/person-avatar";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
@@ -28,7 +29,7 @@ export function LogTime({
   entries: TimeEntryRecord[];
   totalMinutes: number;
   /** The caller. The entry is always attributed to them — RLS enforces it. */
-  me: { id: string; fullName: string; initials: string };
+  me: { id: string; fullName: string; initials: string; avatarUrl: string | null };
 }) {
   const [minutes, setMinutes] = useState(90);
   const [pending, startTransition] = useTransition();
@@ -59,7 +60,7 @@ export function LogTime({
           minutes: added,
           workedOn: today,
           note: null,
-          person: { id: me.id, fullName: me.fullName, initials: me.initials },
+          person: { id: me.id, fullName: me.fullName, initials: me.initials, avatarUrl: me.avatarUrl },
         } as TimeEntryRecord,
       ],
       totalMinutes: state.totalMinutes + added,
@@ -139,9 +140,17 @@ export function LogTime({
             <Mono size="meta" className="text-[var(--ink-muted)]">
               {entry.workedOn}
             </Mono>
-            <Mono size="meta" className="text-[var(--ink-muted)]">
-              {entry.person.initials} · {hoursLabel(entry.minutes)}
-            </Mono>
+            <span className="flex items-center gap-2">
+              <PersonAvatar
+                person={entry.person}
+                size={18}
+                fontSize={8}
+                title={entry.person.fullName}
+              />
+              <Mono size="meta" className="text-[var(--ink-muted)]">
+                {hoursLabel(entry.minutes)}
+              </Mono>
+            </span>
           </div>
         ))}
         {shown.entries.length === 0 ? (

@@ -31,6 +31,21 @@ export interface RevealProps {
   className?: string;
   style?: CSSProperties;
   children?: ReactNode;
+
+  /**
+   * Forwarded, and declared rather than spread from a rest parameter, because
+   * neither of these arrived before.
+   *
+   * `Reveal` takes an explicit prop list and TypeScript does not check JSX
+   * attributes whose names are not valid identifiers — every `aria-*` and
+   * `data-*` one. So `<Reveal as="section" aria-labelledby="team">` compiled,
+   * read as finished, and dropped the attribute on the floor: the `<section>`
+   * reached the DOM with no accessible name, which means it is not exposed as a
+   * landmark at all. Settings and People had been doing this since they were
+   * written.
+   */
+  "aria-labelledby"?: string;
+  "aria-label"?: string;
 }
 
 /**
@@ -67,6 +82,8 @@ export function Reveal({
   className,
   style,
   children,
+  "aria-labelledby": ariaLabelledBy,
+  "aria-label": ariaLabel,
 }: RevealProps) {
   const Component = (as ?? "div") as ElementType;
 
@@ -78,6 +95,8 @@ export function Reveal({
       data-reveal={tier}
       data-reveal-flat={flat ? "" : undefined}
       data-reveal-on-view={onView ? "" : undefined}
+      aria-labelledby={ariaLabelledBy}
+      aria-label={ariaLabel}
       className={cn(className)}
       style={computedDelay ? { animationDelay: `${computedDelay}s`, ...style } : style}
     >

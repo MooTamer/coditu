@@ -9,6 +9,8 @@ export interface ProfileRef {
   id: string;
   fullName: string;
   initials: string;
+  /** Null means no picture: every avatar falls back to the initials. */
+  avatarUrl: string | null;
   role: AppRole;
 }
 
@@ -25,7 +27,7 @@ export const listActiveProfiles = cache(async (): Promise<ProfileRef[]> => {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, initials, role")
+    .select("id, full_name, initials, avatar_url, role")
     .eq("is_active", true)
     .order("full_name");
 
@@ -35,6 +37,7 @@ export const listActiveProfiles = cache(async (): Promise<ProfileRef[]> => {
     id: row.id,
     fullName: row.full_name,
     initials: row.initials,
+    avatarUrl: row.avatar_url,
     role: row.role as AppRole,
   }));
 });
@@ -62,7 +65,7 @@ export const listTeam = cache(async (): Promise<TeamMember[]> => {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, initials, role, is_active, weekly_capacity_minutes")
+    .select("id, full_name, initials, avatar_url, role, is_active, weekly_capacity_minutes")
     .order("is_active", { ascending: false })
     .order("full_name");
 
@@ -72,6 +75,7 @@ export const listTeam = cache(async (): Promise<TeamMember[]> => {
     id: row.id,
     fullName: row.full_name,
     initials: row.initials,
+    avatarUrl: row.avatar_url,
     role: row.role as AppRole,
     isActive: row.is_active,
     weeklyCapacityMinutes: row.weekly_capacity_minutes,

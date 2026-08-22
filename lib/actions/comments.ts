@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { documentSchema, flattenToText, isEmptyDocument } from "@/lib/comments/schema";
+import { extensionFor, isAllowedImageType, looksLikeImage } from "@/lib/images";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 
@@ -174,7 +175,6 @@ export async function deleteComment(input: unknown): Promise<CommentResult> {
 
 /* -------------------------------------------------------------------------- */
 
-const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"] as const;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 export interface UploadResult {
@@ -199,7 +199,7 @@ export async function uploadCommentImage(formData: FormData): Promise<UploadResu
   const file = formData.get("file");
   if (!(file instanceof File)) return { ok: false, error: "No file was received." };
 
-  if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
+  if (!isAllowedImageType(file.type)) {
     return { ok: false, error: "Images only — PNG, JPEG, WebP, GIF or AVIF." };
   }
   if (file.size > MAX_IMAGE_BYTES) {
@@ -212,8 +212,7 @@ export async function uploadCommentImage(formData: FormData): Promise<UploadResu
   }
 
   const supabase = await createClient();
-  const extension = file.type.split("/")[1]?.replace("jpeg", "jpg") ?? "bin";
-  const path = `${profile.id}/${crypto.randomUUID()}.${extension}`;
+  const path = `${profile.id}/${crypto.randomUUID()}.${extensionFor(file.type)}`;
 
   const { error } = await supabase.storage.from("comment-images").upload(path, bytes, {
     contentType: file.type,
@@ -229,22 +228,3 @@ export async function uploadCommentImage(formData: FormData): Promise<UploadResu
   return { ok: true, src: signed.signedUrl };
 }
 
-/**
- * Magic-number check. The browser's reported MIME type comes from the file
- * extension, so it is trivially wrong and trivially forged; the first bytes are
- * the actual format.
- */
-function looksLikeImage(bytes: Uint8Array, declared: string): boolean {
-  const starts = (...signature: number[]) => signature.every((byte, index) => bytes[index] === byte);
-
-  if (declared === "image/png") return starts(0x89, 0x50, 0x4e, 0x47);
-  if (declared === "image/jpeg") return starts(0xff, 0xd8, 0xff);
-  if (declared === "image/gif") return starts(0x47, 0x49, 0x46, 0x38);
-  if (declared === "image/webp" || declared === "image/avif") {
-    // WebP is RIFF....WEBP; AVIF is an ISO-BMFF box with an `ftyp` header.
-    const riff = starts(0x52, 0x49, 0x46, 0x46);
-    const ftyp = bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70;
-    return riff || ftyp;
-  }
-  return false;
-}

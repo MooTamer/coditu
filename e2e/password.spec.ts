@@ -91,6 +91,15 @@ async function removeAccount(address: string) {
 }
 
 test.describe("claiming an account with a password", () => {
+  // Serial, because the sweep below is a `like 'claim-%'` and `afterAll` runs
+  // once PER WORKER. Split across workers, the worker that finishes the two
+  // fast tests deletes the slow test's account while it is still mid-flight —
+  // and the symptom is not an error, it is silence: `/recover` on an address
+  // with no user returns 200 and sends nothing, precisely so the endpoint
+  // cannot be used to find out who works here. The spec then fails at "no mail
+  // was sent", pointing at the mail server.
+  test.describe.configure({ mode: "serial" });
+
   // The per-test `finally` is not enough on its own: Playwright aborts a test
   // at its timeout, which can cut the cleanup off part-way and leave the
   // throwaway address on the allowlist. This sweep runs regardless, so a run

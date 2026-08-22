@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PersonAvatar } from "@/components/app/person-avatar";
 import { Mono } from "@/components/coditu/mono";
 import type { WorkItemRow } from "@/lib/data/sprint";
 import { hours } from "@/lib/format";
@@ -67,11 +68,12 @@ export function SprintBoard({ rows, basePath }: { rows: WorkItemRow[]; basePath:
                   </span>
                   <span className="text-[13.5px] font-medium leading-[1.35]">{item.title}</span>
                   <span className="flex items-center gap-[10px]">
-                    <span className="flex size-5 items-center justify-center rounded-pill border border-[var(--hairline-strong)]">
-                      <Mono size="eyebrow" className="text-[9px] normal-case tracking-normal">
-                        {item.assignee?.initials ?? "··"}
-                      </Mono>
-                    </span>
+                    <PersonAvatar
+                      person={item.assignee}
+                      size={20}
+                      fontSize={9}
+                      title={item.assignee?.fullName ?? "Unassigned"}
+                    />
                     <Mono size="eyebrow" className="normal-case tracking-normal text-[var(--ink-muted)]">
                       {item.minutesLogged > 0 ? `${hours(item.minutesLogged)}h` : "—"}
                     </Mono>

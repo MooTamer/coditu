@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
+import { AvatarSettings } from "@/components/app/avatar-settings.client";
 import { Mono } from "@/components/coditu/mono";
 import { Reveal } from "@/components/motion/reveal";
 import { getCurrentProfile } from "@/lib/supabase/server";
@@ -9,12 +10,13 @@ import { getCurrentProfile } from "@/lib/supabase/server";
 export const metadata = { title: "Settings" };
 
 /**
- * Who you are signed in as, and where the things that used to be here went.
+ * Who you are signed in as, the one thing about yourself you set, and where the
+ * things that used to be here went.
  *
- * The invite list moved to People, which is where the team asked for it and
- * where it belongs: deciding who may sign up, what role they hold and whether
- * they still have access are one job, and splitting them across two screens
- * meant two places to look and two places to be out of date.
+ * Your picture is here rather than on People because it is the only part of a
+ * profile its owner owns. Role, capacity and access are administered by an
+ * admin on People — deciding who may sign up, what they hold and whether they
+ * still have access is one job, and it is not this one.
  */
 export default async function Page() {
   const profile = await getCurrentProfile();
@@ -32,6 +34,36 @@ export default async function Page() {
       <Reveal
         tier="section"
         delay={0.075}
+        as="section"
+        aria-labelledby="picture"
+        className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
+      >
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h2 id="picture" className="text-[16px] font-bold tracking-[-0.015em]">
+            Your picture
+          </h2>
+          <Mono size="meta" className="text-[var(--ink-faint)]">
+            only you can change it
+          </Mono>
+        </div>
+
+        <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
+          It appears everywhere you do — the sprint board, the table, the team header, and beside
+          every comment you write. Without one, your initials are shown instead.
+        </p>
+
+        <AvatarSettings
+          me={{
+            fullName: profile.full_name,
+            initials: profile.initials,
+            avatarUrl: profile.avatar_url,
+          }}
+        />
+      </Reveal>
+
+      <Reveal
+        tier="section"
+        delay={0.15}
         as="section"
         aria-labelledby="access"
         className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"

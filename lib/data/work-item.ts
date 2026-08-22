@@ -80,15 +80,15 @@ export const getWorkItem = cache(
       .select(
         `id, key, title, description, highlight, status, type, deadline,
          estimate_minutes, minutes_logged, grouping,
-         assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials ),
-         reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials ),
+         assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials, avatar_url ),
+         reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials, avatar_url ),
          acceptance_criteria ( id, body, is_done, order_index ),
          comments ( id, body_json, body_text, created_at, edited_at, deleted_at,
-                    author:profiles!comments_author_id_fkey ( id, full_name, initials ) ),
+                    author:profiles!comments_author_id_fkey ( id, full_name, initials, avatar_url ) ),
          activity ( id, verb, field, from_value, to_value, created_at,
-                    actor:profiles!activity_actor_id_fkey ( id, full_name, initials ) ),
+                    actor:profiles!activity_actor_id_fkey ( id, full_name, initials, avatar_url ) ),
          time_entries ( id, minutes, worked_on, note,
-                        profiles ( id, full_name, initials ) ),
+                        profiles ( id, full_name, initials, avatar_url ) ),
          sprints!inner ( id, number, name,
                          projects!inner ( slug, name, clients ( name ) ) )`
       )
@@ -100,8 +100,12 @@ export const getWorkItem = cache(
     if (error) throw error;
     if (!data) return null;
 
-    const person = (row: { id: string; full_name: string; initials: string } | null) =>
-      row ? { id: row.id, fullName: row.full_name, initials: row.initials } : null;
+    const person = (
+      row: { id: string; full_name: string; initials: string; avatar_url: string | null } | null
+    ) =>
+      row
+        ? { id: row.id, fullName: row.full_name, initials: row.initials, avatarUrl: row.avatar_url }
+        : null;
 
     return {
       id: data.id,

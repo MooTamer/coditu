@@ -72,7 +72,12 @@ export default async function ItemPage({
           today={todayInCairo()}
           canToggleCriteria={canToggle}
           people={people}
-          me={{ id: profile.id, fullName: profile.full_name, initials: profile.initials }}
+          me={{
+            id: profile.id,
+            fullName: profile.full_name,
+            initials: profile.initials,
+            avatarUrl: profile.avatar_url,
+          }}
         />
       </Reveal>
     </main>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PersonAvatar } from "@/components/app/person-avatar";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
 import type { WorkItemRow } from "@/lib/data/sprint";
@@ -56,9 +57,25 @@ export function SprintCards({
             <span className="text-[15px] font-medium leading-[1.35]">{row.title}</span>
 
             <span className="flex flex-wrap items-center gap-3">
-              <Mono size="meta" className="text-[var(--ink-muted)]">
-                {row.assignee?.initials ?? "··"} → {row.reviewer?.initials ?? "··"}
-              </Mono>
+              {/* Assignee → reviewer. The arrow stays: two faces side by side
+                  do not say which of them is holding the item. */}
+              <span className="flex items-center gap-[6px]">
+                <PersonAvatar
+                  person={row.assignee}
+                  size={22}
+                  fontSize={9.5}
+                  title={row.assignee ? `Assigned to ${row.assignee.fullName}` : "Unassigned"}
+                />
+                <Mono size="meta" className="text-[var(--ink-faint)]">
+                  →
+                </Mono>
+                <PersonAvatar
+                  person={row.reviewer}
+                  size={22}
+                  fontSize={9.5}
+                  title={row.reviewer ? `Reviewed by ${row.reviewer.fullName}` : "No reviewer"}
+                />
+              </span>
               <Mono size="meta" className="text-[var(--ink-muted)]">
                 {hours(row.minutesLogged)} / {hours(row.estimateMinutes)}h
               </Mono>

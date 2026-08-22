@@ -1,3 +1,4 @@
+import { PersonAvatar } from "@/components/app/person-avatar";
 import { CommentBody } from "@/components/app/comment-body";
 import { CommentThread } from "@/components/app/comment-thread.client";
 import { CriteriaList } from "@/components/app/criteria-list.client";
@@ -35,7 +36,7 @@ export function ItemDetailBody({
    * their name and initials, so what appears the instant they act is what the
    * server will send back rather than a placeholder that shifts.
    */
-  me: { id: string; fullName: string; initials: string };
+  me: { id: string; fullName: string; initials: string; avatarUrl: string | null };
 }) {
   const properties: Array<{ label: string; value: string; color?: string }> = [
     { label: "type", value: TYPE_LABEL[item.type] },
@@ -114,11 +115,7 @@ export function ItemDetailBody({
               // this animation, so an arriving comment is the only thing that
               // moves when the server tree refreshes.
               <article key={comment.id} data-reveal="micro" className="flex gap-3">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-pill border border-[var(--hairline-strong)]">
-                  <Mono size="eyebrow" className="text-[10px] normal-case tracking-normal">
-                    {comment.author.initials}
-                  </Mono>
-                </span>
+                <PersonAvatar person={comment.author} size={28} fontSize={10} />
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2">
                     <span className="text-[13.5px] font-semibold">{comment.author.fullName}</span>
