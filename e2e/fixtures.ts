@@ -49,6 +49,20 @@ export const SEED = {
    */
   thread: "COD-240",
   hostileThread: "COD-241",
+  /**
+   * One quiet item per Playwright PROJECT, for a spec that runs on more than
+   * one device at a time.
+   *
+   * `composer.spec.ts` seeds and clears comments on `thread`, and the moment a
+   * spec like that runs under two projects in parallel the two workers delete
+   * each other's fixture mid-assertion. Splitting the row is cheaper than
+   * serialising the projects.
+   */
+  threadPerProject: {
+    chromium: "COD-235",
+    "mobile-safari": "COD-238",
+    "mobile-chrome": "COD-239",
+  } as Record<string, string>,
   hostileThreadTitle: "Quick Links Plus Open New Tab bug",
   /** A key prefix that matches several Week 17 rows, for palette fuzzy search. */
   keyPrefix: "COD-23",
@@ -337,6 +351,33 @@ export async function settleAnimations(page: Page): Promise<void> {
  */
 export async function auditA11y(page: Page, include?: string): Promise<string[]> {
   await settleAnimations(page);
+
+  /**
+   * The second half of the same guard, and it exists because the first one has
+   * a cap.
+   *
+   * `settleAnimations` gives up after 2500ms. Under three Playwright projects
+   * on one machine that cap is reachable, and an entrance tier caught mid-fade
+   * reports a contrast failure that is not there once it lands — the trap this
+   * file already documents as having been diagnosed three separate times.
+   * Waiting for the reveals themselves to be opaque is the deterministic
+   * version of the same question.
+   */
+  await page
+    .waitForFunction(
+      () =>
+        Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]")).every(
+          (element) =>
+            element.getBoundingClientRect().height === 0 ||
+            parseFloat(getComputedStyle(element).opacity) >= 1
+        ),
+      undefined,
+      { timeout: 5_000 }
+    )
+    // A reveal held at frame zero by an observer that never fired is a real
+    // state — `data-reveal-on-view` below the fold — and not a reason to fail
+    // an accessibility audit before it has run.
+    .catch(() => undefined);
 
   let builder = new AxeBuilder({ page }).withTags([
     "wcag2a",

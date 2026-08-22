@@ -117,6 +117,15 @@ test.describe("the way in", () => {
 });
 
 test.describe("the safe area, with a notch emulated", () => {
+  // `Emulation.setSafeAreaInsetsOverride` is a CDP method, and CDP is Chromium.
+  // Running this on WebKit would mean asserting the insets it happens to have,
+  // which on a headless build is nothing at all — a test that passes by
+  // measuring zero against zero.
+  test.skip(
+    ({ browserName }) => browserName !== "chromium",
+    "safe-area emulation is CDP, and CDP is Chromium-only"
+  );
+
   /**
    * `Emulation.setSafeAreaInsetsOverride` sets the insets DIRECTLY, so it does
    * not go through `viewport-fit` — which means this test would pass even with

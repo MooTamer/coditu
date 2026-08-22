@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { Rail } from "@/components/app/rail.client";
+import { TabBar } from "@/components/app/tab-bar.client";
 import { ToastProvider } from "@/components/app/toast.client";
 import { Topbar } from "@/components/app/topbar.client";
 import { countUnreadNotifications } from "@/lib/data/notifications";
@@ -56,7 +57,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           role={profile.role}
           unreadCount={unreadCount}
         />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div
+          // Below `md` the bottom tab bar is FIXED, so it overlaps the content
+          // — without this the last row of the table sits permanently behind
+          // it and cannot be read or tapped. The inset is the home indicator's,
+          // on top of the bar's own height.
+          className="flex min-w-0 flex-1 flex-col pb-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] md:pb-0"
+        >
           <Topbar
             projects={projects}
             people={people}
@@ -71,6 +78,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           />
           {children}
         </div>
+
+        <TabBar unreadCount={unreadCount} />
       </div>
     </ToastProvider>
   );

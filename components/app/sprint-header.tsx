@@ -108,20 +108,37 @@ export function SprintHeader({
           </div>
 
           {members.length > 0 ? (
+            /**
+             * The bundle draws these as bare faces with the per-person load in
+             * a tooltip. **A tooltip is not something a finger can open**, so
+             * on a narrow container the hours are rendered beside each face
+             * instead — the same information, in the only form a touch screen
+             * can reach. Wide, it is the bundle's design unchanged, caption and
+             * all.
+             *
+             * A container query rather than a viewport one, for the reason the
+             * sprint table already documents: pinning the rail open changes the
+             * width here without the viewport moving at all.
+             */
             <div className="mt-5 flex flex-wrap items-center gap-2">
               {members.map((member) => (
-                <PersonAvatar
+                <span
                   key={member.initials}
-                  person={member}
-                  size={30}
-                  fontSize={10.5}
-                  className="bg-[var(--canvas)]"
-                  // The tooltip carries the per-person load, exactly as the
-                  // bundle does — a face alone does not say who is at capacity.
-                  title={`${member.fullName} — ${hoursLabel(member.minutes)} logged`}
-                />
+                  className="flex items-center gap-[6px] rounded-pill @max-[640px]:border @max-[640px]:border-[var(--hairline)] @max-[640px]:py-[3px] @max-[640px]:pr-[10px]"
+                >
+                  <PersonAvatar
+                    person={member}
+                    size={30}
+                    fontSize={10.5}
+                    className="bg-[var(--canvas)]"
+                    title={`${member.fullName} — ${hoursLabel(member.minutes)} logged`}
+                  />
+                  <Mono size="meta" className="hidden text-[var(--ink-muted)] @max-[640px]:inline">
+                    {hoursLabel(member.minutes)}
+                  </Mono>
+                </span>
               ))}
-              <Mono size="meta" className="ml-[6px] text-[var(--ink-faint)]">
+              <Mono size="meta" className="ml-[6px] hidden text-[var(--ink-faint)] @[640px]:inline">
                 hover for per-person load
               </Mono>
             </div>

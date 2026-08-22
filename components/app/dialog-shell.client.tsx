@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+
 /**
  * Everything the browser will Tab to.
  *
@@ -38,6 +40,12 @@ function isVisible(element: HTMLElement): boolean {
  * whatever opened it. That last one is the part most modals get wrong: closing
  * a dialog and dropping focus back to `<body>` sends a keyboard user to the top
  * of the page, and they have to tab all the way back to the row they were on.
+ *
+ * **Below `md` it is a bottom sheet**: full width, against the bottom edge,
+ * rounded at the top only, at least 60dvh tall. Above `md` it is the centred
+ * dialog it has always been. One component, because everything that is hard
+ * about it — the focus trap, `Esc`, the scroll lock, focus return, the height
+ * cap — is identical in both, and each of those was written for a recorded bug.
  *
  * The panel is capped at the height of the scrim's content box and scrolls its
  * own body. Letting the panel grow to its content and scrolling the SCRIM
@@ -75,6 +83,30 @@ export function DialogShell({
   useEffect(() => {
     openerRef.current = document.activeElement as HTMLElement | null;
 
+    /**
+     * ── The scroll lock, and the version of it that was wrong ──────────────
+     *
+     * `body { overflow: hidden }` stops a WHEEL. It does not stop a **touch**
+     * on iOS Safari, which is how a person reading a long thread in a sheet
+     * ends up watching the sprint table slide about behind it.
+     *
+     * The usual fix for that is to take the body out of flow — `position:
+     * fixed` at a negative offset — and restore the scroll on the way out.
+     * **It was tried here and it is wrong for this app**, measured rather than
+     * argued: an item sheet is an INTERCEPTED route, so it arrives by client
+     * navigation and leaves through `router.back()`, and the router does its
+     * own scroll restoration on that. Pinning the body collapses the document
+     * to the viewport, and the two then fight — from 900px down the list, the
+     * old lock came back to exactly 900 and the fixed-body one landed on 596,
+     * then 1251, then 442 on three consecutive runs.
+     *
+     * So the document scroll is never touched. `overflow: hidden` handles the
+     * wheel; `touch-action: none` on the scrim is what handles the finger — a
+     * touch that starts anywhere in the viewport starts on the scrim, and the
+     * browser performs no panning for it. The panel's own scroller opts back in
+     * with `touch-action: pan-y` and keeps its `overscroll-behavior: contain`,
+     * so a flick that reaches the end of the thread is not handed to the page.
+     */
     const { body } = document;
     const previousOverflow = body.style.overflow;
     const previousPadding = body.style.paddingRight;
@@ -129,11 +161,17 @@ export function DialogShell({
     <div
       onClick={close}
       data-scrim
-      style={{
-        zIndex,
-        paddingBottom: "max(clamp(12px, 3vh, 40px), env(safe-area-inset-bottom))",
-      }}
-      className="fixed inset-0 flex items-start justify-center overflow-y-auto px-4 pt-[clamp(12px,3vh,40px)]"
+      // `touch-action: none` is half the scroll lock — see the note above. The
+      // bottom gutter lives in `globals.css`, keyed on `[data-scrim]`, because
+      // it differs by breakpoint and an inline style cannot hold a media query:
+      // a sheet sits against the bottom edge with only the home indicator's
+      // inset beneath it, where a centred dialog wants a real margin.
+      style={{ zIndex, touchAction: "none" }}
+      // Below `md` the panel is pushed to the BOTTOM of the scrim and given no
+      // horizontal gutter: `items-end` plus `px-0`, which is what turns the
+      // same component into a sheet. Above `md` it is the centred-at-the-top
+      // dialog it has always been, unchanged.
+      className="fixed inset-0 flex items-end justify-center overflow-y-auto px-0 pt-[clamp(12px,3vh,40px)] md:items-start md:px-4"
     >
       <div
         ref={panelRef}
@@ -148,7 +186,23 @@ export function DialogShell({
         // the scroller below is what actually lets it shrink: a flex child
         // defaults to `min-height: auto`, refuses to go below its content, and
         // pushes the overflow back out of the panel it was supposed to stay in.
-        className="flex max-h-full w-full flex-col overflow-hidden rounded-section border border-[var(--hairline-strong)] bg-[var(--overlay)] outline-none"
+        // Below `md`: full width, square-cornered at the bottom because it is
+        // against the edge of the screen, and at least 60dvh so a sheet that
+        // opens with two lines in it still reads as a sheet rather than a
+        // toast. `maxWidth` is ignored there — a 1080px cap on a 390px screen
+        // is not a cap.
+        className={cn(
+          "flex max-h-full w-full flex-col overflow-hidden border border-[var(--hairline-strong)] bg-[var(--overlay)] outline-none",
+          // `rounded-b-none` is not redundant. `rounded-t-*` sets only the two
+          // TOP corners, and `globals.css` gives every `:focus-visible`
+          // element `border-radius: 4px` as a shorthand — which lands on the
+          // two corners the utility left alone. WebKit treats the programmatic
+          // `.focus()` this panel takes as the trap's anchor as focus-visible
+          // where Chromium does not, so on iOS the sheet grew 4px bottom
+          // corners floating above the edge of the screen. Naming all four
+          // corners is what stops the shorthand reaching any of them.
+          "min-h-[60dvh] rounded-t-section rounded-b-none md:min-h-0 md:rounded-section"
+        )}
         style={{ boxShadow: "var(--shadow-overlay)", maxWidth }}
       >
         <div className="flex shrink-0 items-center gap-3 border-b border-[var(--hairline)] bg-[var(--raised)] px-5 py-[14px]">
@@ -164,8 +218,15 @@ export function DialogShell({
         </div>
 
         {/* `overscroll-contain` so reaching the end does not hand the wheel to
-            the page behind the scrim. */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
+            the page behind the scrim, and `touch-action: pan-y` to opt back in
+            to the vertical panning the scrim's `touch-action: none` just took
+            away from everything inside it. */}
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          style={{ touchAction: "pan-y" }}
+        >
+          {children}
+        </div>
 
         {footer ? (
           <div className="shrink-0 border-t border-[var(--hairline)] bg-[var(--raised)] px-5 py-[14px]">

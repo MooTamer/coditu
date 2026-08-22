@@ -50,6 +50,7 @@ export function SetPasswordForm({ email }: { email: string }) {
             type="password"
             name="password"
             autoComplete="new-password"
+            enterKeyHint="next"
             required
             minLength={8}
           />
@@ -64,6 +65,7 @@ export function SetPasswordForm({ email }: { email: string }) {
             type="password"
             name="confirm"
             autoComplete="new-password"
+            enterKeyHint="go"
             required
             minLength={8}
           />

@@ -105,6 +105,7 @@ export function NameSettings({
           name="fullName"
           type="text"
           autoComplete="name"
+          enterKeyHint="done"
           required
           minLength={2}
           maxLength={80}

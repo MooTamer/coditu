@@ -147,6 +147,11 @@ test.describe("layout holds", () => {
   test("no horizontal scroll in the app, at any of the thirteen widths", async ({
     adminPage: page,
   }) => {
+    // Five routes at thirteen widths each, with a settle between every one.
+    // The default 30s was always tight and stopped being enough once each
+    // `goto` began waiting for hydration — which it has to, since `/app`
+    // started streaming.
+    test.slow();
     for (const path of [SPRINT, ITEM, "/app/my-work", "/app/people", "/app/import"]) {
       await page.goto(path);
       for (const width of WIDTHS) {

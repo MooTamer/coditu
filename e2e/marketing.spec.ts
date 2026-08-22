@@ -169,7 +169,12 @@ test.describe("marketing site", () => {
 
   test("a work card opens a dialog, traps focus, and gives it back", async ({ page }) => {
     const card = page.getByRole("button", { name: /MEINEvim internal SharePoint components/ });
-    await card.click();
+    // Opened with the keyboard. Safari does not focus a button on click and
+    // moves focus to `<body>` instead, so a clicked opener is an opener the
+    // dialog cannot give focus back to. The guarantee is a keyboard user's,
+    // and this is that user's path.
+    await card.focus();
+    await page.keyboard.press("Enter");
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();

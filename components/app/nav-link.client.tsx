@@ -33,6 +33,7 @@ export function NavLink({
   href,
   label,
   active,
+  anchorClassName = "block",
   className,
   pendingClassName,
   children,
@@ -41,7 +42,14 @@ export function NavLink({
   /** The `title`, and what the destination is called. */
   label: string;
   active: boolean;
-  /** Geometry for the inner box — the anchor itself carries no padding. */
+  /**
+   * Geometry for the ANCHOR. Defaults to `block`, which is what the rail wants
+   * — the anchor is a plain wrapper and the inner box carries the padding, so
+   * the focus ring hugs exactly the visible item. The tab bar overrides it,
+   * because there the anchor is a flex child of the bar and has to stretch.
+   */
+  anchorClassName?: string;
+  /** Geometry for the inner box. */
   className?: string;
   /** Added to the inner box while the navigation is in flight. */
   pendingClassName?: string;
@@ -60,7 +68,7 @@ export function NavLink({
       prefetch={false}
       title={label}
       aria-current={active ? "page" : undefined}
-      className="block rounded-control outline-offset-2"
+      className={cn("rounded-control outline-offset-2", anchorClassName)}
     >
       <NavBody className={className} pendingClassName={pendingClassName}>
         {children}

@@ -121,6 +121,21 @@ export function Topbar({
       </button>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        {/* The palette's own trigger is `hidden … sm:flex` — a 420px search box
+            has no room on a phone. Search itself does, though, and losing it
+            below `sm` meant the only way to find an item was to scroll the
+            sprint it happens to be in. Same dialog, one icon. */}
+        <button
+          type="button"
+          onClick={() => setPaletteOpen(true)}
+          aria-haspopup="dialog"
+          aria-label="Search items, sprints, people"
+          title="Search items, sprints, people"
+          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-control border border-[var(--hairline)] text-[var(--ink-muted)] hover:bg-[var(--canvas)] sm:hidden"
+        >
+          <Search size={16} strokeWidth={1.9} aria-hidden />
+        </button>
+
         <ThemeToggle />
 
         {/* Disabled with a tooltip, never hidden. A control that disappears

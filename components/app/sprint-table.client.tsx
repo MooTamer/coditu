@@ -6,7 +6,8 @@ import { useCallback, useMemo, useState, useTransition } from "react";
 import {
   DndContext,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -117,8 +118,20 @@ export function SprintTable({
     return moved.length === rows.length ? moved : rows;
   }, [order, rows]);
 
+  /**
+   * A mouse, a finger and a keyboard each need a different way to start a drag,
+   * and `PointerSensor` cannot give them one.
+   *
+   * It was `PointerSensor` with `distance: 6`, which is right for a mouse and
+   * wrong for a touch screen: six pixels of movement is the beginning of a
+   * SCROLL, so dragging a finger down the table picked a row up instead of
+   * moving the page. `TouchSensor` with a press delay is the documented answer
+   * — hold for 220ms and it is a drag, move before that and it is a scroll —
+   * and `tolerance` allows the few pixels a finger drifts while pressing.
+   */
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 

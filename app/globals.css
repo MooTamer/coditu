@@ -103,6 +103,9 @@
   --rail-collapsed: 72px;
   --rail-expanded: 240px;
   --topbar-h: 60px;
+  /* The phone's bottom navigation. The safe-area inset is added on top of it
+     wherever it is used, rather than baked in here — `env()` is 0 on a desk. */
+  --tabbar-h: 60px;
   --row-h-comfortable: 52px;
   --row-h-compact: 44px;
   --app-gutter: clamp(16px, 2vw, 28px);
@@ -253,6 +256,7 @@
   --spacing-rail: var(--rail-collapsed);
   --spacing-rail-open: var(--rail-expanded);
   --spacing-topbar: var(--topbar-h);
+  --spacing-tabbar: var(--tabbar-h);
   --spacing-row: var(--row-h-comfortable);
   --spacing-row-compact: var(--row-h-compact);
 
@@ -692,6 +696,20 @@
   background: var(--scrim);
   backdrop-filter: blur(10px);
   animation: cd-scrim 240ms var(--ease-entrance) both;
+
+  /* Below `md` the panel is a bottom SHEET, so the only thing between it and
+     the bottom of the screen is the home indicator. A margin here would leave
+     a strip of blurred page under the sheet, which reads as a dialog that
+     failed to reach the edge rather than as a sheet. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (min-width: 768px) {
+  /* A centred dialog wants a real gutter, and the inset on top of it wherever
+     there is one. Same `max()` this used to carry inline. */
+  [data-scrim] {
+    padding-bottom: max(clamp(12px, 3vh, 40px), env(safe-area-inset-bottom));
+  }
 }
 
 /* One frame, so the panel trails the backdrop it arrives through. */
@@ -715,6 +733,62 @@
   scroll-margin-top: calc(var(--navbar-height) + 0.75rem);
 }
 
+
+/* ==========================================================================
+   Coarse pointers — one check, one place, applied globally.
+
+   The same shape as the reduced-motion block below, and for the same reason:
+   these are facts about the input device, not decisions any single component
+   should be making for itself.
+   ========================================================================== */
+
+@media (pointer: coarse) {
+  /* --- 16px, or iOS zooms ---------------------------------------------------
+     Focusing an input whose text is under 16px makes mobile Safari zoom the
+     whole page in — and it does not zoom back out afterwards, so one tap on a
+     filter leaves the reader stranded at 1.4x with the table off the side of
+     the screen. Twelve components declare a field with a 13.5px face; raising
+     each of them by hand would be twelve chances to miss one and no way to
+     stop the thirteenth.
+
+     `max(16px, 1em)` rather than `16px`: anything already larger keeps its
+     size, so the comment composer's own type scale is untouched.
+
+     No `!important`, and it is worth knowing why it is not needed: these
+     fields set their size with a Tailwind arbitrary value — `text-[13.5px]`,
+     a CLASS, which beats a bare element selector on specificity. It loses
+     anyway, because Tailwind v4 emits its utilities inside `@layer utilities`
+     and an UNLAYERED rule outranks any layered one however specific. This
+     block is deliberately outside every layer. */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+
+  /* --- 44px, on the controls that can afford it -----------------------------
+     WCAG 2.5.8 asks for 24px and Apple's guidance asks for 44px; the brief
+     asks for 44. Scoped to standalone controls rather than everything: a table
+     cell's editor already fills a 52px row, and a link inside a sentence is
+     explicitly exempt from the rule — padding one to 44px would break the
+     paragraph it sits in. `data-dense` is the opt-out for a control that is
+     deliberately part of a denser arrangement. */
+  button:not([data-dense]),
+  [role="button"]:not([data-dense]),
+  a[href]:not([data-dense]):not(p a) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* The exception, and it is the only one: a control that fills a table cell
+     or a flex track is already as large as its slot, and a `min-width` on it
+     would push the slot wider than the layout that sized it. `w-full` says
+     "I am the width of whatever holds me", which is the same promise. */
+  button.w-full:not([data-dense]),
+  a.w-full:not([data-dense]) {
+    min-width: 0;
+  }
+}
 
 /* ==========================================================================
    Reduced motion — one check, one place, applied globally.

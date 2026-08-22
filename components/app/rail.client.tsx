@@ -2,8 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { CheckCheck, FolderOpen, Import, Rows3, Users } from "lucide-react";
 
+import { NAV } from "@/components/app/nav-items";
 import { NavIcon, NavLink } from "@/components/app/nav-link.client";
 import { PersonAvatar, type AvatarPerson } from "@/components/app/person-avatar";
 import { CoditusMark } from "@/components/coditu/coditus-mark";
@@ -17,54 +17,6 @@ import { cn } from "@/lib/utils";
  * The prototype's inline `<path d="…">` icons are lucide-equivalent, so they
  * are mapped to their lucide names rather than hand-rolled back into SVG.
  */
-/**
- * Each entry owns the rule for when it is the current page.
- *
- * `startsWith(href)` cannot express this list. `/app/projects/evim/sprints/17`
- * starts with `/app/projects`, so Projects and Sprint both lit up on every
- * sprint page and the rail claimed the reader was in two places at once. A
- * sprint URL is nested under its project for scoping reasons — invariant 1 —
- * not because it is a sub-page of the project list, so the prefix is the wrong
- * question to ask. Each item answers it for itself instead.
- */
-const NAV = [
-  {
-    id: "sprint",
-    label: "Sprint",
-    href: "/app",
-    Icon: Rows3,
-    isActive: (path: string) => path === "/app" || /^\/app\/projects\/[^/]+\/sprints(\/|$)/.test(path),
-  },
-  {
-    id: "projects",
-    label: "Projects",
-    href: "/app/projects",
-    Icon: FolderOpen,
-    // The list, and a project's own overview — but not the sprints beneath it.
-    isActive: (path: string) => /^\/app\/projects(\/[^/]+)?$/.test(path),
-  },
-  {
-    id: "my-work",
-    label: "My work",
-    href: "/app/my-work",
-    Icon: CheckCheck,
-    isActive: (path: string) => path.startsWith("/app/my-work"),
-  },
-  {
-    id: "people",
-    label: "People",
-    href: "/app/people",
-    Icon: Users,
-    isActive: (path: string) => path.startsWith("/app/people"),
-  },
-  {
-    id: "import",
-    label: "Import",
-    href: "/app/import",
-    Icon: Import,
-    isActive: (path: string) => path.startsWith("/app/import"),
-  },
-] as const;
 
 /**
  * ── Why nothing in this rail is prefetched ─────────────────────────────────
@@ -115,7 +67,11 @@ export function Rail({
       data-app-chrome
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="sticky top-0 flex h-dvh shrink-0 flex-col gap-1 overflow-hidden border-r border-[var(--hairline)] bg-[var(--raised)] p-3 pl-[max(0.75rem,env(safe-area-inset-left))]"
+      // Hidden below `md`, where `TabBar` takes over. Not merely narrowed: the
+      // rail expands on HOVER, which a touch screen does not have, so at 390px
+      // it was 72px of permanently unlabelled icons — 18% of the width — that
+      // could never open.
+      className="sticky top-0 hidden h-dvh shrink-0 flex-col gap-1 overflow-hidden border-r border-[var(--hairline)] bg-[var(--raised)] p-3 pl-[max(0.75rem,env(safe-area-inset-left))] md:flex"
       style={{
         width: open ? "var(--rail-expanded)" : "var(--rail-collapsed)",
         transition: "width 220ms var(--ease-entrance)",

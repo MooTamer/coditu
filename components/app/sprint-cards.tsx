@@ -10,6 +10,13 @@ import { groupingHue, groupingTint } from "@/lib/work-items";
 /**
  * The stacked card layout, shown below 900px.
  *
+ * ── Why nothing in here is `--ink-faint` ──────────────────────────────────
+ * A grouped card carries a 5% hue tint, and `--ink-faint` measures **4.46:1**
+ * against it — under AA by four hundredths. It is 4.67:1 on the plain canvas,
+ * which is how it survived: axe had only ever run at 1440px, where this layout
+ * does not exist. `--ink-muted` is 5.25:1 on the same tint. Exactly the shape of
+ * the bug `cell-popover.client.tsx` already documents for the sticky column.
+ *
  * Driven by a CONTAINER query, not a viewport breakpoint. The table's own
  * width is what decides whether it fits, and that width changes when the rail
  * pins open — a viewport breakpoint would keep showing a squeezed table on a
@@ -48,7 +55,7 @@ export function SprintCards({
             }}
           >
             <span className="flex items-center justify-between gap-[10px]">
-              <Mono size="meta" className="text-[var(--ink-faint)]">
+              <Mono size="meta" className="text-[var(--ink-muted)]">
                 {row.key}
               </Mono>
               <StatusChipDot status={row.status} />
@@ -66,7 +73,7 @@ export function SprintCards({
                   fontSize={9.5}
                   title={row.assignee ? `Assigned to ${row.assignee.fullName}` : "Unassigned"}
                 />
-                <Mono size="meta" className="text-[var(--ink-faint)]">
+                <Mono size="meta" className="text-[var(--ink-muted)]">
                   →
                 </Mono>
                 <PersonAvatar
@@ -91,7 +98,7 @@ export function SprintCards({
       })}
 
       <div className="flex items-center justify-between rounded-card border border-[var(--hairline)] bg-[var(--canvas)] px-4 py-[14px]">
-        <Mono size="key" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+        <Mono size="key" className="uppercase tracking-[0.06em] text-[var(--ink-muted)]">
           Sum{filtered ? " (filtered)" : ""}
         </Mono>
         <Mono size="key" className="text-[15px] font-semibold">

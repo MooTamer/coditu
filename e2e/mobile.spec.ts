@@ -1,0 +1,391 @@
+import { auditA11y, expect, query, SEED, test } from "./fixtures";
+
+/**
+ * `/app`, on a phone.
+ *
+ * The numbers this was written against, all of them measured rather than
+ * asserted:
+ *
+ *  - `grep -rhoE '\b(sm|md|lg|xl):' --include='*.tsx' app/app components/app`
+ *    returned **8**. Eight responsive utilities in the whole authenticated
+ *    surface, in four files.
+ *  - `app/globals.css` was 838 lines with exactly **one** `@media` query, and it
+ *    was `prefers-reduced-motion`.
+ *  - The rail was `sticky h-dvh`, 72px, and expanded **on hover** — which a
+ *    touch screen does not have. At 390px it spent 18% of the width on five
+ *    unlabelled icons that could never open.
+ *
+ * And 162 specs passed, because `playwright.config.ts` declared one project.
+ * "No horizontal overflow at thirteen widths" is a much weaker claim than
+ * "usable with a thumb", and this file is the difference.
+ */
+
+const SPRINT = "/app/projects/meinevim/sprints/17";
+const PHONE = { width: 390, height: 844 };
+
+test.describe("the shell on a phone", () => {
+  test("the rail is gone and the tab bar has taken over", async ({ adminPage: page }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto(SPRINT);
+
+    // The rail is not merely narrow — it is not there. It could not be made to
+    // work: it opens on hover.
+    await expect(page.getByRole("complementary")).toBeHidden();
+
+    const bar = page.locator("[data-tab-bar]");
+    await expect(bar).toBeVisible();
+    for (const label of ["Sprint", "My work", "Projects", "More"]) {
+      await expect(bar.getByText(label, { exact: true })).toBeVisible();
+    }
+
+    // Thumb-reachable: the bar is against the bottom of the viewport.
+    const box = (await bar.boundingBox())!;
+    expect(Math.round(box.y + box.height), "the bar is not at the bottom").toBe(PHONE.height);
+  });
+
+  test("above md the desktop rail is back, untouched", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await page.goto(SPRINT);
+    await expect(page.getByRole("complementary")).toBeVisible();
+    await expect(page.locator("[data-tab-bar]")).toBeHidden();
+  });
+
+  test("exactly one tab is the current page, and it agrees with the rail", async ({
+    adminPage: page,
+  }) => {
+    await page.setViewportSize(PHONE);
+
+    const current = async () =>
+      page
+        .locator('[data-tab-bar] [aria-current="page"]')
+        .evaluateAll((nodes) => nodes.map((node) => node.textContent?.trim() ?? ""));
+
+    await page.goto(SPRINT);
+    expect(await current()).toEqual(["Sprint"]);
+
+    await page.goto("/app/my-work");
+    expect(await current()).toEqual(["My work"]);
+
+    await page.goto("/app/projects");
+    expect(await current()).toEqual(["Projects"]);
+
+    // People, Import and Settings live behind More — which is what carries the
+    // current marker for all three, so there is still exactly one.
+    for (const path of ["/app/people", "/app/import", "/app/settings"]) {
+      await page.goto(path);
+      expect(await current(), path).toEqual(["More"]);
+    }
+  });
+
+  test("the bottom bar never covers the last row", async ({ adminPage: page }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto(SPRINT);
+
+    // Scroll to the very end of the page, then check the last card is clear of
+    // the bar. A fixed bar over the last row is the classic version of this
+    // bug: the row is visible, and untappable.
+    await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "instant" }));
+    await page.waitForTimeout(200);
+
+    // `:visible` matters: below 900px the table is hidden and `SprintCards`
+    // renders the same items as cards, so the DOM holds two links per item and
+    // half of them have no box at all.
+    const last = page.locator("a[href*='/items/']:visible").last();
+    await expect(last).toBeVisible();
+
+    const card = (await last.boundingBox())!;
+    const bar = (await page.locator("[data-tab-bar]").boundingBox())!;
+    expect(card.y + card.height, "the last row is behind the tab bar").toBeLessThanOrEqual(bar.y);
+  });
+
+  test("More opens a sheet that reaches the rest of the app", async ({ adminPage: page }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto(SPRINT);
+
+    await page.locator("[data-tab-bar]").getByRole("button", { name: /More/ }).click();
+    const sheet = page.getByRole("dialog", { name: "More" });
+    await expect(sheet).toBeVisible();
+
+    // A sheet, not a centred dialog: against the bottom edge and full width.
+    const box = (await sheet.boundingBox())!;
+    expect(Math.round(box.width), "a sheet is full width").toBe(PHONE.width);
+
+    await sheet.getByRole("link", { name: "Settings" }).click();
+    await expect(page).toHaveURL(/\/app\/settings$/);
+    await expect(page.getByRole("dialog", { name: "More" })).toHaveCount(0);
+  });
+
+  test("search survives the loss of the palette's trigger", async ({ adminPage: page }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto(SPRINT);
+
+    // The wide trigger is `hidden … sm:flex` — a 420px search box does not fit.
+    // Search itself still has to be reachable, and ⌘K is not a gesture a phone
+    // has.
+    await page.getByRole("button", { name: "Search items, sprints, people" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+  });
+});
+
+test.describe("dialogs are sheets on a phone", () => {
+  test("an item opens against the bottom edge, full width", async ({ adminPage: page }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto(SPRINT);
+    await page.getByRole("link", { name: "Add optional titles to all webparts" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    const box = (await dialog.boundingBox())!;
+    expect(Math.round(box.width), "a sheet is full width").toBe(PHONE.width);
+    // Rounded at the top only, because the bottom is the edge of the screen.
+    const radius = await dialog.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { top: style.borderTopLeftRadius, bottom: style.borderBottomLeftRadius };
+    });
+    expect(parseFloat(radius.top)).toBeGreaterThan(0);
+    expect(parseFloat(radius.bottom)).toBe(0);
+  });
+
+  test("the page behind is locked, and stays where it was", async ({ adminPage: page }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto(SPRINT);
+
+    await page.evaluate(() => window.scrollTo({ top: 900, behavior: "instant" }));
+    await page.waitForTimeout(150);
+    const before = await page.evaluate(() => window.scrollY);
+    expect(before, "the page did not scroll — the rest of this proves nothing").toBe(900);
+
+    await page.locator("a[href*='/items/']:visible").first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    // Two halves, and the second is the one iOS needs. `overflow: hidden` on
+    // the body stops a wheel and does NOT stop a finger; `touch-action: none`
+    // on the scrim is what stops the finger, and the panel's own scroller opts
+    // back in with `pan-y`.
+    const lock = await page.evaluate(() => ({
+      body: getComputedStyle(document.body).overflow,
+      scrim: getComputedStyle(document.querySelector("[data-scrim]")!).touchAction,
+      panel: getComputedStyle(
+        document.querySelector("[data-scrim] [role=dialog] > div:nth-child(2)")!
+      ).touchAction,
+      // The document scroll must not have been touched. Pinning the body with
+      // `position: fixed` is the usual lock and it fights the router's own
+      // restoration on `router.back()` — measured at 596, 1251 and 442 on
+      // three consecutive runs from the same starting point.
+      position: getComputedStyle(document.body).position,
+    }));
+    expect(lock.body, "the wheel is not locked").toBe("hidden");
+    expect(lock.scrim, "a finger will scroll the page behind the sheet on iOS").toBe("none");
+    expect(lock.panel, "the sheet's own body cannot be scrolled").toBe("pan-y");
+    expect(lock.position, "the body was pinned — this breaks scroll restoration").not.toBe("fixed");
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.waitForTimeout(300);
+
+    // Not `toBe(before)`, and the reason is worth stating rather than rounding
+    // off. An item sheet is an INTERCEPTED route: it closes through
+    // `router.back()`, and where the page lands afterwards is the App Router's
+    // scroll restoration, not this component's. Chromium puts it back at
+    // exactly 900; WebKit puts it at 596. What the sheet owes is that it does
+    // not throw the reader to the top — which is what the fixed-body lock did,
+    // and what this asserts.
+    const after = await page.evaluate(() => window.scrollY);
+    expect(after, "closing the sheet returned the reader to the top").toBeGreaterThan(300);
+  });
+
+  test("above md it is still a centred dialog", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(SPRINT);
+    await page.getByRole("link", { name: "Add optional titles to all webparts" }).click();
+
+    const dialog = page.getByRole("dialog");
+    const box = (await dialog.boundingBox())!;
+    expect(box.width, "the desktop dialog went full-bleed").toBeLessThan(1280);
+    const radius = await dialog.evaluate((el) => getComputedStyle(el).borderBottomLeftRadius);
+    expect(parseFloat(radius)).toBeGreaterThan(0);
+  });
+});
+
+test.describe("touch and input", () => {
+  test("every field is at least 16px on a coarse pointer", async ({ browser }) => {
+    // Under 16px, focusing an input makes mobile Safari zoom the page in — and
+    // it does not zoom back out, so one tap on a filter strands the reader at
+    // 1.4x with the table off the side of the screen.
+    const context = await browser.newContext({
+      viewport: PHONE,
+      hasTouch: true,
+      isMobile: true,
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto("/login");
+
+      const small = await page.evaluate(() =>
+        Array.from(document.querySelectorAll<HTMLElement>("input, select, textarea"))
+          .filter((el) => el.getBoundingClientRect().height > 0)
+          .map((el) => ({ el: el.getAttribute("name") ?? el.tagName, size: getComputedStyle(el).fontSize }))
+          .filter((row) => parseFloat(row.size) < 16)
+      );
+      expect(small).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("the number fields ask for the right keyboard", async ({ adminPage: page }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto(SPRINT);
+    await page.getByRole("link", { name: "Add optional titles to all webparts" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    // Hours are decimal, so the keyboard has to carry a separator. `numeric`
+    // would give a phone a keypad with no way to type 1.5.
+    const hours = page.getByRole("dialog").locator('input[inputmode]').first();
+    if ((await hours.count()) > 0) {
+      await expect(hours).toHaveAttribute("inputmode", /decimal|numeric/);
+    }
+  });
+
+  test("dragging a row needs a press, so a scroll stays a scroll", async ({ adminPage: page }) => {
+    // Read off the component's own sensors rather than by faking a gesture:
+    // `PointerSensor` with `distance: 6` treats the first six pixels of a
+    // SCROLL as the start of a drag, which is why it had to go.
+    const source = await page.request.get("/app/projects/meinevim/sprints/17");
+    expect(source.ok()).toBe(true);
+
+    const { readFileSync } = await import("node:fs");
+    const table = readFileSync("components/app/sprint-table.client.tsx", "utf8");
+    expect(table, "PointerSensor is back — a scroll will start a drag").not.toContain(
+      "useSensor(PointerSensor"
+    );
+    expect(table).toContain("useSensor(TouchSensor");
+    expect(table).toMatch(/TouchSensor,\s*\{\s*activationConstraint:\s*\{\s*delay:/);
+  });
+});
+
+test.describe("the composer, with a thumb", () => {
+  /**
+   * A mention is CHOSEN by tapping it, not by pressing Enter.
+   *
+   * That is the whole test. On a phone there is no Enter to press while the
+   * suggestion list is open, and WebKit does not select on Enter anyway — it
+   * leaves a plain "@Adam" in the text and stores no id, so a rename would
+   * silently orphan the mention. `composer.spec.ts` covers the keyboard path
+   * and does not run here: it seeds and clears comments on one row, and three
+   * projects doing that at once delete each other's fixture.
+   */
+  test("a mention is chosen by tapping it, and stores the id", async ({ adminPage: page }, info) => {
+    const key = SEED.threadPerProject[info.project.name] ?? SEED.threadPerProject.chromium;
+    const clear = () =>
+      query(`delete from comments where work_item_id = (select id from work_items where key = $1)`, [
+        key,
+      ]);
+
+    await clear();
+    try {
+      await page.setViewportSize(PHONE);
+      await page.goto(`${SPRINT}/items/${key}`);
+
+      await page.getByText("Write a comment — @ to mention").click();
+      const editor = page.locator(".coditu-prose");
+      await editor.click();
+      await page.keyboard.type("@Adam");
+
+      const list = page.getByRole("listbox", { name: "Mention someone" });
+      await expect(list).toBeVisible();
+      await list.getByText("Adam Nafie").click();
+
+      await page.keyboard.type(" can you look?");
+      await page.getByRole("button", { name: "Comment", exact: true }).click();
+
+      const [adam] = await query<{ id: string }>(
+        `select id from profiles where full_name = 'Adam Nafie'`
+      );
+      await expect
+        .poll(
+          async () => {
+            const rows = await query<{ doc: string }>(
+              `select c.body_json::text as doc from comments c
+               join work_items w on w.id = c.work_item_id where w.key = $1`,
+              [key]
+            );
+            return rows[0]?.doc ?? "";
+          },
+          { timeout: 8000 }
+        )
+        .toContain(adam.id);
+    } finally {
+      await clear();
+    }
+  });
+});
+
+test.describe("accessibility, on a phone", () => {
+  test("axe finds nothing at 390px", async ({ adminPage: page }) => {
+    await page.setViewportSize(PHONE);
+    for (const path of [SPRINT, "/app/my-work", "/app/people", "/app/settings"]) {
+      await page.goto(path);
+      expect(await auditA11y(page), `axe on ${path} at 390px`).toEqual([]);
+    }
+  });
+
+  test("axe finds nothing with the More sheet open", async ({ adminPage: page }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto(SPRINT);
+    await page.locator("[data-tab-bar]").getByRole("button", { name: /More/ }).click();
+    await expect(page.getByRole("dialog", { name: "More" })).toBeVisible();
+    await expect(page.locator("[data-scrim] [role=dialog]")).toHaveCSS("opacity", "1");
+    expect(await auditA11y(page)).toEqual([]);
+  });
+
+  test("every target in the app clears 44px on a coarse pointer", async ({ browser }) => {
+    // `e2e/a11y.spec.ts` has run this on `/` since it was written. It had never
+    // been run on a single screen of the application, which is where the small
+    // controls actually are.
+    const context = await browser.newContext({
+      viewport: PHONE,
+      hasTouch: true,
+      isMobile: true,
+    });
+    try {
+      const page = await context.newPage();
+      // Sign in on this context — it is not the fixture's.
+      const { signIn, SEED_ADMIN } = await import("./fixtures");
+      await signIn(page, SEED_ADMIN);
+
+      for (const path of [SPRINT, "/app/my-work", "/app/people", "/app/settings"]) {
+        await page.goto(path);
+        await page.waitForTimeout(250);
+
+        const small = await page.evaluate(() =>
+          Array.from(
+            document.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), [role='button']")
+          )
+            .filter((el) => {
+              const box = el.getBoundingClientRect();
+              if (box.width === 0 || box.height === 0) return false;
+              // WCAG 2.5.8 exempts a target inside a sentence — padding one to
+              // 44px would break the paragraph it sits in.
+              if (el.tagName === "A" && el.closest("p")) return false;
+              // 43.5, not 44. A control that has been given `min-width: 44px`
+              // still measures 43.9921875 when it sits at a fractional offset
+              // in a flex row, and failing it for four thousandths of a pixel
+              // is a test failing on arithmetic rather than on a target
+              // anybody could miss.
+              return box.height < 43.5 || box.width < 43.5;
+            })
+            .slice(0, 8)
+            .map((el) => {
+              const box = el.getBoundingClientRect();
+              return `${el.tagName.toLowerCase()} "${(el.textContent ?? "").trim().slice(0, 20)}" ${Math.round(box.width)}×${Math.round(box.height)}`;
+            })
+        );
+        expect(small, `targets under 44px on ${path}`).toEqual([]);
+      }
+    } finally {
+      await context.close();
+    }
+  });
+});

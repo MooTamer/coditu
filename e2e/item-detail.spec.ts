@@ -33,7 +33,17 @@ test.describe("item detail", () => {
     await page.goto(SPRINT);
 
     const opener = page.getByRole("link", { name: "Add optional titles to all webparts" });
-    await opener.click();
+    // Opened with the KEYBOARD, and that is not incidental.
+    //
+    // **Safari does not focus a link or a button when you click it** — it is
+    // documented behaviour, not a bug, and it moves focus to `<body>` instead.
+    // So after a click `document.activeElement` at the moment the dialog mounts
+    // is the body, and "return focus to whatever opened this" has nothing to
+    // return to. The guarantee exists for a keyboard user, who arrives at the
+    // row with Tab and opens it with Enter; that is the path exercised here,
+    // and it behaves the same on both engines.
+    await opener.focus();
+    await page.keyboard.press("Enter");
     await expect(page.getByRole("dialog")).toBeVisible();
     expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
 

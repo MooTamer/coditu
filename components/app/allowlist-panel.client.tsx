@@ -77,14 +77,28 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
           <Mono size="eyebrow" className="text-[var(--ink-faint)]">
             Email
           </Mono>
-          <input className={FIELD} type="email" name="email" required placeholder="person@example.com" />
+          <input
+            className={FIELD}
+            type="email"
+            name="email"
+            enterKeyHint="next"
+            required
+            placeholder="person@example.com"
+          />
         </label>
 
         <label className="flex min-w-[180px] flex-1 flex-col gap-[6px]">
           <Mono size="eyebrow" className="text-[var(--ink-faint)]">
             Note (optional)
           </Mono>
-          <input className={FIELD} type="text" name="note" maxLength={120} placeholder="Designer, joining in March" />
+          <input
+            className={FIELD}
+            type="text"
+            name="note"
+            enterKeyHint="done"
+            maxLength={120}
+            placeholder="Designer, joining in March"
+          />
         </label>
 
         <button

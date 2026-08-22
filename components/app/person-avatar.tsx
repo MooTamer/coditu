@@ -60,7 +60,11 @@ export function PersonAvatar({
         "relative flex shrink-0 items-center justify-center overflow-hidden rounded-pill border border-[var(--hairline-strong)]",
         className
       )}
-      style={{ width: size, height: size, color: person ? undefined : "var(--ink-faint)", ...style }}
+      // `--ink-muted`, not `--ink-faint`: the "nobody" placeholder appears on
+      // the grouping-tinted mobile cards, where faint measures 4.46:1 against
+      // the tint and fails AA. Muted is 5.25:1 on the same background and is
+      // still visibly quieter than a real set of initials.
+      style={{ width: size, height: size, color: person ? undefined : "var(--ink-muted)", ...style }}
     >
       <span
         className="font-mono tabular-nums leading-none"

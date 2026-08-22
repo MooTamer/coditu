@@ -49,10 +49,32 @@ export function WorkModal({
       }
       if (event.key !== "Tab") return;
 
-      const focusable = panel.current?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      if (!focusable?.length) return;
+      /**
+       * Filtered to what is actually on screen, and that is the whole fix.
+       *
+       * `querySelectorAll` returns hidden elements too — this panel has a
+       * carousel whose controls only exist for more than one image, and
+       * responsive variants that disappear below `sm`. With those counted, the
+       * computed "last" element is one that can never take focus, so the
+       * `activeElement === last` branch never fires and **Tab walks straight
+       * out of the dialog**. It escaped after three tabs at 390px.
+       *
+       * `offsetParent` would be the short way to ask and it is wrong here:
+       * it is null for anything `position: fixed`, which is this panel.
+       * `DialogShell` learned the same thing and measures instead.
+       */
+      const focusable = [
+        ...(panel.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ) ?? []),
+      ].filter((element) => {
+        if (element.hasAttribute("hidden") || element.getAttribute("aria-hidden") === "true") {
+          return false;
+        }
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
 
@@ -65,11 +87,34 @@ export function WorkModal({
       }
     };
 
+    /**
+     * The half of the trap that does not depend on the engine's Tab order.
+     *
+     * The `activeElement === last` check above is the usual way to close a
+     * trap, and it rests on an assumption Safari does not honour: **Safari
+     * does not Tab to links.** "Press Tab to highlight each item" is off by
+     * default, so a panel whose last focusable element is an `<a>` never sees
+     * focus reach `last`, the wrap never fires, and Tab walks out into the FAQ
+     * behind the dialog. Measured at 390px on WebKit: two stops inside, then
+     * out.
+     *
+     * So focus leaving the panel is caught directly and sent back to the
+     * front, whatever the engine thought it was doing. Capture phase, because
+     * `focusin` from a different subtree does not bubble through this one.
+     */
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target as Node | null;
+      if (!panel.current || !target || panel.current.contains(target)) return;
+      panel.current.querySelector<HTMLElement>("button")?.focus();
+    };
+
     window.addEventListener("keydown", onKey);
+    document.addEventListener("focusin", onFocusIn, true);
     panel.current?.querySelector<HTMLElement>("button")?.focus();
 
     return () => {
       window.removeEventListener("keydown", onKey);
+      document.removeEventListener("focusin", onFocusIn, true);
       document.body.style.overflow = previousOverflow;
       document.body.style.paddingRight = previousPad;
     };

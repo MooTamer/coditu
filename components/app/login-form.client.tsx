@@ -90,6 +90,10 @@ export function LoginForm({
             type="email"
             name="email"
             autoComplete="email"
+            // The phone keyboard's action key: Next moves to the password,
+            // Go submits. A generic Return does neither and the reader has to
+            // find the button.
+            enterKeyHint="next"
             required
             placeholder="you@coditu.com"
           />
@@ -122,6 +126,7 @@ export function LoginForm({
             type="password"
             name="password"
             autoComplete={joining ? "new-password" : "current-password"}
+            enterKeyHint="go"
             required
             minLength={joining ? 8 : undefined}
           />

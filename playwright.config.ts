@@ -21,6 +21,38 @@ function loadEnvLocal() {
 loadEnvLocal();
 
 /**
+ * What the phones run, and why it is not everything.
+ *
+ * Most of this suite is about the DATABASE — that RLS refuses a lead's role
+ * change, that a reorder is atomic, that the importer flags an ambiguous name,
+ * that a temporary password is stored nowhere. None of those answers can depend
+ * on the device asking, and running them three times over triples a nine-minute
+ * suite to prove the same row three ways.
+ *
+ * What phones are for is the part a desktop browser cannot answer honestly:
+ * layout at 390px, touch targets, sheets, safe areas, and axe on a real mobile
+ * engine. Those files are named here. Anything added to them runs everywhere;
+ * anything else is chromium-only until somebody decides otherwise, which is a
+ * decision worth making on purpose rather than by default.
+ *
+ * `composer.spec.ts` is the one that had to come back OFF this list. It seeds
+ * and clears comments on a single work item, so three projects running it at
+ * once is three workers deleting each other's fixture — the same shape as the
+ * `claim-%` race `password.spec.ts` documents, and it fails as "the mention was
+ * never stored". The phone-relevant half of it, choosing a mention by TAP
+ * rather than by Enter, lives in `mobile.spec.ts` on a row of its own.
+ */
+const ON_A_PHONE = [
+  /mobile\.spec\.ts/,
+  /a11y\.spec\.ts/,
+  /pwa\.spec\.ts/,
+  /marketing\.spec\.ts/,
+  /navigation\.spec\.ts/,
+  /item-detail\.spec\.ts/,
+  /motion\.spec\.ts/,
+];
+
+/**
  * E2E and accessibility suite.
  *
  * Runs against the dev server on the local Supabase stack. Both must be up:
@@ -40,7 +72,26 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  /**
+   * Three devices, and one honest caveat.
+   *
+   * 162 specs passing said nothing about a phone: there was exactly one project
+   * here, `Desktop Chrome`, and the strongest mobile claim in the suite was
+   * "no horizontal overflow at thirteen widths" — which a 320px-wide desktop
+   * browser can satisfy while being unusable with a thumb.
+   *
+   * **Playwright's WebKit is not iOS Safari.** It is the same engine built for
+   * a different platform: no Apple media stack, a different JIT, no Web Push,
+   * and none of the Home-Screen behaviour that decides half of workstream F. It
+   * catches layout and touch regressions, which is worth having, and it is not
+   * a substitute for looking at a real handset. Workstream F's manual check
+   * exists because of this line.
+   */
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "mobile-safari", use: { ...devices["iPhone 15"] }, testMatch: ON_A_PHONE },
+    { name: "mobile-chrome", use: { ...devices["Pixel 7"] }, testMatch: ON_A_PHONE },
+  ],
   webServer: {
     command: "npm run dev",
     url: "http://localhost:3000/login",

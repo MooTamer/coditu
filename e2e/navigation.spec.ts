@@ -49,28 +49,30 @@ test.describe("navigation feedback", () => {
     }
   });
 
-  test("a tapped rail item marks itself pending before the destination renders", async ({
+  test("a tapped navigation item marks itself pending before the destination renders", async ({
     adminPage: page,
   }) => {
     await page.goto(SPRINT);
-    await expect(page.getByRole("link", { name: "People" })).toBeVisible();
+    // "My work" rather than "People": it is in the rail above `md` AND in the
+    // phone's bottom bar below it, so this asserts the same behaviour on all
+    // three devices instead of asserting the rail on two that do not have one.
+    const target = page.getByRole("link", { name: /^My work/ });
+    await expect(target).toBeVisible();
 
     // Hold the destination's payload so the in-flight state is observable.
     // Nothing is prefetched, so this route is only ever hit by the click.
-    await page.route("**/app/people*", async (route) => {
+    await page.route("**/app/my-work*", async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await route.continue();
     });
 
-    await page.getByRole("link", { name: "People" }).click();
+    await target.click();
 
     // The whole point: this must be true while the server is still thinking.
-    const pending = page.locator("[data-nav-pending]");
-    await expect(pending).toHaveCount(1);
-    await expect(page.getByRole("link", { name: "People" })).toContainText("People");
+    await expect(page.locator("[data-nav-pending]")).toHaveCount(1);
 
-    await page.unroute("**/app/people*");
-    await expect(page).toHaveURL(/\/app\/people$/);
+    await page.unroute("**/app/my-work*");
+    await expect(page).toHaveURL(/\/app\/my-work$/);
     // …and gone again once it lands.
     await expect(page.locator("[data-nav-pending]")).toHaveCount(0);
   });
@@ -119,18 +121,27 @@ test.describe("navigation feedback", () => {
     }
   });
 
-  test("opening an item leaves the sprint table standing behind it", async ({
-    adminPage: page,
-  }) => {
+  test("opening an item leaves the sprint standing behind it", async ({ adminPage: page }) => {
     // The sprint segment now owns a `loading.tsx`. An item is intercepted into
     // the `@modal` slot, so the children slot must not be torn down and
-    // replaced by that skeleton — which would blank the table behind the modal.
+    // replaced by that skeleton — which would blank the sprint behind the
+    // modal.
+    //
+    // Asserted on the ROWS rather than on `<table>`: below 900px the table is
+    // hidden and `SprintCards` renders the same items as cards, so a `<table>`
+    // assertion would be a desktop assertion wearing a device-agnostic hat.
     await page.goto(SPRINT);
-    await page.getByRole("link", { name: "Add optional titles to all webparts" }).click();
+    const rows = page.locator("a[href*='/items/']");
+    const before = await rows.count();
+    expect(before, "no items on the sprint to begin with").toBeGreaterThan(5);
+
+    await page.getByRole("link", { name: "Add optional titles to all webparts" }).first().click();
 
     await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByRole("table")).toBeVisible();
     await expect(page.getByRole("status", { name: "Loading the sprint" })).toHaveCount(0);
+    expect(await rows.count(), "the sprint behind the dialog was torn down").toBeGreaterThanOrEqual(
+      before
+    );
   });
 
   test("an address that names nothing says so, and offers the way back", async ({
@@ -173,8 +184,15 @@ test.describe("the account menu", () => {
       await page.setViewportSize(PHONE);
       await page.goto(SPRINT);
 
-      // The palette — the only previous home for sign-out — is not offered here.
-      await expect(page.getByRole("button", { name: /Search items/ })).toBeHidden();
+      // The palette's WIDE trigger — the only previous home for sign-out — does
+      // not fit at 390px and is `hidden … sm:flex`. Search itself is still
+      // offered, as an icon; what a phone does not have is ⌘K, which is why
+      // sign-out could not live behind the palette.
+      const wideTrigger = page.getByRole("button", { name: /^Search items/ }).filter({
+        hasText: "Search items",
+      });
+      await expect(wideTrigger).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Search items, sprints, people" })).toBeVisible();
 
       const trigger = page.getByRole("button", { name: /— account$/ });
       const box = await trigger.boundingBox();

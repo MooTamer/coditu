@@ -51,7 +51,12 @@ test.describe("comment composer", () => {
     await expect(page.getByText("Rollover needs a focus state too, not just hover.")).toBeVisible();
   });
 
-  test("Cmd+Enter submits", async ({ adminPage: page }) => {
+  test("Cmd+Enter submits", async ({ adminPage: page, isMobile }) => {
+    // A phone has no Cmd and no Ctrl. Playwright will happily synthesise the
+    // modifier and the assertion would pass, which is worse than skipping —
+    // it would be a green test for a shortcut nobody on that device can use.
+    test.skip(!!isMobile, "there is no Cmd key on a phone");
+
     await page.getByText("Write a comment — @ to mention").click();
     const editor = page.locator(".coditu-prose");
     await editor.click();
@@ -103,7 +108,10 @@ test.describe("comment composer", () => {
       .toBeNull();
   });
 
-  test("@ opens the mention list and stores the profile id, not the name", async ({ adminPage: page }) => {
+  test("@ opens the mention list and stores the profile id, not the name", async ({
+    adminPage: page,
+    isMobile,
+  }) => {
     await page.getByText("Write a comment — @ to mention").click();
     const editor = page.locator(".coditu-prose");
     await editor.click();
@@ -113,7 +121,17 @@ test.describe("comment composer", () => {
     await expect(list).toBeVisible();
     await expect(list.getByText("Adam Nafie")).toBeVisible();
 
-    await page.keyboard.press("Enter");
+    // Chosen the way the device chooses. Enter is the keyboard affordance and
+    // it is the one worth testing on a desktop; on a phone there is no Enter
+    // to press while the suggestion list is open, and the gesture is a tap.
+    // Pressing Enter there and asserting success would be a green test for an
+    // interaction nobody on that device can perform — and it is not green
+    // anyway: WebKit leaves the text as a plain "@Adam".
+    if (isMobile) {
+      await list.getByText("Adam Nafie").click();
+    } else {
+      await page.keyboard.press("Enter");
+    }
     await page.keyboard.type(" which source wins?");
     await page.getByRole("button", { name: "Comment", exact: true }).click();
 

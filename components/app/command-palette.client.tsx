@@ -320,6 +320,9 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
               setQuery(event.target.value);
               setActive(0);
             }}
+            // A search box, so the phone's action key should say Go rather
+            // than Return — the palette runs the highlighted command on Enter.
+            enterKeyHint="go"
             placeholder="Jump to item, change status, log time…"
             role="combobox"
             aria-expanded="true"
