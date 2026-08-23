@@ -187,7 +187,14 @@ test.describe("profile pictures", () => {
 
     // The object goes with it. A row set to null and a file left behind is how
     // a bucket quietly fills with pictures nothing references.
-    expect(await readObject(storedUrl)).toBeUndefined();
+    //
+    // POLLED, not read once, because the two writes are deliberately ordered:
+    // `removeMyAvatar` nulls the column FIRST and deletes the object last, so
+    // that a failed delete leaves an orphan rather than a profile pointing at
+    // nothing (`lib/actions/profiles.ts` says so at length). The poll above
+    // therefore succeeds in the window between them, and reading storage
+    // immediately after is a race that fails whenever the server is busy.
+    await expect.poll(async () => readObject(storedUrl), { timeout: 15_000 }).toBeUndefined();
 
     const settingsAvatar = page.getByRole("region", { name: "Your picture" }).locator("[data-avatar]");
     await expect(settingsAvatar).toHaveAttribute("data-avatar", "initials");
