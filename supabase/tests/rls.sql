@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(64);
+select plan(69);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -741,6 +741,70 @@ select is(
   false,
   'negative: and it changed nothing'
 );
+
+-- ---------------------------------------------------------------------------
+-- push_subscriptions — one row is a live channel into somebody's lock screen.
+--
+-- The read case is the least interesting one here. What matters is that a
+-- person cannot INSERT a subscription against somebody else's profile — which
+-- would be a way to have this application push their mentions to a device you
+-- hold — and cannot DELETE theirs, which would be a way to switch their
+-- notifications off without them noticing.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+
+select lives_ok(
+  $$insert into public.push_subscriptions (profile_id, endpoint, p256dh, auth)
+    values ('33333333-3333-3333-3333-333333333333',
+            'https://push.example/eve', 'eve-key', 'eve-auth')$$,
+  'positive: a member subscribes their own device'
+);
+
+select throws_ok(
+  $$insert into public.push_subscriptions (profile_id, endpoint, p256dh, auth)
+    values ('44444444-4444-4444-4444-444444444444',
+            'https://push.example/otto-forged', 'forged', 'forged')$$,
+  '42501',
+  null,
+  'negative: a member cannot subscribe a device against somebody else''s profile'
+);
+
+-- Otto's own row, written as Otto, so there is something of his to try to read.
+select pg_temp.act_as('44444444-4444-4444-4444-444444444444');
+insert into public.push_subscriptions (profile_id, endpoint, p256dh, auth)
+values ('44444444-4444-4444-4444-444444444444', 'https://push.example/otto', 'otto-key', 'otto-auth');
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+
+select is(
+  (select count(*)::int from public.push_subscriptions),
+  1,
+  'negative: a member sees only their own devices, never anybody else''s'
+);
+
+-- Not an error — RLS simply matches no rows, which is the failure mode this
+-- repository has been caught by before: an action reporting success after
+-- writing nothing. The assertion is on what survived.
+delete from public.push_subscriptions where endpoint = 'https://push.example/otto';
+select pg_temp.act_as_owner();
+
+select is(
+  (select count(*)::int from public.push_subscriptions
+   where endpoint = 'https://push.example/otto'),
+  1,
+  'negative: a member cannot delete somebody else''s subscription'
+);
+
+-- An admin is not special here, and that is deliberate: role and access are an
+-- admin's to administer, but a device somebody registered is not.
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+select is(
+  (select count(*)::int from public.push_subscriptions),
+  0,
+  'negative: not even an admin reads another person''s subscriptions'
+);
+select pg_temp.act_as_owner();
 
 select * from finish();
 rollback;

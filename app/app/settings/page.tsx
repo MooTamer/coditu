@@ -4,6 +4,7 @@ import { ArrowRight, LogOut } from "lucide-react";
 
 import { AvatarSettings } from "@/components/app/avatar-settings.client";
 import { NameSettings } from "@/components/app/name-settings.client";
+import { PushSettings } from "@/components/app/push-settings.client";
 import { Mono } from "@/components/coditu/mono";
 import { Reveal } from "@/components/motion/reveal";
 import { signOut } from "@/lib/actions/auth";
@@ -98,6 +99,31 @@ export default async function Page() {
       <Reveal
         tier="section"
         delay={0.225}
+        as="section"
+        aria-labelledby="notifications"
+        className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
+      >
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h2 id="notifications" className="text-[16px] font-bold tracking-[-0.015em]">
+            Notifications
+          </h2>
+          <Mono size="meta" className="text-[var(--ink-faint)]">
+            per device
+          </Mono>
+        </div>
+
+        <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
+          Being mentioned in a comment reaches your phone or your desktop, not just the dot on My
+          work. Turned on per device, because a subscription belongs to the browser it was made in —
+          your laptop and your phone are two separate answers.
+        </p>
+
+        <PushSettings />
+      </Reveal>
+
+      <Reveal
+        tier="section"
+        delay={0.3}
         as="section"
         aria-labelledby="account"
         className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"

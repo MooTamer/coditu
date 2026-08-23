@@ -21,7 +21,7 @@ Geometry, spacing, and copy come from `design/project/Coditu App.dc.html`. What 
 /app/my-work                               assigned to me · awaiting my review · my hours this week
 /app/people                                team load
 /app/import                                Notion CSV importer
-/app/settings                              your profile: name, picture, account, sign out
+/app/settings                              your profile: name, picture, notifications, account, sign out
 ```
 
 Filter, sort, and view state live in the URL (`?status=dev_started,todo&assignee=…&view=board`) so a
@@ -192,6 +192,33 @@ them: a missing or broken image degrades to initials with no JavaScript involved
 
 Exports are unchanged. `04-EXPORT-SPEC.md` states people as name and initials, and a CSV is not a
 place for a photograph.
+
+## Notifications
+
+**Where they come from.** Not a Server Action. `sync_comment_mentions` is a `security definer`
+trigger on `comments` that walks `body_json` for mention nodes and inserts one `notifications` row
+per mentioned, active, non-author profile. It has already run inside the same transaction by the time
+an insert returns, which is why `postComment` is the right place to send a push from and why
+`lib/actions/notifications.ts` is a red herring for anybody looking for where they are created.
+
+**Where they go.** A dot on My work in the rail and the tab bar, a list on `/app/my-work`, a number on
+the installed app's icon (`navigator.setAppBadge`, feature-detected), and — for `kind = 'mention'`
+only — a Web Push to every device the person has registered. `'assigned'` and `'review_requested'`
+are allowed by the check constraint and typed in the data layer, and **nothing ever produces them**;
+delivery for a kind that is never produced is code with no way to know whether it works.
+
+**Turning them on** is per device, in Settings, and the control is honest about every state:
+unsupported, not configured, iOS-in-a-tab (Add to Home Screen, because iOS grants Web Push only to an
+installed web app and a Safari tab gets nothing, ever), denied (with where in the OS to reverse it),
+allowed-but-not-subscribed, and subscribed — with a test send, because waiting to be mentioned is not
+a way to find out whether it works. `Notification.requestPermission()` is called from inside the tap
+handler and never on load; iOS requires a gesture and silently does nothing otherwise.
+
+**The rules that outrank the feature.** A failed push never fails the write. Every `push` event ends
+in `showNotification`, because iOS revokes a subscription that receives a silent one. A push service
+answering 404 or 410 means that installation is gone and the row is deleted; anything else is left
+alone. The service worker caches nothing — this is a live board with realtime subscriptions, and a
+stale shell is a worse bug than a slow one.
 
 ## Command palette
 

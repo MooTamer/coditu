@@ -1732,3 +1732,42 @@ human-chosen temporary password: a guessable one, and it would arrive at the ser
 **One consequence, recorded rather than hidden.** `app/auth/callback/route.ts` stays — it costs
 nothing, its open-redirect guard is written and tested, and it still serves the forced-change
 redirect — but nothing in the application sends a link to it any more.
+
+---
+
+## 2026-08-23 · Web Push through `web-push`, and only for the kind that is actually produced
+
+**Decision.** Push notifications are sent with the `web-push` package rather than hand-rolled on Web
+Crypto, from `postComment` after its insert returns, for `kind = 'mention'` and nothing else. The
+subscription store is `public.push_subscriptions`; the service worker is `public/sw.js` and does two
+things — show a notification, and focus a window on click. No caching of any kind.
+
+**Why a dependency, in a repository that is deliberately dependency-lean.** Sending a push by hand
+means signing a VAPID JWT with ES256 over P-256, deriving a shared secret with ECDH against the
+subscription's `p256dh`, running HKDF for a content-encryption key and a nonce, and encrypting the
+payload as `aes128gcm` in RFC 8188's record framing. Every one of those steps fails the same way: the
+push service **accepts** the request and the device shows nothing. Roughly 200 lines of cryptography
+whose failure mode is silence is not a place to save a dependency.
+
+**Why only `'mention'`.** The `kind` check constraint allows `'assigned'` and `'review_requested'`
+and `lib/data/notifications.ts` types all three, but nothing in the schema or the application ever
+inserts either. Delivery for a kind that is never produced is code with no way to know whether it
+works. If the team wants those, that is a separate request with a producer attached.
+
+**Why `postComment` and not a trigger or a queue.** The notification rows are written by
+`sync_comment_mentions`, a `security definer` trigger, which has already run inside the same
+transaction by the time the insert returns — so the rows exist and can be read back. Sending from
+there rather than re-deriving the recipients means one answer to "who was mentioned", and it is the
+same answer the app itself shows.
+
+**What it must never do.** A failed push must never fail the write. Nothing in the send path throws,
+the caller does not await a result it acts on, and a deployment with no VAPID keys — every local
+checkout — sends nothing and reports nothing wrong.
+
+**Rejected.** Offline caching in the service worker: this is a live sprint board with realtime
+subscriptions, and the reason the footer total is trusted is that it is never out of date; a stale
+cached shell is a worse bug than a slow one, and offline is a separate request with its own ADR. A
+silent push: iOS revokes a subscription that receives one and shows nothing, so every `push` event
+ends in `showNotification`, fallback copy included. Registering the service worker in the app shell:
+it would put a worker on every device that will never receive anything and its bytes in a route
+budget with 0.2KB left, so it registers on Settings, where a subscription is created.

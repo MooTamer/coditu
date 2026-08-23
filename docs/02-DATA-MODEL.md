@@ -50,6 +50,24 @@ in this application at all — see `05-DECISIONS.md`, 2026-08-22.
 themselves is not a privilege; both are set by their owner on `/app/settings`, and `initials` is
 re-derived from `full_name` by the same rule `handle_new_user` uses.
 
+### `push_subscriptions`
+`id`, `profile_id fk profiles on delete cascade`, `endpoint text not null unique`, `p256dh`, `auth`,
+`user_agent`, `created_at`.
+
+One row is one **browser on one device**, not one person: the same human on a laptop and a phone is
+two rows and both are sent to. `endpoint` is the push service's URL for that installation and is what
+identifies it — unique, so a device that re-subscribes upserts instead of doubling its notifications.
+`p256dh` and `auth` are the subscription's public key and authentication secret; they are what the
+payload is encrypted *to*, they are not credentials for this application, and they are useless
+without the VAPID private key, which lives in the environment.
+
+RLS is `profile_id = auth.uid()` on **every** operation, not just select: a subscription is a live
+channel into somebody's lock screen, so inserting one against another profile would be a way to have
+this application push their mentions to a device you hold, and deleting theirs would be a way to
+switch their notifications off silently. `service_role` gets `select, delete` only — the server sends
+the pushes and prunes the rows a push service answers 404 or 410 for; a subscription is created by
+the browser that owns it, through its own session, or not at all. See `05-DECISIONS.md`, 2026-08-23.
+
 ### `clients`
 `id`, `name`, `website_url`, `logo_path`, `accent_hex`, timestamps.
 EVIM lives here with `logo_path = '/clients/evim.svg'` and `website_url = 'https://www.evim.de'`.

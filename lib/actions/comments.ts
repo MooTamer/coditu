@@ -1,10 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 
 import { documentSchema, flattenToText, isEmptyDocument } from "@/lib/comments/schema";
 import { extensionFor, isAllowedImageType, looksLikeImage } from "@/lib/images";
+import { mentionPayload } from "@/lib/push/payload";
+import { notifyMentioned } from "@/lib/push/notify";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 
@@ -31,7 +34,7 @@ async function resolveItemScope(itemId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("work_items")
-    .select("id, key, sprints!inner ( number, projects!inner ( slug ) )")
+    .select("id, key, title, sprints!inner ( number, projects!inner ( slug ) )")
     .eq("id", itemId)
     .maybeSingle();
 
@@ -41,6 +44,7 @@ async function resolveItemScope(itemId: string) {
     supabase,
     itemId: data.id,
     itemKey: data.key,
+    itemTitle: data.title,
     slug: data.sprints.projects.slug,
     sprintNumber: data.sprints.number,
   };
@@ -76,18 +80,60 @@ export async function postComment(input: unknown): Promise<CommentResult> {
     return { ok: false, error: "That comment is too long — keep it under 20,000 characters." };
   }
 
-  const { error } = await scope.supabase.from("comments").insert({
-    work_item_id: scope.itemId,
-    // Always the caller. RLS enforces it as well; taking it from the client
-    // would just be a value the server has to distrust.
-    author_id: scope.profile.id,
-    // The generated column type is `Json`, a structural alias; the parsed
-    // document satisfies it in shape but not by nominal type.
-    body_json: parsed.data.doc as unknown as Json,
-    body_text: bodyText,
-  });
+  // `.select("id").single()` — the id is needed below to find the notification
+  // rows this insert produced. It was a bare `.insert()` before.
+  const { data: created, error } = await scope.supabase
+    .from("comments")
+    .insert({
+      work_item_id: scope.itemId,
+      // Always the caller. RLS enforces it as well; taking it from the client
+      // would just be a value the server has to distrust.
+      author_id: scope.profile.id,
+      // The generated column type is `Json`, a structural alias; the parsed
+      // document satisfies it in shape but not by nominal type.
+      body_json: parsed.data.doc as unknown as Json,
+      body_text: bodyText,
+    })
+    .select("id")
+    .single();
 
-  if (error) return { ok: false, error: "That comment did not save. Nothing was lost — try again." };
+  if (error || !created) {
+    return { ok: false, error: "That comment did not save. Nothing was lost — try again." };
+  }
+
+  /**
+   * The push, and the one thing worth understanding about where it goes.
+   *
+   * **Notification rows are not written by this action.** They are written by
+   * `sync_comment_mentions`, a `security definer` trigger that fires after this
+   * insert and creates one row per mentioned, active, non-author profile. The
+   * trigger has already run inside the same transaction by the time the insert
+   * returns, so the rows exist and can be read back — which is exactly why this
+   * is the right place to send from, and why `lib/actions/notifications.ts` is
+   * a red herring for anybody looking for where notifications come from.
+   *
+   * `after()` rather than a floating promise, and the difference is not
+   * cosmetic on a serverless host: a promise left running when a Server Action
+   * returns can be killed the moment the response is sent, so the notification
+   * would arrive on a fast machine and vanish on Vercel — the worst kind of
+   * bug, because it works everywhere you test it. `after()` is Next's own
+   * answer: the work is scheduled to run once the response is finished, and the
+   * platform keeps the invocation alive for it.
+   *
+   * Either way it does not hold up the response. The composer is optimistic and
+   * already tuned; a comment appearing half a second later because a push
+   * service was slow would be a regression paid for by the person writing.
+   */
+  after(() =>
+    notifyMentioned(created.id, mentionPayload, {
+      authorName: scope.profile.full_name,
+      itemKey: scope.itemKey,
+      itemTitle: scope.itemTitle,
+      projectSlug: scope.slug,
+      sprintNumber: scope.sprintNumber,
+      preview: bodyText,
+    })
+  );
 
   revalidateItem(scope.slug, scope.sprintNumber, scope.itemKey);
   return { ok: true };

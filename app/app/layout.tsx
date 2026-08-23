@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { AppBadge } from "@/components/app/app-badge.client";
 import { Rail } from "@/components/app/rail.client";
 import { TabBar } from "@/components/app/tab-bar.client";
 import { ToastProvider } from "@/components/app/toast.client";
@@ -80,6 +81,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
 
         <TabBar unreadCount={unreadCount} />
+
+        {/* Renders nothing. Puts the same unread count the rail draws its dot
+            from onto the installed app's icon. */}
+        <AppBadge unreadCount={unreadCount} />
       </div>
     </ToastProvider>
   );

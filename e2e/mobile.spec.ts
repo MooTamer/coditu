@@ -131,10 +131,14 @@ test.describe("dialogs are sheets on a phone", () => {
   test("an item opens against the bottom edge, full width", async ({ adminPage: page }) => {
     await page.setViewportSize(PHONE);
     await page.goto(SPRINT);
-    await page.getByRole("link", { name: "Add optional titles to all webparts" }).click();
+    await page.getByRole("link", { name: "Add optional titles to all webparts" }).first().click();
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
+    // Measured after the entrance lands. The `surface` tier translates the
+    // panel 10px on the way in, so a box read mid-animation is 10px out and
+    // the failure looks like a layout bug.
+    await expect(dialog).toHaveCSS("opacity", "1");
 
     const box = (await dialog.boundingBox())!;
     expect(Math.round(box.width), "a sheet is full width").toBe(PHONE.width);
@@ -150,11 +154,15 @@ test.describe("dialogs are sheets on a phone", () => {
   test("the page behind is locked, and stays where it was", async ({ adminPage: page }) => {
     await page.setViewportSize(PHONE);
     await page.goto(SPRINT);
+    // The page has to be TALL before it can be scrolled 900px, and under three
+    // projects at once the cards can still be arriving. Waiting for the last
+    // one is waiting for the height.
+    await expect(page.locator("a[href*='/items/']:visible").last()).toBeVisible();
 
     await page.evaluate(() => window.scrollTo({ top: 900, behavior: "instant" }));
-    await page.waitForTimeout(150);
-    const before = await page.evaluate(() => window.scrollY);
-    expect(before, "the page did not scroll — the rest of this proves nothing").toBe(900);
+    await expect
+      .poll(async () => page.evaluate(() => window.scrollY), { timeout: 5000 })
+      .toBe(900);
 
     await page.locator("a[href*='/items/']:visible").first().click();
     await expect(page.getByRole("dialog")).toBeVisible();
