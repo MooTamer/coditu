@@ -17,6 +17,7 @@ import { uploadImage } from "@/lib/upload-image";
 import { IMAGE_ACCEPT } from "@/lib/images";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { CODE_LANGUAGES } from "@/lib/comments/schema";
+import { normaliseHref } from "@/lib/links";
 import { cn } from "@/lib/utils";
 
 import { buildMentionSuggestion } from "./mention-suggestion";
@@ -664,30 +665,6 @@ function stripToAllowlist(html: string): string {
   [...parsed.body.children].forEach(walk);
 
   return parsed.body.innerHTML;
-}
-
-/**
- * What somebody types into a link box, turned into something that can be one.
- *
- * "coditu.com" is what a person types and "https://coditu.com" is what a link
- * needs; a bare word is neither, and returning null for it means the editor
- * unsets the mark instead of storing a href that goes nowhere. `mailto:` and
- * the two http schemes are the only ones the renderer will draw anyway — see
- * `isSafeHref` — so anything else is left to be refused there rather than
- * quietly rewritten here.
- */
-export function normaliseHref(raw: string): string | null {
-  const value = raw.trim();
-  if (!value) return null;
-  // Whitespace anywhere is refused rather than trimmed out of the middle:
-  // `java\tscript:` is a real URL to a browser and is not one to a prefix
-  // check, and it is the reason `isSafeHref` rejects whitespace too.
-  if (/[\s\u0000-\u001F\u007F]/.test(value)) return null;
-  if (/^(https?:|mailto:)/i.test(value)) return value;
-  if (/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(value)) return `mailto:${value}`;
-  // A single word with no dot is not a domain — it is somebody still typing.
-  if (!/^[^\s/]+\.[^\s/]+/.test(value)) return null;
-  return `https://${value}`;
 }
 
 /**
