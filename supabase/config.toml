@@ -75,9 +75,15 @@ enabled = true
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 # `seed.sql` is generated from the Notion export; `seeds/components.sql` is the
 # component registry read out of the delivery repository; `seeds/item-components.sql`
-# attributes the imported work to it by title. Order matters — each file attaches
-# itself to what the one before it created.
-sql_paths = ["./seed.sql", "./seeds/components.sql", "./seeds/item-components.sql"]
+# attributes the imported work to it by title; `seeds/developers.sql` is the
+# initial answer to who takes a share of a sprint's pot. Order matters — each
+# file attaches itself to what the one before it created.
+sql_paths = [
+  "./seed.sql",
+  "./seeds/components.sql",
+  "./seeds/item-components.sql",
+  "./seeds/developers.sql",
+]
 
 [db.network_restrictions]
 # Enable management of network restrictions.

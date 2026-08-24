@@ -119,6 +119,7 @@ function NewSprintForm({
   const [name, setName] = useState(`Sprint — Week ${nextNumber}`);
   const [startsOn, setStartsOn] = useState("");
   const [endsOn, setEndsOn] = useState("");
+  const [goal, setGoal] = useState("");
 
   function submit() {
     setError(null);
@@ -129,6 +130,7 @@ function NewSprintForm({
         name: name.trim(),
         startsOn: startsOn || null,
         endsOn: endsOn || null,
+        goal: goal.trim() || null,
       });
       if (result.ok) {
         toast(`${name.trim()} is open. It is planned until you start it.`);
@@ -201,6 +203,24 @@ function NewSprintForm({
             onChange={(event) => setEndsOn(event.target.value)}
           />
         </label>
+
+        {/* The goal. `sprints.goal` has been in the schema since the first
+            migration and nothing could write or read it — a whole column no
+            code path could reach. It is the first thing anybody types on
+            planning day, so it goes on the form that opens the sprint. */}
+        <label className="flex flex-col gap-[6px] sm:col-span-3">
+          <Mono size="eyebrow" className="text-[var(--ink-faint)]">
+            Goal
+          </Mono>
+          <input
+            className={FIELD}
+            maxLength={500}
+            enterKeyHint="done"
+            placeholder="What this week is for, in one sentence"
+            value={goal}
+            onChange={(event) => setGoal(event.target.value)}
+          />
+        </label>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -244,6 +264,7 @@ function SprintRow({
   const [name, setName] = useState(sprint.name);
   const [startsOn, setStartsOn] = useState(sprint.startsOn ?? "");
   const [endsOn, setEndsOn] = useState(sprint.endsOn ?? "");
+  const [goal, setGoal] = useState(sprint.goal ?? "");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
@@ -271,6 +292,7 @@ function SprintRow({
         name: name.trim(),
         startsOn: startsOn || null,
         endsOn: endsOn || null,
+        goal: goal.trim() || null,
       });
       if (result.ok) {
         setEditing(false);
@@ -340,6 +362,18 @@ function SprintRow({
               onChange={(event) => setEndsOn(event.target.value)}
             />
           </label>
+          <label className="flex min-w-[220px] flex-1 flex-col gap-[6px]">
+            <Mono size="eyebrow" className="text-[var(--ink-faint)]">
+              {`Goal of sprint ${sprint.number}`}
+            </Mono>
+            <input
+              className={FIELD}
+              maxLength={500}
+              placeholder="What this week is for, in one sentence"
+              value={goal}
+              onChange={(event) => setGoal(event.target.value)}
+            />
+          </label>
           <button
             type="button"
             onClick={save}
@@ -357,6 +391,7 @@ function SprintRow({
               setName(sprint.name);
               setStartsOn(sprint.startsOn ?? "");
               setEndsOn(sprint.endsOn ?? "");
+              setGoal(sprint.goal ?? "");
             }}
             aria-label={`Cancel editing sprint ${sprint.number}`}
             className={cn(ACTION, "h-[34px]")}
@@ -373,6 +408,11 @@ function SprintRow({
           <Mono size="meta" className="block text-[var(--ink-faint)]">
             {dateRange(sprint.startsOn, sprint.endsOn)}
           </Mono>
+          {sprint.goal ? (
+            <span className="mt-[2px] block truncate text-[12.5px] text-[var(--ink-muted)]">
+              {sprint.goal}
+            </span>
+          ) : null}
         </Link>
       )}
 

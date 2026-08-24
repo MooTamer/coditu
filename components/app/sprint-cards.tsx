@@ -4,6 +4,7 @@ import { PersonAvatar } from "@/components/app/person-avatar";
 import { ComponentTag } from "@/components/coditu/component-icon";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
+import { ProgressRing } from "@/components/coditu/progress-ring";
 import type { WorkItemRow } from "@/lib/data/sprint";
 import { calendarDate, hours } from "@/lib/format";
 import { groupingHue, groupingTint } from "@/lib/work-items";
@@ -103,7 +104,18 @@ export function SprintCards({
               <Mono size="meta" className="text-[var(--ink-muted)]">
                 {calendarDate(row.deadline)}
               </Mono>
-              <Mono size="meta" className="ml-auto text-[var(--ink-muted)]">
+              {/* The ring appears here too, or the information disappears
+                  entirely below 900px where the table becomes this card
+                  stack. */}
+              <ProgressRing
+                done={row.criteriaDone}
+                total={row.criteriaTotal}
+                size={17}
+                strokeWidth={4}
+                trackColor="var(--hairline-strong)"
+                className="ml-auto shrink-0"
+              />
+              <Mono size="meta" className="text-[var(--ink-muted)]">
                 {row.grouping ?? "—"}
               </Mono>
             </span>

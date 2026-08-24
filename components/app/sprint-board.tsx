@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { ComponentTag } from "@/components/coditu/component-icon";
 import { Mono } from "@/components/coditu/mono";
+import { ProgressRing } from "@/components/coditu/progress-ring";
 import type { WorkItemRow } from "@/lib/data/sprint";
 import { hours } from "@/lib/format";
 import { STATUS_DISPLAY_ORDER, STATUS_LABEL, groupingHue, TYPE_LABEL, type WorkItemStatus } from "@/lib/work-items";
@@ -85,11 +86,14 @@ export function SprintBoard({ rows, basePath }: { rows: WorkItemRow[]; basePath:
                     <Mono size="eyebrow" className="normal-case tracking-normal text-[var(--ink-muted)]">
                       {item.minutesLogged > 0 ? `${hours(item.minutesLogged)}h` : "—"}
                     </Mono>
-                    {item.criteriaTotal > 0 ? (
-                      <Mono size="eyebrow" className="ml-auto normal-case tracking-normal text-[var(--ink-muted)]">
-                        {item.criteriaDone}/{item.criteriaTotal}
-                      </Mono>
-                    ) : null}
+                    <ProgressRing
+                      done={item.criteriaDone}
+                      total={item.criteriaTotal}
+                      size={17}
+                      strokeWidth={4}
+                      trackColor="var(--hairline-strong)"
+                      className="ml-auto shrink-0"
+                    />
                   </span>
                 </Link>
               ))}

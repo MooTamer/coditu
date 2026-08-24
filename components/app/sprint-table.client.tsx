@@ -35,6 +35,7 @@ import {
 } from "@/components/app/row-editors.client";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { ProgressRing } from "@/components/coditu/progress-ring";
 import { settle } from "@/lib/action-result";
 import { reorderWorkItems } from "@/lib/actions/work-items";
 import type { ComponentRef } from "@/lib/data/components";
@@ -397,11 +398,21 @@ function Row({
           >
             {row.title}
           </Link>
-          {row.criteriaTotal > 0 ? (
-            <Mono size="eyebrow" className="ml-auto shrink-0 normal-case tracking-normal text-[var(--ink-faint)]">
-              {row.criteriaDone}/{row.criteriaTotal}
-            </Mono>
-          ) : null}
+          {/* A ring rather than `3/5`, at 17px so the sticky Task column does
+              not grow. It carries its own `aria-label` spelling the count out,
+              because a finger cannot open a tooltip — the mistake already
+              recorded in `06-PROGRESS.md` for per-person sprint load. The track
+              is `--hairline-strong` rather than `--hairline`: this row may be
+              grouping-tinted, and `--ink-faint` measured 4.46:1 on a tinted
+              card once already. Zero criteria renders nothing at all. */}
+          <ProgressRing
+            done={row.criteriaDone}
+            total={row.criteriaTotal}
+            size={17}
+            strokeWidth={4}
+            trackColor="var(--hairline-strong)"
+            className="ml-auto shrink-0"
+          />
         </span>
       </td>
 

@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(122);
+select plan(136);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -1310,6 +1310,144 @@ select throws_ok(
 select pg_temp.act_as_owner();
 update public.work_items set sprint_id = '50000000-0000-0000-0000-000000000001', order_index = 1
 where id = '60000000-0000-0000-0000-000000000002';
+
+
+-- =========================================================================
+-- Earnings — who takes a share, and what a confirmed distribution is
+--
+-- A confirmed payout is a record of an agreement, not a cache of a
+-- calculation. Everything below is about making that true in the database
+-- rather than in the application: the numbers cannot be rewritten, the row
+-- cannot be deleted, and a second live payout for one sprint cannot exist.
+-- =========================================================================
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+
+-- `guard_profile_privilege_columns` is an allowlist written as a denylist, and
+-- this is the fifth column added to it. Without the entry, an engineer could
+-- decide they take a share.
+select throws_ok(
+  $$update public.profiles set is_developer = true
+    where id = '33333333-3333-3333-3333-333333333333'$$,
+  '42501',
+  null,
+  'negative: an engineer cannot decide that they take a share'
+);
+
+select throws_ok(
+  $$insert into public.sprint_payouts
+      (sprint_id, confirmed_by, total_minutes, hourly_rate_cents, pot_cents)
+    values ('50000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333',
+            480, 1200, 9600)$$,
+  '42501',
+  null,
+  'negative: an engineer cannot confirm a distribution'
+);
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select throws_ok(
+  $$insert into public.sprint_payouts
+      (sprint_id, confirmed_by, total_minutes, hourly_rate_cents, pot_cents)
+    values ('50000000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222',
+            480, 1200, 9600)$$,
+  '42501',
+  null,
+  'negative: nor can a lead — confirming money is an admin''s alone'
+);
+
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+
+select lives_ok(
+  $$update public.profiles set is_developer = true
+    where id in ('22222222-2222-2222-2222-222222222222','33333333-3333-3333-3333-333333333333')$$,
+  'positive: an admin decides who takes a share'
+);
+
+select lives_ok(
+  $$insert into public.sprint_payouts
+      (id, sprint_id, confirmed_by, total_minutes, hourly_rate_cents, pot_cents,
+       usd_egp_rate_micros, usd_egp_source)
+    values ('90000000-0000-0000-0000-000000000001',
+            '50000000-0000-0000-0000-000000000001',
+            '11111111-1111-1111-1111-111111111111',
+            480, 1200, 9600, 50860000, 'live')$$,
+  'positive: an admin confirms a distribution'
+);
+
+select lives_ok(
+  $$insert into public.sprint_payout_shares (payout_id, profile_id, minutes_logged, share_cents)
+    values ('90000000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 30, 4800),
+           ('90000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333', 450, 4800)$$,
+  'positive: and its shares'
+);
+
+-- The identity the whole feature rests on, asserted against the stored rows
+-- rather than only against the TypeScript that computed them.
+select is(
+  (select sum(share_cents)::int from public.sprint_payout_shares
+   where payout_id = '90000000-0000-0000-0000-000000000001'),
+  (select pot_cents from public.sprint_payouts
+   where id = '90000000-0000-0000-0000-000000000001'),
+  'positive: the shares sum to the pot exactly'
+);
+
+select throws_ok(
+  $$insert into public.sprint_payouts
+      (sprint_id, confirmed_by, total_minutes, hourly_rate_cents, pot_cents)
+    values ('50000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
+            600, 1200, 12000)$$,
+  '23505',
+  null,
+  'negative: a sprint cannot have two live payouts — two admins confirming at once, and one loses'
+);
+
+select throws_ok(
+  $$update public.sprint_payouts set pot_cents = 999999
+    where id = '90000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: a confirmed pot cannot be rewritten, not even by the admin who confirmed it'
+);
+
+select lives_ok(
+  $$update public.sprint_payouts set superseded_at = now()
+    where id = '90000000-0000-0000-0000-000000000001'$$,
+  'positive: it can be superseded, which is the only thing that may change it'
+);
+
+select throws_ok(
+  $$update public.sprint_payouts set superseded_at = null
+    where id = '90000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: and a superseded payout stays superseded'
+);
+
+select lives_ok(
+  $$insert into public.sprint_payouts
+      (sprint_id, confirmed_by, total_minutes, hourly_rate_cents, pot_cents)
+    values ('50000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
+            600, 1200, 12000)$$,
+  'positive: superseding the first is what makes room for the second'
+);
+
+-- Refused by the GRANT, not by a policy — `authenticated` was never given
+-- DELETE on this table, so Postgres stops it before RLS is consulted at all.
+-- Two layers, and this is the outer one; the missing policy is the inner.
+select throws_ok(
+  $$delete from public.sprint_payouts where id = '90000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: nobody deletes a confirmed payout'
+);
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select isnt_empty(
+  $$select 1 from public.sprint_payouts where id = '90000000-0000-0000-0000-000000000001'$$,
+  'positive: everyone active reads everyone''s — that is the team''s rule'
+);
+
+select pg_temp.act_as_owner();
 
 
 select * from finish();

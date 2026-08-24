@@ -96,6 +96,18 @@ export function SprintHeader({
 
           <h1 className="mt-[10px] text-[26px] font-bold tracking-[-0.024em]">{sprint.name}</h1>
 
+          {/* The goal, at last. `sprints.goal` has been in the schema since the
+              first migration and `grep -rn "goal" components/app app/app`
+              returned nothing at all — a column no code path could write or
+              read. It is the first thing anybody types on planning day and the
+              sentence the rest of this header is evidence for, so it sits
+              directly under the name. Written on the project's sprint list. */}
+          {sprint.goal ? (
+            <p className="mt-[6px] max-w-[52ch] text-[14px] leading-[1.5] text-[var(--ink-muted)]">
+              {sprint.goal}
+            </p>
+          ) : null}
+
           <div className="mt-[10px] flex flex-wrap items-center gap-[10px]">
             <Mono size="key" className="text-[var(--ink-muted)]">
               {dateRange(sprint.startsOn, sprint.endsOn)}

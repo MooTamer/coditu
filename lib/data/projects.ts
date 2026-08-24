@@ -175,6 +175,8 @@ export interface SprintSummary {
   status: "planned" | "active" | "closed";
   startsOn: string | null;
   endsOn: string | null;
+  /** The one sentence the sprint is for. Null until somebody writes it. */
+  goal: string | null;
   itemCount: number;
   minutesLogged: number;
   estimateMinutes: number;
@@ -189,13 +191,22 @@ export interface SprintSummary {
 export const listSprintsForProject = cache(async (projectId: string): Promise<SprintSummary[]> => {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("v_sprint_summary")
-    .select("sprint_id, number, name, status, starts_on, ends_on, item_count, minutes_logged, estimate_minutes, days_remaining")
-    .eq("project_id", projectId)
-    .order("number", { ascending: false });
+  // Two reads, joined here. `v_sprint_summary` is a rollup of counts and
+  // minutes and stays one — adding a paragraph of prose to it would make every
+  // caller pay for text none of them render — so the goal comes from the table
+  // and is matched by id.
+  const [{ data, error }, { data: goals }] = await Promise.all([
+    supabase
+      .from("v_sprint_summary")
+      .select("sprint_id, number, name, status, starts_on, ends_on, item_count, minutes_logged, estimate_minutes, days_remaining")
+      .eq("project_id", projectId)
+      .order("number", { ascending: false }),
+    supabase.from("sprints").select("id, goal").eq("project_id", projectId),
+  ]);
 
   if (error) throw error;
+
+  const goalById = new Map((goals ?? []).map((row) => [row.id, row.goal ?? null]));
 
   return (data ?? []).map((row) => ({
     id: row.sprint_id!,
@@ -204,6 +215,7 @@ export const listSprintsForProject = cache(async (projectId: string): Promise<Sp
     status: row.status!,
     startsOn: row.starts_on,
     endsOn: row.ends_on,
+    goal: goalById.get(row.sprint_id!) ?? null,
     itemCount: Number(row.item_count ?? 0),
     minutesLogged: Number(row.minutes_logged ?? 0),
     estimateMinutes: Number(row.estimate_minutes ?? 0),
