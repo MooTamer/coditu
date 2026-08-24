@@ -95,14 +95,17 @@ test.describe("item detail", () => {
   test("ticking a criterion persists, and the ring follows", async ({ adminPage: page }) => {
     await page.goto(ITEM);
 
-    const criterion = page.getByRole("button", { name: new RegExp(SEED.groupedCriterion) });
     await page.goto(`${SPRINT}/items/COD-231`);
 
-    const target = page.getByRole("button", { name: new RegExp(SEED.groupedCriterion) });
-    const before = await target.getAttribute("aria-pressed");
+    // A checkbox, not a pressed button, and its own control rather than the
+    // whole row: a criterion can hold a link and a picture now, so clicking the
+    // screenshot must not tick the box. The Edit and Remove buttons beside it
+    // carry the same text in their labels, which is why this asks for the role.
+    const target = page.getByRole("checkbox", { name: new RegExp(SEED.groupedCriterion) });
+    const before = await target.getAttribute("aria-checked");
     await target.click();
 
-    await expect(target).toHaveAttribute("aria-pressed", before === "true" ? "false" : "true");
+    await expect(target).toHaveAttribute("aria-checked", before === "true" ? "false" : "true");
 
     // And in the database, not just on screen.
     await expect
@@ -119,8 +122,21 @@ test.describe("item detail", () => {
 
     // Put it back so the suite is re-runnable.
     await target.click();
-    await expect(target).toHaveAttribute("aria-pressed", before ?? "false");
-    expect(criterion).toBeDefined();
+    await expect(target).toHaveAttribute("aria-checked", before ?? "false");
+
+    // And in the database too — a suite that leaves this ticked fails
+    // `supabase/tests/seed.sql`, which counts how many were ticked in Notion.
+    await expect
+      .poll(async () => {
+        const [row] = await query<{ is_done: boolean }>(
+          `select c.is_done from acceptance_criteria c
+           join work_items w on w.id = c.work_item_id
+           where w.key = $1 and c.body = $2`,
+          [SEED.grouped, SEED.groupedCriterion]
+        );
+        return String(row.is_done);
+      })
+      .toBe(before ?? "false");
   });
 
   /**
