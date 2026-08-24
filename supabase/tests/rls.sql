@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(69);
+select plan(84);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -803,6 +803,146 @@ select is(
   (select count(*)::int from public.push_subscriptions),
   0,
   'negative: not even an admin reads another person''s subscriptions'
+);
+select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- components — the registry, and the column that ties work to it.
+--
+-- Three separate rules are in play and they fail in three different ways:
+-- the POLICY decides who may write a component at all, the GRANT decides that
+-- nobody may delete one, and a TRIGGER decides that an item and its component
+-- must agree about which project they belong to. Each gets both cases.
+-- ---------------------------------------------------------------------------
+
+insert into public.components (id, project_id, name, slug, kind, icon) values
+  ('cc000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', 'EVIM Themen Kachel', 'evim-themen-kachel', 'spfx', 'GridViewMedium'),
+  ('cc000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002', 'Partner dashboard',  'partner-dashboard',  'react', null);
+
+-- Scoped to the fixture projects: this database is also carrying the seeded
+-- MEINEvim registry, and an unscoped count would be asserting the seed's size.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select is(
+  (select count(*)::int from public.components
+   where project_id in ('40000000-0000-0000-0000-000000000001',
+                        '40000000-0000-0000-0000-000000000002')),
+  2,
+  'positive: an active member reads the registry'
+);
+
+select pg_temp.act_as('55555555-5555-5555-5555-555555555555');
+select is(
+  (select count(*)::int from public.components),
+  0,
+  'negative: a deactivated member reads no components at all'
+);
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select lives_ok(
+  $$insert into public.components (project_id, name, slug, kind)
+    values ('40000000-0000-0000-0000-000000000001', 'EVIM Newspart', 'evim-newspart', 'spfx')$$,
+  'positive: a lead adds a component'
+);
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select throws_ok(
+  $$insert into public.components (project_id, name, slug, kind)
+    values ('40000000-0000-0000-0000-000000000001', 'Engineer''s idea', 'engineers-idea', 'spfx')$$,
+  '42501',
+  null,
+  'negative: an engineer cannot add a component'
+);
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select lives_ok(
+  $$update public.components set name = 'EVIM Themen Kachel (renamed)'
+    where id = 'cc000000-0000-0000-0000-000000000001'$$,
+  'positive: a lead renames a component'
+);
+
+-- The engineer's UPDATE refuses one layer earlier than the INSERT above: the
+-- policy's USING clause hides the row, so the statement matches nothing and
+-- raises nothing. That silence is the failure mode this suite exists for, so
+-- the assertion is on the stored value rather than on an error.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select lives_ok(
+  $$update public.components set name = 'Engineer was here'
+    where id = 'cc000000-0000-0000-0000-000000000001'$$,
+  'negative: an engineer''s rename matches no rows'
+);
+select pg_temp.act_as_owner();
+select is(
+  (select name from public.components where id = 'cc000000-0000-0000-0000-000000000001'),
+  'EVIM Themen Kachel (renamed)',
+  'negative: and it changed nothing'
+);
+
+-- No delete policy AND no delete grant — a component holds the history of what
+-- happened to it, and deleting one would blank the column on every item that
+-- named it. Retiring is `is_archived`.
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select throws_ok(
+  $$delete from public.components where id = 'cc000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: nobody deletes a component, not even a lead'
+);
+
+select throws_ok(
+  $$insert into public.components (project_id, name, slug, kind)
+    values ('40000000-0000-0000-0000-000000000001', 'Themen Kachel again', 'evim-themen-kachel', 'spfx')$$,
+  '23505',
+  null,
+  'negative: one project cannot hold the same slug twice'
+);
+
+select lives_ok(
+  $$insert into public.components (project_id, name, slug, kind)
+    values ('40000000-0000-0000-0000-000000000002', 'Themen Kachel', 'evim-themen-kachel', 'react')$$,
+  'positive: the same slug under a DIFFERENT project is another component'
+);
+
+select throws_ok(
+  $$insert into public.components (project_id, name, slug, kind)
+    values ('40000000-0000-0000-0000-000000000001', 'Not A Slug', 'Not A Slug', 'spfx')$$,
+  '23514',
+  null,
+  'negative: a slug that is not URL-shaped is refused by the column'
+);
+
+-- Invariant 1, on the join between the two tables.
+select lives_ok(
+  $$update public.work_items set component_id = 'cc000000-0000-0000-0000-000000000001'
+    where id = '60000000-0000-0000-0000-000000000001'$$,
+  'positive: an item takes a component from its own project'
+);
+
+select throws_ok(
+  $$update public.work_items set component_id = 'cc000000-0000-0000-0000-000000000002'
+    where id = '60000000-0000-0000-0000-000000000001'$$,
+  '23514',
+  null,
+  'negative: an item cannot take another client''s component'
+);
+
+select pg_temp.act_as_owner();
+select is(
+  (select count(*)::int from public.activity
+   where work_item_id = '60000000-0000-0000-0000-000000000001' and field = 'component'),
+  1,
+  'positive: retagging an item is recorded in its activity'
+);
+
+-- The engineer column guard. `component_id` had to be NAMED in it: the guard is
+-- an allowlist written as a denylist, so a new column is silently writable by
+-- an engineer until somebody adds it there.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select throws_ok(
+  $$update public.work_items set component_id = null
+    where id = '60000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: an engineer cannot retag even their own item'
 );
 select pg_temp.act_as_owner();
 

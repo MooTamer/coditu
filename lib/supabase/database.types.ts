@@ -312,6 +312,50 @@ export type Database = {
           },
         ]
       }
+      components: {
+        Row: {
+          created_at: string
+          icon: string | null
+          id: string
+          is_archived: boolean
+          kind: Database["public"]["Enums"]["component_kind"]
+          name: string
+          project_id: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_archived?: boolean
+          kind: Database["public"]["Enums"]["component_kind"]
+          name: string
+          project_id: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_archived?: boolean
+          kind?: Database["public"]["Enums"]["component_kind"]
+          name?: string
+          project_id?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "components_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           comment_id: string | null
@@ -625,6 +669,7 @@ export type Database = {
         Row: {
           assignee_id: string | null
           closed_at: string | null
+          component_id: string | null
           created_at: string
           deadline: string | null
           description: string | null
@@ -645,6 +690,7 @@ export type Database = {
         Insert: {
           assignee_id?: string | null
           closed_at?: string | null
+          component_id?: string | null
           created_at?: string
           deadline?: string | null
           description?: string | null
@@ -665,6 +711,7 @@ export type Database = {
         Update: {
           assignee_id?: string | null
           closed_at?: string | null
+          component_id?: string | null
           created_at?: string
           deadline?: string | null
           description?: string | null
@@ -696,6 +743,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_person_load"
             referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "work_items_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "components"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "work_items_reviewer_id_fkey"
@@ -817,6 +871,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "lead" | "engineer"
+      component_kind: "react" | "spfx"
       sprint_status: "planned" | "active" | "closed"
       work_item_status:
         | "draft"
@@ -956,6 +1011,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "lead", "engineer"],
+      component_kind: ["react", "spfx"],
       sprint_status: ["planned", "active", "closed"],
       work_item_status: [
         "draft",
