@@ -205,6 +205,10 @@ export function RichTextEditor({
       const handle = uploadImage(file, {
         workItemId,
         onProgress: (percent) => {
+          // The abort on unmount stops the request, but a progress event
+          // already in flight can still land — and dispatching into a
+          // destroyed view throws where nobody is listening for it.
+          if (editor.isDestroyed) return;
           withPlaceholder(editor, uploadId, (position) => {
             // `setNodeMarkup` rather than a command chain: this fires a dozen
             // times a second and must not touch the selection, or the caret

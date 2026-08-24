@@ -948,3 +948,47 @@ three of them would have been reported as something else entirely.
 And two of my own regexes were the character-class bug now recorded in `07-FIELD-NOTES.md`:
 `/[\s -\\%?#]/` is a **range** from space to backslash, and `/[\s -]/` in `normaliseHref` would have
 refused every hyphenated domain. Both were caught by writing the tests, not by reading the code.
+
+### B4 — the corner cases, each with a test or a written answer
+
+The brief asks that every one of these have one. Where a test exists it is named; where the answer is a
+decision it is written out rather than left to be rediscovered.
+
+| Case | Answer |
+|---|---|
+| A criterion that is empty after an edit | Refused with a sentence, the same way `postComment` refuses an empty comment — in the action *and* in the form, whose Save is disabled. |
+| **The flattened `body` for an image-only criterion, in the CSV and the PDF** | It renders as `[image: alt]`, in both, and that is the right outcome — **asserted**, in `tests/export.test.ts`. It is honest (the criterion exists, its content is a screenshot the client is not being sent), it cannot corrupt either file (`criterionText` collapses newlines on the way in, so a `- [ ] …` line cannot split, and square brackets need no quoting), and it does not change the contract, which says a criterion exports as its text. Embedding a link was rejected and is recorded as such: `/api/attachments/…` needs a session, so a link in a client's CSV is a 401 with the client's name on it — and that IS a change to `04-EXPORT-SPEC.md`, which is decision gate §8.2 and not ours to make. The test asserts no link of any kind reaches either format. |
+| `createWorkItem`'s `criteria: string[]` | Still works, and now writes `body` with `body_json` null — which is exactly the state the 232 imported criteria are in, so the renderer's existing fallback covers it with no new path. |
+| The Notion importer | Unchanged. It writes `body` only, via the same column. |
+| **Two people editing one criterion** | Last write wins, and the loser sees the new value after `router.refresh()` rather than their stale draft — the edit form is unmounted on save, so there is no draft to be stale. **Criteria do not join the realtime subscription**, and the reason is that `realtime.client.tsx` exists for the *thread*, where somebody else's sentence arriving while you read is the whole point. A checklist is not a conversation: a criterion re-wording itself under the cursor is startling rather than useful, and the case it would serve — two people editing the same line at the same moment — is rare enough in a four-person team that "refresh and you will see it" is the honest trade. Revisit if it ever bites. |
+| **Ticking a criterion while its body is open** | Cannot happen, by construction rather than by guard: a row in edit mode renders the editor *instead of* the checkbox, so there is no tick to press and no edit to discard. |
+| A criterion added while the item sheet is open | Appears without a reload — `addCriterion` revalidates and the list re-renders. |
+| Copy-paste between two criteria | Preserves marks and images: it is one ProseMirror schema on both ends. |
+| A Word / Notion / Google-Docs paste | Stripped to the allowlist **on the way in** by `transformPastedHTML`. The renderer already failed closed on those node types, so this is cleanliness rather than safety — a document that *stores* forty `mso-` spans renders fine and is a nightmare the first time somebody reads the JSON, and the flattened `body_text` the exports use inherits their whitespace. A tag that is not ours is unwrapped, not deleted: the words inside it are what the person meant to paste. |
+| **A very long single word — a URL, a base64 blob** | `break-words` is on the paragraph in `comment-body.tsx` and it applies inside a list item too, because a list item's content *is* paragraphs. A code block is the other case and it has `overflow-x-auto`, so it scrolls rather than stretching the row. |
+| **50 criteria on one item** | **Neither capped nor virtualised, deliberately.** The real data says why: across 275 imported criteria the most any one item carries is **21**, the mean is **5.1**, and exactly **one** item is over twenty. Fifty is not a case this app has; a cap would be a rule invented for a problem nobody has, and virtualisation would break `Ctrl-F`, the drag-to-reorder, and the render-edge sort for the same non-problem. §8.3 says to ask only if the absence of a cap turns out to be a real problem — it has not, so this is the answer rather than a question. The measurement is here so the next person can re-run it rather than re-argue it. |
+
+### Loading and error states, swept
+
+The team asked for this directly — *"when a person pastes an image in wherever, it should have upload
+loading inside its thumbnail, make sure it's handled cleanly and correctly"* — so every surface this
+brief touched was walked, not just the editor.
+
+| Surface | While it is working | When it fails |
+|---|---|---|
+| **Pasting an image** | The picture itself, in the document, at the caret, at its own aspect ratio, dimmed, with a **determinate bar** over it. The percentage caps at 99 until the server answers, because a bar sitting at 100 while nothing happens reads as a hang. | The placeholder is removed **entirely** — no broken image, no orphan — and the reason is a sentence: the size and the limit, the HEIC setting that fixes it, or "check your connection". A draft carrying a half-uploaded image is stripped on restore. |
+| **The editor itself** | `loading the editor…` in a box the height it will be, so nothing jumps when TipTap arrives. | — |
+| **A thumbnail** | A shimmer inside the box the image will occupy, sized from the file's own dimensions. | A quiet "image unavailable" box at that same size, with the alt text. Never the browser's broken-image glyph, which reads as the app being broken, and never nothing, which reads as no attachment. |
+| **The viewer** | `loading…` over the frame; a new slide resets it during render, not in an effect, so one frame of the previous picture's "loaded" state never shows under the next one's src. | "This image is not here any more", with its alt text. |
+| Title, description, highlight | A spinner in place of the pencil, and the text dims. | `useOptimistic` reverts and a toast says why. |
+| A criterion | The new wording shows immediately; the row dims. | The optimistic text goes away **at the same moment** the reason arrives. |
+| A comment edit / withdrawal | Spinner on the control, the comment dims. | Inline `role="alert"` under the editor for an edit; a toast for a withdrawal. |
+| A time entry | The row dims — `disabled` alone says "not now" without saying "something is happening", which on a slow connection is indistinguishable from a click that missed. | Toast. |
+| Delete / move an item | Spinner on the button. | Toast, and the item stays. |
+| Confirm a distribution | Spinner on the button, which already names the amount. | Toast, including the specific sentence for two admins confirming at once. |
+| A setting | A small spinner beside the label; the field reverts to the stored value on refusal. | Toast naming the bound that was missed. |
+| `/app/earnings` | `loading.tsx` shaped like the board. | `app/app/error.tsx` covers the route. |
+
+Two things fixed while walking it: a progress event that landed after the editor unmounted would have
+dispatched into a destroyed ProseMirror view (the abort stops the request, not an event already in
+flight), and a pending time entry and client row looked identical to an idle one.

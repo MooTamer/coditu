@@ -11,6 +11,7 @@ import { settle } from "@/lib/action-result";
 import { deleteTimeEntry, logTime, updateTimeEntry } from "@/lib/actions/work-items";
 import type { TimeEntryRecord } from "@/lib/data/work-item";
 import { hours, hoursLabel } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 /** Half-hour steps, as minutes. Invariant 2: the UI never holds a float. */
 const STEP = 30;
@@ -286,7 +287,15 @@ function TimeEntryRow({
   }
 
   return (
-    <div className="group flex items-center justify-between gap-2">
+    <div
+      className={cn(
+        "group flex items-center justify-between gap-2 transition-opacity duration-[var(--dur-micro)]",
+        // Dimmed while its own write is in flight. `disabled` alone says "not
+        // now" without saying "something is happening", which on a slow
+        // connection is indistinguishable from a click that missed.
+        pending && "opacity-50"
+      )}
+    >
       <Mono size="meta" className="text-[var(--ink-muted)]">
         {entry.workedOn}
       </Mono>

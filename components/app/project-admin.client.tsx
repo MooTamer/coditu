@@ -614,7 +614,12 @@ function ClientRow({ client }: { client: ClientSummary }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-4 border-b border-[var(--hairline)] px-5 py-3 last:border-b-0">
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-4 border-b border-[var(--hairline)] px-5 py-3 transition-opacity duration-[var(--dur-micro)] last:border-b-0",
+        pending && "opacity-50"
+      )}
+    >
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13.5px]">{client.name}</span>
         {client.websiteUrl ? (
