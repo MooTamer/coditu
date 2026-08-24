@@ -12,7 +12,9 @@ Geometry, spacing, and copy come from `design/project/Coditu App.dc.html`. What 
 /login                                     split layout, brand-forward
 /app                                       → the user's last project, its active sprint
 /app/projects                              all projects: client, scope, sprint state, sprints, hours
-/app/projects/[slug]                       project overview + its sprints
+/app/projects/[slug]                       project overview + its sprints + recent components
+/app/projects/[slug]/components            the component registry: what this project is made of
+  …/[component]                            one component — every item that has ever named it
 /app/projects/[slug]/sprints/[number]      the sprint — Table (default) | Board
   …/items/[key]                            item detail — intercepted as a modal via @modal + (.)items/[key];
                                            a hard navigation renders the full page
@@ -24,8 +26,10 @@ Geometry, spacing, and copy come from `design/project/Coditu App.dc.html`. What 
 /app/settings                              your profile: name, picture, notifications, account, sign out
 ```
 
-Filter, sort, and view state live in the URL (`?status=dev_started,todo&assignee=…&view=board`) so a
-view is shareable and survives reload.
+Filter, sort, and view state live in the URL (`?status=dev_started,todo&assignee=…&component=evim-themen-kachel&view=board`)
+so a view is shareable and survives reload. `component` is a **slug**, validated against the project's
+own registry — a hand-edited one that names another client's component resolves to nothing and the
+filter is simply not applied.
 
 ---
 
@@ -68,7 +72,13 @@ form field.
 
 ## Table — the default view
 
-Columns: `Task · Status · Hours · Assignee · Reviewer · Deadline · Type · Grouping`.
+Columns: `Task · Component · Status · Hours · Assignee · Reviewer · Deadline · Type · Grouping`.
+
+**Component** sits directly beside the task because it is the other half of what the row is about:
+"COD-153 · Themen Kachel · in review" is the sentence the table exists to say. It renders the web
+part's own SharePoint toolbox glyph beside the name, and opens the same picker the New item dialog
+uses — filterable, and able to add a component in place. Admin and lead only; for an engineer it is
+**disabled with a tooltip**, never hidden.
 
 Real `<table>` semantics — `<th scope="col">`, never a div with a role. Sticky header; sticky Task
 column with an **opaque per-group background** (see `01-DESIGN-SYSTEM.md`). The Task cell carries
@@ -88,13 +98,13 @@ column with an **opaque per-group background** (see `01-DESIGN-SYSTEM.md`). The 
   row, `Space` to lift, arrows to move, `Space` to drop, `Esc` to cancel — each step announced via
   `aria-live`.
 - Below 900px the table becomes **stacked cards, driven by a container query**, not a viewport
-  breakpoint. Each card carries key, status chip, title, `AE → MT`, hours, deadline, grouping. Plus a
-  sum card.
+  breakpoint. Each card carries key, status chip, title, the component as a caption under the title,
+  `AE → MT`, hours, deadline, grouping. Plus a sum card.
 
 ## Board
 
-Columns per status with count. Cards show key, type, title, assignee initials, hours, AC progress, and
-the grouping border. Drag between columns writes status optimistically. Horizontal scroll with snap
+Columns per status with count. Cards show key, type, title, the component with its glyph, assignee
+initials, hours, AC progress, and the grouping border. Drag between columns writes status optimistically. Horizontal scroll with snap
 when narrow.
 
 ## Item detail
@@ -105,9 +115,31 @@ closes, focus returns to the originating row, body scroll locked.
 - **Left**: title, description, the highlight block (amber rule), acceptance criteria with a gradient
   progress ring (`r=15`, `stroke-dasharray="94.2"`), the comment thread, then the activity feed in
   faint mono.
-- **Right**: the seven properties — status, type, assignee, reviewer, deadline, estimate, grouping —
-  each inline-editable and optimistic. Then **Log time**: 0.5h steps (30 minutes) via − / +, today's
+- **Right**: status, then the **component** — the only property that goes somewhere, linking to
+  everything that has ever happened to that web part — then type, assignee, reviewer, deadline,
+  estimate and grouping, each inline-editable and optimistic. Then **Log time**: 0.5h steps (30 minutes) via − / +, today's
   date, a gradient `Log {n} h` button, your entries on this item, and a total.
+
+## Components
+
+Two screens, both under the project rather than the sprint, because a component
+outlives any one sprint.
+
+**`/app/projects/[slug]/components` — the registry.** Every component the project is made of, as a
+grid that reflows from four columns to one on its own width (`auto-fill` + `minmax(min(300px,100%),1fr)`,
+no media query). Each card: the web part's own **SharePoint toolbox glyph**, its name, the kind chip,
+item count, open count, hours logged, and the last sprint it was worked in. A component with nothing
+attributed says "no items yet" rather than three zeroes. Admin and lead get **New component** here;
+the grid itself ships no JavaScript.
+
+**`/app/projects/[slug]/components/[component]` — one component.** Its whole history, grouped by
+sprint, newest first, and inside a sprint in the fixed status display order. Each sprint heading links
+back to that sprint filtered to this component; each row opens the item. The header carries the glyph,
+the kind, item/open counts and `logged / estimated`. **Component settings** (admin and lead) renames
+it, corrects its kind, or retires it — there is no delete, and the panel says why.
+
+Looked up by project id **and** slug together. Two clients may both have something called "Calendar";
+guessing a URL must not read one under the other's heading.
 
 ## The story thread
 

@@ -677,3 +677,39 @@ ledger updated in the same commit as the work.
 | **`web-push` is a new dependency, and the ADR says why.** Hand-rolling it is VAPID JWT signing over P-256, ECDH against the subscription key, HKDF, and `aes128gcm` in RFC 8188 framing — about 200 lines of cryptography whose failure mode is a push the service accepts and the device never shows. Three server-only env vars in `.env.example` under its existing heading, plus `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, which is public by definition because the browser hands it to `subscribe()` | `cd62617` | `npm run budgets` — app shell **109.9KB / 110KB**: the permission control lives on the Settings route and the service worker registers there, not in the shell, precisely so it stays out of that number |
 | **A hydration mismatch that only exists on the dev server, chased to the end rather than left as a flake.** Once every `/app` screen sat inside a `<Suspense>`, `comments.spec.ts` began reporting `Hydration failed …` about once a run. The markup is not wrong — the served HTML has the shell exactly as the client renders it — it is a race: `next dev` is slow enough between flushing the shell and resolving the boundary that hydration sometimes starts first, and React re-renders the tree and carries on. Measured under six parallel workers: **10 in 60 page loads against `next dev`, 0 in 60 against a production build** — same probe, same load, same code. The spec filters the hydration message and keeps failing on what it is actually about, which is whether a hostile comment can execute | `20517b7` | `SKIP_BUILD=1 ./scripts/with-prod-server.sh` with the probe at `--repeat-each=6 --workers=6`, both ways |
 | **One note on running the gate.** `npm run e2e` is 386 tests across three devices against one dev server. On a **completely cold `.next`** the first compile of each route happens while six workers times three projects ask for it at once, and a handful of specs hit their 30s timeout — 23 of them on the one run where the whole gate was chained after `rm -rf .next`. It is a cold-start cost, not a defect: `npm run build && npm run e2e` on a warm tree measured **382 passed, 0 failed**, and the same suite has run green five times since. On a fresh checkout, run it twice, or once with `--workers=3`. CI is unaffected — it already runs `workers: 1` | `20517b7` | Measured both ways rather than guessed: cold + chained → 23 timeouts, all of them "waiting for the page"; warm → 0 |
+- **2026-08-24** — **Components.** Work items can now name the thing they change, chosen from a list
+  rather than typed into the title. New `public.components` table (project-scoped, `kind` =
+  `react | spfx`, `icon` = the SPFx toolbox glyph, `is_archived`, no delete), `work_items.component_id`,
+  a trigger enforcing that an item and its component agree about their project (invariant 1 across the
+  join), `component_id` added to the engineer column guard — it is an allowlist written as a denylist,
+  so a new column is writable until it is named there — and to the activity trigger.
+
+  The MEINEvim registry is **generated from the delivery repository**: `npm run components:sync` reads
+  every SPFx manifest's `preconfiguredEntries[0]` and the React app's own feature registry into
+  `supabase/seeds/components.sql` — 41 components, 34 carrying the icon SharePoint draws in its "Add a
+  web part" toolbox. `npm run components:check` fails when the two have drifted and prints what is new,
+  renamed or re-iconed. `supabase/seeds/item-components.sql` then attributes the 103 imported items by
+  title: 93 land, 10 are left alone because they are genuinely about more than one component.
+
+  Surfaces: a Component column in the sprint table with an inline picker (filter + add-in-place), the
+  same picker in the New item dialog and as a sprint filter (`?component=slug`), the component on the
+  board cards, the mobile cards and the item detail, and two new screens —
+  `/app/projects/[slug]/components` (the registry) and `…/components/[slug]` (one component's whole
+  history, grouped by sprint).
+
+  **Not changed, on purpose:** the export contract. CSV, Markdown and PDF are byte-for-byte what
+  `04-EXPORT-SPEC.md` says — the component is internal attribution and the export is a client-facing
+  contract. Adding a column to it is the client's call.
+
+  Verification: `npm run lint`, `npm run typecheck`, `npm run test` (**132**), `npm run db:test`
+  (**110**, incl. 15 new RLS assertions — positive and negative for read, insert, update, the absent
+  delete, the unique slug, the slug shape, the cross-project trigger, the activity row and the engineer
+  guard), `npm run e2e` (**401 passed, 4 skipped**, incl. 10 new component specs — axe clean on both
+  screens and on the open picker, zero console noise on both routes, and the cross-project 404).
+  `npm run components:check` green.
+
+  **Not yet on the hosted database.** Local only. Production needs three things run by hand, in order:
+  `20260824120000_components.sql`, then `supabase/seeds/components.sql`, then
+  `supabase/seeds/item-components.sql`. The two seed files are single idempotent statements that open
+  no transaction, so the Supabase SQL editor can take them as they are — and `item-components.sql`
+  matches on TITLE precisely because the hosted `COD-` numbers are not the local ones.

@@ -1771,3 +1771,103 @@ silent push: iOS revokes a subscription that receives one and shows nothing, so 
 ends in `showNotification`, fallback copy included. Registering the service worker in the app shell:
 it would put a worker on every device that will never receive anything and its bytes in a route
 budget with 0.2KB left, so it registers on Settings, where a subscription is created.
+
+---
+
+## 2026-08-24 · Components are a table, chosen from a list, and they carry SharePoint's own icon
+
+**Decision.** A new `public.components` table — one row per thing a project is made of — with
+`work_items.component_id` pointing at it. A component belongs to a project, exactly like a sprint does.
+`kind` is a two-value enum, `react` or `spfx`, shown as **React** and **Microsoft web part**. The
+registry for MEINEvim is generated from the delivery repository by
+`scripts/sync-evim-components.mjs` into `supabase/seeds/components.sql`, and each row carries the
+`officeFabricIconFontName` from that web part's own SPFx manifest — the glyph SharePoint draws in its
+"Add a web part" toolbox.
+
+**The problem.** Almost every EVIM item is a change to one named thing, and until now that name lived
+only inside `title`, typed by hand, spelled four ways across fifteen sprints. "What have we done to
+the Newspart" was a text search that missed as often as it hit — and it is a question the client asks
+on almost every call.
+
+**Why a table, not an enum or a text column.** An enum needs a migration every time the team starts a
+new web part, and the whole point is that the team can add one mid-sentence. A text column is what we
+already had inside the title, with its spellings and its typos. A row can be renamed once and every
+item that names it follows.
+
+**Why the icon is stored verbatim.** `icon` holds `Page`, `News`, `OrganizationChart` — the Fluent
+name out of the manifest, not a name of our own. It is a fact the delivery repository already states,
+so keeping it in step is a string comparison rather than a fresh judgement every time. Coditu does not
+ship the Fluent icon font: it is a webfont, these glyphs render on the sprint table, and that route has
+110KB of budget with no headroom. The name is mapped to its nearest Lucide equivalent at the render
+edge, in one table anyone can read. The shapes are not identical; the reading is.
+
+**Why the seed is generated and not hand-written.** A list transcribed from another repository goes
+stale silently — somebody adds a web part over there and the picker keeps offering yesterday's list,
+which is the exact failure a picker exists to remove. `npm run components:check` fails when the two
+have drifted and prints what is new, renamed, re-iconed or gone.
+
+**Why `supabase/seeds/components.sql` and not the migration.** A migration runs *before* the seed on
+`db reset`, so the project row it needs does not exist yet locally and the insert would be a silent
+no-op on every fresh checkout. The file is one idempotent statement that opens no transaction, so it
+is also what gets run by hand against the hosted project — the same way migrations are applied here.
+
+**Why there is no delete.** No policy and no grant. A component holds the history of what happened to
+it, and deleting one would blank the column on every item that named it. `is_archived` retires it from
+the pickers and keeps the history. It is the same lesson as merging duplicate profiles rather than
+deleting them.
+
+**Why the picker is a listbox and not a `<select>`.** A native `<option>` cannot carry the toolbox
+icon, which is the point of storing it, and cannot be filtered — and a project has forty of them. It
+keeps everything a `<select>` gives for free: `role="listbox"`, `aria-selected`, arrow-key traversal,
+Escape, focus returned to the trigger. The same component is the table cell's editor, the New item
+dialog's field, and the sprint's component filter, so there is one implementation of all of it.
+
+**Two things this deliberately did NOT change.** The **export contract** — CSV, Markdown and PDF are
+byte-for-byte what `docs/04-EXPORT-SPEC.md` says, because the component is internal attribution and
+the export is a client-facing contract; adding a column to it is the client's call, not ours. And the
+**title of any existing item** — the web-part name still sits in 232 imported titles, and rewriting
+them would be inventing history.
+
+**Rejected.** A `text` column with an autocomplete over past values (the typos are the data, and they
+would keep breeding). A global registry not scoped to a project (two clients can both have something
+called "Calendar", and invariant 1 exists precisely so one cannot be read under the other's heading).
+Making `component_id` NOT NULL (232 imported items have no honest answer, and "not attributed yet" is
+a truthful state). Letting an engineer set it (it is a lead's call, like the type and the grouping
+beside it — and the per-column guard had to be told, because that trigger is an allowlist written as a
+denylist and a new column is writable until it is named there).
+
+---
+
+## 2026-08-24 · The imported work is attributed to components by title, and ambiguity means no attribution
+
+**Decision.** `supabase/seeds/item-components.sql` fills `work_items.component_id` for the 103
+imported MEINEvim items by matching phrases against their **titles**. It is hand-written, not
+generated, because it is a judgement rather than a derived fact. 93 of 103 land; the other 10 are left
+alone on purpose.
+
+**Why it had to exist.** The registry shipped and every component read "no items yet", which is the
+opposite of the point. Fifteen sprints of history sit in titles — "Fix: tabs with cards", "CR: Banner
+Half-Image", "EVIM Quick Links Plus" — and a registry that starts empty is one nobody trusts enough to
+start filling in.
+
+**Three rules keep it honest.**
+
+1. **It only fills a NULL.** A person's attribution, in the app or by hand, is never overwritten.
+   Re-running it changes nothing, so a correction made in the UI is permanent.
+2. **Phrases carry a priority**, so a specific name beats a generic one: "Banner Half-Image" is the
+   Half Image web part and not the Banner; "Tabs with Cards" is Themen Kachel and not Tabs. Without
+   that, the generic word would make each of those look ambiguous.
+3. **Ambiguous means unattributed.** If two different components match at the winning priority, the
+   item is left alone — it genuinely is about both. That is what leaves "CR: Instagram / LinkedIn
+   Feed", "Responsiveness for Link Kachel, Tabs with Cards, Newspart" and "Add optional titles to all
+   webparts" empty, which is the truthful answer for all three.
+
+**Why it matches on title and not on item key.** The local seed and the hosted database assign
+different `COD-` numbers to the same item — the import ran twice, against two databases, with two
+sequences. A file of `update … where key = 'COD-187'` would attribute the wrong rows in production
+while looking perfect locally. Titles are the same text in both.
+
+**What it gets wrong, and how you would know.** It is a heuristic over prose. "Anniverseries" is
+matched because somebody spelled it that way in Week 6; "Finder" maps to *EVIM Dokumentenbibliothek*
+because that is what the folder ships as. Anything it gets wrong is one click to fix in the component
+cell, and the fix survives every later run of this file.

@@ -15,7 +15,13 @@ create type sprint_status    as enum ('planned','active','closed');
 create type work_item_status as enum ('draft','todo','dev_started','ready_for_peer_review',
                                       'in_review','changes_requested','done','blocked');
 create type work_item_type   as enum ('story','change_request','bug_fix','chore','spike');
+create type component_kind   as enum ('react','spfx');
 ```
+
+`component_kind` is how a component is built. The team maintains both and they are reviewed, built and
+shipped differently; the app labels them **React** and **Microsoft web part**, because that is what the
+person filing the ticket calls them. Mirrored by `COMPONENT_KINDS` in `lib/components.ts`, and
+`tests/components.test.ts` reads the migration to prove the two agree.
 
 ### Status display order — fixed
 
@@ -87,12 +93,40 @@ EVIM lives here with `logo_path = '/clients/evim.svg'` and `website_url = 'https
 `id`, `sprint_id fk on delete cascade`, `key text unique` (`COD-140`, from a sequence), `title`,
 `description text`, `highlight text`, `status`, `type`, `assignee_id fk profiles null`,
 `reviewer_id fk profiles null`, `deadline date`, `estimate_minutes int`,
-`minutes_logged int not null default 0`, `grouping smallint null`, `order_index int not null`,
-`closed_at timestamptz`, timestamps.
+`minutes_logged int not null default 0`, `grouping smallint null`, `component_id fk components null`,
+`order_index int not null`, `closed_at timestamptz`, timestamps.
+
+`component_id` stays nullable and always will: 232 items were imported from Notion before the registry
+existed, and a NOT NULL would have meant inventing an answer for each of them. "Not attributed yet" is
+a truthful state and every surface renders it as one.
 
 `highlight` is the "discuss before implementing" note. It is a **first-class column**, not a markdown
 convention inside `description`, because the table, the item detail, the Markdown export, and the PDF
 all render it distinctly.
+
+### `components`
+`id`, `project_id fk on delete cascade`, `name text`, `slug text`, `kind component_kind`,
+`icon text null`, `is_archived bool default false`, timestamps. `unique (project_id, slug)`.
+
+One row per thing a project is made of — an EVIM web part, an extension, a feature of the React app.
+Scoped to a project exactly like a sprint is, because the same name means different things to
+different clients.
+
+`slug` is the URL identity, derived from the name **once** by `componentSlug()` and never rewritten by
+a rename: a link pasted into a comment in March has to keep resolving. The column carries
+`check (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')`, so the only legal producer is that function.
+
+`icon` is the SPFx manifest's `preconfiguredEntries[0].officeFabricIconFontName`, stored **verbatim**
+(`Page`, `News`, `OrganizationChart`) — the glyph SharePoint draws in its "Add a web part" toolbox.
+Verbatim because it is a fact the delivery repository already states, so re-syncing is a string
+comparison rather than a fresh judgement; it is mapped to a Lucide equivalent at the render edge in
+`components/coditu/component-icon.tsx`, since shipping the Fluent icon webfont on a route with a
+110KB budget is not a trade worth making. Null is normal: extensions have no toolbox entry and neither
+does anything in the React app.
+
+**There is no delete.** No policy, no grant. A component holds the history of what happened to it, and
+deleting one would blank the column on every item that named it. `is_archived` retires it from the
+pickers and keeps the history.
 
 ### `acceptance_criteria`
 `id`, `work_item_id fk on delete cascade`, `body text`, `is_done bool default false`, `order_index int`.
@@ -136,6 +170,20 @@ and a footer sum on every paint, and an aggregate per render is the wrong trade.
 
 **Protected-column trigger.** A `before update on work_items` trigger raises when an `engineer` changes
 any column other than `status` or `order_index`. A policy alone cannot express a per-column restriction.
+Note the shape: it is an allowlist written as a *denylist*, so **a new column on `work_items` is
+silently writable by an engineer until it is named in that trigger.** `component_id` was added to it
+for that reason, not because anybody asked.
+
+**Component/project agreement.** `guard_work_item_component_project`, `before insert or update of
+component_id, sprint_id on work_items`, raises `23514` when the component's project is not the project
+of the item's own sprint. This is invariant 1 on the join between the two tables — without it a
+per-component reading of EVIM's work could contain a Converso item. It fires on `sprint_id` too:
+moving an item to another project's sprint would otherwise carry a foreign component with it.
+
+**Activity trigger** covers `status`, `assignee_id`, `reviewer_id`, `deadline` and `component_id`.
+Retagging an item is a change to the record of what happened to a component, so it belongs in the feed;
+the component's NAME is written into the row, not its id, because a history that reads
+"set component → 3f2a…" is not one.
 
 **Views**
 - `v_sprint_summary` — per sprint: item count, count per status, total estimate minutes, total logged
@@ -152,6 +200,8 @@ time_entries(profile_id, worked_on)
 comments(work_item_id, created_at)
 activity(work_item_id, created_at desc)
 notifications(profile_id) where read_at is null
+components(project_id, name)
+work_items(component_id) where component_id is not null
 ```
 
 ---
