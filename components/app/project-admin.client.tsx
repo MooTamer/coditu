@@ -11,6 +11,7 @@ import {
   createClientRecord,
   createProject,
   setProjectArchived,
+  updateClientRecord,
   updateProject,
 } from "@/lib/actions/projects";
 import type { ArchivedProject, ClientSummary, ProjectSummary } from "@/lib/data/projects";
@@ -100,6 +101,7 @@ export function ProjectAdmin({
       ) : null}
       {pane === "client" ? <NewClientForm onDone={() => setPane("none")} /> : null}
 
+      {clients.length ? <ClientList clients={clients} /> : null}
       {archived.length ? <ArchivedList archived={archived} /> : null}
     </div>
   );
@@ -501,6 +503,137 @@ export function ProjectRowControls({ project }: { project: ProjectSummary }) {
         className={ACTION}
       >
         <Archive size={13} strokeWidth={1.8} aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The clients, and the one thing you need to do to one after creating it.
+ *
+ * A client's name appears on the sprint header, the project list and the client
+ * report — a typo in it is on a screen somebody shows a client. `updateClientRecord`
+ * existed the moment it was written and was called by nothing, which is the exact
+ * shape this whole brief is about; this is its caller.
+ */
+function ClientList({ clients }: { clients: ClientSummary[] }) {
+  return (
+    <section
+      aria-label="Clients"
+      className="overflow-hidden rounded-list border border-[var(--hairline)] bg-[var(--raised)]"
+    >
+      <h2 className="border-b border-[var(--hairline)] px-5 py-3 text-[13px] font-medium text-[var(--ink-muted)]">
+        Clients
+      </h2>
+      {clients.map((client) => (
+        <ClientRow key={client.id} client={client} />
+      ))}
+    </section>
+  );
+}
+
+function ClientRow({ client }: { client: ClientSummary }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, startTransition] = useTransition();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(client.name);
+  const [websiteUrl, setWebsiteUrl] = useState(client.websiteUrl ?? "");
+
+  function save() {
+    startTransition(async () => {
+      const result = await settle(
+        () =>
+          updateClientRecord({
+            clientId: client.id,
+            name: name.trim(),
+            websiteUrl: websiteUrl.trim() || null,
+          }),
+        "That change did not save."
+      );
+      if (result.ok) {
+        setEditing(false);
+        router.refresh();
+        return;
+      }
+      toast(result.error ?? "That change did not save.");
+    });
+  }
+
+  if (editing) {
+    return (
+      <div className="flex flex-wrap items-end gap-3 border-b border-[var(--hairline)] px-5 py-3 last:border-b-0">
+        <label className="flex min-w-[160px] flex-1 flex-col gap-[6px]">
+          <Mono size="eyebrow" className="text-[var(--ink-faint)]">
+            {`Name of ${client.name}`}
+          </Mono>
+          <input
+            className={FIELD}
+            value={name}
+            maxLength={120}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </label>
+        <label className="flex min-w-[180px] flex-1 flex-col gap-[6px]">
+          <Mono size="eyebrow" className="text-[var(--ink-faint)]">
+            {`Website of ${client.name}`}
+          </Mono>
+          <input
+            className={FIELD}
+            type="url"
+            inputMode="url"
+            placeholder="https://"
+            value={websiteUrl}
+            onChange={(event) => setWebsiteUrl(event.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={save}
+          disabled={pending}
+          aria-label={`Save ${client.name}`}
+          className={cn(ACTION, "h-[34px]")}
+        >
+          <Check size={14} strokeWidth={2} aria-hidden />
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(false);
+            setName(client.name);
+            setWebsiteUrl(client.websiteUrl ?? "");
+          }}
+          aria-label={`Cancel editing ${client.name}`}
+          className={cn(ACTION, "h-[34px]")}
+        >
+          <X size={14} strokeWidth={2} aria-hidden />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-4 border-b border-[var(--hairline)] px-5 py-3 last:border-b-0">
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13.5px]">{client.name}</span>
+        {client.websiteUrl ? (
+          <Mono size="meta" className="block truncate text-[var(--ink-faint)]">
+            {client.websiteUrl.replace(/^https?:\/\/(www\.)?/, "")}
+          </Mono>
+        ) : null}
+      </span>
+      <Mono size="meta" className="shrink-0 text-[var(--ink-faint)]">
+        {client.projectCount} {client.projectCount === 1 ? "project" : "projects"}
+      </Mono>
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        disabled={pending}
+        aria-label={`Edit ${client.name}`}
+        className={ACTION}
+      >
+        <Pencil size={13} strokeWidth={1.8} aria-hidden />
       </button>
     </div>
   );

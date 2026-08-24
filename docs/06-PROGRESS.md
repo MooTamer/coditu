@@ -898,6 +898,25 @@ dnd-kit and the earnings board are all behind `next/dynamic` or on routes of the
 "measured", and 0.1KB of headroom is not much to be wrong by. **Run it before deploying.**
 
 The e2e specs written for this brief and **not executed**: `e2e/earnings.spec.ts` (the money-leak
-assertions and the confirmation flow) and `e2e/editable.spec.ts` (the F2 flows). The **source-level**
-half of the money-leak boundary — `tests/earnings-boundary.test.ts` — did run, and was red-green
-checked against a deliberate leak.
+assertions and the confirmation flow), `e2e/editable.spec.ts` (the F2 flows), and new blocks appended
+to `e2e/item-detail.spec.ts` and `e2e/mobile.spec.ts`. The **source-level** half of the money-leak
+boundary — `tests/earnings-boundary.test.ts` — did run, and was red-green checked against a deliberate
+leak.
+
+**Which file each phone assertion landed in, per §0.2.** `item-detail.spec.ts` and `mobile.spec.ts` are
+the two on `ON_A_PHONE` that this brief touches, and everything that needs a real touch screen went
+into one of them:
+
+| Assertion | File | Why there |
+|---|---|---|
+| The tick and the body are separate, non-overlapping targets; ≥44px on a coarse pointer, ≥24px on a mouse | `item-detail.spec.ts` | The behaviour change B5 asks for. The floor depends on the device, so it has to run on both. |
+| Tapping the words opens the editor and does not tick the box | `item-detail.spec.ts` | A `tap()`, with a `click()` fallback for the chromium project which has no touch. |
+| The ring carries its count in its accessible name | `item-detail.spec.ts` | A finger cannot open a tooltip. |
+| The link popover is not clipped inside the sheet, and Escape closes only it | `item-detail.spec.ts` | The claim in `rich-text-editor.client.tsx` is that the composer is not inside a clipping scroll container; this is that claim, verified in the sheet at 390px. |
+| axe on the open criterion editor | `item-detail.spec.ts` | The `contenteditable` + `aria-label` rule only fires while the editor is **empty**, so it audits before typing. |
+| **Bold with a finger on an empty composer** | `mobile.spec.ts` | The `onPointerDown` fix. A synthetic mouse event is not guaranteed on a touch screen, so this can only be proved on a phone. |
+| The toolbar scrolls sideways rather than wrapping | `mobile.spec.ts` | Two rows of buttons above a two-line composer puts the text under the keyboard. |
+| Every toolbar target clears the coarse-pointer floor | `mobile.spec.ts` | Re-measured after the extraction, as A3 asks. |
+
+Each of those uses `SEED.threadPerProject[project.name]` where it seeds a comment, because three
+projects writing one row is the fixture race `playwright.config.ts` already records.
