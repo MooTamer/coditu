@@ -104,18 +104,17 @@ export function SprintCards({
               <Mono size="meta" className="text-[var(--ink-muted)]">
                 {calendarDate(row.deadline)}
               </Mono>
-              {/* The ring appears here too, or the information disappears
-                  entirely below 900px where the table becomes this card
-                  stack. */}
-              <ProgressRing
-                done={row.criteriaDone}
-                total={row.criteriaTotal}
-                size={17}
-                strokeWidth={4}
-                trackColor="var(--hairline-strong)"
-                className="ml-auto shrink-0"
-              />
-              <Mono size="meta" className="text-[var(--ink-muted)]">
+              {/* Here too, or the information disappears entirely below 900px
+                  where the table becomes this card stack. */}
+              {row.criteriaTotal > 0 ? (
+                <span className="ml-auto flex shrink-0 items-center gap-[5px]">
+                  <ProgressRing done={row.criteriaDone} total={row.criteriaTotal} size={16} strokeWidth={5} />
+                  <Mono size="meta" className="text-[var(--ink-muted)]">
+                    {row.criteriaDone}/{row.criteriaTotal}
+                  </Mono>
+                </span>
+              ) : null}
+              <Mono size="meta" className="shrink-0 text-[var(--ink-muted)]">
                 {row.grouping ?? "—"}
               </Mono>
             </span>

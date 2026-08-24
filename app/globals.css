@@ -25,6 +25,14 @@
   --hairline: rgba(11, 14, 20, 0.1);
   --hairline-strong: rgba(11, 14, 20, 0.18);
 
+  /* The unfilled part of a progress ring, and the reason it is not a hairline.
+     A ring's track is a non-text graphical object, so WCAG 1.4.11 asks 3:1
+     against whatever it sits on. Measured, not assumed — `--hairline-strong`
+     gives 1.47:1 on a grouping-tinted row, which is a track nobody can see and
+     a ring that reads as a floating arc. 48% ink measures 3.26:1 at the worst
+     of the four tint layers, on the lightest surface. */
+  --ring-track: rgba(11, 14, 20, 0.48);
+
   /* --- ink: light ------------------------------------------------------ */
   --ink: #0b0e14;
   --ink-muted: #52607a;
@@ -164,6 +172,10 @@
   --hairline: rgba(255, 255, 255, 0.07);
   --hairline-strong: rgba(255, 255, 255, 0.13);
 
+  /* 34% white measures 3.01:1 at the worst of the four tint layers on the
+     darkest surface. See the note beside its light-theme counterpart. */
+  --ring-track: rgba(255, 255, 255, 0.34);
+
   --ink: #edf1f7;
   --ink-muted: #93a0b4;
   --ink-faint: #7c899c;
@@ -223,6 +235,7 @@
   --color-overlay: var(--overlay);
   --color-hairline: var(--hairline);
   --color-hairline-strong: var(--hairline-strong);
+  --color-ring-track: var(--ring-track);
 
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);

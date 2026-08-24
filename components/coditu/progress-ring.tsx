@@ -18,12 +18,24 @@ import { useId } from "react";
  * `useId()` gives each instance its own. `e2e/sprint-table.spec.ts` asserts
  * that a full table contains no duplicate gradient id.
  *
- * ## Why the number is not only in a tooltip
+ * ## Why the number is still rendered as text beside it
  *
- * Because a finger cannot open a tooltip. That exact mistake is already
- * recorded in `06-PROGRESS.md` for per-person sprint load. The ring carries
- * `role="img"` and an `aria-label` that spells the count out, so a screen
- * reader and a touch device both get the information the ring encodes.
+ * Because the ring cannot carry it on its own, and that is a measurement
+ * rather than an opinion. The gradient's teal stop measures **1.36:1** against
+ * a light surface — the default theme — so on a mostly-complete ring the tail
+ * is invisible to anybody who is not looking hard. `role="img"` and an
+ * `aria-label` cover a screen reader; they do nothing for low vision.
+ *
+ * So the count stays visible next to the ring on every surface, and the ring is
+ * the at-a-glance shape rather than the sole carrier. That costs the sticky
+ * Task column about 18px, which the thread brief asked it not to spend — this
+ * is correctness winning over the brief, and it is recorded as such in
+ * `docs/05-DECISIONS.md`.
+ *
+ * The tooltip mistake is worth restating anyway, because it is why the
+ * `aria-label` is spelled out rather than left to a `title`: a finger cannot
+ * open a tooltip, and that is already recorded in `06-PROGRESS.md` for
+ * per-person sprint load.
  *
  * ## Reduced motion
  *
@@ -40,8 +52,12 @@ export function ProgressRing({
   total,
   size = 34,
   strokeWidth = 3,
-  /** The track has to clear AA against whatever it sits on, not against `--canvas`. */
-  trackColor = "var(--hairline)",
+  /**
+   * The unfilled part. Defaults to `--ring-track`, which is a token computed
+   * for this — 3.26:1 in light, 3.01:1 in dark, at the worst of the four
+   * grouping-tint layers. A hairline measured 1.47:1 and was invisible.
+   */
+  trackColor = "var(--ring-track)",
   className,
 }: {
   done: number;

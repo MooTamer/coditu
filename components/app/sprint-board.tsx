@@ -86,14 +86,14 @@ export function SprintBoard({ rows, basePath }: { rows: WorkItemRow[]; basePath:
                     <Mono size="eyebrow" className="normal-case tracking-normal text-[var(--ink-muted)]">
                       {item.minutesLogged > 0 ? `${hours(item.minutesLogged)}h` : "—"}
                     </Mono>
-                    <ProgressRing
-                      done={item.criteriaDone}
-                      total={item.criteriaTotal}
-                      size={17}
-                      strokeWidth={4}
-                      trackColor="var(--hairline-strong)"
-                      className="ml-auto shrink-0"
-                    />
+                    {item.criteriaTotal > 0 ? (
+                      <span className="ml-auto flex shrink-0 items-center gap-[5px]">
+                        <ProgressRing done={item.criteriaDone} total={item.criteriaTotal} size={14} strokeWidth={5} />
+                        <Mono size="eyebrow" className="normal-case tracking-normal text-[var(--ink-muted)]">
+                          {item.criteriaDone}/{item.criteriaTotal}
+                        </Mono>
+                      </span>
+                    ) : null}
                   </span>
                 </Link>
               ))}

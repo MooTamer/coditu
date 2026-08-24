@@ -398,21 +398,20 @@ function Row({
           >
             {row.title}
           </Link>
-          {/* A ring rather than `3/5`, at 17px so the sticky Task column does
-              not grow. It carries its own `aria-label` spelling the count out,
-              because a finger cannot open a tooltip — the mistake already
-              recorded in `06-PROGRESS.md` for per-person sprint load. The track
-              is `--hairline-strong` rather than `--hairline`: this row may be
-              grouping-tinted, and `--ink-faint` measured 4.46:1 on a tinted
-              card once already. Zero criteria renders nothing at all. */}
-          <ProgressRing
-            done={row.criteriaDone}
-            total={row.criteriaTotal}
-            size={17}
-            strokeWidth={4}
-            trackColor="var(--hairline-strong)"
-            className="ml-auto shrink-0"
-          />
+          {/* The ring, AND the count — see `progress-ring.tsx` for why both.
+              The short version: the gradient's teal stop measures 1.36:1 on a
+              light surface, so a mostly-complete ring's tail is invisible to
+              anybody who is not looking hard, and `aria-label` does nothing for
+              low vision. The ring is the at-a-glance shape; the number is the
+              information. Zero criteria renders neither. */}
+          {row.criteriaTotal > 0 ? (
+            <span className="ml-auto flex shrink-0 items-center gap-[5px]">
+              <ProgressRing done={row.criteriaDone} total={row.criteriaTotal} size={14} strokeWidth={5} />
+              <Mono size="eyebrow" className="normal-case tracking-normal text-[var(--ink-faint)]">
+                {row.criteriaDone}/{row.criteriaTotal}
+              </Mono>
+            </span>
+          ) : null}
         </span>
       </td>
 

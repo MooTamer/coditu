@@ -2231,3 +2231,29 @@ does on a phone, and trapping the gesture to implement a worse version of it is 
 on the server — `comment-body.tsx` is the security boundary and stays there — so a context would
 require every image to register itself on mount and would still be wrong for the frames before it did.
 The DOM already holds the answer, in the right order, and it is correct the instant somebody clicks.
+
+---
+
+## 2026-08-25 · The ring keeps its number, and the track got a token of its own (D2)
+
+**The brief said replace `3/5` with a ring. It also said: "Contrast on a grouping-tinted row… Recompute, do not assume."** So it was recomputed, and the recomputation changed the answer.
+
+Measured, at the worst of four background layers (`--raised` and `--canvas`, each plain and under each grouping tint), in both themes:
+
+| | light | dark |
+|---|---|---|
+| Track at `--hairline-strong` | **1.47:1** | **1.37:1** |
+| Arc, blue stop `#2B57FF` | 4.44:1 | 3.25:1 |
+| Arc, teal stop `#21E2C6` | **1.36:1** | 10.61:1 |
+
+Two findings, and the second is the one that matters.
+
+**The track was invisible.** A ring's track is a non-text graphical object, so the bar is WCAG 1.4.11 at 3:1, and 1.47:1 is not a track, it is a ring that reads as a floating arc. `--ring-track` is a new token computed for exactly this: 48% ink in light (**3.26:1**), 34% white in dark (**3.01:1**).
+
+**The teal half of the gradient is invisible on a light surface, which is the default theme.** At 1.36:1 a mostly-complete ring's tail simply is not there for anybody who is not looking hard. `role="img"` and an `aria-label` cover a screen reader and do **nothing** for low vision.
+
+**Decision: the count stays rendered as text beside the ring**, on the table, the board cards and the mobile cards. The ring is the at-a-glance shape; the number is the information. That makes the graphic supplementary rather than "required to understand the content", which is the 1.4.11 exception, and it is true rather than argued.
+
+**This costs the sticky Task column about 18px, and the brief asked it not to spend that** ("it does not make the sticky Task column wider — measure"). The ring is 14px there rather than 17 to pay some of it back. `CLAUDE.md`'s rule is that on **correctness** correctness wins and it gets recorded, so this is the record. If the team would rather have the pixels, the change is one span in `sprint-table.client.tsx` — but they should read the 1.36:1 first.
+
+**Not changed:** the gradient itself. `signal-gradient` is a brand asset and the design bundle wins on a colour. What it is *used for* is the thing that moved.
