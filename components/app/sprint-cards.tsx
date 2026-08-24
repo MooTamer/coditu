@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PersonAvatar } from "@/components/app/person-avatar";
+import { ComponentTag } from "@/components/coditu/component-icon";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
 import type { WorkItemRow } from "@/lib/data/sprint";
@@ -62,6 +63,19 @@ export function SprintCards({
             </span>
 
             <span className="text-[15px] font-medium leading-[1.35]">{row.title}</span>
+
+            {/* The component reads as a caption under the title rather than
+                joining the metadata row: on a 320px card that row is already
+                four things wide, and this is the one that names what the item
+                is about. `--ink-muted`, never `--ink-faint` — see the note at
+                the top of this file. */}
+            {row.component ? (
+              <ComponentTag
+                component={row.component}
+                size={13}
+                className="text-[12.5px] text-[var(--ink-muted)]"
+              />
+            ) : null}
 
             <span className="flex flex-wrap items-center gap-3">
               {/* Assignee → reviewer. The arrow stays: two faces side by side

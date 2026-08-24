@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PersonAvatar } from "@/components/app/person-avatar";
+import { ComponentTag } from "@/components/coditu/component-icon";
 import { Mono } from "@/components/coditu/mono";
 import type { WorkItemRow } from "@/lib/data/sprint";
 import { hours } from "@/lib/format";
@@ -67,6 +68,13 @@ export function SprintBoard({ rows, basePath }: { rows: WorkItemRow[]; basePath:
                     </Mono>
                   </span>
                   <span className="text-[13.5px] font-medium leading-[1.35]">{item.title}</span>
+                  {item.component ? (
+                    <ComponentTag
+                      component={item.component}
+                      size={13}
+                      className="text-[12px] text-[var(--ink-muted)]"
+                    />
+                  ) : null}
                   <span className="flex items-center gap-[10px]">
                     <PersonAvatar
                       person={item.assignee}

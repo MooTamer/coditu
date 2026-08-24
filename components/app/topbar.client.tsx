@@ -11,6 +11,7 @@ import { NewItemDialog } from "@/components/app/new-item-dialog.client";
 import { ProjectSwitcher } from "@/components/app/project-switcher.client";
 import { ThemeToggle } from "@/components/app/theme-toggle.client";
 import { Mono } from "@/components/coditu/mono";
+import type { ComponentRef } from "@/lib/data/components";
 import type { ProfileRef } from "@/lib/data/profiles";
 import type { ProjectSummary } from "@/lib/data/projects";
 import { cn } from "@/lib/utils";
@@ -27,12 +28,15 @@ import { cn } from "@/lib/utils";
 export function Topbar({
   projects,
   people,
+  componentsByProject,
   canCreate,
   me,
 }: {
   projects: ProjectSummary[];
   /** Active profiles, for the New item dialog's owner pickers. */
   people: ProfileRef[];
+  /** Every project's component registry, for the New item dialog's picker. */
+  componentsByProject: Record<string, ComponentRef[]>;
   /** Admin or lead. RLS refuses an engineer's insert; the button says so
    *  rather than opening a form that cannot be submitted. */
   canCreate: boolean;
@@ -196,6 +200,7 @@ export function Topbar({
         <NewItemDialog
           projects={projects}
           people={people}
+          componentsByProject={componentsByProject}
           defaultSprintId={activeSprint?.id ?? null}
           onClose={() => setNewOpen(false)}
         />

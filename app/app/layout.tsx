@@ -5,6 +5,7 @@ import { Rail } from "@/components/app/rail.client";
 import { TabBar } from "@/components/app/tab-bar.client";
 import { ToastProvider } from "@/components/app/toast.client";
 import { Topbar } from "@/components/app/topbar.client";
+import { listComponentsByProject } from "@/lib/data/components";
 import { countUnreadNotifications } from "@/lib/data/notifications";
 import { listActiveProfiles } from "@/lib/data/profiles";
 import { listProjects } from "@/lib/data/projects";
@@ -40,10 +41,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
    */
   if (profile.must_set_password) redirect("/auth/update-password");
 
-  const [projects, unreadCount, people] = await Promise.all([
+  const [projects, unreadCount, people, componentsByProject] = await Promise.all([
     listProjects(),
     countUnreadNotifications(),
     listActiveProfiles(),
+    // The New item dialog lives in the topbar and can create into any open
+    // sprint, so it needs every project's registry. One query, request-cached
+    // like the rest of the shell's reads.
+    listComponentsByProject(),
   ]);
 
   return (
@@ -68,6 +73,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Topbar
             projects={projects}
             people={people}
+            componentsByProject={componentsByProject}
             canCreate={profile.role === "admin" || profile.role === "lead"}
             me={{
               fullName: profile.full_name,

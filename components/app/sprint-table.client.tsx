@@ -25,6 +25,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 
 import {
+  ComponentCell,
   DeadlineCell,
   GroupingCell,
   HoursCell,
@@ -36,6 +37,7 @@ import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
 import { reorderWorkItems } from "@/lib/actions/work-items";
+import type { ComponentRef } from "@/lib/data/components";
 import type { PersonRef, WorkItemRow } from "@/lib/data/sprint";
 import { hours } from "@/lib/format";
 import { groupingHue, groupingStickyBg, groupingTint } from "@/lib/work-items";
@@ -86,6 +88,8 @@ export function SprintTable({
   canAssign,
   rowHeight,
   people,
+  components,
+  projectSlug,
   today,
 }: {
   /** Rows after filtering — what is displayed. */
@@ -101,6 +105,10 @@ export function SprintTable({
   rowHeight: number;
   /** Active profiles, for the assignee and reviewer menus. */
   people: PersonRef[];
+  /** The project's component registry, for the component picker. */
+  components: ComponentRef[];
+  /** Where a component created from a row's picker belongs. */
+  projectSlug: string;
   /** Today in Africa/Cairo, from the server so a stale tab cannot drift. */
   today: string;
 }) {
@@ -203,6 +211,10 @@ export function SprintTable({
             <th scope="col" className={`sticky left-0 z-[2] min-w-[340px] bg-[var(--raised)] text-left ${HEAD}`}>
               Task
             </th>
+            {/* A floor, not a fixed width: "EVIM Rollover Contact Cards" needs
+                room, and the cell truncates rather than wrapping a row to two
+                lines. */}
+            <th scope="col" className={`min-w-[180px] text-left ${HEAD}`}>Component</th>
             <th scope="col" className={`text-left ${HEAD}`}>Status</th>
             <th scope="col" className={`text-right ${HEAD}`}>Hours</th>
             <th scope="col" className={`text-left ${HEAD}`}>Assignee</th>
@@ -224,6 +236,8 @@ export function SprintTable({
               canAssign={canAssign}
               rowHeight={rowHeight}
               people={people}
+              components={components}
+              projectSlug={projectSlug}
               today={today}
               onToast={toast}
             />
@@ -239,6 +253,9 @@ export function SprintTable({
                 {`Sum · ${summed.length} ${summed.length === 1 ? "item" : "items"}${filtered ? " (filtered)" : ""}`}
               </Mono>
             </td>
+            {/* Component, then Status. Both empty: nothing about this row is
+                a sum. */}
+            <td />
             <td />
             <td className="whitespace-nowrap px-4 py-[14px] text-right">
               <Mono size="meta" className="text-[15px] font-semibold">
@@ -293,6 +310,8 @@ function Row({
   canAssign,
   rowHeight,
   people,
+  components,
+  projectSlug,
   today,
   onToast,
 }: {
@@ -303,6 +322,8 @@ function Row({
   canAssign: boolean;
   rowHeight: number;
   people: PersonRef[];
+  components: ComponentRef[];
+  projectSlug: string;
   today: string;
   onToast: (message: string) => void;
 }) {
@@ -382,6 +403,20 @@ function Row({
             </Mono>
           ) : null}
         </span>
+      </td>
+
+      {/* Component sits directly beside the task, because it is the other half
+          of what the row is about: "COD-153 · Themen Kachel · in review" is the
+          sentence the table exists to say. */}
+      <td className={EDIT_CELL} style={{ height: rowHeight }}>
+        <ComponentCell
+          itemId={row.id}
+          component={row.component}
+          components={components}
+          projectSlug={projectSlug}
+          editable={canAssign}
+          onToast={onToast}
+        />
       </td>
 
       <td className={EDIT_CELL} style={{ height: rowHeight }}>

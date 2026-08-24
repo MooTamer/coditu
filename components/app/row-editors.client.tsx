@@ -5,15 +5,18 @@ import { useOptimistic, useState, useTransition } from "react";
 
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { CellPopover, optionListKeyDown } from "@/components/app/cell-popover.client";
+import { ComponentPicker } from "@/components/app/component-picker.client";
 import { Mono } from "@/components/coditu/mono";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { settle } from "@/lib/action-result";
 import {
   logTime,
+  setWorkItemComponent,
   setWorkItemFields,
   setWorkItemPerson,
   setWorkItemStatus,
 } from "@/lib/actions/work-items";
+import type { ComponentRef } from "@/lib/data/components";
 import type { PersonRef } from "@/lib/data/sprint";
 import { calendarDate, hours } from "@/lib/format";
 import {
@@ -212,6 +215,62 @@ function PersonFace({
         {person ? (full ? person.fullName : person.fullName.split(" ")[0]) : fallback}
       </span>
     </span>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Which component the item changes.
+ *
+ * The picker is shared with the New item dialog — see
+ * `component-picker.client.tsx` — so the list, the filter, the icons and the
+ * add-a-component form are the same thing in both places. All this cell adds is
+ * the optimistic write and its rollback.
+ */
+export function ComponentCell({
+  itemId,
+  component,
+  components,
+  projectSlug,
+  editable,
+  onToast,
+}: {
+  itemId: string;
+  component: ComponentRef | null;
+  /** The project's registry. Archived entries included — see `offerable`. */
+  components: ComponentRef[];
+  projectSlug: string;
+  editable: boolean;
+  onToast: Toast;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [shown, showOptimistic] = useOptimistic(component);
+
+  function choose(next: ComponentRef | null) {
+    startTransition(async () => {
+      showOptimistic(next);
+      const result = await settle(
+        () => setWorkItemComponent({ itemId, componentId: next?.id ?? null }),
+        "That change did not save — check your connection."
+      );
+      // The registry page counts this item under a different component now.
+      if (result.ok) router.refresh();
+      else onToast(result.error ?? "That change did not save.");
+    });
+  }
+
+  return (
+    <ComponentPicker
+      components={components}
+      value={shown}
+      projectSlug={projectSlug}
+      canEdit={editable}
+      onChange={choose}
+      busy={pending}
+      emptyLabel="—"
+    />
   );
 }
 

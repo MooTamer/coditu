@@ -3,7 +3,9 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 
+import { ComponentPicker } from "@/components/app/component-picker.client";
 import { Mono } from "@/components/coditu/mono";
+import type { ComponentRef } from "@/lib/data/components";
 import { STATUS_DISPLAY_ORDER, STATUS_LABEL, type WorkItemStatus } from "@/lib/work-items";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +28,19 @@ const DOT: Partial<Record<WorkItemStatus, string>> = {
   done: "#23C97F",
 };
 
-export function FilterBar({ availableStatuses }: { availableStatuses: WorkItemStatus[] }) {
+export function FilterBar({
+  availableStatuses,
+  components,
+  activeComponent,
+  projectSlug,
+}: {
+  availableStatuses: WorkItemStatus[];
+  /** Only the components this sprint actually touches. A menu of forty when
+   *  twelve are on the board is a menu of twenty-eight dead ends. */
+  components: ComponentRef[];
+  activeComponent: ComponentRef | null;
+  projectSlug: string;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -50,6 +64,15 @@ export function FilterBar({ availableStatuses }: { availableStatuses: WorkItemSt
     const updated = on ? active.filter((s) => s !== status) : [...active, status];
     if (updated.length) next.set("status", updated.join(","));
     else next.delete("status");
+    write(next);
+  }
+
+  function setComponent(component: ComponentRef | null) {
+    const next = new URLSearchParams(params);
+    // The SLUG, not the id: a filtered view is a link somebody pastes into a
+    // comment, and `?component=evim-themen-kachel` says what it is looking at.
+    if (component) next.set("component", component.slug);
+    else next.delete("component");
     write(next);
   }
 
@@ -86,6 +109,26 @@ export function FilterBar({ availableStatuses }: { availableStatuses: WorkItemSt
 
       <span aria-hidden className="h-6 w-px bg-[var(--hairline)]" />
 
+      {/* Reading the sprint one component at a time. The same picker the table
+          cells and the New item dialog use, minus the ability to add one —
+          filtering by something that does not exist yet is not a thing. */}
+      <div className="w-[200px] shrink-0">
+        <ComponentPicker
+          variant="field"
+          label="Component filter"
+          components={components}
+          value={activeComponent}
+          projectSlug={projectSlug}
+          canEdit
+          allowCreate={false}
+          onChange={setComponent}
+          emptyLabel="all components"
+          className="h-[32px]"
+        />
+      </div>
+
+      <span aria-hidden className="h-6 w-px bg-[var(--hairline)]" />
+
       {ordered.map((status) => {
         const on = active.includes(status);
         return (
@@ -109,7 +152,13 @@ export function FilterBar({ availableStatuses }: { availableStatuses: WorkItemSt
       })}
 
       <Mono size="meta" className="ml-auto text-[var(--ink-faint)]">
-        {active.length ? `?status=${active.join(",")}` : "?sort=order_index"}
+        {(() => {
+          const parts = [
+            active.length ? `status=${active.join(",")}` : null,
+            activeComponent ? `component=${activeComponent.slug}` : null,
+          ].filter(Boolean);
+          return parts.length ? `?${parts.join("&")}` : "?sort=order_index";
+        })()}
       </Mono>
     </section>
   );

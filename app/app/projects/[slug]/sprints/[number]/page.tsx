@@ -8,6 +8,7 @@ import { SprintHeader } from "@/components/app/sprint-header";
 import { SprintRealtime } from "@/components/app/realtime.client";
 import { SprintTable } from "@/components/app/sprint-table.client";
 import { Reveal } from "@/components/motion/reveal";
+import { listComponents } from "@/lib/data/components";
 import { listActiveProfiles } from "@/lib/data/profiles";
 import { getProjectBySlug } from "@/lib/data/projects";
 import {
@@ -35,7 +36,7 @@ export default async function SprintPage({
   searchParams,
 }: {
   params: Promise<{ slug: string; number: string }>;
-  searchParams: Promise<{ status?: string; view?: string; density?: string }>;
+  searchParams: Promise<{ status?: string; view?: string; density?: string; component?: string }>;
 }) {
   const [{ slug, number }, query] = await Promise.all([params, searchParams]);
 
@@ -49,12 +50,16 @@ export default async function SprintPage({
   const profile = await getCurrentProfile();
   if (!profile) notFound();
 
-  const [burn, members, people] = await Promise.all([
+  const [burn, members, people, components] = await Promise.all([
     getBurnUp(sprint.id, sprint.startsOn, sprint.endsOn),
     getSprintMembers(sprint.id),
     // The assignee and reviewer menus. Request-cached, so the shell's copy and
     // this one are a single query.
     listActiveProfiles(),
+    // This project's registry, for the row pickers. Invariant 1: it is fetched
+    // for the project the URL resolved to, so a row can only ever be attributed
+    // to something belonging to the client whose sprint this is.
+    listComponents(project.id),
   ]);
 
   // Filters are read from the URL and validated against the enum, so a
@@ -63,9 +68,26 @@ export default async function SprintPage({
     .split(",")
     .filter((value): value is WorkItemStatus => WORK_ITEM_STATUSES.includes(value as WorkItemStatus));
 
-  const visible = requested.length
-    ? sprint.items.filter((item) => requested.includes(item.status))
-    : sprint.items;
+  // The component filter is a slug, validated against THIS project's registry —
+  // a hand-edited query string naming another client's component resolves to
+  // nothing and the filter is simply not applied, rather than silently matching.
+  const activeComponent = query.component
+    ? (components.find((component) => component.slug === query.component) ?? null)
+    : null;
+
+  const visible = sprint.items.filter(
+    (item) =>
+      (requested.length === 0 || requested.includes(item.status)) &&
+      (activeComponent === null || item.component?.id === activeComponent.id)
+  );
+
+  // Only what this sprint actually touches, plus whatever is being filtered on
+  // — so the menu cannot offer a component that would empty the table.
+  const sprintComponents = components.filter(
+    (component) =>
+      component.id === activeComponent?.id ||
+      sprint.items.some((item) => item.component?.id === component.id)
+  );
 
   const isBoard = query.view === "board";
   const rowHeight = query.density === "compact" ? 44 : 52;
@@ -92,7 +114,12 @@ export default async function SprintPage({
       />
 
       <Reveal tier="section" delay={0.06}>
-        <FilterBar availableStatuses={[...new Set(sprint.items.map((item) => item.status))]} />
+        <FilterBar
+          availableStatuses={[...new Set(sprint.items.map((item) => item.status))]}
+          components={sprintComponents}
+          activeComponent={activeComponent}
+          projectSlug={slug}
+        />
       </Reveal>
 
       {/* The body reveals once, as a single group — never per row on a filter
@@ -113,6 +140,8 @@ export default async function SprintPage({
               canAssign={canAssign}
               rowHeight={rowHeight}
               people={people}
+              components={components}
+              projectSlug={slug}
               today={todayInCairo()}
             />
             <SprintCards rows={visible} allRows={sprint.items} basePath={basePath} />

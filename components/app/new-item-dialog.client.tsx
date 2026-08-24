@@ -3,10 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
+import { ComponentPicker } from "@/components/app/component-picker.client";
 import { DialogShell } from "@/components/app/dialog-shell.client";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { createWorkItem } from "@/lib/actions/work-items";
+import type { ComponentRef } from "@/lib/data/components";
 import type { ProfileRef } from "@/lib/data/profiles";
 import type { ProjectSummary } from "@/lib/data/projects";
 import {
@@ -43,15 +45,25 @@ function Label({ children }: { children: React.ReactNode }) {
  *
  * Hours are typed as hours and converted to minutes here, at the boundary.
  * Invariant 2: nothing downstream ever sees the float.
+ *
+ * The component is PICKED, never typed. Which web part an item touches used to
+ * live in the title and nowhere else, spelled four ways across fifteen sprints;
+ * the picker offers the project's own registry and can add to it in place.
+ * Which components are on offer follows the chosen sprint, because a component
+ * belongs to a project — invariant 1, and the database refuses the mismatch
+ * even if this form got it wrong.
  */
 export function NewItemDialog({
   projects,
   people,
+  componentsByProject,
   defaultSprintId,
   onClose,
 }: {
   projects: ProjectSummary[];
   people: ProfileRef[];
+  /** Every project's component registry, keyed by project id. */
+  componentsByProject: Record<string, ComponentRef[]>;
   /** The sprint the reader is looking at, if they are looking at one. */
   defaultSprintId: string | null;
   onClose: () => void;
@@ -72,6 +84,8 @@ export function NewItemDialog({
             id: sprint.id,
             label: `${project.clientName} · ${sprint.name}`,
             status: sprint.status,
+            projectId: project.id,
+            projectSlug: project.slug,
             projectName: project.name,
           }))
       ),
@@ -94,11 +108,13 @@ export function NewItemDialog({
   const [deadline, setDeadline] = useState("");
   const [estimate, setEstimate] = useState("");
   const [grouping, setGrouping] = useState("");
+  const [component, setComponent] = useState<ComponentRef | null>(null);
   const [description, setDescription] = useState("");
   const [highlight, setHighlight] = useState("");
   const [criteria, setCriteria] = useState("");
 
   const target = targets.find((t) => t.id === sprintId) ?? null;
+  const components = target ? (componentsByProject[target.projectId] ?? []) : [];
   const canSubmit = Boolean(title.trim()) && Boolean(sprintId) && !pending;
 
   function submit() {
@@ -123,6 +139,7 @@ export function NewItemDialog({
         // Invariant 2: hours exist in this input and nowhere past it.
         estimateMinutes: estimateHours === null ? null : Math.round(estimateHours * 60),
         grouping: grouping.trim() === "" ? null : Number(grouping),
+        componentId: component?.id ?? null,
         criteria: criteria
           .split("\n")
           .map((line) => line.replace(/^\s*[-*]\s*/, "").trim())
@@ -260,7 +277,18 @@ export function NewItemDialog({
             <select
               className={FIELD}
               value={sprintId}
-              onChange={(event) => setSprintId(event.target.value)}
+              onChange={(event) => {
+                const next = event.target.value;
+                // A component belongs to a project. Moving the item to another
+                // client's sprint has to drop the choice made under the old one
+                // — the server refuses the mismatch, and a form that carries an
+                // impossible value to the point of submission is a form that
+                // fails at the last step for a reason it knew about first.
+                const from = targets.find((t) => t.id === sprintId)?.projectId;
+                const to = targets.find((t) => t.id === next)?.projectId;
+                if (from !== to) setComponent(null);
+                setSprintId(next);
+              }}
             >
               {targets.map((option) => (
                 <option key={option.id} value={option.id}>
@@ -271,6 +299,23 @@ export function NewItemDialog({
               {targets.length === 0 ? <option value="">No open sprint</option> : null}
             </select>
           </label>
+
+          <div className="flex flex-col gap-[6px]">
+            <Label>Component</Label>
+            {/* Not a <select>: the toolbox icon and a filter are the two things
+                that make forty near-identical EVIM names pickable, and a native
+                option can carry neither. */}
+            <ComponentPicker
+              variant="field"
+              components={components}
+              value={component}
+              projectSlug={target?.projectSlug ?? ""}
+              canEdit={Boolean(target)}
+              disabledReason="Pick a sprint first — components belong to a project"
+              onChange={setComponent}
+              emptyLabel="not attributed yet"
+            />
+          </div>
 
           <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(130px,100%),1fr))]">
             <label className="flex flex-col gap-[6px]">

@@ -1,8 +1,11 @@
+import Link from "next/link";
+
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { CommentBody } from "@/components/app/comment-body";
 import { CommentThread } from "@/components/app/comment-thread.client";
 import { CriteriaList } from "@/components/app/criteria-list.client";
 import { LogTime } from "@/components/app/log-time.client";
+import { ComponentTag } from "@/components/coditu/component-icon";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
 import { ThreadRealtime } from "@/components/app/realtime.client";
@@ -180,6 +183,29 @@ export function ItemDetailBody({
             status
           </Mono>
           <StatusChipDot status={item.status} />
+        </div>
+
+        {/* The component, before the flat properties: it is the only one that
+            goes somewhere. The link is the way out of "this item" and into
+            "everything that has happened to this web part", which is the whole
+            reason the registry exists. */}
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--hairline)] pb-3">
+          <Mono size="meta" className="shrink-0 uppercase tracking-[0.04em] text-[var(--ink-faint)]">
+            component
+          </Mono>
+          {item.component ? (
+            <Link
+              href={`/app/projects/${item.project.slug}/components/${item.component.slug}`}
+              prefetch={false}
+              className="min-w-0 text-[13.5px] font-medium hover:text-[var(--accent)]"
+            >
+              <ComponentTag component={item.component} />
+            </Link>
+          ) : (
+            <span className="text-[13.5px] font-medium text-[var(--ink-faint)]">
+              not attributed yet
+            </span>
+          )}
         </div>
 
         {properties.map((property) => (
