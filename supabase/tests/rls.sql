@@ -82,9 +82,9 @@ insert into public.sprints (id, project_id, number, name, status, starts_on, end
   ('50000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002',  1, 'Sprint — Week 1',  'active', '2026-08-17', '2026-08-23');
 
 insert into public.work_items (id, sprint_id, key, title, status, assignee_id, reviewer_id, estimate_minutes, order_index) values
-  ('60000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'RLS-140', 'EVIM item, Eve assigned',  'dev_started', '33333333-3333-3333-3333-333333333333', '22222222-2222-2222-2222-222222222222', 480, 0),
-  ('60000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000001', 'RLS-141', 'EVIM item, Eve uninvolved', 'todo',       '44444444-4444-4444-4444-444444444444', null,                                   60,  1),
-  ('60000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000002', 'RLS-900', 'Nile item',                 'todo',       null,                                   null,                                   120, 0);
+  ('60000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'RLS-140', 'EVIM item, Eve assigned',  'in_progress', '33333333-3333-3333-3333-333333333333', '22222222-2222-2222-2222-222222222222', 480, 0),
+  ('60000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000001', 'RLS-141', 'EVIM item, Eve uninvolved', 'ready',       '44444444-4444-4444-4444-444444444444', null,                                   60,  1),
+  ('60000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000002', 'RLS-900', 'Nile item',                 'ready',       null,                                   null,                                   120, 0);
 
 -- NOTE: no setval here. Fixture keys are RLS-* so they cannot collide with the
 -- seed's COD-*, and sequences are not transactional — a setval would survive
@@ -177,7 +177,7 @@ select is(
 select is(
   (select array_agg(s order by public.work_item_status_rank(s))
    from unnest(enum_range(null::public.work_item_status)) s)::text,
-  '{dev_started,ready_for_peer_review,in_review,changes_requested,todo,draft,blocked,done}',
+  '{in_progress,in_peer_review,in_qa,changes_requested,ready,draft,blocked,done}',
   'status order: the fixed display order, not the enum declaration order'
 );
 
@@ -223,7 +223,7 @@ select pg_temp.act_as_owner();
 select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
 
 select lives_ok(
-  $$update public.work_items set status = 'ready_for_peer_review'
+  $$update public.work_items set status = 'in_peer_review'
     where id = '60000000-0000-0000-0000-000000000001'$$,
   'positive: an engineer may change status on an item they are assigned'
 );
@@ -257,7 +257,7 @@ select throws_ok(
 update public.work_items set status = 'blocked' where id = '60000000-0000-0000-0000-000000000002';
 select is(
   (select status from public.work_items where id = '60000000-0000-0000-0000-000000000002'),
-  'todo'::public.work_item_status,
+  'ready'::public.work_item_status,
   'negative: an engineer cannot edit an item they neither own nor review'
 );
 

@@ -79,7 +79,7 @@ test.describe("editing from the table", () => {
     await page.getByRole("option", { name: /dev started/ }).click();
 
     await expect(row(page).getByRole("button", { name: /^Status: dev started/ })).toBeVisible();
-    await expect.poll(async () => (await readItem()).status, { timeout: 8000 }).toBe("dev_started");
+    await expect.poll(async () => (await readItem()).status, { timeout: 8000 }).toBe("in_progress");
   });
 
   test("assignee and reviewer change from their own columns", async ({ adminPage: page }) => {

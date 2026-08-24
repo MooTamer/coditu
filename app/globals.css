@@ -52,14 +52,14 @@
          paper drops to ~2.4:1 on the dark canvas. ---------------------- */
   --chip-draft-fg: #52607a;
   --chip-draft-bg: rgba(107, 122, 144, 0.14);
-  --chip-todo-fg: #3f4c63;
-  --chip-todo-bg: rgba(107, 122, 144, 0.16);
-  --chip-dev-started-fg: #183fbf;
-  --chip-dev-started-bg: rgba(43, 87, 255, 0.12);
-  --chip-ready-for-peer-review-fg: #7a4f00;
-  --chip-ready-for-peer-review-bg: rgba(255, 176, 32, 0.18);
-  --chip-in-review-fg: #0b6b5c;
-  --chip-in-review-bg: rgba(33, 226, 198, 0.18);
+  --chip-ready-fg: #3f4c63;
+  --chip-ready-bg: rgba(107, 122, 144, 0.16);
+  --chip-in-progress-fg: #183fbf;
+  --chip-in-progress-bg: rgba(43, 87, 255, 0.12);
+  --chip-in-peer-review-fg: #7a4f00;
+  --chip-in-peer-review-bg: rgba(255, 176, 32, 0.18);
+  --chip-in-qa-fg: #0b6b5c;
+  --chip-in-qa-bg: rgba(33, 226, 198, 0.18);
   --chip-changes-requested-fg: #a81f2c;
   --chip-changes-requested-bg: rgba(255, 95, 109, 0.14);
   --chip-done-fg: #0e6b4b;
@@ -172,14 +172,14 @@
 
   --chip-draft-fg: #9aa7bb;
   --chip-draft-bg: rgba(147, 160, 180, 0.16);
-  --chip-todo-fg: #aebacd;
-  --chip-todo-bg: rgba(147, 160, 180, 0.16);
-  --chip-dev-started-fg: #89a7ff;
-  --chip-dev-started-bg: rgba(43, 87, 255, 0.22);
-  --chip-ready-for-peer-review-fg: #ffc24d;
-  --chip-ready-for-peer-review-bg: rgba(255, 176, 32, 0.18);
-  --chip-in-review-fg: #4fe9d2;
-  --chip-in-review-bg: rgba(33, 226, 198, 0.16);
+  --chip-ready-fg: #aebacd;
+  --chip-ready-bg: rgba(147, 160, 180, 0.16);
+  --chip-in-progress-fg: #89a7ff;
+  --chip-in-progress-bg: rgba(43, 87, 255, 0.22);
+  --chip-in-peer-review-fg: #ffc24d;
+  --chip-in-peer-review-bg: rgba(255, 176, 32, 0.18);
+  --chip-in-qa-fg: #4fe9d2;
+  --chip-in-qa-bg: rgba(33, 226, 198, 0.16);
   --chip-changes-requested-fg: #ff9aa2;
   --chip-changes-requested-bg: rgba(255, 95, 109, 0.18);
   --chip-done-fg: #63e3a9;
@@ -805,7 +805,7 @@
 .hljs-selector-tag,
 .hljs-literal,
 .hljs-section {
-  color: var(--chip-dev-started-fg);
+  color: var(--chip-in-progress-fg);
 }
 
 .hljs-string,

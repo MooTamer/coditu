@@ -37,7 +37,7 @@ export const EXPORT_FIXTURE: ExportPayload = {
       description: "A unified optional title field.\nSecond line, with a comma.",
       highlight:
         "Confirm with EVIM whether the toggle default should differ for the Events webpart before implementing.",
-      status: "dev_started",
+      status: "in_progress",
       type: "story",
       grouping: null,
       assignee: { fullName: "Mohamed Tamer", initials: "MT" },
@@ -58,7 +58,7 @@ export const EXPORT_FIXTURE: ExportPayload = {
           text: "Inline edit needs the same field ordering as the panel, otherwise editors lose the toggle.",
         },
       ],
-      activity: ["MT changed status todo → dev_started · 2026-08-18 09:12"],
+      activity: ["MT changed status ready → in_progress · 2026-08-18 09:12"],
       entries: [
         { workedOn: "2026-08-18", minutes: 180 },
         { workedOn: "2026-08-19", minutes: 270 },
@@ -69,7 +69,7 @@ export const EXPORT_FIXTURE: ExportPayload = {
       title: "Newspart changes",
       description: "Layout and metadata changes to the news webpart.",
       highlight: null,
-      status: "todo",
+      status: "ready",
       type: "change_request",
       grouping: 2,
       assignee: null,

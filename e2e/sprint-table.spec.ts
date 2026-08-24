@@ -62,24 +62,24 @@ test.describe("sprint table", () => {
 
   test("filters live in the URL and survive a reload", async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`${SPRINT}?status=todo`);
+    await page.goto(`${SPRINT}?status=ready`);
 
-    const todoCount = Number(
+    const readyCount = Number(
       (
         await query<{ n: string }>(
           `select count(*)::text as n from work_items w
            join sprints s on s.id = w.sprint_id
            join projects p on p.id = s.project_id
-           where p.slug = 'meinevim' and s.number = 17 and w.status = 'todo'`
+           where p.slug = 'meinevim' and s.number = 17 and w.status = 'ready'`
         )
       )[0].n
     );
 
-    await expect(page.locator("tbody tr")).toHaveCount(todoCount);
+    await expect(page.locator("tbody tr")).toHaveCount(readyCount);
     await expect(page.locator("tfoot tr")).toContainText("(filtered)");
 
     await page.reload();
-    await expect(page.locator("tbody tr")).toHaveCount(todoCount);
+    await expect(page.locator("tbody tr")).toHaveCount(readyCount);
   });
 
   test("the table becomes cards below a 900px CONTAINER, not viewport", async ({ adminPage: page }) => {

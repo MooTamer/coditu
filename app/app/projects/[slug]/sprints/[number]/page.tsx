@@ -18,7 +18,7 @@ import {
   todayInCairo,
 } from "@/lib/data/sprint";
 import { getCurrentProfile } from "@/lib/supabase/server";
-import { WORK_ITEM_STATUSES, type WorkItemStatus } from "@/lib/work-items";
+import { parseStatusFilter } from "@/lib/work-items";
 
 export async function generateMetadata({
   params,
@@ -59,9 +59,9 @@ export default async function SprintPage({
 
   // Filters are read from the URL and validated against the enum, so a
   // hand-edited query string cannot smuggle in a status that does not exist.
-  const requested = (query.status ?? "")
-    .split(",")
-    .filter((value): value is WorkItemStatus => WORK_ITEM_STATUSES.includes(value as WorkItemStatus));
+  // `parseStatusFilter` also maps the values retired by the rename, so a link
+  // shared before it still filters instead of quietly showing the whole sprint.
+  const requested = parseStatusFilter(query.status);
 
   const visible = requested.length
     ? sprint.items.filter((item) => requested.includes(item.status))

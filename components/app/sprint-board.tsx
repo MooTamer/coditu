@@ -6,11 +6,11 @@ import { hours } from "@/lib/format";
 import { STATUS_DISPLAY_ORDER, STATUS_LABEL, groupingHue, TYPE_LABEL, type WorkItemStatus } from "@/lib/work-items";
 
 const DOT: Record<WorkItemStatus, string> = {
-  dev_started: "#2B57FF",
-  ready_for_peer_review: "#FFB020",
-  in_review: "#21E2C6",
+  in_progress: "#2B57FF",
+  in_peer_review: "#FFB020",
+  in_qa: "#21E2C6",
   changes_requested: "#FF5F6D",
-  todo: "#6B7A90",
+  ready: "#6B7A90",
   draft: "rgba(107,122,144,0.4)",
   blocked: "#FF5F6D",
   done: "#23C97F",

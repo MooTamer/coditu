@@ -12,8 +12,8 @@ The five invariants in `CLAUDE.md` are the obligations this schema exists to sat
 ```sql
 create type app_role         as enum ('admin','lead','engineer');
 create type sprint_status    as enum ('planned','active','closed');
-create type work_item_status as enum ('draft','todo','dev_started','ready_for_peer_review',
-                                      'in_review','changes_requested','done','blocked');
+create type work_item_status as enum ('draft','ready','in_progress','in_peer_review',
+                                      'in_qa','changes_requested','done','blocked');
 create type work_item_type   as enum ('story','change_request','bug_fix','chore','spike');
 ```
 
@@ -22,7 +22,7 @@ create type work_item_type   as enum ('story','change_request','bug_fix','chore'
 Boards, reports, exports, and sorting all use this order, which is **not** the enum declaration order:
 
 ```
-dev_started → ready_for_peer_review → in_review → changes_requested → todo → draft → blocked → done
+in_progress → in_peer_review → in_qa → changes_requested → ready → draft → blocked → done
 ```
 
 Defined once as a Postgres function and once in TypeScript. A test asserts the two agree.
@@ -116,7 +116,7 @@ any column other than `status` or `order_index`. A policy alone cannot express a
 ```
 work_items(sprint_id, order_index)
 work_items(assignee_id) where status <> 'done'
-work_items(reviewer_id) where status = 'ready_for_peer_review'
+work_items(reviewer_id) where status = 'in_peer_review'
 time_entries(work_item_id)
 time_entries(profile_id, worked_on)
 comments(work_item_id, created_at)

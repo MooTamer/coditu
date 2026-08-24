@@ -1392,3 +1392,92 @@ still pass, the build still succeeds, and React quietly starts running for every
 whose Lighthouse score is the reason it was built the way it was. `check-budgets.mjs` asserts the
 prerendered HTML is on disk. Verified capable of failing by forcing the route dynamic and watching it
 go red — the same standard as the editor-bundle check above.
+
+## 2026-08-21 · The status vocabulary is one shape, and `in_review` is `in_qa`
+
+`work_item_status` was eight values in four grammatical shapes: adjectives (`draft`, `done`,
+`blocked`), an idiom (`todo`), past-tense events (`dev_started`, `changes_requested`), a
+prepositional state (`in_review`), and a readiness phrase (`ready_for_peer_review`). Four are
+renamed so the set answers one question — *what condition is this in*:
+
+| was | is | why |
+|---|---|---|
+| `todo` | `ready` | Scoped and waiting to be picked up. `todo` is an idiom, not a state, and nothing in it said what separated it from `draft`. |
+| `dev_started` | `in_progress` | Named an event, not a condition — and hardcoded a discipline into a field that a lead or a reviewer also moves. |
+| `ready_for_peer_review` | `in_peer_review` | Was the only pull-queue name in an otherwise active-state set, so `ready_for_` read as ambiguous against `in_review`. |
+| `in_review` | `in_qa` | Said that a review was happening but not which one. It is the QA pass after peer review. |
+
+`draft`, `changes_requested`, `blocked` and `done` are unchanged. `changes_requested` stays a
+past-tense event on purpose: GitHub uses the term verbatim, and recognisability is worth more here
+than a uniform shape.
+
+**The display order is unchanged.** Only the names moved.
+
+**Rejected: renaming `changes_requested` to `rework`, and the whole queue-name set** (`scoping`,
+`building`, `peer_review`, `qa`). It reads better on a narrow board — `ready_for_peer_review` is the
+widest chip in the table and is what forced `changes_requested` to render as the abbreviated
+"changes req." — but it is a private vocabulary that has to be taught, and it moves furthest from the
+approved design bundle for a gain that is mostly cosmetic.
+
+**Rejected: numeric-prefixed values** (`10_draft`, `20_ready`) so display order falls out of the
+value. It leaks a presentation concern into the domain value, and it cannot work here anyway: the
+display order deliberately is not the lifecycle order — unstarted work sorts *after* work in review,
+because the board answers "what needs attention", not "what happened".
+
+**Deferred, not rejected: taking `blocked` out of the enum.** It is a flag over a state, not a
+state. A blocked item is also mid-build or waiting on a reviewer, and storing `blocked` in the
+status column destroys exactly the information needed to unblock it — which is also why the rank
+function has to wedge it between `draft` and `done`, matching no workflow. The fix is a nullable
+`blocked_reason`, with "blocked" derived from it. That changes the data model and needs its own
+step, its own migration, and a backfill decision for existing `blocked` rows.
+
+**The chip labels moved with the values.** `dev started` → `in progress`, `in review` → `in qa`;
+`peer review`, `changes req.`, `draft`, `done` and `blocked` are untouched, and `todo` → `ready`.
+This diverges from the approved design bundle, which renders "dev started" and "in review".
+Deliberate: leaving `in_progress` on screen as "dev started" would trade one inconsistency for a
+worse one, since the label is the only name most of the team ever reads. `STATUS_LABEL_CLIENT` is
+unchanged except `in_qa → "In QA"` — clients never read an enum value, which is what kept the blast
+radius of this entirely inside the team.
+
+### What the rename does *not* reach, and what was done about it
+
+`alter type … rename value` is metadata-only, and every dependent holding the value as a **parsed
+expression** follows it. Verified against this schema before the migration was written — column
+defaults, partial index predicates, view predicates and check constraints all follow. Two kinds do
+not:
+
+- **`work_item_status_rank` is an old-style SQL function.** Its body is stored as text and re-parsed
+  on every call, so the instant the values are renamed every call raises `invalid input value for
+  enum work_item_status`. Confirmed by reproducing it on a throwaway database. It is replaced in the
+  same transaction as the rename — a separate migration would leave a window where the board cannot
+  sort.
+- **`activity.from_value` / `to_value` are plain `text`**, written by `log_work_item_change` as
+  `old.status::text`. Nothing about renaming an enum can reach them, so the history would read
+  "changed status from dev_started to in_progress" forever. Backfilled in the same migration, scoped
+  to `field = 'status'` so a title that happens to contain the word is never touched.
+
+`v_sprint_summary`'s per-status **column aliases** are the third case: the FILTER predicates inside
+the view follow the rename, but the output column names are identifiers and do not, so the view
+would have gone on exposing `todo_count` counting `status = 'ready'`. Renamed with
+`alter view … rename column`, which keeps the grants and the `security_invoker` setting that a
+drop-and-recreate would have had to restore.
+
+### Retired values keep working in the two places they are still readable
+
+- **URLs.** Filter state lives in the query string, so `?status=dev_started,todo` is in bookmarks and
+  in anything anyone pasted. Validation drops unrecognised values and an empty filter means "show
+  everything" — so an old link would not have errored, it would have quietly returned the whole
+  sprint. `parseStatusFilter` in `lib/work-items.ts` maps the retired values forward and is used by
+  both the server page and the filter bar, so one parser cannot drift from the other.
+- **The Notion importer.** `STATUS_ALIASES` keeps `todo`, `dev started`, `ready for peer review` and
+  `in review` as aliases pointing at the new values, so a board or a CSV exported before the rename
+  still imports instead of flagging a column of unrecognised statuses.
+
+### The test that had to change
+
+`tests/status-order.test.ts` read `20260820120000_enums.sql` **by path** and regex-matched the enum
+declaration and the rank function out of it. Migrations are append-only, so a rename lands in a new
+file and that test would have gone on comparing TypeScript against the original SQL. It now folds
+every migration in filename order — the `create type` establishes the members and each
+`rename value` is replayed in place — and takes the rank function from the last migration that
+defines one. It fails on an unknown rename rather than skipping it.

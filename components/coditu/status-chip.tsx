@@ -14,13 +14,13 @@ import { cn } from "@/lib/utils";
  */
 const CHIP_VARS: Record<WorkItemStatus, { fg: string; bg: string }> = {
   draft: { fg: "var(--chip-draft-fg)", bg: "var(--chip-draft-bg)" },
-  todo: { fg: "var(--chip-todo-fg)", bg: "var(--chip-todo-bg)" },
-  dev_started: { fg: "var(--chip-dev-started-fg)", bg: "var(--chip-dev-started-bg)" },
-  ready_for_peer_review: {
-    fg: "var(--chip-ready-for-peer-review-fg)",
-    bg: "var(--chip-ready-for-peer-review-bg)",
+  ready: { fg: "var(--chip-ready-fg)", bg: "var(--chip-ready-bg)" },
+  in_progress: { fg: "var(--chip-in-progress-fg)", bg: "var(--chip-in-progress-bg)" },
+  in_peer_review: {
+    fg: "var(--chip-in-peer-review-fg)",
+    bg: "var(--chip-in-peer-review-bg)",
   },
-  in_review: { fg: "var(--chip-in-review-fg)", bg: "var(--chip-in-review-bg)" },
+  in_qa: { fg: "var(--chip-in-qa-fg)", bg: "var(--chip-in-qa-bg)" },
   changes_requested: {
     fg: "var(--chip-changes-requested-fg)",
     bg: "var(--chip-changes-requested-bg)",

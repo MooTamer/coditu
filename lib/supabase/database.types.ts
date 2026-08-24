@@ -731,7 +731,7 @@ export type Database = {
           sprint_id: string | null
           starts_on: string | null
           status: Database["public"]["Enums"]["sprint_status"] | null
-          todo_count: number | null
+          ready_count: number | null
         }
         Relationships: [
           {
@@ -772,10 +772,10 @@ export type Database = {
       sprint_status: "planned" | "active" | "closed"
       work_item_status:
         | "draft"
-        | "todo"
-        | "dev_started"
-        | "ready_for_peer_review"
-        | "in_review"
+        | "ready"
+        | "in_progress"
+        | "in_peer_review"
+        | "in_qa"
         | "changes_requested"
         | "done"
         | "blocked"
@@ -911,10 +911,10 @@ export const Constants = {
       sprint_status: ["planned", "active", "closed"],
       work_item_status: [
         "draft",
-        "todo",
-        "dev_started",
-        "ready_for_peer_review",
-        "in_review",
+        "ready",
+        "in_progress",
+        "in_peer_review",
+        "in_qa",
         "changes_requested",
         "done",
         "blocked",

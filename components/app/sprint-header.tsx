@@ -17,11 +17,11 @@ import { STATUS_LABEL, type WorkItemStatus } from "@/lib/work-items";
  *  foregrounds: a 10px bar is a shape, not text, so it takes the saturated
  *  value rather than the AA-tuned one. */
 const BAR_COLOR: Record<WorkItemStatus, string> = {
-  dev_started: "#2B57FF",
-  ready_for_peer_review: "#FFB020",
-  in_review: "#21E2C6",
+  in_progress: "#2B57FF",
+  in_peer_review: "#FFB020",
+  in_qa: "#21E2C6",
   changes_requested: "#FF5F6D",
-  todo: "#6B7A90",
+  ready: "#6B7A90",
   draft: "rgba(107,122,144,0.35)",
   blocked: "#FF5F6D",
   done: "#23C97F",

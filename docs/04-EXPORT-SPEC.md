@@ -67,7 +67,7 @@ Written for an AI agent, so it front-loads the facts it needs to act.
 - window: {start} → {end} ({n} days remaining as of {today})
 - items in export: {n} of {total}
 - hours: {logged} logged / {estimated} estimated
-- statuses used: draft, todo, dev_started, ready_for_peer_review, in_review, changes_requested, done, blocked
+- statuses used: draft, ready, in_progress, in_peer_review, in_qa, changes_requested, done, blocked
 - convention: items sharing a `grouping` integer overlap in logic/UI and are taken by one developer
 - convention: a highlighted block means discuss before implementing
 
@@ -106,8 +106,8 @@ This is the one a client sees; it must look considered. Sections follow
 - **Client-facing means client-facing:** no internal comments, no activity log, no `COD-` keys, no
   reviewer names, no per-person hours.
 - Status labels are humanised:
-  `dev_started → "In progress"`, `ready_for_peer_review → "In peer review"`,
-  `todo → "Not started"`, `draft → "Not scoped yet"`.
+  `in_progress → "In progress"`, `in_peer_review → "In peer review"`,
+  `ready → "Not started"`, `draft → "Not scoped yet"`.
 - `break-inside: avoid; orphans: 3; widows: 3` on every item block. No item's heading orphans from its
   criteria.
 - Satoshi and JetBrains Mono **embedded**, not substituted.

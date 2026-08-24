@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -10,6 +10,7 @@ import {
   WORK_ITEM_STATUSES,
   groupingHue,
   groupingStickyBg,
+  parseStatusFilter,
   statusRank,
   type WorkItemStatus,
 } from "@/lib/work-items";
@@ -17,18 +18,38 @@ import {
 /**
  * The status vocabulary is defined twice — once in Postgres, once in
  * TypeScript — because both sides need it and neither can import the other.
- * Two definitions of the same thing drift. These tests read the migration and
+ * Two definitions of the same thing drift. These tests read the migrations and
  * compare, so the drift fails a test instead of quietly reordering a client's
  * report.
  *
  * Reading the SQL text rather than querying the database is deliberate: this
  * has to fail in CI on a machine with no Postgres, and a test that silently
  * skips when the database is absent is worse than no test.
+ *
+ * Migrations are append-only, so neither helper below may read a single file.
+ * The enum is FOLDED — the `create type` establishes it and every later
+ * `rename value` is replayed over it in filename order — and the rank function
+ * is taken from the LAST migration that defines one. Reading only
+ * `20260820120000_enums.sql`, as this test used to, meant a rename landing in a
+ * later file was compared against the original SQL forever.
  */
 const MIGRATIONS = join(process.cwd(), "supabase", "migrations");
 
+function migrationsInOrder(): string[] {
+  return readdirSync(MIGRATIONS)
+    .filter((name) => name.endsWith(".sql"))
+    .sort()
+    .map((name) => readFileSync(join(MIGRATIONS, name), "utf8"));
+}
+
+/** The rank function as the database will actually have it: the last one defined. */
 function rankFunctionOrder(): WorkItemStatus[] {
-  const sql = readFileSync(join(MIGRATIONS, "20260820120000_enums.sql"), "utf8");
+  const defining = migrationsInOrder().filter((sql) =>
+    sql.includes("function public.work_item_status_rank")
+  );
+  const sql = defining.at(-1);
+  if (!sql) throw new Error("no migration defines work_item_status_rank");
+
   const body = sql.slice(
     sql.indexOf("function public.work_item_status_rank"),
     sql.indexOf("comment on function public.work_item_status_rank")
@@ -40,13 +61,30 @@ function rankFunctionOrder(): WorkItemStatus[] {
     .map((entry) => entry.status);
 }
 
+/** The enum members, with every `rename value` replayed in order. */
 function enumOrder(): WorkItemStatus[] {
-  const sql = readFileSync(join(MIGRATIONS, "20260820120000_enums.sql"), "utf8");
-  const declaration = sql.slice(
-    sql.indexOf("create type work_item_status"),
-    sql.indexOf("create type work_item_type")
-  );
-  return [...declaration.matchAll(/'(\w+)'/g)].map(([, s]) => s as WorkItemStatus);
+  let members: string[] = [];
+
+  for (const sql of migrationsInOrder()) {
+    const start = sql.indexOf("create type work_item_status");
+    if (start !== -1) {
+      const declaration = sql.slice(start, sql.indexOf("create type work_item_type", start));
+      members = [...declaration.matchAll(/'(\w+)'/g)].map(([, s]) => s);
+    }
+
+    // `rename value` preserves the member's position in the enum, so this is a
+    // substitution in place — never a remove-and-append.
+    const renames = sql.matchAll(
+      /alter\s+type\s+work_item_status\s+rename\s+value\s+'(\w+)'\s+to\s+'(\w+)'/g
+    );
+    for (const [, from, to] of renames) {
+      const at = members.indexOf(from);
+      if (at === -1) throw new Error(`rename of unknown work_item_status value: ${from}`);
+      members[at] = to;
+    }
+  }
+
+  return members as WorkItemStatus[];
 }
 
 describe("status vocabulary", () => {
@@ -70,8 +108,8 @@ describe("status vocabulary", () => {
   });
 
   it("work in flight sorts before unstarted, and done sorts last", () => {
-    expect(statusRank("dev_started")).toBeLessThan(statusRank("todo"));
-    expect(statusRank("ready_for_peer_review")).toBeLessThan(statusRank("draft"));
+    expect(statusRank("in_progress")).toBeLessThan(statusRank("ready"));
+    expect(statusRank("in_peer_review")).toBeLessThan(statusRank("draft"));
     expect(statusRank("done")).toBe(WORK_ITEM_STATUSES.length - 1);
   });
 
@@ -83,11 +121,61 @@ describe("status vocabulary", () => {
   });
 
   it("client-facing labels never leak the internal vocabulary", () => {
-    // A client reading "dev_started" or "ready_for_peer_review" in a PDF is a
+    // A client reading "in_progress" or "in_peer_review" in a PDF is a
     // bug, not a style preference.
     for (const label of Object.values(STATUS_LABEL_CLIENT)) {
       expect(label).not.toMatch(/_/);
       expect(label).toMatch(/^[A-Z]/);
+    }
+  });
+});
+
+describe("status filter parsing", () => {
+  it("reads the current vocabulary", () => {
+    expect(parseStatusFilter("in_progress,ready")).toEqual(["in_progress", "ready"]);
+  });
+
+  it("maps every retired value forward", () => {
+    // A link shared before the rename. Each of these was a real enum value.
+    expect(parseStatusFilter("todo")).toEqual(["ready"]);
+    expect(parseStatusFilter("dev_started")).toEqual(["in_progress"]);
+    expect(parseStatusFilter("ready_for_peer_review")).toEqual(["in_peer_review"]);
+    expect(parseStatusFilter("in_review")).toEqual(["in_qa"]);
+  });
+
+  it("keeps a pre-rename link filtering instead of showing the whole sprint", () => {
+    // The failure this exists to prevent: unknown values are dropped, and an
+    // empty filter means "everything", so the old link would have silently
+    // widened rather than errored.
+    expect(parseStatusFilter("dev_started,todo")).toEqual(["in_progress", "ready"]);
+  });
+
+  it("drops values that are not statuses at all", () => {
+    expect(parseStatusFilter("nonsense")).toEqual([]);
+    expect(parseStatusFilter("done,nonsense")).toEqual(["done"]);
+    // A hand-edited query string still cannot smuggle anything in.
+    expect(parseStatusFilter("'; drop table work_items; --")).toEqual([]);
+  });
+
+  it("collapses a retired value onto its replacement exactly once", () => {
+    expect(parseStatusFilter("todo,ready")).toEqual(["ready"]);
+  });
+
+  it("is empty for an absent or blank filter", () => {
+    expect(parseStatusFilter(null)).toEqual([]);
+    expect(parseStatusFilter(undefined)).toEqual([]);
+    expect(parseStatusFilter("")).toEqual([]);
+    expect(parseStatusFilter(",,")).toEqual([]);
+  });
+
+  it("tolerates whitespace around a value", () => {
+    expect(parseStatusFilter(" done , in_qa ")).toEqual(["done", "in_qa"]);
+  });
+
+  it("every retired value maps to a status that still exists", () => {
+    for (const status of ["todo", "dev_started", "ready_for_peer_review", "in_review"]) {
+      const [mapped] = parseStatusFilter(status);
+      expect(WORK_ITEM_STATUSES).toContain(mapped);
     }
   });
 });

@@ -24,7 +24,7 @@ Geometry, spacing, and copy come from `design/project/Coditu App.dc.html`. What 
 /app/settings                              profile · allowlist (admin) · projects (admin)
 ```
 
-Filter, sort, and view state live in the URL (`?status=dev_started,todo&assignee=…&view=board`) so a
+Filter, sort, and view state live in the URL (`?status=in_progress,ready&assignee=…&view=board`) so a
 view is shareable and survives reload.
 
 ---
