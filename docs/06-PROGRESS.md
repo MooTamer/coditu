@@ -789,3 +789,115 @@ again.
 | **F3 — the settings surface, where every tunable lives.** The rate, the proposal threshold, the effective-from sprint, the image cap, the images-per-paste cap, the default weekly capacity, the exchange rate and its source, and who takes a share. Each with its current value, what it affects, and who may change it. Read server-side through one accessor memoised per request — not `unstable_cache`, because a settings row that goes stale across requests is worse than one query per render — and every one of them has a fallback so a database that has not been seeded still renders | pending | `npm run typecheck`, `npm run build` clean · `npm run test` — the accessor's defaults are asserted equal to the migration's in `tests/earnings.test.ts` and by inspection in `lib/settings.ts` |
 | **D2 — a progress ring instead of `3/5`, and the gradient id bug it would have shipped with.** `criteria-list.client.tsx` hard-coded `<linearGradient id="ringGrad">`. One ring per row on a twelve-row table is twelve elements sharing an id — invalid HTML, and `url(#ringGrad)` resolves to whichever the browser saw first. It would have looked **correct**, because every gradient is identical, right up until somebody changed one. `components/coditu/progress-ring.tsx` takes a `useId()` per instance. It renders on the table, the board cards and the mobile cards, at 17px so the sticky Task column does not grow, with `role="img"` and an `aria-label` spelling the count out — a finger cannot open a tooltip, which is the mistake already recorded above for per-person sprint load. The track is `--hairline-strong`, not `--ink-faint`, which measured 4.46:1 on a grouping-tinted card once already. Zero criteria renders nothing at all | pending | `npm run typecheck` · the DOM assertion that a full table holds no duplicate gradient id is **written but not executed** |
 | **D1 — done criteria sink, and nobody's manual order is destroyed.** The sort key is `(isDone, orderIndex)` and it is applied **at the render edge, never written to `order_index`** — so un-ticking returns a criterion to exactly the position it held, because its position was never touched. The optimistic state sorts by the same key the server does, or the row jumps once on tick and again on refresh. Dragging across the done boundary is refused with a sentence rather than silently reinterpreted. **The export order is `order_index`, always** — "done last" is a reading affordance for the team and the CSV, Markdown and PDF are a client-facing contract | pending | `npm run test` — `tests/export.test.ts` is untouched and still green, which is the assertion that the export order did not move · the reorder RPC has its own pgTAP coverage through `guard_criteria_columns` |
+
+### F1 — the rehearsal
+
+Run on 2026-08-25 against a **freshly reset database** — every migration applied in order, then the
+seed — as each of the three roles in turn, using the exact writes the Server Actions make under the
+exact RLS they run under. The script is `supabase/rehearsal.sql`; it opens a transaction, walks
+the whole flow, and rolls back.
+
+**What this rehearsal is, and what it is not.** It is the half of the walkthrough that can be executed
+without a browser: it proves the *paths* exist and that the database agrees with who may take them.
+It does **not** prove the button is there, that the sheet fits at 390px, or that a thumb can reach it —
+that is the e2e half, and **no browser could run here**, so every row below marked "phone" is a claim
+about code rather than a measurement. Somebody should run `npm run e2e` on a machine with Docker
+before the team's first real sprint, and the ledger note above says why they could not be run here.
+
+| Step | Worked | What was missing, and what it is now |
+|---|---|---|
+| 1. Sign in, land somewhere useful | ✅ | Unchanged. |
+| 2. **Create a client and a project** | ✅ *(was: impossible)* | There was no `lib/actions/projects.ts` at all — the first thing anybody does on a new engagement was the one thing this app could not do. The rehearsal created "Rehearsal Ltd" and a project that took the key prefix `REH` on its own. |
+| 3. **Create the next sprint, with a goal** | ✅ *(was: half)* | `createSprint` existed; `sprints.goal` was a column **no code path could write or read**. The rehearsal set a goal and read it back. |
+| 4. Start it; refuse a second active sprint | ✅ | The partial unique index refused the second, as it always has. The UI says which sprint is in the way rather than showing a Postgres error. |
+| 5. **Ten work items in one sitting** | ✅ | Ten items, keys `REH-1…REH-10`, `order_index` 0–9 **contiguous**. That is the F4 collision case, and it is now a row lock rather than ten unsynchronised read-modify-writes. |
+| 6. **Rename, correct the description, rewrite the highlight, move one, delete one** | ✅ *(was: 2 of 5)* | Title, description and highlight had no path at all. Moving an item did not exist. Deleting did not exist. All five now work; the moved item landed at `order_index 0` in its new sprint, and the deleted one became **invisible to every select**, including the lead's who deleted it. |
+| 7. Component: create in place, rename, archive | ✅ | Unchanged, and the slug survived the rename — a link pasted into a comment in March still resolves. |
+| 8. Assign and reassign | ✅ | Unchanged. |
+| 9. **Log time as three people, then correct a wrong entry** | ✅ *(was: append-only)* | 8.0 h was corrected to 0.5 h and the trigger-maintained rollup followed to 240 minutes on its own. Before this, a mistyped entry was in the sprint total for ever — which after workstream E is somebody's pay. |
+| 9b. An engineer rewrites another person's hours | ✅ refused | Silently, by the row policy matching nothing — which is why the action checks first and answers in a sentence. |
+| 10. **Comment, edit it, withdraw it** | ✅ *(was: no UI for either)* | `editComment` and `deleteComment` were written, authorized and RLS-tested and **called by nothing**; the "edited" badge rendered a state no user could reach. A withdrawn comment keeps its row, its author and its timestamp. |
+| 11. **Tick a criterion, and rewrite what it says** | ✅ *(newly widened)* | The assignee ticked it and rewrote it; reordering the checklist was refused, which is exactly the line the team drew. |
+| 12. Filter, search, palette, export | ✅ | Unchanged, and asserted unchanged: `tests/export.test.ts` is untouched and green, which is the evidence that "done last" did not reach the client-facing contract. |
+| 13. **Close the sprint and confirm the payout** | ✅ *(new)* | 240 minutes → a pot of 4800 cents at USD 12.00/h, shares summing to 4800 **exactly**. |
+| 13b. An engineer confirms a payout | ✅ refused | By RLS, not only by the missing button. |
+| F2.1b. Rename a project and keep the old address | ✅ *(new)* | `/app/projects/rehearsal-portal` still resolves after the rename to `rehearsal-portal-v2`. |
+
+**Still only doable on a laptop, deliberately, and listed here rather than discovered on a Monday:**
+the Notion importer (a file picker and a preview table that has no phone layout), and the PDF export
+(it launches Chromium server-side; the download works on a phone, the preview is a desktop screen).
+Everything else in the walkthrough has a phone path, and the phone paths are the ones that could not
+be measured here.
+
+### Not yet applied to the hosted database — the order, exactly
+
+`npm run db:migrate` is local only. Nothing in this repository, in CI, or in the Vercel deploy pushes a
+migration to `hayfsvsepgfescojesbd`; schema and code travel separately and arrive in whatever order
+they arrive. This repo has already had one outage from precisely that (`sprints.notes_written_at`
+shipped ahead of its migration, `42703` on every sprint page), so the order below is not advisory.
+
+**Everything in this list must be applied BEFORE the code that reads it.** An added column is invisible
+to the running deployment; code that selects a column the database does not have is a 500 on every
+render.
+
+Carried over from the components work and **still outstanding**:
+
+1. `20260824120000_components.sql`
+2. `supabase/seeds/components.sql`
+3. `supabase/seeds/item-components.sql`
+4. `20260824170000_rich_criteria.sql`
+
+New in this brief, in this order:
+
+5. `20260825090000_app_settings.sql` — the settings row. Everything after it assumes it exists, and
+   `lib/settings.ts` tolerates its absence precisely so the code may ship first if it has to.
+6. `20260825091000_project_keys_and_slugs.sql` — **read the note below before running this one.**
+7. `20260825092000_editable_after_creation.sql`
+8. `20260825093000_stable_image_refs.sql` — this one **rewrites data**. It prints
+   `NOTICE: stable image refs: N comments, M criteria rewritten`; **record N and M here when it runs.**
+   Locally both are 0, because the Notion import's attachments do not use that path — production is
+   where the broken images actually are.
+9. `20260825094000_reorder_criteria.sql`
+10. `20260825095000_earnings.sql`
+11. `supabase/seeds/developers.sql` — matched on `full_name`, not on email, because production is on the
+    team's real Gmail accounts and local is deliberately on `@coditu.com`.
+
+**The one to read twice is (6).** It rebalances every project's key prefix and counter from the keys
+that already exist, and production's `COD-` range is **not** local's (`COD-152…COD-255` there,
+`COD-140…COD-243` here — see `07-FIELD-NOTES.md`). It is written to derive both from the data rather
+than from a constant, so it should be right on both, but verify afterwards:
+
+```sql
+select slug, key_prefix, next_key_number from public.projects order by slug;
+-- MEINEvim must keep COD, and its counter must be above the highest COD- key that exists.
+select max(substring(key from '\d+$')::int) from public.work_items where key like 'COD-%';
+```
+
+**Also apply the Vercel side:** nothing new is needed in the environment. `/api/uploads` and
+`/api/attachments/[...path]` use the same anon-key client every other route does.
+
+---
+
+### Where this stopped, and what a machine with Docker still has to run
+
+Everything in this brief was written and the database half of it was executed. **Nothing that needs a
+browser was run at all**, because this session had no Docker daemon and therefore no PostgREST, no
+GoTrue and no Playwright. Before the team's first real sprint, on a machine that has them:
+
+```bash
+npm run db:reset                  # then confirm the rehearsal table above still reads the same
+psql "$DB_URL" -f supabase/rehearsal.sql
+npm run e2e                       # chromium + mobile-safari + mobile-chrome
+npm run budgets                   # the app shell must stay under 110KB
+```
+
+`npm run budgets` is the one number this brief could not measure and should have. The app shell was at
+**109.9KB of 110KB** before this work. Nothing here was *intended* to enter the shell — the editor,
+dnd-kit and the earnings board are all behind `next/dynamic` or on routes of their own, and
+`components/coditu/progress-ring.tsx` is a few hundred bytes of SVG — but "intended" is not
+"measured", and 0.1KB of headroom is not much to be wrong by. **Run it before deploying.**
+
+The e2e specs written for this brief and **not executed**: `e2e/earnings.spec.ts` (the money-leak
+assertions and the confirmation flow) and `e2e/editable.spec.ts` (the F2 flows). The **source-level**
+half of the money-leak boundary — `tests/earnings-boundary.test.ts` — did run, and was red-green
+checked against a deliberate leak.

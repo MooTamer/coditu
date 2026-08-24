@@ -110,9 +110,9 @@ describe("no client-facing screen can reach a figure", () => {
     const offenders: string[] = [];
     for (const file of files) {
       const body = code(file);
-      for (const module of MONEY_MODULES) {
-        if (body.includes(`"${module}"`) || body.includes(`'${module}'`)) {
-          offenders.push(`${relative(ROOT, file)} imports ${module}`);
+      for (const specifier of MONEY_MODULES) {
+        if (body.includes(`"${specifier}"`) || body.includes(`'${specifier}'`)) {
+          offenders.push(`${relative(ROOT, file)} imports ${specifier}`);
         }
       }
     }
