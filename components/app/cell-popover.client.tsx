@@ -121,10 +121,34 @@ export function CellPopover({
     place();
   }, [open, place]);
 
+  /**
+   * Focus the editor — on the first frame the panel actually HAS a position.
+   *
+   * It used to sit at the top of the effect below, which runs on the commit
+   * that opened the panel. At that moment `position` is still null and the
+   * panel is `visibility: hidden`, and `focus()` on a hidden element is a no-op
+   * that reports nothing — so every cell editor has carried `data-autofocus`
+   * since it was written and not one of them has ever taken focus. You had to
+   * click into the date field you had just opened.
+   *
+   * `position` therefore has to be a dependency, and `position` changes on
+   * every scroll frame — hence the ref. Focus is claimed once per opening, and
+   * a scroll never yanks it back out of whatever the reader has tabbed to.
+   */
+  const claimedFocus = useRef(false);
+
+  useEffect(() => {
+    if (!open) {
+      claimedFocus.current = false;
+      return;
+    }
+    if (!position || claimedFocus.current) return;
+    claimedFocus.current = true;
+    panelRef.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+  }, [open, position]);
+
   useEffect(() => {
     if (!open) return;
-
-    panelRef.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus();
 
     function onPointerDown(event: MouseEvent) {
       const target = event.target as Node;
