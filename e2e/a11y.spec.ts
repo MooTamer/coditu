@@ -56,7 +56,14 @@ test.describe("accessibility", () => {
   test("axe: the sprint table, light", async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(SPRINT);
-    await expect(page.locator("html")).toHaveClass(/light/);
+    // A generous timeout, because this is a race and not a claim about speed.
+    // `next-themes` writes the class from an inline script before paint, so in
+    // production it is there in the first byte — on a dev server under six
+    // workers the document can still be arriving when the default 5s is up, and
+    // the theme class is simply not on `<html>` yet. Failing here reports "the
+    // sprint table has an accessibility problem", which is the wrong sentence
+    // entirely: the audit below never ran.
+    await expect(page.locator("html")).toHaveClass(/light/, { timeout: 20_000 });
     expect(await audit(page)).toEqual([]);
   });
 
@@ -64,7 +71,7 @@ test.describe("accessibility", () => {
     await page.addInitScript(() => window.localStorage.setItem("theme", "dark"));
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(SPRINT);
-    await expect(page.locator("html")).toHaveClass(/dark/);
+    await expect(page.locator("html")).toHaveClass(/dark/, { timeout: 20_000 });
     expect(await audit(page)).toEqual([]);
   });
 

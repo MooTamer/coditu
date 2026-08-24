@@ -99,6 +99,86 @@ export function parseNode(value: unknown): ProseMirrorNode | null {
 }
 
 /**
+ * A copy of the document with everything past `maxDepth` cut off.
+ *
+ * `comment-body.tsx` has always stopped rendering at `MAX_DEPTH`, so nothing
+ * below it was ever on screen. This exists because the renderer stopped being
+ * the only consumer: once a comment became editable, `item-detail.tsx` began
+ * handing the stored document to a **client** component, and React serialises a
+ * client component's props into the flight payload with a recursive
+ * `JSON.stringify`. A 3,000-deep document then took the whole page down with
+ *
+ *     RangeError: Maximum call stack size exceeded    at stringify
+ *
+ * — a 500 on the item, not a badly-drawn comment, arriving through a boundary
+ * the depth guard did not know existed. `body_json` is jsonb and will store any
+ * depth at all, so the bound belongs where the document **leaves the server**,
+ * not only where it is drawn.
+ *
+ * **Iterative on purpose.** A recursive pruner would overflow the stack on
+ * precisely the input it exists to survive, which is the same trap
+ * `e2e/comments.spec.ts` records for building its own fixture.
+ *
+ * `attrs` values are reduced to primitives for the same reason: they are jsonb
+ * too, and every attribute this schema actually reads — `href`, `src`, `alt`,
+ * `language`, `id`, `label`, `width`, `height` — is a string, a number or a
+ * boolean. A nested object in there is not an attribute anyone meant.
+ */
+export function pruneToDepth(value: unknown, maxDepth: number = MAX_DEPTH): unknown {
+  const root = parseNode(value);
+  if (!root) return null;
+
+  const primitives = (attrs: Record<string, unknown> | undefined) => {
+    if (!attrs) return undefined;
+    const out: Record<string, unknown> = {};
+    for (const [key, attr] of Object.entries(attrs)) {
+      const kind = typeof attr;
+      if (attr === null || kind === "string" || kind === "number" || kind === "boolean") {
+        out[key] = attr;
+      }
+    }
+    return out;
+  };
+
+  const shallowCopy = (node: ProseMirrorNode): ProseMirrorNode => {
+    const copy: ProseMirrorNode = { type: node.type };
+    if (node.text !== undefined) copy.text = node.text;
+    const attrs = primitives(node.attrs);
+    if (attrs) copy.attrs = attrs;
+    if (node.marks) {
+      copy.marks = node.marks.map((mark) => {
+        const markAttrs = primitives(mark.attrs);
+        return markAttrs ? { type: mark.type, attrs: markAttrs } : { type: mark.type };
+      });
+    }
+    return copy;
+  };
+
+  const rootCopy = shallowCopy(root);
+  const queue: Array<{ from: ProseMirrorNode; to: ProseMirrorNode; depth: number }> = [
+    { from: root, to: rootCopy, depth: 0 },
+  ];
+
+  while (queue.length > 0) {
+    const { from, to, depth } = queue.shift()!;
+    if (depth >= maxDepth) continue;
+    if (!Array.isArray(from.content)) continue;
+
+    const kept: ProseMirrorNode[] = [];
+    for (const child of from.content) {
+      const parsed = parseNode(child);
+      if (!parsed) continue;
+      const childCopy = shallowCopy(parsed);
+      kept.push(childCopy);
+      queue.push({ from: parsed, to: childCopy, depth: depth + 1 });
+    }
+    if (kept.length > 0) to.content = kept;
+  }
+
+  return rootCopy;
+}
+
+/**
  * Flattens a document to plain text for `comments.body_text` — search, export,
  * and notification previews all read that column rather than walking jsonb.
  *

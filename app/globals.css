@@ -779,24 +779,9 @@
     font-size: max(16px, 1em);
   }
 
-  /* --- and the editor, which is none of the three -------------------------
-     A3 of the thread brief says to "confirm the new editor inherits" the rule
-     above. It does not, and the assumption is the interesting part: the rule
-     names `input, select, textarea`, and the rich-text surface is a
-     `contenteditable` **div**. iOS Safari applies the same auto-zoom to any
-     focusable editable element — so `.coditu-prose p { font-size: 14px }` meant
-     tapping into the composer on an iPhone zoomed the page to 1.4x and left it
-     there, which is precisely the failure the block above exists to prevent,
-     arriving through the one element it does not match.
-
-     Scoped to `.coditu-prose`, which is the editor surface and nothing else:
-     `comment-body.tsx` renders a stored comment with its own classes, so how a
-     thread READS on a phone is untouched. Only what you type into is raised. */
-  .coditu-prose,
-  .coditu-prose p,
-  .coditu-prose li {
-    font-size: max(16px, 1em);
-  }
+  /* The editor is none of those three, and raising it cannot be done from
+     here — see the block at the very bottom of this file, which explains why
+     its position in the file is the whole point. */
 
   /* --- 44px, on the controls that can afford it -----------------------------
      WCAG 2.5.8 asks for 24px and Apple's guidance asks for 44px; the brief
@@ -911,6 +896,18 @@
    ProseMirror owns its own DOM inside `.coditu-prose`, so these are plain
    descendant rules rather than Tailwind classes on elements we do not render.
    ========================================================================== */
+
+/* The editing surface sits under a `position: sticky` top bar. A browser
+   scrolling a focused element into view measures the viewport, not what is
+   painted over it, so the caret can land behind the header — 53 of 74 pixels
+   covered, measured on an iPhone. `scroll-margin` is how you tell a scroll
+   where the usable top of the page actually is; `rich-text-editor.client.tsx`
+   asks for `block: "nearest"`, which then moves it by exactly that much and
+   not at all when it is already clear. */
+.coditu-prose {
+  scroll-margin-top: calc(var(--topbar-h) + 12px);
+  scroll-margin-bottom: 12px;
+}
 
 .coditu-prose p {
   margin: 0;
@@ -1032,4 +1029,40 @@
 
 .hljs-deletion {
   color: var(--chip-blocked-fg);
+}
+
+/* ==========================================================================
+   The editor's 16px floor — and why it is the last thing in this file.
+
+   iOS Safari auto-zooms any focusable editable element whose text is under
+   16px, and does not zoom back out: one tap into the composer leaves the
+   reader at 1.4x with the sheet off the side of the screen. The coarse-pointer
+   block above handles `input, select, textarea`. The rich-text surface is a
+   `contenteditable` **div**, so it matches none of them and needs its own rule.
+
+   That rule was first written inside the block above, which looked right and
+   did nothing: `.coditu-prose p { font-size: 14px }` is declared LATER in this
+   file, at equal specificity, and a media query adds none. Source order decided
+   it, the 14px won, and the fix shipped with the bug still in it — measured as
+   a computed style by `e2e/mobile.spec.ts`, which is the only reason anyone
+   found out.
+
+   So it lives here, after every `.coditu-prose` declaration, and it must stay
+   here. Anything added below this comment that sets a font size inside the
+   editor will silently undo it.
+   ========================================================================== */
+
+@media (pointer: coarse) {
+  /* `max(16px, 1em)` rather than a flat 16px: anything already larger keeps
+     its size, so headings and code inside the editor are untouched.
+
+     Scoped to `.coditu-prose`, which is the editing surface and nothing else —
+     `comment-body.tsx` renders a stored comment with its own classes, so how a
+     thread READS on a phone is unchanged. Only what you type into is raised. */
+  .coditu-prose,
+  .coditu-prose p,
+  .coditu-prose li,
+  .coditu-prose p.is-editor-empty:first-child::before {
+    font-size: max(16px, 1em);
+  }
 }

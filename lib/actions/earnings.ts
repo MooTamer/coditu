@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { potCents, splitEqually } from "@/lib/earnings";
-import { fetchUsdEgpRate, isStale } from "@/lib/exchange-rate";
+import { isStale, refreshStoredRate } from "@/lib/exchange-rate";
 import { getAppSettings } from "@/lib/settings";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
@@ -301,26 +301,15 @@ export async function setIsDeveloper(input: unknown): Promise<EarningsResult> {
  */
 export async function refreshExchangeRate(): Promise<EarningsResult> {
   const settings = await getAppSettings();
-  if (settings.usdEgpSource === "manual") return { ok: true };
-  if (!isStale(settings.usdEgpFetchedAt, Date.now())) return { ok: true };
-
-  const fetched = await fetchUsdEgpRate();
-  // Nothing plausible came back. The stored rate stays exactly as it was —
-  // never invent one, and never show a stale one without its date.
-  if (!fetched) return { ok: false, error: "The rate could not be refreshed." };
-
   const supabase = await createClient();
-  await supabase
-    .from("app_settings")
-    .update({
-      usd_egp_rate_micros: fetched.micros,
-      usd_egp_source: "live",
-      usd_egp_fetched_at: new Date().toISOString(),
-    })
-    .eq("id", 1)
-    // Only overwrite a live rate. An admin who switched to manual between the
-    // check above and this write keeps their number.
-    .or("usd_egp_source.is.null,usd_egp_source.eq.live");
 
+  // One implementation, in `lib/exchange-rate.ts`. This wrapper exists for a
+  // caller that wants an answer — a Refresh button in Settings — and reads the
+  // settings and the client itself, which it may, because it is not running
+  // inside `after()`. The earnings page takes the other door and passes both in.
+  const moved = await refreshStoredRate(supabase, settings);
+  if (!moved && isStale(settings.usdEgpFetchedAt, Date.now()) && settings.usdEgpSource !== "manual") {
+    return { ok: false, error: "The rate could not be refreshed." };
+  }
   return { ok: true };
 }

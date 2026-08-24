@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { pruneToDepth } from "@/lib/comments/schema";
 import { createClient } from "@/lib/supabase/server";
 import type { ComponentRef } from "@/lib/data/components";
 import type { PersonRef } from "@/lib/data/sprint";
@@ -142,7 +143,7 @@ export const getWorkItem = cache(
         .map((c) => ({
           id: c.id,
           body: c.body,
-          bodyJson: c.body_json ?? null,
+          bodyJson: c.body_json ? pruneToDepth(c.body_json) : null,
           isDone: c.is_done,
           orderIndex: c.order_index,
         }))
@@ -158,7 +159,7 @@ export const getWorkItem = cache(
           // leaves every reply underneath it making no sense. Nulling the body
           // in the read model rather than in the renderer means the withdrawn
           // text never reaches a browser at all, however it is rendered later.
-          bodyJson: c.deleted_at ? null : c.body_json,
+          bodyJson: c.deleted_at ? null : pruneToDepth(c.body_json),
           bodyText: c.deleted_at ? "" : c.body_text,
           createdAt: c.created_at,
           editedAt: c.edited_at,

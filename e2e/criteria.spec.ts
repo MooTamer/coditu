@@ -93,7 +93,12 @@ test.describe("acceptance criteria", () => {
     // the sentence rather than from an empty box.
     const first = (await criteriaOf(ITEM_KEY))[0];
 
-    await page.getByRole("button", { name: `Edit criterion: ${first.body}` }).click();
+    // The label truncates at 60 characters — long criteria exist, and an
+    // accessible name that repeats a whole paragraph is worse than one that
+    // does not. Match what the component actually renders.
+    await page
+      .getByRole("button", { name: `Edit criterion: ${first.body.slice(0, 60)}` })
+      .click();
     const editor = page.locator(".coditu-prose");
     await expect(editor).toContainText(first.body);
 
@@ -125,6 +130,14 @@ test.describe("acceptance criteria", () => {
     // The upload is a round trip to storage; the image appears in the editor
     // when it lands.
     await expect(page.locator(".coditu-prose img")).toBeVisible({ timeout: 20_000 });
+    // …and an `<img>` on screen is NOT the same thing as an upload that has
+    // finished. While it is in flight the document holds a placeholder node
+    // that draws the picture dimmed under a progress bar — a real `<img>`, and
+    // the thing this assertion was accidentally waiting for. Saving in that
+    // state is refused on purpose ("An image is still uploading"), because a
+    // `blob:` URL that exists only in this tab must never reach the database.
+    // So wait for the placeholder to go, which is what "it landed" means.
+    await expect(page.locator("[data-uploading-image]")).toHaveCount(0, { timeout: 20_000 });
     await page.getByRole("button", { name: "Save", exact: true }).click();
 
     const row = page.getByRole("listitem").filter({ hasText: "E2E looks like this" });
@@ -151,7 +164,13 @@ test.describe("acceptance criteria", () => {
     await expect(page.getByText("E2E temporary")).toBeVisible();
 
     await page.getByRole("button", { name: "Remove criterion: E2E temporary" }).click();
-    await expect(page.getByText("E2E temporary")).toHaveCount(0);
+    // Scoped to the checklist. A page-wide `getByText` also matches the undo
+    // toast — “Removed “E2E temporary”.” — so the old assertion could only pass
+    // if the toast did not appear, which is to say only if the feature were
+    // broken. Removal is reversible by design here rather than confirmed up
+    // front, so the toast is asserted rather than avoided.
+    await expect(page.getByRole("listitem").filter({ hasText: "E2E temporary" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
     await expect.poll(async () => (await criteriaOf(ITEM_KEY)).some((c) => c.body === "E2E temporary")).toBe(false);
   });
 
@@ -177,12 +196,21 @@ test.describe("acceptance criteria", () => {
     const boxes = page.getByRole("checkbox");
     expect(await boxes.count()).toBeGreaterThan(0);
 
-    const first = boxes.first();
-    const before = await first.getAttribute("aria-checked");
-    await first.click();
-    await expect(first).toHaveAttribute("aria-checked", before === "true" ? "false" : "true");
-    await first.click();
-    await expect(first).toHaveAttribute("aria-checked", before ?? "false");
+    // Pinned by its accessible name — which is the criterion's own text — and
+    // NOT by position. A locator like `boxes.first()` is re-resolved on every
+    // use, and ticking a criterion sinks it to the bottom of the list (D1), so
+    // the second half of this test would read a DIFFERENT, still-unticked
+    // checkbox and report that the tick did nothing. The row that moves is the
+    // row that has to be followed.
+    const name = await boxes.first().getAttribute("aria-label");
+    expect(name).toBeTruthy();
+    const box = page.getByRole("checkbox", { name: name!, exact: true });
+
+    const before = await box.getAttribute("aria-checked");
+    await box.click();
+    await expect(box).toHaveAttribute("aria-checked", before === "true" ? "false" : "true");
+    await box.click();
+    await expect(box).toHaveAttribute("aria-checked", before ?? "false");
   });
 
   test("it works on a phone, and axe finds nothing while editing", async ({ adminPage: page }) => {

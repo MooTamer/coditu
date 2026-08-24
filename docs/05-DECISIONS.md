@@ -2257,3 +2257,81 @@ Two findings, and the second is the one that matters.
 **This costs the sticky Task column about 18px, and the brief asked it not to spend that** ("it does not make the sticky Task column wider — measure"). The ring is 14px there rather than 17 to pay some of it back. `CLAUDE.md`'s rule is that on **correctness** correctness wins and it gets recorded, so this is the record. If the team would rather have the pixels, the change is one span in `sprint-table.client.tsx` — but they should read the 1.36:1 first.
 
 **Not changed:** the gradient itself. `signal-gradient` is a brand asset and the design bundle wins on a colour. What it is *used for* is the thing that moved.
+
+## 2026-08-24 · A cookie snapshot, so background work can reach the database
+
+`after()` is the right place for the exchange-rate refresh and the brief says so: the page renders
+from the stored value, and the fetch only ever updates it, once the response is already on the wire.
+Next 16 then refuses the one thing that makes it work — `cookies()` inside the callback — and the
+refusal is a thrown error inside a callback nobody is awaiting. Production had never once fetched a
+rate. Every page was a 200; the EGP line simply said there wasn't one.
+
+**Decided:** `createSnapshotClient()` in `lib/supabase/server.ts`. It reads the cookies eagerly, on the
+request, and returns a client holding a plain array instead of the `cookies()` store. Built in the
+component body, used in the callback. `setAll` is a deliberate no-op rather than a `try`/`catch`: a
+response already sent has nowhere to put a refreshed session, and the middleware refreshes it on the
+next request anyway.
+
+**Rejected: the service-role client.** It would have worked in one line, and `lib/supabase/admin.ts`
+says what it is for — the seed, and signing URLs for private buckets — with the sentence "anything else
+that reaches for this is a policy that has not been written yet". A background refresh is a system
+write, so the argument is not absurd; it is refused because the snapshot keeps the caller's own RLS
+context and therefore needs no argument at all. Widening the admin client's remit to avoid reading a
+cookie ten lines earlier is a bad trade, and the next person would inherit a precedent, not a fix.
+
+**Rejected: dropping `after()` for a floating promise.** `postComment` already documents why: a promise
+still running when the response is sent can be killed the moment it is — which works on every machine
+you test it on, and not on Vercel.
+
+The refresh itself moved to `lib/exchange-rate.ts` and takes both the client and the settings as
+arguments. `lib/actions/earnings.ts` is `"use server"`, so every export in it is a Server Action, and a
+Supabase client is not something an action's arguments can carry.
+
+## 2026-08-24 · The depth bound belongs where a document leaves the server
+
+`comment-body.tsx` has always stopped walking stored JSON at `MAX_DEPTH`, and that was enough for as
+long as the renderer was the only thing that read a document. Making a comment editable ended that:
+`item-detail.tsx` now hands `body_json` to a **client** component, and React serialises a client
+component's props into the flight payload with a recursive `stringify`. A 3,000-level document — which
+`jsonb` stores without complaint, and which anyone with a comment box can write — took the item page
+down with `RangeError: Maximum call stack size exceeded`. A 500, not a badly-drawn comment.
+
+**Decided:** `pruneToDepth` in `lib/comments/schema.ts`, applied in `lib/data/work-item.ts` to every
+comment and criterion body as it is read. One bound, at the boundary, protecting every consumer —
+renderer, serialiser, and the editor that opens with the stored document in it.
+
+It is **iterative**, not recursive, because a recursive pruner would overflow the stack on exactly the
+input it exists to survive. It also reduces `attrs` values to primitives: `attrs` is jsonb too, and
+every attribute this schema reads — `href`, `src`, `alt`, `language`, `id`, `label`, `width`,
+`height` — is a string, a number or a boolean. A nested object in there is not an attribute anyone
+meant.
+
+**Rejected: bounding it in the renderer only, and passing the raw document to the client.** That is
+the state that produced the crash. **Rejected: refusing deep documents on write.** The write path
+already bounds them; the documents that matter are the ones already in the table.
+
+Nothing is lost: a document deeper than `MAX_DEPTH` was never rendered below that depth anyway. The
+prune makes the stored shape agree with what the app has always shown.
+
+## 2026-08-24 · Prevent `mousedown`, never `pointerdown`, to hold focus in the editor
+
+A toolbar button must not steal focus from the editor, or ProseMirror drops its **stored marks** — the
+"what I type next is bold" state that an empty document has instead of a range. Preventing the default
+on `pointerdown` reads as the thorough version: one handler covering mouse, pen and touch.
+
+Measured on both engines, tapping Bold:
+
+| | events the button receives |
+|---|---|
+| mobile-chrome | `pointerdown`, `touchstart`, `click` |
+| mobile-safari | `pointerdown`, `touchstart` — **no click, ever** |
+
+**Decided:** prevent `mousedown` only. WebKit treats a default-prevented `pointerdown` as cancelling
+the activation, so the click never arrives and the button does nothing at all on an iPhone — a worse
+bug than the one the guard was added for, and silent, because every desktop browser still worked.
+Preventing `mousedown` keeps focus and leaves `click` firing everywhere.
+
+On a touch screen focus does leave the editor, and nothing portable can stop that. It does not matter:
+the command chain re-focuses and *then* toggles, so the stored mark is set after the caret is back,
+which is the state an empty document needs. Asserted on both phone engines, on an empty composer,
+where the mark is the only thing there is to assert.

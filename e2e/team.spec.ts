@@ -115,7 +115,19 @@ test.describe("the team", () => {
     await expect(self).toHaveCount(1);
     await expect(self).toContainText("· you");
     await expect(self.locator("select")).toHaveCount(0);
-    await expect(self.getByRole("button")).toHaveCount(0);
+    // Named, not counted. This used to assert "no buttons at all", which held
+    // only while your own row had no controls of any kind — and then weekly
+    // capacity became editable and the row grew a stepper, so a passing test
+    // turned red over a control that is deliberately there. Capacity is not a
+    // way to lock yourself out of the tool; a role change and a deactivation
+    // are, and those are what this test is about.
+    await expect(self.getByRole("button", { name: /Deactivate/ })).toHaveCount(0);
+    await expect(self.getByRole("button", { name: /access again/ })).toHaveCount(0);
+    await expect(self.getByRole("combobox", { name: /Role for/ })).toHaveCount(0);
+    // The one control that IS expected, so this test fails if it disappears
+    // rather than silently passing on a row that has lost half its features.
+    await expect(self.getByRole("status", { name: /weekly capacity/ })).toHaveCount(1);
+    await expect(self.getByRole("button", { name: /Half an hour (more|less) for/ })).toHaveCount(2);
   });
 
   test("an engineer sees roles as text, with no controls", async ({ page }) => {

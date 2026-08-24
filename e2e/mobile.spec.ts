@@ -410,7 +410,13 @@ test.describe("accessibility, on a phone", () => {
  * be proved.
  */
 test.describe("bold works before there are any words, with a finger", () => {
-  test.use({ sprintTotals: "read" });
+  // `hasTouch` on the CONTEXT, not just on the two phone projects: this file is
+  // on `ON_A_PHONE`, so chromium runs it too, and `tap()` on a context without
+  // touch is not a failed assertion — it is `locator.tap: The page does not
+  // support tap`, which reads as a broken test rather than as the thing the
+  // test is about. `isMobile` comes with it because the 44px and 16px rules key
+  // on `pointer: coarse`, which Chromium derives from it.
+  test.use({ sprintTotals: "read", hasTouch: true, isMobile: true });
 
   test("tap Bold on an empty composer, type, and the stored document is bold", async ({
     adminPage: page,
@@ -516,7 +522,10 @@ test.describe("bold works before there are any words, with a finger", () => {
  * bug is a rule that looks like it applies and does not.
  */
 test.describe("the editor does not zoom an iPhone in and leave it there", () => {
-  test.use({ sprintTotals: "read" });
+  // The rule under test lives in `@media (pointer: coarse)`. On a desktop
+  // context it does not apply at all, so chromium would report the 14px it is
+  // supposed to have and fail for the one reason that is not a bug.
+  test.use({ sprintTotals: "read", hasTouch: true, isMobile: true });
 
   test("every editable surface computes to at least 16px", async ({ adminPage: page }, testInfo) => {
     const key = SEED.threadPerProject[testInfo.project.name] ?? SEED.thread;

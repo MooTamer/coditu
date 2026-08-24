@@ -1052,3 +1052,79 @@ of the screen: the exact failure that block was written to prevent, arriving thr
 does not match. Fixed by naming `.coditu-prose`, which is safe to scope that way because a rendered
 comment uses its own classes — how a thread *reads* on a phone is untouched, only what you type into is
 raised. In `07-FIELD-NOTES.md`, and asserted as a computed style in `mobile.spec.ts`.
+
+---
+
+## 2026-08-24 — the suite was finally run, and it was not green
+
+The previous session wrote this brief's specs and could not execute them: no Docker, no PostgREST, no
+Playwright. The ledger said so, and said somebody should run them before the team's first real sprint.
+This is that run. **`npm run e2e` reported 25 failures on `main`** — the tree that is deployed.
+
+Roughly half were the app and half were the tests, and both halves are worth reading, because the
+tests that were wrong were wrong in ways that would have gone on passing for the wrong reason.
+
+### What was actually broken in the app
+
+| | Found by | Why nobody had noticed |
+|---|---|---|
+| **The exchange rate had never once been fetched in production.** `after()` may not call `cookies()`, so the refresh callback threw on every visit to `/app/earnings`. | The deployment's own runtime logs | The page is a 200 either way — it renders from the stored value by design. The only symptom was an EGP line that said there wasn't one. No test could see it; nothing on screen was wrong. |
+| **Every button in the composer toolbar was frozen at "off".** TipTap v3 does not re-render on a transaction, so `editor.isActive("bold")` was evaluated once, at mount. | `aria-pressed` on an empty composer | Pressing Bold still *worked*. Only the indicator was dead — and on an empty document the indicator is the only feedback there is. |
+| **The toolbar did nothing at all on an iPhone.** WebKit cancels the `click` when `pointerdown` is default-prevented. | A tap on `mobile-safari` | Measured: chrome fires `pointerdown, touchstart, click`; WebKit fires the first two and stops. Every desktop browser kept working. |
+| **The 16px editor fix from the previous commit never took effect.** `.coditu-prose p` is declared again later in `globals.css` at 14px, at equal specificity, and `@media` adds none. | A computed-style assertion | The commit that shipped it says it is fixed. Source order decided otherwise. |
+| **The criterion editor opened behind the sticky header on a phone** — 21px of a 74px surface reachable. | `axe`, as `target-size … partially obscured` | The browser had scrolled it "into view" correctly. It measures the viewport, not what is painted over it. |
+| **A deeply nested stored document took the item page down with a 500.** Making comments editable put `body_json` into a client component's props, and React serialises those with a recursive `stringify`. | `comments.spec.ts`, which has tested exactly this since before the feature existed | The renderer's `MAX_DEPTH` was never the boundary that mattered any more. |
+| **The link popover's URL field had no accessible name at all.** | A spec asking for it by name | `axe` does not flag it: the field sits inside a labelled group and the rule only looks for *a* name in scope. |
+
+Every one of these is fixed, with the reasoning in `docs/07-FIELD-NOTES.md` and the three that were
+decisions in `docs/05-DECISIONS.md`.
+
+### What was wrong with the tests
+
+Five specs could only ever have been red, and one could only ever have been green. They are written up
+in `07-FIELD-NOTES.md` under "Tests that could only ever be red, or only ever green" — the substring
+match in `getByLabel`, the live locator that follows a row which moves, the `<img>` that is a progress
+placeholder, the toast that contains the text you are asserting has gone, and the export test that
+requested `?export=csv` from a route that has never existed and audited Next's inline runtime instead
+of a CSV. That last one is the money-leak assertion: the one test in this suite that must never cry
+wolf.
+
+Plus the nine earnings specs, which failed for one honest reason: earnings are **off** until an admin
+names the first tracked sprint, and nothing set `payout_from_sprint_id`. That is E1.6 working exactly
+as written, and it is also a screen with nothing on it to assert against.
+
+### Where it stands now
+
+```
+npm run lint        clean
+npm run typecheck   clean
+npm run test        212 passed  (16 files; 7 new, for pruneToDepth)
+npm run db:test     162 passed  (2 files)
+npm run e2e         450 passed, 0 failed — chromium + mobile-safari + mobile-chrome
+```
+
+### The hosted database — the seeds had never been applied
+
+The migrations were all on production. **None of the three seed files was**, which is why the team
+could not see the components: `public.components` existed and held **zero rows**, so every picker was
+empty and every item's component was null.
+
+Applied 2026-08-24 over PostgREST with the service-role key, because the seeds are SQL for `psql` and
+no `psql` credential for the hosted project is available here. Each seed's own rule was preserved —
+components only ADD, attributions only fill a NULL and match on **title** never on key, developers only
+set a flag that is currently false — and the local database, freshly reset with all three applied, was
+the source of truth for what they produce.
+
+| | before | after |
+|---|---|---|
+| `public.components` (meinevim) | 0 | **41** |
+| work items with a component | 0 | **93** of 103 |
+| `profiles.is_developer` | 0 | **3** |
+
+The ten items left unattributed are the ambiguous ones the seed file names and refuses to guess at —
+"CR: Instagram / LinkedIn Feed", "Responsiveness for Link Kachel, Tabs with Cards, Newspart",
+"Add optional titles to all webparts" and seven more. Re-running the applier reports 0 to do.
+
+Verified in the browser on `https://coditu-phi.vercel.app`: the component picker lists all 41 with
+their toolbox icons, COD-243 reads **EVIM Themen Kachel**, and no money appears on the item, the table
+or the board.

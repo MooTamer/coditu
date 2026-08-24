@@ -494,3 +494,118 @@ makes review impossible.
 Both `lib/attachments.ts` and `components/app/rich-text-editor.client.tsx` had this, and the second one
 (`/[\s -]/` in `normaliseHref`) would have refused every hyphenated domain.
 
+
+---
+
+## Next 16, and the things that fail by doing nothing
+
+### `after()` cannot touch `cookies()` — and the failure is invisible
+`app/app/earnings/page.tsx` refreshed the exchange rate in `after()`, calling `refreshExchangeRate()`,
+which called `getAppSettings()` and `createClient()`. Both read `cookies()`. Next 16 refuses that:
+
+```
+Route /app/earnings used `cookies()` inside `after()`. This is not supported.
+```
+
+**The callback throws and the work never happens.** The page is a 200 either way, because it renders
+from the stored rate — which is the design — so the only symptom was that
+`app_settings.usd_egp_rate_micros` stayed `null` in production for as long as the feature had existed,
+and every EGP figure read "no exchange rate yet". No test caught it; nothing on screen was wrong. It
+was found in the deployment's own runtime logs, by looking.
+
+The fix is `createSnapshotClient()` in `lib/supabase/server.ts`: read the cookies **eagerly, on the
+request**, and hand the callback a client that carries a plain array instead of the store. Build it in
+the component body, use it in the callback. Same anon key, same RLS — only *when* the cookies are read
+changes. `refreshStoredRate` in `lib/exchange-rate.ts` takes the settings as an argument for the same
+reason, and lives outside `lib/actions/earnings.ts` because that file is `"use server"` and a Supabase
+client is not something a Server Action's arguments can carry.
+
+**The general rule:** anything inside `after()` must be handed its request state, not go looking for
+it. If a background callback appears to do nothing, check the runtime logs before checking the logic.
+
+### TipTap v3 does not re-render on a transaction
+`useEditor` defaults `shouldRerenderOnTransaction: false`, and its own types call the `true` case
+"legacy behavior that will be removed". So `editor.isActive("bold")` read in the render body is
+evaluated **once, at mount, and never again**: every button in the composer toolbar was frozen at
+"off" for the life of the editor, and `aria-pressed` told a screen reader the same lie.
+
+It looked fine, because pressing Bold still *worked* — the command ran, the text came out bold. Only
+the indicator was dead. Nothing caught it until a spec asserted `aria-pressed` on an **empty**
+composer, where the indicator is the only feedback there is.
+
+Use `useEditorState({ editor, selector })`, which re-renders only when a selected value changes.
+
+### WebKit cancels the click when you `preventDefault()` a `pointerdown`
+Measured on both engines, tapping a toolbar button:
+
+```
+mobile-chrome   pointerdown, touchstart, click
+mobile-safari   pointerdown, touchstart           ← no click, ever
+```
+
+`preventDefault()` on `pointerdown` looks like the thorough way to keep focus in the editor for both
+mice and fingers. On WebKit it cancels the activation outright, so the button does nothing at all on
+an iPhone — a worse bug than the one it was added for, and silent, because every desktop browser kept
+working. **Prevent `mousedown` instead**: it keeps focus, and `click` still fires everywhere.
+
+---
+
+## CSS that looks like it applies
+
+### A media query adds no specificity, so source order decides
+The coarse-pointer block raised the editor to 16px with
+`.coditu-prose p { font-size: max(16px, 1em) }`. It never took effect: `.coditu-prose p` is declared
+again **later in the same file** at 14px, at equal specificity, and `@media` contributes nothing to
+specificity. The later rule won, the fix shipped with the bug still in it, and the commit message said
+it was fixed.
+
+Only a computed-style assertion found it (`e2e/mobile.spec.ts`). The rule now lives at the **end** of
+`app/globals.css` with a comment saying it must stay there.
+
+**If a rule looks right and does nothing, check what is declared after it before checking anything
+else.**
+
+### A sticky header obscures whatever the browser scrolls into view
+Opening the criterion editor on an iPhone left **21px of a 74px** editing surface reachable; the rest
+was behind the `position: sticky` top bar. The browser had scrolled it "into view" correctly — it
+measures the viewport, not what is painted over it.
+
+`axe` names this precisely: `target-size … partially obscured`, which is the rare accessibility failure
+that is also a plain usability failure. The fix is `scroll-margin-top` on the editing surface plus
+`scrollIntoView({ block: "nearest" })` — "nearest" so it moves by exactly the height of the thing in
+the way, and not at all when it is already clear.
+
+---
+
+## Tests that could only ever be red, or only ever green
+
+Four of these turned up in one afternoon. Each one had been written, never run, and read as correct.
+
+- **`getByLabel` matches by case-insensitive substring.** `getByLabel("Title")` also matches a button
+  whose label is "Edit **the title**". The assertion that the editor had closed could never pass,
+  because the pencil comes back the moment the editor goes away. Use `{ exact: true }`.
+- **A live locator is re-resolved on every use.** Ticking a criterion sinks it to the bottom of the
+  list, so `boxes.first()` afterwards reads a *different*, still-unticked checkbox and reports that
+  the tick did nothing. Pin the row by its accessible name, not by position.
+- **An `<img>` on screen is not an upload that has finished.** While it is in flight the document
+  holds a placeholder that draws the picture dimmed under a progress bar — a real `<img>`. Saving in
+  that state is refused on purpose, so the test clicked Save, was told "an image is still uploading",
+  and asserted against a list that had never changed. Wait for `[data-uploading-image]` to reach zero.
+- **A page-wide `getByText` also matches the toast.** "Removed “E2E temporary”." contains the text the
+  test was asserting had gone, so the assertion could only pass if the undo toast never appeared —
+  that is, only if the feature were broken. Scope to the list.
+
+And one that was worse than red: **`?export=csv` is not a route.** Exports are produced by the
+`renderExport` Server Action, so that request returned the sprint *page*, 200, and the money-leak
+assertion ran against Next's own inline runtime — where `$` followed by a digit turns up in minified
+React sooner or later. It reported a leak in a CSV it had never looked at. The one assertion in the
+suite that must never cry wolf was crying wolf about the wrong document entirely.
+
+### A single-row settings table cannot be shared by parallel workers
+`app_settings` has `check (id = 1)`. Every earnings test has to point `payout_from_sprint_id` at a
+sprint to have anything to assert against, and has to put it back afterwards. Under `fullyParallel`
+those run in different workers against the same row, so one describe's teardown blanks the setting
+while another's tests are still reading it — and every one of them fails as "not tracked", which is
+the *correct* rendering of the state it was just put into. `e2e/earnings.spec.ts` is
+`test.describe.configure({ mode: "serial" })` for that reason: unlike the `composer.spec.ts` fixture
+race, there is no per-project row to hand out, because there is only ever one row.

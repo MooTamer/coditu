@@ -130,6 +130,15 @@ test.describe("a comment can be withdrawn, and it stays in the thread", () => {
 
       // And the words are gone from the page source entirely, not merely hidden
       // by CSS: the read model nulls them before they leave the server.
+      //
+      // Reloaded first, and that is the honest way to ask it. This page was
+      // rendered while the comment still stood, so its inline RSC payload holds
+      // the text the admin was legitimately reading a second ago — asserting
+      // against that document tests the browser's memory, not the server's
+      // behaviour. The claim worth proving is that the NEXT reader never
+      // receives the words, so fetch the page again and look at what arrives.
+      await adminPage.reload();
+      await expect(adminPage.getByText("This comment was withdrawn.")).toBeVisible();
       const html = await adminPage.content();
       expect(html).not.toContain("WITHDRAWNSENTINEL");
 

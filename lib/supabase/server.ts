@@ -42,6 +42,53 @@ export async function createClient() {
 }
 
 /**
+ * The same client, built from a **snapshot** of this request's cookies.
+ *
+ * `createClient()` closes over the `cookies()` store and reads it lazily, on
+ * every call. That is right everywhere except inside `after()`, where Next 16
+ * refuses to hand back request state once the response is on the wire:
+ *
+ *   Route /app/earnings used `cookies()` inside `after()`. This is not supported.
+ *
+ * It is not a warning. The callback throws, and the work in it never happens —
+ * which is how the exchange rate silently never refreshed in production while
+ * every page still rendered perfectly from the stored value. Found in the
+ * deployment's own logs, not by a test, because the failure is invisible from
+ * the outside: the page is a 200 either way.
+ *
+ * So the cookies are read **eagerly, on the request**, and the returned client
+ * carries a plain array instead of the store. Build it in the component body;
+ * use it in the callback.
+ *
+ * `setAll` is a no-op rather than a `try`/`catch`: a response that has already
+ * been sent has nowhere to put a refreshed session, and pretending otherwise
+ * would hide that. The middleware refreshes the session on the next request,
+ * exactly as it does for a Server Component.
+ *
+ * Still the anon key, still the caller's own RLS context — this widens no
+ * privilege, it only changes *when* the cookies are read.
+ */
+export async function createSnapshotClient() {
+  const cookieStore = await cookies();
+  const snapshot = cookieStore.getAll().map(({ name, value }) => ({ name, value }));
+
+  return createServerClient<Database>(
+    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+    publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return snapshot;
+        },
+        setAll() {
+          // Deliberately nothing. See above.
+        },
+      },
+    }
+  );
+}
+
+/**
  * The signed-in profile, read from the database rather than the JWT.
  *
  * Invariant 3: a client-held role is never trusted. The JWT says who you are;

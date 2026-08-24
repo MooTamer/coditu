@@ -585,7 +585,7 @@ function CriterionRow({
           <button
             type="button"
             onClick={onEdit}
-            aria-label={`Edit: ${criterion.body.slice(0, 60)}`}
+            aria-label={`Edit criterion: ${criterion.body.slice(0, 60)}`}
             className="min-w-0 flex-1 cursor-text rounded-control px-1 py-[2px] text-left text-[14px] leading-[1.5] hover:bg-[var(--canvas)]"
             style={{
               color: criterion.isDone ? "var(--ink-muted)" : "var(--ink)",

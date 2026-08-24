@@ -277,7 +277,7 @@ test.describe("the item's own words, and the two targets that must not overlap",
     await page.goto(`${SEED.sprint}/items/${SEED.grouped}`);
 
     const tick = page.getByRole("checkbox").first();
-    const body = page.getByRole("button", { name: /^Edit: / }).first();
+    const body = page.getByRole("button", { name: /^Edit criterion: / }).first();
     await expect(tick).toBeVisible();
     await expect(body).toBeVisible();
 
@@ -306,9 +306,9 @@ test.describe("the item's own words, and the two targets that must not overlap",
     const tick = page.getByRole("checkbox").first();
     const before = await tick.getAttribute("aria-checked");
 
-    await page.getByRole("button", { name: /^Edit: / }).first().tap({ timeout: 5000 }).catch(async () => {
+    await page.getByRole("button", { name: /^Edit criterion: / }).first().tap({ timeout: 5000 }).catch(async () => {
       // `tap` needs `hasTouch`; on chromium this file also runs without it.
-      await page.getByRole("button", { name: /^Edit: / }).first().click();
+      await page.getByRole("button", { name: /^Edit criterion: / }).first().click();
     });
 
     await expect(page.getByRole("textbox", { name: "Acceptance criterion" })).toBeVisible();
@@ -340,14 +340,22 @@ test.describe("the item's own words, and the two targets that must not overlap",
     if (coarse) expect(box!.height).toBeGreaterThanOrEqual(43.5);
 
     await edit.click();
-    await expect(page.getByLabel("Title")).toBeFocused();
+    // `exact`, and it matters: `getByLabel` matches accessible names by
+    // case-insensitive SUBSTRING, so a bare "Title" also matches the pencil
+    // button's own "Edit the title". The editing assertion passed either way;
+    // the closing one could never pass, because the button comes back the
+    // moment the editor goes away — a test that could only ever be red, for a
+    // feature that works.
+    await expect(page.getByLabel("Title", { exact: true })).toBeFocused();
     await page.keyboard.press("Escape");
-    await expect(page.getByLabel("Title")).toHaveCount(0);
+    await expect(page.getByLabel("Title", { exact: true })).toHaveCount(0);
+    // And the heading is back, which is what "closed" actually means here.
+    await expect(page.getByRole("button", { name: "Edit the title" })).toBeVisible();
   });
 
   test("axe is clean with the criterion editor open", async ({ adminPage: page }) => {
     await page.goto(`${SEED.sprint}/items/${SEED.grouped}`);
-    await page.getByRole("button", { name: /^Edit: / }).first().click();
+    await page.getByRole("button", { name: /^Edit criterion: / }).first().click();
     await expect(page.getByRole("textbox", { name: "Acceptance criterion" })).toBeVisible();
     // The editor is a `contenteditable`, which is a generic element to axe —
     // `role="textbox"` is what makes its label legitimate, and the rule only

@@ -1,6 +1,9 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { createBreaker } from "@/lib/circuit-breaker";
+import type { Database } from "@/lib/supabase/database.types";
 import { rateToMicros } from "@/lib/earnings";
 
 /**
@@ -111,4 +114,51 @@ export function isStale(fetchedAt: string | null, nowMs: number): boolean {
   const at = Date.parse(fetchedAt);
   if (Number.isNaN(at)) return true;
   return nowMs - at > 24 * 60 * 60_000;
+}
+
+/**
+ * Fetch and store the rate, given a client and the settings already read.
+ *
+ * **It takes both rather than reading them.** This runs inside `after()`, where
+ * anything that touches request state — `cookies()`, and therefore
+ * `createClient()` and `getAppSettings()` — throws and takes the whole callback
+ * with it. Passing them in is what makes the work reachable at all; see
+ * `createSnapshotClient` in `lib/supabase/server.ts` for the failure this is
+ * the other half of.
+ *
+ * It lives here and not in `lib/actions/earnings.ts` because that file is
+ * `"use server"`, so every export in it is a Server Action and a Supabase
+ * client is not something an action's arguments can carry.
+ *
+ * Returns whether the stored rate actually moved, so a caller can log it. The
+ * page ignores it: a refresh that fails must change nothing except the "as of"
+ * line on somebody's next visit.
+ */
+export async function refreshStoredRate(
+  supabase: SupabaseClient<Database>,
+  settings: { usdEgpSource: "live" | "manual" | null; usdEgpFetchedAt: string | null },
+  nowMs: number = Date.now()
+): Promise<boolean> {
+  // A hand-set rate is left alone until an admin switches back to live.
+  if (settings.usdEgpSource === "manual") return false;
+  if (!isStale(settings.usdEgpFetchedAt, nowMs)) return false;
+
+  const fetched = await fetchUsdEgpRate();
+  // Nothing plausible came back. The stored rate stays exactly as it was —
+  // never invent one, and never show a stale one without its date.
+  if (!fetched) return false;
+
+  const { error } = await supabase
+    .from("app_settings")
+    .update({
+      usd_egp_rate_micros: fetched.micros,
+      usd_egp_source: "live",
+      usd_egp_fetched_at: new Date(nowMs).toISOString(),
+    })
+    .eq("id", 1)
+    // Only overwrite a live rate. An admin who switched to manual between the
+    // check above and this write keeps their number.
+    .or("usd_egp_source.is.null,usd_egp_source.eq.live");
+
+  return !error;
 }

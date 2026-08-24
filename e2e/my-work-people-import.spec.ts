@@ -70,7 +70,16 @@ test.describe("people", () => {
     await page.goto("/app/people");
     for (const row of rows.filter((r) => Number(r.minutes) > 0)) {
       const hours = (Number(row.minutes) / 60).toFixed(1);
-      await expect(page.getByText(`${hours} / 40.0`).first()).toBeVisible();
+      // Read off the capacity bar's accessible name rather than the visible
+      // "8.0 / 40.0" string. Since capacity became editable the second number
+      // is a stepper for an admin, so the two halves are no longer one text
+      // node and `getByText` matched nothing — while the page was showing
+      // exactly the right figures. The label carries both numbers for a screen
+      // reader and does not care which of them is a control, which makes it the
+      // more honest thing to assert anyway.
+      await expect(
+        page.getByRole("img", { name: new RegExp(`\\b${hours} of 40\\.0 hours\\b`) }).first()
+      ).toBeVisible();
     }
   });
 

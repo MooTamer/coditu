@@ -1,6 +1,6 @@
 "use client";
 
-import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
@@ -394,6 +394,41 @@ export function RichTextEditor({
     },
   });
 
+  /**
+   * The toolbar's own state, subscribed to rather than read once.
+   *
+   * TipTap v3 stopped re-rendering the component on every transaction —
+   * `shouldRerenderOnTransaction` defaults to false and its own types call it
+   * "legacy behavior that will be removed". So `editor.isActive("bold")` read
+   * straight in the render body is evaluated once, at mount, and never again:
+   * every button in this toolbar was frozen at "off" for the life of the
+   * editor, and `aria-pressed` told a screen reader the same lie.
+   *
+   * It looked fine, because pressing Bold still *worked* — the command ran and
+   * the text came out bold. Only the indicator was dead, which is why nothing
+   * caught it until `e2e/mobile.spec.ts` asserted `aria-pressed` on an empty
+   * composer, where the indicator is the only feedback there is.
+   *
+   * `useEditorState` re-renders only when one of these values actually changes,
+   * which is the point of it — a keystroke that changes no flag costs nothing.
+   */
+  const toolbar = useEditorState({
+    editor,
+    selector: ({ editor: instance }) => ({
+      // Stored marks included: `isActive` consults them, so the button lights
+      // up on an empty document before there is anything to select. That is
+      // the behaviour A3 asks for and the reason this is not just cosmetic.
+      bold: instance?.isActive("bold") ?? false,
+      italic: instance?.isActive("italic") ?? false,
+      code: instance?.isActive("code") ?? false,
+      codeBlock: instance?.isActive("codeBlock") ?? false,
+      bulletList: instance?.isActive("bulletList") ?? false,
+      link: instance?.isActive("link") ?? false,
+      image: instance?.isActive("image") ?? false,
+      language: (instance?.getAttributes("codeBlock").language as string | undefined) ?? "ts",
+    }),
+  });
+
   const editorRef = useRef<Editor | null>(null);
   editorRef.current = editor;
 
@@ -401,7 +436,28 @@ export function RichTextEditor({
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (editor && autoFocus) editor.commands.focus("end");
+    if (!editor || !autoFocus) return;
+    editor.commands.focus("end");
+
+    /**
+     * …and then make sure it is somewhere a thumb can reach.
+     *
+     * The app's top bar is `position: sticky`, and a browser scrolling a
+     * newly-focused element into view has no idea it is there — the element is
+     * "visible" by the browser's reckoning while being covered by 53 of its 74
+     * pixels. Measured on an iPhone, opening a criterion editor left a 21px
+     * strip of a 74px surface actually tappable, with the caret behind the
+     * header. `axe` reports it exactly right: "target-size … partially
+     * obscured", which is the one accessibility failure in this suite that is
+     * also a plain usability failure.
+     *
+     * `block: "nearest"` rather than `"start"`, because B5 asks that opening
+     * the editor does not scroll the sheet to the top. Combined with the
+     * `scroll-margin-top` on `.coditu-prose`, "nearest" means *do nothing if it
+     * is genuinely clear, and otherwise move it down by exactly the height of
+     * the thing in the way*.
+     */
+    editor.view.dom.scrollIntoView({ block: "nearest", behavior: "auto" });
   }, [editor, autoFocus]);
 
   // Leaving with an upload in flight cancels it and releases its preview. An
@@ -448,7 +504,10 @@ export function RichTextEditor({
     return () => node.removeEventListener("keydown", onKeyDown, true);
   }, [openLink]);
 
-  if (!editor) {
+  // `toolbar` is null for exactly as long as `editor` is — `useEditorState`
+  // has nothing to select from until the instance exists. One guard for both,
+  // so the box below is the single "not ready yet" state.
+  if (!editor || !toolbar) {
     return (
       <div
         className="rounded-control border border-[var(--hairline)] bg-[var(--raised)] p-3"
@@ -461,8 +520,8 @@ export function RichTextEditor({
     );
   }
 
-  const isCodeBlock = editor.isActive("codeBlock");
-  const imageSelected = editor.isActive("image");
+  const isCodeBlock = toolbar.codeBlock;
+  const imageSelected = toolbar.image;
 
   return (
     <div
@@ -479,13 +538,13 @@ export function RichTextEditor({
           compact ? "px-1 py-[3px]" : "px-2 py-[6px]"
         )}
       >
-        <ToolbarButton label="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
+        <ToolbarButton label="Bold" active={toolbar.bold} onClick={() => editor.chain().focus().toggleBold().run()}>
           <Bold size={14} strokeWidth={2.2} aria-hidden />
         </ToolbarButton>
-        <ToolbarButton label="Italic" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}>
+        <ToolbarButton label="Italic" active={toolbar.italic} onClick={() => editor.chain().focus().toggleItalic().run()}>
           <Italic size={14} strokeWidth={2.2} aria-hidden />
         </ToolbarButton>
-        <ToolbarButton label="Inline code" active={editor.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()}>
+        <ToolbarButton label="Inline code" active={toolbar.code} onClick={() => editor.chain().focus().toggleCode().run()}>
           <Code size={14} strokeWidth={2.2} aria-hidden />
         </ToolbarButton>
         <ToolbarButton label="Code block" active={isCodeBlock} onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
@@ -493,7 +552,7 @@ export function RichTextEditor({
         </ToolbarButton>
         <ToolbarButton
           label="Link"
-          active={editor.isActive("link")}
+          active={toolbar.link}
           onClick={() => {
             if (linkOpen) {
               setLinkOpen(false);
@@ -504,7 +563,7 @@ export function RichTextEditor({
         >
           <Link2 size={14} strokeWidth={2.2} aria-hidden />
         </ToolbarButton>
-        <ToolbarButton label="Bullet list" active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}>
+        <ToolbarButton label="Bullet list" active={toolbar.bulletList} onClick={() => editor.chain().focus().toggleBulletList().run()}>
           <List size={14} strokeWidth={2.2} aria-hidden />
         </ToolbarButton>
         {images ? (
@@ -534,7 +593,7 @@ export function RichTextEditor({
           <label className="ml-1 flex shrink-0 items-center gap-1">
             <span className="sr-only">Code language</span>
             <select
-              value={(editor.getAttributes("codeBlock").language as string) ?? "ts"}
+              value={toolbar.language}
               onChange={(event) =>
                 editor.chain().focus().updateAttributes("codeBlock", { language: event.target.value }).run()
               }
@@ -552,7 +611,7 @@ export function RichTextEditor({
         {linkOpen ? (
           <LinkPopover
             value={linkDraft}
-            canRemove={editor.isActive("link")}
+            canRemove={toolbar.link}
             onChange={setLinkDraft}
             onCancel={() => {
               setLinkOpen(false);
@@ -705,6 +764,15 @@ function LinkPopover({
         autoFocus
         type="url"
         inputMode="url"
+        // The popover is labelled; this field was not. A placeholder is not an
+        // accessible name — it disappears the moment you type and screen
+        // readers are not required to announce it — so anyone arriving here
+        // without sight of the popover heading got an unnamed text box in the
+        // middle of a comment. `axe` does not flag it, because the field is
+        // inside a labelled group and the rule only looks for *a* name in
+        // scope; `e2e/editor.spec.ts` asks for this one by name, which is what
+        // caught it.
+        aria-label="Link"
         value={value}
         placeholder="coditu.com"
         onChange={(event) => onChange(event.target.value)}
@@ -852,14 +920,26 @@ function ToolbarButton({
       // command chain then put the caret back, with the stored mark already
       // gone, so the button looked dead until there were words to select.
       // Refusing the mousedown means focus never leaves.
+      // Preventing `mousedown` — and NOT `pointerdown`. The pointer event looks
+      // like the more thorough guard and is the one that cannot be used here:
+      //
+      //   tap on mobile-chrome  -> pointerdown, touchstart, click
+      //   tap on mobile-safari  -> pointerdown, touchstart          (no click)
+      //
+      // Measured, both engines, in `e2e/mobile.spec.ts`. WebKit treats a
+      // default-prevented `pointerdown` as cancelling the whole activation, so
+      // the click never arrives and the button does nothing at all on an
+      // iPhone — a worse bug than the one the guard was added for, and silent,
+      // because every desktop browser still worked.
+      //
+      // `mousedown` is the idiom that actually holds: preventing it keeps focus
+      // in the editor, and `click` still fires on every engine. On a touch
+      // screen focus does leave — nothing can stop that portably — but the
+      // command chain below re-focuses and then toggles, so the stored mark is
+      // set fresh *after* the caret is back, which is the state an empty
+      // document needs. `touch-action: manipulation` stops the double-tap-zoom
+      // delay that makes a toolbar feel broken.
       onMouseDown={(event) => event.preventDefault()}
-      // And the same again for touch. A synthetic mouse event is not guaranteed
-      // on a touch screen — Safari fires it after a delay, and some Android
-      // keyboards not at all — so on a phone the stored mark was lost before
-      // `onMouseDown` ever ran. Preventing the pointer event covers both, and
-      // `touch-action: manipulation` stops the double-tap-to-zoom delay that
-      // makes a toolbar feel broken.
-      onPointerDown={(event) => event.preventDefault()}
       onClick={onClick}
       aria-label={label}
       aria-pressed={active}

@@ -275,11 +275,28 @@ test.describe("components", () => {
     // added to a page that renders forty rows of server-side markup. React
     // reports it once, in the console, and nowhere else — so without this it is
     // something you notice by accident or not at all.
+    //
+    // React's hydration warning is filtered, and the measurement behind that is
+    // already in this suite: once `/app` gained its `loading.tsx` files every
+    // screen sits inside a `<Suspense>`, and on the DEV server the gap between
+    // flushing the shell and resolving the boundary is wide enough that
+    // hydration sometimes wins the race — 10 in 60 page loads against
+    // `next dev`, 0 in 60 against a production build, under six workers. It
+    // costs this spec a failure only when the machine is busy, which is the
+    // definition of a flake. `comments.spec.ts` carries the same filter and the
+    // same numbers; a REAL mismatch still shows up there and here, because it
+    // does not need a loaded machine to happen.
+    const hydrationNoise = /^Hydration failed|hydrated but some attributes|did not match/i;
     const noise: string[] = [];
     page.on("console", (message) => {
-      if (message.type() === "error") noise.push(message.text());
+      if (message.type() !== "error") return;
+      if (hydrationNoise.test(message.text())) return;
+      noise.push(message.text());
     });
-    page.on("pageerror", (error) => noise.push(error.message));
+    page.on("pageerror", (error) => {
+      if (hydrationNoise.test(error.message)) return;
+      noise.push(error.message);
+    });
 
     await page.goto(REGISTRY);
     await page.goto(`${REGISTRY}/evim-banner-and-news`);

@@ -4,9 +4,9 @@ import { after } from "next/server";
 import { EarningsBoard } from "@/components/app/earnings-board.client";
 import { Mono } from "@/components/coditu/mono";
 import { Reveal } from "@/components/motion/reveal";
-import { refreshExchangeRate } from "@/lib/actions/earnings";
 import { listSprintEarnings } from "@/lib/data/earnings";
-import { getCurrentProfile } from "@/lib/supabase/server";
+import { refreshStoredRate } from "@/lib/exchange-rate";
+import { createSnapshotClient, getCurrentProfile } from "@/lib/supabase/server";
 
 export const metadata = { title: "Earnings" };
 
@@ -41,7 +41,13 @@ export default async function EarningsPage() {
 
   const { settings, sprints, nonParticipants } = await listSprintEarnings();
 
-  after(() => refreshExchangeRate());
+  // Both arguments are prepared HERE, on the request, and the callback only
+  // uses them. `after()` may not touch `cookies()`, so a client built the
+  // ordinary way — or a second read of the settings row — throws inside it and
+  // takes the refresh with it. That is not hypothetical: it is what production
+  // was doing, silently, on every visit to this page.
+  const supabase = await createSnapshotClient();
+  after(() => refreshStoredRate(supabase, settings));
 
   return (
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">

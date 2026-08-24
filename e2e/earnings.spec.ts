@@ -29,6 +29,25 @@ import { auditA11y, expect, query, SEED, SEED_ADMIN, SEED_ENGINEER, signIn, test
  * `composer.spec.ts` race recorded in `playwright.config.ts`.
  */
 
+/**
+ * Serial, and the whole file — not a preference, a correctness requirement.
+ *
+ * `app_settings` is a SINGLE row, guarded by `check (id = 1)` so a second one
+ * cannot exist. Every describe here has to point `payout_from_sprint_id` at a
+ * sprint to have anything to assert against, and has to put it back so no other
+ * spec inherits a tracked sprint. Under `fullyParallel` those run in different
+ * workers against the same row, so one describe's teardown blanks the setting
+ * while another describe's tests are still reading it — and every one of them
+ * fails as "not tracked", which is the correct rendering of the state it was
+ * just put into.
+ *
+ * The same shape as the fixture race `playwright.config.ts` records for
+ * `composer.spec.ts`, with one difference that rules out the usual answer:
+ * there is no per-project row to hand out, because there is only ever one row.
+ * So the file takes its turn instead.
+ */
+test.describe.configure({ mode: "serial" });
+
 /** Every string that must not reach a shared screen. */
 const MONEY = [/\$\s?\d/, /\bUSD\b/, /\bEGP\b/, /\bpayout\b/i, /\bearnings\b/i, /per hour\b/i];
 
@@ -37,6 +56,29 @@ const SPRINT_ID_SQL = `
   join public.projects p on p.id = s.project_id
   where p.slug = 'meinevim' and s.number = 17
 `;
+
+/**
+ * Point `payout_from_sprint_id` at the sprint these tests use.
+ *
+ * Without it every assertion below fails for one reason that is not a bug:
+ * earnings are OFF until an admin names the first tracked sprint, and a sprint
+ * that is not tracked renders the words "not tracked" and no figures, no
+ * participants and no Confirm control at all. That is E1.6 working — zero is a
+ * claim, "not tracked" is the truth — and it is also, on a seeded database
+ * where the column is null, a screen with nothing on it to assert against.
+ *
+ * Set here rather than in the seed on purpose: production leaves it null until
+ * the team starts their first tracked sprint, so a seed that filled it in would
+ * make every one of these tests pass against a state production is not in.
+ */
+async function trackEarningsFrom(sprintId: string): Promise<void> {
+  await query(`update public.app_settings set payout_from_sprint_id = $1 where id = 1`, [sprintId]);
+}
+
+/** Back to the shipped default, so no other spec inherits a tracked sprint. */
+async function stopTrackingEarnings(): Promise<void> {
+  await query(`update public.app_settings set payout_from_sprint_id = null where id = 1`);
+}
 
 async function confirmedPayoutExists(): Promise<string> {
   const [sprint] = await query<{ id: string }>(SPRINT_ID_SQL);
@@ -52,6 +94,7 @@ async function confirmedPayoutExists(): Promise<string> {
      on conflict (id) do nothing`,
     [sprint.id, admin.id]
   );
+  await trackEarningsFrom(sprint.id);
   await query(
     `insert into public.sprint_payout_shares (payout_id, profile_id, minutes_logged, share_cents)
      values ('99999999-9999-4999-8999-999999999999', $1, 1050, 21000)
@@ -73,6 +116,7 @@ test.describe("money never reaches a screen a client sees", () => {
   });
   test.afterAll(async () => {
     await removePayout();
+    await stopTrackingEarnings();
   });
 
   test("not on the sprint table, the board, an item, the report or the PDF", async ({
@@ -103,17 +147,39 @@ test.describe("money never reaches a screen a client sees", () => {
     }
   });
 
-  test("not in the CSV or the Markdown export", async ({ adminPage }) => {
-    await adminPage.goto(SEED.sprint);
-    for (const format of ["csv", "markdown"]) {
-      const response = await adminPage.request.get(
-        `${SEED.sprint}?export=${format}`,
-        { failOnStatusCode: false }
-      );
-      if (!response.ok()) continue;
-      const text = await response.text();
+  test("not in the CSV or the Markdown export", async ({ adminPage: page }) => {
+    // Through the dialog, because that is the only way an export exists.
+    //
+    // This used to GET `?export=csv` and read the response. There is no such
+    // route: exports are produced by the `renderExport` Server Action, so that
+    // request returned the sprint PAGE, 200, and the assertion ran against
+    // Next's own inline runtime — where `$` followed by a digit turns up in
+    // minified React sooner or later. It reported a money leak in the CSV while
+    // never once looking at a CSV, which is the worst way for this particular
+    // test to fail: the one assertion in the suite that must never cry wolf.
+    await page.goto(SEED.sprint);
+    await page.getByRole("button", { name: "Export" }).click();
+    const dialog = page.getByRole("dialog", { name: /^Export EVIM/ });
+    await expect(dialog).toBeVisible();
+
+    for (const [name, label] of [
+      ["Markdown", /Markdown/],
+      ["CSV", /CSV/],
+    ] as const) {
+      await dialog.getByRole("radio", { name: label }).first().click();
+      const preview = dialog.locator("pre");
+
+      // The preview is produced by a Server Action, so it arrives after the
+      // radio is checked — and under six workers that can take a moment. Read
+      // it only once it has actually filled, or this asserts "no money" about
+      // an empty box and passes for the wrong reason. Waiting is the whole
+      // point: an empty preview is not evidence of anything.
+      await expect
+        .poll(async () => (await preview.innerText()).trim().length, { timeout: 20_000 })
+        .toBeGreaterThan(40);
+      const text = (await preview.innerText()).trim();
       for (const pattern of MONEY) {
-        expect(text, `the ${format} export leaked ${pattern}`).not.toMatch(pattern);
+        expect(text, `the ${name} export leaked ${pattern}`).not.toMatch(pattern);
       }
     }
   });
@@ -142,6 +208,7 @@ test.describe("the earnings board", () => {
   });
   test.afterAll(async () => {
     await removePayout();
+    await stopTrackingEarnings();
   });
 
   test("an admin reaches it from the account menu, not from the rail", async ({ adminPage }) => {
@@ -197,7 +264,12 @@ test.describe("the earnings board", () => {
     await page.goto("/app/earnings");
     await expect(page.getByRole("heading", { name: "Earnings", level: 1 })).toBeVisible();
     // Everyone sees everyone's — that is the team's rule.
-    await expect(page.getByText("$210.00")).toBeVisible();
+    //
+    // `.first()`, because the figure legitimately appears twice: the fixture
+    // has one participant, so the pot and that person's share are the same
+    // number. A bare `getByText` is a strict-mode violation on a screen that is
+    // rendering exactly what it should.
+    await expect(page.getByText("$210.00").first()).toBeVisible();
     await expect(page.getByRole("button", { name: /^Confirm/ })).toHaveCount(0);
   });
 
@@ -205,16 +277,45 @@ test.describe("the earnings board", () => {
     page,
   }) => {
     await signIn(page, SEED_ENGINEER);
+    await page.goto("/app/earnings");
     const [sprint] = await query<{ id: string }>(SPRINT_ID_SQL);
-    const refused = await page.evaluate(async (sprintId) => {
-      const response = await fetch("/rest/v1/sprint_payouts", {
+
+    // The engineer's OWN token, against Supabase directly — the same shape as
+    // `e2e/team.spec.ts`'s "even when the app is bypassed". The previous
+    // version posted to a relative `/rest/v1/...`, which is the Next app and
+    // not PostgREST: it never reached a database, and on a page with no origin
+    // yet it did not even reach a URL ("Failed to parse URL"). A 4xx from a
+    // Next route that has never existed is not evidence that RLS holds.
+    const status = await page.evaluate(async (sprintId) => {
+      const raw = document.cookie
+        .split("; ")
+        .find((c) => c.startsWith("sb-127-auth-token="))
+        ?.split("=")
+        .slice(1)
+        .join("=");
+      const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
+      const response = await fetch("http://127.0.0.1:54421/rest/v1/sprint_payouts", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          apikey: json.access_token,
+          Authorization: `Bearer ${json.access_token}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ sprint_id: sprintId, total_minutes: 1, pot_cents: 1 }),
       });
       return response.status;
     }, sprint.id);
-    expect(refused).toBeGreaterThanOrEqual(400);
+
+    expect(status, "PostgREST accepted an engineer's payout").toBeGreaterThanOrEqual(400);
+
+    // And the row is the thing that actually matters. A status code can be a
+    // 4xx for a dozen reasons that are not the policy; this asks the table.
+    const [{ n }] = await query<{ n: string }>(
+      `select count(*)::text as n from public.sprint_payouts
+       where sprint_id = $1 and total_minutes = 1 and pot_cents = 1`,
+      [sprint.id]
+    );
+    expect(Number(n), "an engineer wrote a payout").toBe(0);
   });
 
   test("axe is clean, including the confirmation panel", async ({ adminPage }) => {
@@ -228,8 +329,14 @@ test.describe("confirming a distribution", () => {
   // exclusive lock rather than the shared one.
   test.use({ sprintTotals: "write" });
 
+  test.beforeAll(async () => {
+    const [sprint] = await query<{ id: string }>(SPRINT_ID_SQL);
+    await trackEarningsFrom(sprint.id);
+  });
+
   test.afterAll(async () => {
     await removePayout();
+    await stopTrackingEarnings();
     await query(
       `delete from public.sprint_payouts where sprint_id in (${SPRINT_ID_SQL})`
     );
