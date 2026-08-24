@@ -37,8 +37,12 @@ export const NAV: readonly NavItem[] = [
     label: "Projects",
     href: "/app/projects",
     Icon: FolderOpen,
-    // The list, and a project's own overview — but not the sprints beneath it.
-    isActive: (path) => /^\/app\/projects(\/[^/]+)?$/.test(path),
+    // The list, a project's own overview, and its component registry — but not
+    // the sprints beneath it. The registry is part of "what this project is",
+    // which is the question this destination answers.
+    isActive: (path) =>
+      /^\/app\/projects(\/[^/]+)?$/.test(path) ||
+      /^\/app\/projects\/[^/]+\/components(\/|$)/.test(path),
   },
   {
     id: "my-work",
