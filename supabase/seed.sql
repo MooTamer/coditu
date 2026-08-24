@@ -1932,6 +1932,12 @@ After fixing this bug please contact me so that we can solve this for all webpar
 -- collides with one of them on its very first insert.
 select setval('public.work_item_key_seq', 244, false);
 
+-- Give each project the prefix its own items already use, and start its counter
+-- above them. The projects were inserted before the items, so the insert-time
+-- trigger could only guess from the slug; this is the correction, and it is why
+-- a local reset leaves MEINEvim on `COD` exactly as production does.
+select public.rebalance_project_keys();
+
 
 -- ---------------------------------------------------------------------------
 -- Acceptance criteria. Notion checkboxes, including which are already ticked.

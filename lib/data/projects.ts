@@ -81,9 +81,91 @@ export const listProjects = cache(async (): Promise<ProjectSummary[]> => {
   });
 });
 
+/**
+ * Resolve a project by whatever address the reader arrived on.
+ *
+ * A project's slug can change, and §8.5 was answered "keep the old one as a
+ * redirect" — so the second lookup is the alias table, and a bookmark from
+ * before a rename still lands. The alias query only runs when the live slug
+ * misses, which is every request except the ones that would otherwise 404.
+ */
 export const getProjectBySlug = cache(async (slug: string) => {
   const projects = await listProjects();
-  return projects.find((project) => project.slug === slug) ?? null;
+  const live = projects.find((project) => project.slug === slug);
+  if (live) return live;
+
+  const supabase = await createClient();
+  const { data: alias } = await supabase
+    .from("project_slug_aliases")
+    .select("project_id")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (!alias) return null;
+  return projects.find((project) => project.id === alias.project_id) ?? null;
+});
+
+export interface ClientSummary {
+  id: string;
+  name: string;
+  websiteUrl: string | null;
+  logoPath: string | null;
+  accentHex: string | null;
+  projectCount: number;
+}
+
+/** Every client, for the pickers that create and move a project. */
+export const listClients = cache(async (): Promise<ClientSummary[]> => {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("clients")
+    .select("id, name, website_url, logo_path, accent_hex, projects ( id )")
+    .order("name");
+
+  if (error) throw error;
+
+  return (data ?? []).map((client) => ({
+    id: client.id,
+    name: client.name,
+    websiteUrl: client.website_url,
+    logoPath: client.logo_path,
+    accentHex: client.accent_hex,
+    projectCount: (client.projects ?? []).length,
+  }));
+});
+
+export interface ArchivedProject {
+  id: string;
+  name: string;
+  slug: string;
+  clientName: string;
+}
+
+/**
+ * The archived ones, which `listProjects` deliberately never returns.
+ *
+ * Only the administration panel asks for these: an archived project is out of
+ * everybody's way by design, and the one thing a person still needs to do with
+ * it is bring it back.
+ */
+export const listArchivedProjects = cache(async (): Promise<ArchivedProject[]> => {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, name, slug, clients ( name )")
+    .eq("is_archived", true)
+    .order("name");
+
+  if (error) throw error;
+
+  return (data ?? []).map((project) => ({
+    id: project.id,
+    name: project.name,
+    slug: project.slug,
+    clientName: project.clients?.name ?? "—",
+  }));
 });
 
 export interface SprintSummary {

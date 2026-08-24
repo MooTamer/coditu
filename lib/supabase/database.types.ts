@@ -138,6 +138,77 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          default_weekly_capacity_minutes: number
+          hourly_rate_cents: number
+          id: number
+          max_image_bytes: number
+          payout_from_sprint_id: string | null
+          payout_share_threshold_pct: number
+          updated_at: string
+          updated_by: string | null
+          usd_egp_fetched_at: string | null
+          usd_egp_rate_micros: number | null
+          usd_egp_source: string | null
+        }
+        Insert: {
+          default_weekly_capacity_minutes?: number
+          hourly_rate_cents?: number
+          id?: number
+          max_image_bytes?: number
+          payout_from_sprint_id?: string | null
+          payout_share_threshold_pct?: number
+          updated_at?: string
+          updated_by?: string | null
+          usd_egp_fetched_at?: string | null
+          usd_egp_rate_micros?: number | null
+          usd_egp_source?: string | null
+        }
+        Update: {
+          default_weekly_capacity_minutes?: number
+          hourly_rate_cents?: number
+          id?: number
+          max_image_bytes?: number
+          payout_from_sprint_id?: string | null
+          payout_share_threshold_pct?: number
+          updated_at?: string
+          updated_by?: string | null
+          usd_egp_fetched_at?: string | null
+          usd_egp_rate_micros?: number | null
+          usd_egp_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_settings_payout_from_sprint_id_fkey"
+            columns: ["payout_from_sprint_id"]
+            isOneToOne: false
+            referencedRelation: "sprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_settings_payout_from_sprint_id_fkey"
+            columns: ["payout_from_sprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_sprint_summary"
+            referencedColumns: ["sprint_id"]
+          },
+          {
+            foreignKeyName: "app_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
       attachments: {
         Row: {
           bytes: number
@@ -457,6 +528,32 @@ export type Database = {
         }
         Relationships: []
       }
+      project_slug_aliases: {
+        Row: {
+          created_at: string
+          project_id: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          project_id: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          project_id?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_slug_aliases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           accent_hex: string | null
@@ -464,7 +561,9 @@ export type Database = {
           created_at: string
           id: string
           is_archived: boolean
+          key_prefix: string
           name: string
+          next_key_number: number
           scope: string | null
           slug: string
           updated_at: string
@@ -475,7 +574,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_archived?: boolean
+          key_prefix?: string
           name: string
+          next_key_number?: number
           scope?: string | null
           slug: string
           updated_at?: string
@@ -486,7 +587,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_archived?: boolean
+          key_prefix?: string
           name?: string
+          next_key_number?: number
           scope?: string | null
           slug?: string
           updated_at?: string
@@ -860,8 +963,13 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      derive_key_prefix: {
+        Args: { p_exclude?: string; p_slug: string }
+        Returns: string
+      }
       is_active_member: { Args: never; Returns: boolean }
       is_admin_or_lead: { Args: never; Returns: boolean }
+      rebalance_project_keys: { Args: never; Returns: undefined }
       reorder_work_items: {
         Args: { p_item_id: string; p_ordered_ids: string[] }
         Returns: string

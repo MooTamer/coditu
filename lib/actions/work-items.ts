@@ -293,19 +293,14 @@ export async function addCriterion(input: unknown): Promise<ActionResult> {
   const body = criterionText(parsed.data.doc).slice(0, MAX_CRITERION_TEXT);
 
   // Appended, never inserted at the top: the order is somebody's checklist.
-  const { data: last } = await scope.supabase
-    .from("acceptance_criteria")
-    .select("order_index")
-    .eq("work_item_id", scope.itemId)
-    .order("order_index", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
+  // `order_index` is omitted rather than computed — `assign_order_index` picks
+  // the next one under a row lock on the item, which a read-then-write here
+  // could not, and two people adding a criterion at once used to land on the
+  // same number.
   const { error } = await scope.supabase.from("acceptance_criteria").insert({
     work_item_id: scope.itemId,
     body,
     body_json: parsed.data.doc as never,
-    order_index: (last?.order_index ?? -1) + 1,
   });
 
   if (error) return { ok: false, error: "That criterion did not save. Nothing was lost — try again." };
@@ -553,14 +548,12 @@ export async function createWorkItem(input: unknown): Promise<CreateItemResult> 
 
   // Append. `order_index` is the sprint's manual order, and a new item joining
   // at position 0 would silently reshuffle a backlog somebody arranged by hand.
-  const { data: last } = await supabase
-    .from("work_items")
-    .select("order_index")
-    .eq("sprint_id", sprint.id)
-    .order("order_index", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
+  //
+  // It is omitted rather than computed. This used to read `max(order_index)`
+  // and add one, which is a read-modify-write with no lock in the middle:
+  // planning day is exactly when ten items get created in one sitting, and ten
+  // of those races all land on the same number. `assign_order_index` does it
+  // inside the insert, under a row lock on the sprint.
   const { data: created, error } = await supabase
     .from("work_items")
     .insert({
@@ -576,7 +569,6 @@ export async function createWorkItem(input: unknown): Promise<CreateItemResult> 
       estimate_minutes: parsed.data.estimateMinutes ?? null,
       grouping: parsed.data.grouping ?? null,
       component_id: parsed.data.componentId ?? null,
-      order_index: (last?.order_index ?? -1) + 1,
     })
     .select("id, key")
     .single();
@@ -598,6 +590,9 @@ export async function createWorkItem(input: unknown): Promise<CreateItemResult> 
       criteria.map((body, index) => ({
         work_item_id: created.id,
         body,
+        // Stated, because these arrive in the order somebody typed them and
+        // that order is the checklist. `assign_order_index` leaves a stated
+        // position alone.
         order_index: index,
       }))
     );

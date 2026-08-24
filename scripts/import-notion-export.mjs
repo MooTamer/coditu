@@ -884,6 +884,12 @@ ${itemRows.join(",\n\n")};
 -- Keep the sequence ahead of the transcribed keys. Without this a new item
 -- collides with one of them on its very first insert.
 select setval('public.work_item_key_seq', ${nextKey}, false);
+
+-- Give each project the prefix its own items already use, and start its counter
+-- above them. The projects were inserted before the items, so the insert-time
+-- trigger could only guess from the slug; this is the correction, and it is why
+-- a local reset leaves MEINEvim on \`COD\` exactly as production does.
+select public.rebalance_project_keys();
 `);
 
 out.push(`

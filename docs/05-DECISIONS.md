@@ -1939,3 +1939,114 @@ capture phase so it closes the picture and leaves the item open.
 `aria-multiline`. A `contenteditable` div is a generic element to axe and `aria-label` on a generic
 element is prohibited — the rule had never fired only because the existing audit types into the
 composer before it runs, and an empty editor is the common state.
+
+---
+
+## 2026-08-25 · `app_settings` is where every tunable lives, and why nothing is a constant
+
+**Decision.** A single-row `public.app_settings` table holds the hourly rate, the payout share
+threshold, the effective-from sprint, the USD→EGP rate and its source, the image upload cap, and the
+default weekly capacity. `lib/settings.ts` is the only thing that reads it, once per request through
+React's `cache`. An admin edits every one of them from `/app/settings`.
+
+**Who asked.** The team, 2026-08-24: *"nothing is hardcoded, everything that is a decision is editable
+in the interface."* That instruction outranks convenience, and it has a sharp edge: a rate in a `const`
+is a change request that needs a deploy, and this team deploys their own tool. Every number the thread
+brief names — $12 an hour, 25%, 8 MB, 2400 minutes — is the **initial value of a setting**, not a
+constant, and the migration's `default` is the only place those digits appear.
+
+**Why one row.** A second row would immediately raise "which one is live?" and the honest answer would
+be "whichever the query ordered first". `check (id = 1)` makes the question unaskable.
+
+**Why every reader still carries the default.** The hosted database is behind local and always has
+been. `lib/settings.ts` treats a missing table, a missing row and a missing column as one answer — use
+the default, render the page — because a sprint page that 500s over an unreadable image cap is the
+`sprints.notes_written_at` outage a second time. The defaults in TypeScript are byte-for-byte the
+migration's, and changing one without the other is the bug this note exists to prevent.
+
+**Rejected.** Per-project settings (these are decisions about Coditu, not about a client). Environment
+variables (a deploy to change a rate is the thing being removed). `unstable_cache` / `'use cache'`
+around the read (a settings row that goes stale across requests is worse than one query per render,
+and nothing else in this repo uses either primitive — Next 16 has moved that ground more than once).
+
+---
+
+## 2026-08-25 · A work item's key names its project (§8.4), and a slug outlives its rename (§8.5)
+
+**Asked and answered by the team, 2026-08-25.** Both were decision gates in the thread brief; neither
+was resolved on our own judgement.
+
+### The key prefix — per project
+
+`work_items.key` defaulted to `'COD-' || nextval(work_item_key_seq)`: one global sequence, so every
+project's items were `COD-nnn` whoever the client was. Now `projects.key_prefix` and
+`projects.next_key_number` carry it, and `assign_work_item_key` derives both from the item's own sprint
+— invariant 1, in a trigger.
+
+**Existing keys are immutable.** They are in comments, in exports and in people's memories. So the
+project owning the most `COD-` items keeps `COD` (MEINEvim, locally and in production), everybody else
+takes a prefix derived from their slug, and each counter starts above the highest number that prefix
+has ever issued — across every project, because `COD-243` belongs to Converso while `COD` belongs to
+MEINEvim.
+
+**Why a column and not a sequence per project.** A sequence per project is DDL at runtime. A column
+advanced by `update … returning` takes a row lock, which is exactly the serialisation that makes ten
+items created on planning morning impossible to collide. The trigger loops until the key is free, so a
+counter that is behind — an import that stated its own keys, a restore — heals instead of failing on
+the unique index with a message nobody can act on.
+
+**`work_item_key_seq` stays.** The seed and `scripts/import-notion-export.mjs` both `setval` it and
+`supabase/tests/seed.sql` asserts on it. It is no longer how a key is issued.
+
+### The slug — keep the old one as a redirect
+
+Every slug a project has ever had is kept in `project_slug_aliases`, and `getProjectBySlug` falls back
+to it when the live lookup misses. A rename therefore breaks no bookmark, no pasted link and nobody's
+address bar. The alias lookup only runs on the requests that would otherwise 404.
+
+A live slug and an alias share one namespace, enforced by `guard_slug_namespace` on both tables — two
+answers to "which project is `/app/projects/x`?" is the failure this feature would otherwise introduce.
+Renaming *back* to a previous slug deletes the now-redundant alias rather than colliding with it.
+
+**Rejected.** Refusing the rename outright (the name is the thing people get wrong on day one, and
+making it permanent means archiving and recreating a project to fix a typo). Rewriting existing keys to
+a new prefix (they are in exports a client has already read).
+
+---
+
+## 2026-08-25 · `order_index` is assigned by the database, not by a read-then-write
+
+**Decision.** `work_items.order_index` and `acceptance_criteria.order_index` default to `-1`, which is
+not a position, and `assign_order_index` replaces any negative value with `max + 1` under a row lock on
+the parent sprint or item.
+
+**Why.** Every caller did `select max(order_index)` and then inserted. That is a read-modify-write with
+no lock in the middle, and planning day is precisely when ten items get created in one sitting — F4 of
+the thread brief names it. The old default was `0`, which is a real position, so "I did not say" and
+"put it first" were the same value and neither caller could express the other.
+
+The lock is `for no key update`: the weakest one that still serialises two inserts against each other,
+and it blocks neither readers nor an update to the sprint's own columns. A stated position is left
+alone, which is what the seed and the Notion importer need — their numbering is the order somebody
+chose.
+
+**Measured, not assumed:** a four-row `insert … select` gets 14, 15, 16, 17, because a BEFORE ROW
+trigger sees the rows the same statement inserted before it.
+
+---
+
+## 2026-08-25 · Creating a client or a project is a lead's call, not an admin's
+
+**Decision.** `lib/actions/projects.ts` admits admin **and** lead, matching the `leads insert clients`
+/ `leads insert projects` policies that have been in `20260820120600_rls.sql` since the first
+migration.
+
+**Why this is written down.** The thread brief asked for admin-only. The database has said
+admin-or-lead from the start, and a lead who may open a sprint, create work items and reorder a
+backlog but not the project those sprints belong to is a line nobody drew on purpose. Narrowing the
+action while leaving the policy open would also put the rule in the one place a future reader does not
+look. Correctness over the brief, recorded here as `CLAUDE.md` requires.
+
+**Not widened.** An engineer still cannot. And archiving is used in place of the delete policy that
+exists on the table: `projects.id` cascades to sprints, to items, and to the hours logged against them,
+which are what an invoice was built from.

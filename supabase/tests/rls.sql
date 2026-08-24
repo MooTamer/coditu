@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(88);
+select plan(107);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -992,6 +992,193 @@ select throws_ok(
 );
 
 select pg_temp.act_as_owner();
+
+-- =========================================================================
+-- app_settings — the home of every tunable
+--
+-- Everyone active reads them (the image cap is in an error message, the rate
+-- is on the earnings screen); only an admin writes. There is no insert policy
+-- and no delete policy on purpose: the row is created by its migration and is
+-- not something the app makes or destroys.
+-- =========================================================================
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+
+select is(
+  (select hourly_rate_cents from public.app_settings where id = 1),
+  1200,
+  'positive: an engineer reads the settings row'
+);
+
+-- A row-filtering policy denies by matching nothing, so this succeeds and
+-- changes nothing. Assert the value, never the row count.
+update public.app_settings set hourly_rate_cents = 9999 where id = 1;
+select is(
+  (select hourly_rate_cents from public.app_settings where id = 1),
+  1200,
+  'negative: an engineer cannot change what an hour pays'
+);
+
+select throws_ok(
+  $$insert into public.app_settings (id, hourly_rate_cents) values (2, 500)$$,
+  null,
+  null,
+  'negative: an engineer cannot insert a settings row'
+);
+
+-- `anon` gets nothing anywhere in this app — the grant is revoked, not merely
+-- policed, so this is a permission error rather than an empty result.
+select pg_temp.act_as_anon();
+select throws_ok(
+  $$select 1 from public.app_settings$$,
+  '42501',
+  null,
+  'negative: a signed-out caller reads no settings at all'
+);
+
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+
+update public.app_settings set hourly_rate_cents = 1500, payout_share_threshold_pct = 30 where id = 1;
+select is(
+  (select hourly_rate_cents from public.app_settings where id = 1),
+  1500,
+  'positive: an admin changes what an hour pays'
+);
+
+select throws_ok(
+  $$update public.app_settings set hourly_rate_cents = 0 where id = 1$$,
+  '23514',
+  null,
+  'negative: an hour cannot be worth nothing'
+);
+
+select pg_temp.act_as_owner();
+update public.app_settings set hourly_rate_cents = 1200, payout_share_threshold_pct = 25 where id = 1;
+
+select throws_ok(
+  $$insert into public.app_settings (id) values (2)$$,
+  '23514',
+  null,
+  'negative: there cannot be a second settings row'
+);
+
+-- =========================================================================
+-- Item keys come from the project, not from one global sequence
+-- =========================================================================
+
+insert into public.work_items (id, sprint_id, title) values
+  ('61000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'first unkeyed');
+
+-- The number is not asserted, only the prefix and the step. A refused insert
+-- burns a number exactly as a sequence does — `assign_work_item_key` advances
+-- the counter before the policy gets a say — and a test that pins the first
+-- number would break the moment somebody adds another negative case above.
+select matches(
+  (select key from public.work_items where id = '61000000-0000-0000-0000-000000000001'),
+  (select '^' || key_prefix || '-\d+$' from public.projects where id = '40000000-0000-0000-0000-000000000001'),
+  'positive: an item with no key takes its own project''s prefix'
+);
+
+insert into public.work_items (id, sprint_id, title) values
+  ('61000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000001', 'second unkeyed');
+
+select is(
+  (select substring(key from '\d+$')::int from public.work_items where id = '61000000-0000-0000-0000-000000000002'),
+  (select substring(key from '\d+$')::int + 1 from public.work_items where id = '61000000-0000-0000-0000-000000000001'),
+  'positive: the next one takes the next number, under the row lock that makes ten at once safe'
+);
+
+insert into public.work_items (id, sprint_id, title) values
+  ('61000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000002', 'other project');
+
+select isnt(
+  (select substring(key from '^[A-Z0-9]+') from public.work_items where id = '61000000-0000-0000-0000-000000000003'),
+  (select substring(key from '^[A-Z0-9]+') from public.work_items where id = '61000000-0000-0000-0000-000000000001'),
+  'positive: another project''s item carries another project''s prefix'
+);
+
+select is(
+  (select key from public.work_items where id = '60000000-0000-0000-0000-000000000001'),
+  'RLS-140',
+  'positive: a stated key is left exactly as it was stated'
+);
+
+select throws_ok(
+  $$insert into public.work_items (sprint_id, key, title)
+    values ('50000000-0000-0000-0000-000000000001', 'lowercase-1', 'malformed')$$,
+  '23514',
+  null,
+  'negative: a key that is not PREFIX-number is refused'
+);
+
+select throws_ok(
+  format(
+    $$update public.projects set key_prefix = %L where id = '40000000-0000-0000-0000-000000000002'$$,
+    (select key_prefix from public.projects where id = '40000000-0000-0000-0000-000000000001')
+  ),
+  '23505',
+  null,
+  'negative: two projects cannot share a key prefix'
+);
+
+-- =========================================================================
+-- Slug aliases — a rename must not 404 every bookmark the team has
+-- =========================================================================
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+
+select lives_ok(
+  $$insert into public.project_slug_aliases (slug, project_id)
+    values ('rls-meinevim-old', '40000000-0000-0000-0000-000000000001')$$,
+  'positive: a lead keeps a renamed project''s old address alive'
+);
+
+select throws_ok(
+  $$insert into public.project_slug_aliases (slug, project_id)
+    values ('rls-nile-portal', '40000000-0000-0000-0000-000000000001')$$,
+  '23505',
+  null,
+  'negative: an alias cannot shadow a live project address'
+);
+
+select throws_ok(
+  $$update public.projects set slug = 'rls-meinevim-old'
+    where id = '40000000-0000-0000-0000-000000000002'$$,
+  '23505',
+  null,
+  'negative: a live address cannot take over another project''s alias'
+);
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select throws_ok(
+  $$insert into public.project_slug_aliases (slug, project_id)
+    values ('rls-sneaky', '40000000-0000-0000-0000-000000000001')$$,
+  '42501',
+  null,
+  'negative: an engineer cannot invent a project address'
+);
+
+-- =========================================================================
+-- order_index appends under a lock rather than defaulting to 0
+-- =========================================================================
+
+select pg_temp.act_as_owner();
+
+select is(
+  (select order_index from public.work_items where id = '61000000-0000-0000-0000-000000000002'),
+  (select max(order_index) from public.work_items where sprint_id = '50000000-0000-0000-0000-000000000001'),
+  'positive: an item created without a position lands at the end, not on top of the first one'
+);
+
+insert into public.acceptance_criteria (id, work_item_id, body) values
+  ('71000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000001', 'appended');
+
+select is(
+  (select order_index from public.acceptance_criteria where id = '71000000-0000-0000-0000-000000000001'),
+  1,
+  'positive: a criterion created without a position lands after the one already there'
+);
+
 
 select * from finish();
 rollback;

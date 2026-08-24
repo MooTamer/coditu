@@ -748,3 +748,28 @@ ledger updated in the same commit as the work.
   the component and criteria migrations, `seeds/components.sql` and `seeds/item-components.sql` are
   **local only** — production needs them pushed by hand, in that order, and `07-FIELD-NOTES.md` says
   how.
+
+## The thread-and-earnings brief (`docs/coditu-thread-and-earnings-prompt.md`)
+
+Six workstreams, worked **F first** because F is what decides whether the next sprint can run on this
+app at all. Same rules as everything above: one change at a time, the ledger updated in the same commit
+as the work, the command that proved it recorded beside it.
+
+**How this session verified things, and what it could not.** This ran in a container with **no Docker
+daemon**, so `supabase start`, `npm run db:reset`, `npm run db:test` and `npm run e2e` are all
+unavailable as written — the local Supabase stack, PostgREST and GoTrue included, cannot be started.
+The database layer was verified anyway, on a bare PostgreSQL 16 with pgTAP and a hand-written
+Supabase-shaped bootstrap (roles, `auth.users`, `auth.uid()`, `storage.objects`, the delete guard);
+every migration applies in order against it, the seed loads, and `supabase/tests/*.sql` runs through
+`psql` with the same TAP output `supabase test db` would print. **Playwright could not run at all** —
+`e2e/fixtures.ts` signs in through GoTrue and reads through PostgREST, neither of which exists here.
+Every e2e assertion written for this brief is therefore **written but not executed**, and is marked as
+such in each row below. `docs/07-FIELD-NOTES.md` records how to stand the bare-Postgres harness up
+again.
+
+| Change | Commit | Verification |
+|---|---|---|
+| **`app_settings` — every tunable in one admin-editable row, and no number in a `const`.** The team's standing instruction (*"nothing is hardcoded, everything that is a decision is editable in the interface"*) turned into schema: `hourly_rate_cents`, `payout_share_threshold_pct`, `payout_from_sprint_id`, `usd_egp_rate_micros` + source + fetched-at, `max_image_bytes`, `default_weekly_capacity_minutes`. One row, `check (id = 1)`. `lib/settings.ts` is the only reader, memoised per request with React's `cache` — not `unstable_cache`, because a settings row that goes stale across requests is worse than one query per render. A missing table, missing row and missing column are all the same answer: the default, and a page that renders. ADR in `05-DECISIONS.md` | pending | `db:test` — 6 new assertions: an engineer reads the row and cannot change the rate (a row-filtering policy denies by matching nothing, so the **value** is asserted, never the row count), an admin can, a rate of zero is refused by check, a second row is impossible, and a signed-out caller gets `42501` rather than an empty result because `anon` has no grant anywhere in this app |
+| **A work item's key names its project (§8.4), and a slug outlives its rename (§8.5).** Both were decision gates; both were put to the team and answered. `projects.key_prefix` + `next_key_number` replace the single global `'COD-' || nextval(…)` default, and `assign_work_item_key` derives them from the item's own sprint. **Existing keys are immutable**: MEINEvim keeps `COD` with its counter at 244, Converso becomes `CON`, the other three take their slugs. `project_slug_aliases` keeps every address a project has ever had, `getProjectBySlug` falls back to it, and `guard_slug_namespace` stops a live slug and an alias ever naming two projects. ADR in `05-DECISIONS.md` | pending | `db:test` — 10 new assertions: an unkeyed item takes its own project's prefix, the next takes the next number, another project's item carries another prefix, a stated key is untouched, a malformed key is refused by `work_items_key_shape`, two projects cannot share a prefix, a lead adds an alias, an alias cannot shadow a live address, a live address cannot take over an alias, an engineer cannot invent one. Verified by hand that a **stale counter self-heals** (set to 141, next insert still returned `COD-244`) rather than colliding on the unique index |
+| **`order_index` is assigned by the database.** Every caller read `max(order_index)` and then inserted — a read-modify-write with no lock, which is exactly what ten items created on planning morning is (F4). The default becomes `-1` (not a position), `assign_order_index` appends under `for no key update` on the sprint or item, and `createWorkItem`, `addCriterion` and the Notion importer all stopped computing it. A stated position is still honoured, because the seed's numbering is the order somebody chose | pending | `db:test` — 2 new assertions. Measured rather than assumed: a four-row `insert … select` returns 14, 15, 16, 17, so a BEFORE ROW trigger does see the rows its own statement inserted before it |
+| **F2.1 — clients and projects can be created in the app at last.** There was no `lib/actions/projects.ts` at all: taking on a new client meant writing SQL. Now: create and rename a client (name, https-only website parsed rather than pattern-matched, accent), create a project (client, name, address, key prefix, scope), rename one — which writes the outgoing slug into `project_slug_aliases` in the same call — and archive or restore one. Admin **and** lead, matching the policies that have said so since the first migration; the brief asked for admin-only and the ADR records why that lost. Archive, never delete: `projects.id` cascades to sprints, to items, and to the hours an invoice was built from | pending | `npm run lint`, `npm run typecheck` clean · `npm run test` — 157 · **e2e written but not executed** (no Docker; see the note above) |

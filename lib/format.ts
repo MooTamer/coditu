@@ -75,3 +75,59 @@ export function dateRange(from: string | null, to: string | null): string {
   return `${calendarDate(from)} → ${calendarDate(to)}`;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Money.                                                                     */
+/*                                                                            */
+/* Invariant 2, restated: money is stored in integer minor units — cents for  */
+/* USD, piastres for EGP, rate × 1e6 for the exchange rate. A float never     */
+/* touches a stored value and never touches a sum. THIS FILE is the only      */
+/* place a minor unit is divided, exactly as it is the only place a minute is */
+/* divided. If you find yourself writing `/ 100` anywhere else, the answer is */
+/* here.                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/** How much of a rate an integer micro-unit is. `12_345_678` → 12.345678. */
+export const RATE_MICROS = 1_000_000;
+
+const usd = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const egp = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "EGP",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** 120050 → "$1,200.50". */
+export function usdFromCents(cents: number): string {
+  return usd.format(cents / 100);
+}
+
+/** 120050 piastres → "EGP 1,200.50". */
+export function egpFromPiastres(piastres: number): string {
+  return egp.format(piastres / 100);
+}
+
+/**
+ * Convert cents to piastres at a stored micro-rate, as an integer.
+ *
+ * Both ends are minor units and the rate is an integer, so this is integer
+ * arithmetic all the way through with one rounding at the end — never a chain
+ * of floats. Returns null when there is no rate, because a missing rate must
+ * render as a missing rate; inventing one is the thing E3 forbids.
+ */
+export function piastresFromCents(cents: number, rateMicros: number | null): number | null {
+  if (!rateMicros || !Number.isFinite(rateMicros) || rateMicros <= 0) return null;
+  return Math.round((cents * rateMicros) / RATE_MICROS);
+}
+
+/** 50_860_000 → "50.86". The rate itself, at the render edge. */
+export function rateFromMicros(rateMicros: number): string {
+  return (rateMicros / RATE_MICROS).toFixed(2);
+}
+
