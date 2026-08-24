@@ -32,6 +32,22 @@ import { cn } from "@/lib/utils";
 const GAP = 6;
 const MARGIN = 8;
 
+/**
+ * The two shapes the trigger takes.
+ *
+ * `cell` fills a table cell, taking the padding the `<td>` gave up. `field`
+ * looks like the form controls in the New item dialog and sits in a normal
+ * flow — same popover, same keyboard path, same portal. A second popover
+ * implementation for the dialog would be a second set of Escape, focus and
+ * clipping bugs to find.
+ */
+const TRIGGER: Record<"cell" | "field", string> = {
+  cell: "flex h-full w-full cursor-pointer items-center px-4 text-left",
+  field:
+    "flex h-[38px] w-full cursor-pointer items-center gap-2 rounded-control border " +
+    "border-[var(--hairline-strong)] bg-[var(--canvas)] px-3 text-left text-[14px]",
+};
+
 export function CellPopover({
   label,
   value,
@@ -40,6 +56,7 @@ export function CellPopover({
   align = "start",
   width = 200,
   busy,
+  variant = "cell",
   className,
   children,
 }: {
@@ -53,6 +70,7 @@ export function CellPopover({
   align?: "start" | "end";
   width?: number;
   busy?: boolean;
+  variant?: "cell" | "field";
   className?: string;
   /** The editor. Gets `close` so a chosen option can dismiss the panel. */
   children: (close: () => void) => ReactNode;
@@ -142,7 +160,12 @@ export function CellPopover({
       <span
         title={disabledReason}
         aria-disabled="true"
-        className={cn("flex h-full w-full items-center px-4", className)}
+        className={cn(
+          variant === "cell"
+            ? "flex h-full w-full items-center px-4"
+            : "flex h-[38px] w-full items-center gap-2 rounded-control border border-[var(--hairline)] px-3 text-[14px] text-[var(--ink-muted)]",
+          className
+        )}
       >
         {value}
       </span>
@@ -170,7 +193,7 @@ export function CellPopover({
         // `--ink-faint`, which clears 4.5:1 on `--canvas` by about 0.03, and
         // laying a 10% black wash over it drops it under AA. axe caught it.
         className={cn(
-          "flex h-full w-full cursor-pointer items-center px-4 text-left",
+          TRIGGER[variant],
           "transition-colors duration-[var(--dur-micro)] hover:bg-[var(--canvas)]",
           open && "bg-[var(--canvas)] shadow-[inset_0_0_0_1px_var(--hairline-strong)]",
           className
