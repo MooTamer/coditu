@@ -1205,3 +1205,49 @@ select status, count(*) from public.work_items group by 1 order by 1;
 Locally the whole thing is applied and green: the enum reads in the new vocabulary, the four
 `v_sprint_summary` aliases followed, and the 104 imported items carry the renamed values with no row
 rewritten.
+
+### Verified on production, after the fix shipped
+
+`9f3a890` was pushed to `origin/main` on its own (the rename is deliberately held back — see above) and
+deployed. The exchange rate, which had never once been fetched:
+
+```
+usd_egp_rate_micros  50863906        (50.863906 EGP/USD, an integer — invariant 2)
+usd_egp_source       live
+usd_egp_fetched_at   2026-08-24T18:34:58Z
+```
+
+and the screen now reads `EGP 50.86 / USD · live, 2026-08-24`, which is the format E3 asks for, word
+for word.
+
+With the effective-from sprint set, `/app/earnings` renders the whole of workstream E against real
+data: Week 17, 17.5 h logged, **provisional**, pot `$210.00 / EGP 10,681.42` at `$12.00/h`, the two
+developers with their minutes and shares (77.1% and 22.9%), and a **Confirm distribution** panel that
+pre-ticks only the one at or above 25% — `pre-ticked for anyone who logged 25% or more · split
+equally, not proportionally`, with the pot, the per-person amount and the rate all shown *before* the
+button. E1.5 and E4, working, on the team's own hours.
+
+### `npm run budgets` — the number nobody had measured, and it is over
+
+§7 lists it and it had never been run. It fails:
+
+```
+ok    marketing                own    13.6 KB / 20 KB
+FAIL  app shell (sprint table) own   116.2 KB / 110 KB      (framework floor 140.2 KB)
+```
+
+**This is not new, and it is not from today.** The previous `main` (`dd7a247`) was built in an isolated
+worktree and measures **116.2 KB — byte for byte the same**. Today's commits added nothing to the
+shell. The ledger's last recorded figure was 109.9 KB of 110 KB *before* this brief's work, so the
+brief itself spent the remaining headroom and 6.2 KB more, and shipped without the check being run.
+
+Where it went, by chunk: 65.0 KB is the Supabase client (auth + realtime), 24.8 KB is `dnd-kit` across
+two chunks, 14.7 KB is `lucide`, 14.4 KB is Radix. The intercepted item route
+(`(.)items/[key]`) shares the sprint page's chunk group, so the client components F2 added there —
+comment actions, item fields, the uploading-image node — land in the shell with it.
+
+**Not fixed here, deliberately.** It is a scoped piece of work (moving the item-route islands behind
+`next/dynamic` and re-measuring), it is a pre-existing regression rather than something this session
+introduced, and doing it half-way in the same breath as an enum rename that cannot be deployed
+normally would be the wrong trade. It is written down here with the measurement so the next person
+starts from a number instead of a suspicion.
