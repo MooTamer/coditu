@@ -12,7 +12,26 @@ create extension if not exists pgcrypto with schema extensions;
 create extension if not exists "uuid-ossp" with schema extensions;
 create extension if not exists pgtap with schema extensions;
 
-alter database postgres set search_path = "\$user", public, extensions;
+-- Whatever database this is being loaded into, not one called `postgres`.
+--
+-- `alter database postgres set …` is what this used to say, and it is right
+-- exactly once: the README's walkthrough happens to use `postgres`. Load the
+-- shim into any other database — a rehearsal copy, a second cluster — and the
+-- statement silently configures a database you are not connected to. Nothing
+-- fails until `supabase/seed.sql` reaches `gen_salt('bf')`, which lives in
+-- `extensions` and is suddenly not on the path.
+--
+-- `alter database` takes a name and not an expression, so this is the shape it
+-- has to be. Every migration qualifies its own calls (`extensions.gen_random_uuid()`);
+-- the search_path is for the seed and for anybody typing at a psql prompt.
+do $$
+begin
+  execute format(
+    'alter database %I set search_path = %s, public, extensions',
+    current_database(),
+    quote_literal('$user')
+  );
+end$$;
 
 -- Roles ---------------------------------------------------------------------
 do $$

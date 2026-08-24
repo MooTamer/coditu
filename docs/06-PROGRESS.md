@@ -840,6 +840,22 @@ shipped ahead of its migration, `42703` on every sprint page), so the order belo
 to the running deployment; code that selects a column the database does not have is a 500 on every
 render.
 
+**This list is now a script — `scripts/push-to-hosted.sh`.** One command, the same order, with the
+before-and-after numbers taken automatically and sixteen assertions on the result:
+
+```bash
+scripts/push-to-hosted.sh --db-url 'postgresql://postgres:PASSWORD@db.hayfsvsepgfescojesbd.supabase.co:5432/postgres'
+scripts/push-to-hosted.sh --db-url '…' --verify-only     # checks only, writes nothing
+```
+
+Take the URI from the dashboard (Project Settings → Database → Connection string), direct connection
+or the *session* pooler — not the transaction pooler on 6543, which will not carry DDL in an explicit
+transaction. It never runs `supabase/seed.sql` and never passes `--include-seed`; the three files under
+`supabase/seeds/` go through `psql` individually, which is the only safe way to have the seeds without
+the seed's password.
+
+The list below is what it does, kept because the reasoning is worth more than the invocation.
+
 Carried over from the components work and **still outstanding**:
 
 1. `20260824120000_components.sql`
@@ -853,10 +869,16 @@ New in this brief, in this order:
    `lib/settings.ts` tolerates its absence precisely so the code may ship first if it has to.
 6. `20260825091000_project_keys_and_slugs.sql` — **read the note below before running this one.**
 7. `20260825092000_editable_after_creation.sql`
-8. `20260825093000_stable_image_refs.sql` — this one **rewrites data**. It prints
+8. `20260825093000_stable_image_refs.sql` — this one **rewrites data**. It raises
    `NOTICE: stable image refs: N comments, M criteria rewritten`; **record N and M here when it runs.**
    Locally both are 0, because the Notion import's attachments do not use that path — production is
    where the broken images actually are.
+
+   **The notice will not appear.** `supabase db push` does not surface server notices — measured, not
+   suspected: `grep -c 'stable image refs' push.log` is 0. And the migration is idempotent, so the
+   number is gone the moment it runs; a second pass correctly reports zero. The script therefore
+   **counts both sets before pushing**, with the same shape test the migration uses, and prints them at
+   the end in the form this ledger wants. That count is the number to record.
 9. `20260825094000_reorder_criteria.sql`
 10. `20260825095000_earnings.sql`
 11. `supabase/seeds/developers.sql` — matched on `full_name`, not on email, because production is on the
@@ -872,6 +894,34 @@ select slug, key_prefix, next_key_number from public.projects order by slug;
 -- MEINEvim must keep COD, and its counter must be above the highest COD- key that exists.
 select max(substring(key from '\d+$')::int) from public.work_items where key like 'COD-%';
 ```
+
+Both are assertions in the script rather than queries to read, so the counter landing **below** the
+highest existing key is a red line and not something to notice.
+
+#### The rehearsal — 2026-08-24
+
+The whole sequence was executed against a bare Postgres 16 copy stood up at production's exact
+migration state: shim, the eighteen migrations production already has, the Notion-import seed (104 work
+items, 275 criteria, 67 time entries), and a `supabase_migrations.schema_migrations` holding those
+eighteen versions so `db push` saw the same eight as pending. Four comments were planted carrying the
+C1 bug itself — an expired signed URL, one nested inside a blockquote, one with an extension outside
+the allowlist, and one image from another host entirely.
+
+`supabase db push --db-url` applied all eight migrations, the three seeds loaded, and **all sixteen
+checks passed**. The two recognisable srcs became `/api/attachments/…`; the foreign URL and the
+unrecognised extension were left byte-for-byte alone, which is the behaviour the migration's header
+claims and the first time it has been demonstrated rather than asserted. Pre-flight counted 2
+comments; the migration rewrote 2. The notice appeared nowhere.
+
+**No src the old uploader could have written is one the migration misses.** `uploadCommentImage`
+validated `file.type` against `ALLOWED_IMAGE_TYPES` *before* deriving the extension from it
+(`file.type.split("/")[1]?.replace("jpeg","jpg")`), so the set of extensions that can exist in the
+bucket is exactly `png|jpg|webp|gif|avif`, lowercase — exactly the migration's regex. The `?? "bin"`
+fallback in that line is unreachable. Checked because a single unmatched shape would leave a picture
+permanently dead with nothing saying so.
+
+What the rehearsal does **not** cover: it is bare Postgres, so no PostgREST, no GoTrue, no storage HTTP
+API. It proves the schema, the triggers, the policies and the data rewrite. It does not prove the app.
 
 **Also apply the Vercel side:** nothing new is needed in the environment. `/api/uploads` and
 `/api/attachments/[...path]` use the same anon-key client every other route does.

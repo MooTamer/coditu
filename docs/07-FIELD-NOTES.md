@@ -102,11 +102,36 @@ ahead of its migration, `42703` on every sprint page), and by 2026-08-22 product
 behind — including the fix for a sign-up handing itself `role: admin`.
 
 Applying them is the user's own terminal (the CLI on this machine is logged into a different account
-and gets `403`):
+and gets `403`; a cloud session has no token at all, and the Supabase MCP server needs an interactive
+OAuth round trip it cannot run):
 
 ```bash
 supabase link --project-ref hayfsvsepgfescojesbd && supabase db push
 ```
+
+**Prefer `scripts/push-to-hosted.sh`** — the same push, with the before-and-after numbers taken
+automatically and sixteen assertions on the result. It exists because the list in `06-PROGRESS.md`
+has two steps whose failure is silent, and a checklist read at the end of a long day is the wrong
+shape for those. Rehearsed 2026-08-24 against a bare-Postgres copy stood up at production's exact
+migration state; all eight migrations, all three seeds, all sixteen checks.
+
+**Never `supabase db push --include-seed`.** It runs `supabase/seed.sql`, whose accounts are created
+with `crypt('coditu', …)` — see "The seed password reached production" below, which is what that flag
+did once already. The three files under `supabase/seeds/` are a different thing and are safe; the
+script runs them individually through `psql` for exactly this reason.
+
+### `supabase db push` swallows `raise notice`
+A migration that reports what it did through `raise notice` reports it to nobody: the CLI prints
+`Applying migration …` and its own JSON summary, and the server's notices are not in either. Measured
+directly — `20260825093000_stable_image_refs.sql` raises
+`stable image refs: % comments, % criteria rewritten`, and `grep -c 'stable image refs' push.log`
+returns **0**.
+
+This matters more than it sounds, because a well-written data migration is idempotent, so **the number
+is gone the moment it runs** — a second run correctly finds nothing left to do and reports zero. If a
+migration rewrites rows and you want to know how many, **count them yourself before you push**, with
+the same predicate the migration uses. `scripts/push-to-hosted.sh` does that and cross-checks the
+notice if it ever does appear.
 
 **Checking what production actually has**, read-only, with the service-role key:
 a column — `GET /rest/v1/<table>?select=<col>&limit=1`, `400` means missing; a bucket —
@@ -363,6 +388,26 @@ output `supabase test db` prints.**
 What this does NOT give you: PostgREST, so no `PGRST204` and no e2e; GoTrue, so nothing can sign in;
 storage's HTTP API, so an upload cannot be exercised end to end. Those are the parts a browser needs,
 and a browser needs the stack.
+
+### `alter database postgres` in a bootstrap script configures the wrong database
+`supabase-shim.sql` set the search_path with `alter database postgres set search_path = …`, which is
+correct exactly once — when the database really is called `postgres`, as the walkthrough above happens
+to make it. Load the shim into any other database (a rehearsal copy stood up at production's migration
+state, a second cluster) and the statement succeeds while configuring a database you are not connected
+to. **Nothing fails until `supabase/seed.sql` reaches `gen_salt('bf')`**, which lives in `extensions`
+and is suddenly not on the path — 1,900 lines in, with the projects and work items already inserted
+and everything after them missing.
+
+`alter database` takes a name and not an expression, so the fix is a `do` block with
+`format('alter database %I …', current_database())`. Fixed 2026-08-24; the note stays because the
+shape is general — a bootstrap script that names a database is a bootstrap script that works once.
+
+### `supabase/seed.sql` needs the current migration set, not an older one
+It ends with `select public.rebalance_project_keys();`, which arrives in
+`20260825091000_project_keys_and_slugs.sql`. That is correct for `db reset` (migrations, then seed) and
+it means the seed **cannot** be loaded onto a database held at an older migration state. To rehearse
+against production's state, comment that one line out for the rehearsal copy — do not stub the
+function, or the migration under test will replace a fake and you will have proved nothing.
 
 ### `supabase gen types` needs Docker even with `--db-url`
 It spins up `postgres-meta` in a container regardless, so `npm run db:types` fails with
