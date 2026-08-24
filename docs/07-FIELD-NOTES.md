@@ -413,6 +413,19 @@ route handler; it is not a preference.
 Cap the reported percentage at **99** until the response lands. The last percent belongs to the server
 answering, and a bar sitting at 100 while nothing happens reads as a hang.
 
+### The 16px rule does not reach the editor, because it is not an input
+`app/globals.css`'s coarse-pointer block names `input, select, textarea`. The rich-text surface is a
+`contenteditable` **div**, so it matched nothing — and `.coditu-prose p` re-declared 14px. iOS Safari
+auto-zooms any focusable **editable element** under 16px, `contenteditable` included, and does not zoom
+back out: tapping into the composer on an iPhone left the reader at 1.4x with the sheet off the side of
+the screen. Which is exactly the failure that block exists to prevent, arriving through the one element
+it does not match.
+
+The fix names `.coditu-prose` explicitly, and it is safe to scope it that way because
+`comment-body.tsx` renders a stored comment with its own classes — how a thread READS on a phone is
+untouched, only what you type into is raised. Asserted as a computed style in `mobile.spec.ts`, because
+the whole class of bug is a rule that looks like it applies and does not.
+
 ### Toolbar buttons need `onPointerDown` as well as `onMouseDown`
 The existing note about stored marks is right and incomplete: a synthetic mouse event is **not
 guaranteed** on a touch screen. Safari fires it after a delay and some Android keyboards not at all, so

@@ -779,6 +779,25 @@
     font-size: max(16px, 1em);
   }
 
+  /* --- and the editor, which is none of the three -------------------------
+     A3 of the thread brief says to "confirm the new editor inherits" the rule
+     above. It does not, and the assumption is the interesting part: the rule
+     names `input, select, textarea`, and the rich-text surface is a
+     `contenteditable` **div**. iOS Safari applies the same auto-zoom to any
+     focusable editable element — so `.coditu-prose p { font-size: 14px }` meant
+     tapping into the composer on an iPhone zoomed the page to 1.4x and left it
+     there, which is precisely the failure the block above exists to prevent,
+     arriving through the one element it does not match.
+
+     Scoped to `.coditu-prose`, which is the editor surface and nothing else:
+     `comment-body.tsx` renders a stored comment with its own classes, so how a
+     thread READS on a phone is untouched. Only what you type into is raised. */
+  .coditu-prose,
+  .coditu-prose p,
+  .coditu-prose li {
+    font-size: max(16px, 1em);
+  }
+
   /* --- 44px, on the controls that can afford it -----------------------------
      WCAG 2.5.8 asks for 24px and Apple's guidance asks for 44px; the brief
      asks for 44. Scoped to standalone controls rather than everything: a table

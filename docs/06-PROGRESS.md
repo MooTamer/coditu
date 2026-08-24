@@ -992,3 +992,13 @@ brief touched was walked, not just the editor.
 Two things fixed while walking it: a progress event that landed after the editor unmounted would have
 dispatched into a destroyed ProseMirror view (the abort stops the request, not an event already in
 flight), and a pending time entry and client row looked identical to an idle one.
+
+**One more thing the sweep found, and it is the best kind.** A3 says to "confirm the new editor
+inherits" the 16px coarse-pointer rule. It does not. That rule names `input, select, textarea`, and the
+rich-text surface is a `contenteditable` **div** — so it matched nothing, and `.coditu-prose p`
+re-declared 14px. iOS Safari auto-zooms any focusable editable element under 16px and does not zoom
+back out, so tapping into the composer on an iPhone left the reader at 1.4x with the sheet off the side
+of the screen: the exact failure that block was written to prevent, arriving through the one element it
+does not match. Fixed by naming `.coditu-prose`, which is safe to scope that way because a rendered
+comment uses its own classes — how a thread *reads* on a phone is untouched, only what you type into is
+raised. In `07-FIELD-NOTES.md`, and asserted as a computed style in `mobile.spec.ts`.

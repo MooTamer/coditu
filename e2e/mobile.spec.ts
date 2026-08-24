@@ -501,3 +501,43 @@ test.describe("bold works before there are any words, with a finger", () => {
     expect(small, "a toolbar button is too small to hit").toEqual([]);
   });
 });
+
+/**
+ * The one field the 16px rule does not match.
+ *
+ * `app/globals.css`'s coarse-pointer block names `input, select, textarea`, and
+ * the rich-text surface is a `contenteditable` **div** — so it inherited
+ * nothing, and `.coditu-prose p` re-declared 14px. iOS Safari auto-zooms any
+ * focusable editable element under 16px and does not zoom back out, which is
+ * exactly the failure that block exists to prevent, arriving through the one
+ * element it did not match.
+ *
+ * Asserted as a computed style rather than by eye, because the whole class of
+ * bug is a rule that looks like it applies and does not.
+ */
+test.describe("the editor does not zoom an iPhone in and leave it there", () => {
+  test.use({ sprintTotals: "read" });
+
+  test("every editable surface computes to at least 16px", async ({ adminPage: page }, testInfo) => {
+    const key = SEED.threadPerProject[testInfo.project.name] ?? SEED.thread;
+    await page.goto(`${SEED.sprint}/items/${key}`);
+    await page.getByRole("button", { name: /Write a comment/ }).click();
+    await expect(page.getByRole("textbox", { name: "Comment" })).toBeVisible();
+
+    const tooSmall = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '.coditu-prose, .coditu-prose p, input, select, textarea'
+        ),
+      ]
+        .filter((el) => el.getBoundingClientRect().height > 0)
+        .map((el) => ({
+          what: el.tagName.toLowerCase() + (el.className ? `.${String(el.className).split(" ")[0]}` : ""),
+          size: parseFloat(getComputedStyle(el).fontSize),
+        }))
+        .filter((row) => row.size < 16)
+    );
+
+    expect(tooSmall, "a field under 16px will zoom mobile Safari in").toEqual([]);
+  });
+});
