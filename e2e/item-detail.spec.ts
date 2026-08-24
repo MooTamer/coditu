@@ -1,4 +1,4 @@
-import { SEED, expect, query, test } from "./fixtures";
+import { SEED, auditA11y, expect, query, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
 const ITEM = `${SPRINT}/items/COD-229`;
@@ -255,5 +255,143 @@ test.describe("item detail", () => {
     const html = await (await page.request.get("/app/projects/nile-atelier/sprints/1/items/COD-229")).text();
     expect(html).toMatch(/name="next-error"[^>]*content="not-found"/);
     await expect(page.getByText("Add optional titles to all webparts")).toHaveCount(0);
+  });
+});
+
+/**
+ * The controls this brief added, on whatever device is running.
+ *
+ * These live HERE rather than in `editable.spec.ts` for one reason and it is
+ * the reason §0.2 of the thread brief spells out: `item-detail.spec.ts` is on
+ * `ON_A_PHONE` in `playwright.config.ts` and `editable.spec.ts` is not. A phone
+ * assertion written into a chromium-only file is a test that silently never
+ * executes on a phone, which is worse than no test because it reads as
+ * coverage.
+ */
+test.describe("the item's own words, and the two targets that must not overlap", () => {
+  test.use({ sprintTotals: "read" });
+
+  test("the tick and the body are separate targets, both reachable with a thumb", async ({
+    adminPage: page,
+  }) => {
+    await page.goto(`${SEED.sprint}/items/${SEED.grouped}`);
+
+    const tick = page.getByRole("checkbox").first();
+    const body = page.getByRole("button", { name: /^Edit: / }).first();
+    await expect(tick).toBeVisible();
+    await expect(body).toBeVisible();
+
+    const tickBox = await tick.boundingBox();
+    const bodyBox = await body.boundingBox();
+    expect(tickBox, "the tick has no box").not.toBeNull();
+    expect(bodyBox, "the body has no box").not.toBeNull();
+
+    // They must not overlap horizontally, or a tap on the words ticks the box —
+    // which is the behaviour change B5 asks for and the reason the row stopped
+    // being one big button.
+    expect(tickBox!.x + tickBox!.width).toBeLessThanOrEqual(bodyBox!.x + 1);
+
+    // On a coarse pointer both clear 44px. On a mouse the tick is 24px, which
+    // is what WCAG 2.5.8 asks for, so the floor depends on the device.
+    const coarse = await page.evaluate(() => matchMedia("(pointer: coarse)").matches);
+    const floor = coarse ? 43.5 : 23.5;
+    expect(tickBox!.height, "the tick is too small to hit").toBeGreaterThanOrEqual(floor);
+    expect(bodyBox!.height, "the body is too small to hit").toBeGreaterThanOrEqual(floor);
+  });
+
+  test("tapping the words opens the editor and does not tick the box", async ({
+    adminPage: page,
+  }) => {
+    await page.goto(`${SEED.sprint}/items/${SEED.grouped}`);
+    const tick = page.getByRole("checkbox").first();
+    const before = await tick.getAttribute("aria-checked");
+
+    await page.getByRole("button", { name: /^Edit: / }).first().tap({ timeout: 5000 }).catch(async () => {
+      // `tap` needs `hasTouch`; on chromium this file also runs without it.
+      await page.getByRole("button", { name: /^Edit: / }).first().click();
+    });
+
+    await expect(page.getByRole("textbox", { name: "Acceptance criterion" })).toBeVisible();
+    await expect(tick).toHaveAttribute("aria-checked", before ?? "false");
+
+    // Esc reverts and closes, and does NOT take the item dialog with it.
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("textbox", { name: "Acceptance criterion" })).toHaveCount(0);
+  });
+
+  test("the criteria ring carries its count in text, not only as a shape", async ({
+    adminPage: page,
+  }) => {
+    await page.goto(`${SEED.sprint}/items/${SEED.grouped}`);
+    // A finger cannot open a tooltip, so the number has to be in the
+    // accessible name — the mistake already recorded for per-person load.
+    await expect(
+      page.getByRole("img", { name: /\d+ of \d+ acceptance criteria done/ })
+    ).toBeVisible();
+  });
+
+  test("a lead can correct the title from the item, at any width", async ({ adminPage: page }) => {
+    await page.goto(`${SEED.sprint}/items/${SEED.grouped}`);
+    const edit = page.getByRole("button", { name: "Edit the title" });
+    await expect(edit).toBeVisible();
+
+    const box = await edit.boundingBox();
+    const coarse = await page.evaluate(() => matchMedia("(pointer: coarse)").matches);
+    if (coarse) expect(box!.height).toBeGreaterThanOrEqual(43.5);
+
+    await edit.click();
+    await expect(page.getByLabel("Title")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(page.getByLabel("Title")).toHaveCount(0);
+  });
+
+  test("axe is clean with the criterion editor open", async ({ adminPage: page }) => {
+    await page.goto(`${SEED.sprint}/items/${SEED.grouped}`);
+    await page.getByRole("button", { name: /^Edit: / }).first().click();
+    await expect(page.getByRole("textbox", { name: "Acceptance criterion" })).toBeVisible();
+    // The editor is a `contenteditable`, which is a generic element to axe —
+    // `role="textbox"` is what makes its label legitimate, and the rule only
+    // fires while it is EMPTY, which is why this audits before typing.
+    expect(await auditA11y(page, "main")).toEqual([]);
+  });
+});
+
+test.describe("the link popover, inside the sheet", () => {
+  test.use({ sprintTotals: "read" });
+
+  test("it is not clipped by the scroll container, and Escape closes only it", async ({
+    adminPage: page,
+  }) => {
+    // The claim in `rich-text-editor.client.tsx` is that the composer is not
+    // inside a scroll container that would clip an anchored popover. This is
+    // that claim, verified in the sheet, with the composer scrolled to the
+    // bottom of a thread — which is the case the comment was written about.
+    await page.goto(`${SEED.sprint}/items/${SEED.thread}`);
+    await page.getByRole("button", { name: /Write a comment/ }).click();
+
+    const editor = page.getByRole("textbox", { name: "Comment" });
+    await expect(editor).toBeVisible();
+    await editor.scrollIntoViewIfNeeded();
+
+    await page.getByRole("button", { name: "Link" }).click();
+    const box = page.getByRole("textbox", { name: /^Link$/ }).or(page.locator('input[type="url"]')).first();
+    await expect(box).toBeVisible();
+
+    const popover = await box.boundingBox();
+    const viewport = page.viewportSize()!;
+    expect(popover, "the link box has no box").not.toBeNull();
+    expect(popover!.x, "the link box is clipped on the left").toBeGreaterThanOrEqual(0);
+    expect(
+      popover!.x + popover!.width,
+      "the link box is clipped on the right"
+    ).toBeLessThanOrEqual(viewport.width + 1);
+    expect(popover!.y + popover!.height, "the link box is below the fold").toBeLessThanOrEqual(
+      viewport.height + 1
+    );
+
+    // One Escape closes the popover. It must NOT close the item behind it.
+    await page.keyboard.press("Escape");
+    await expect(box).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Comment" })).toBeVisible();
   });
 });

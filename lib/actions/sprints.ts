@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { isMissingColumn } from "@/lib/supabase/schema";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { SPRINT_STATUSES } from "@/lib/work-items";
@@ -51,7 +52,7 @@ async function resolveWritableSprint(sprintId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("sprints")
-    .select("id, number, name, status, starts_on, ends_on, projects!inner ( id, slug )")
+    .select("id, number, name, status, starts_on, ends_on, goal, projects!inner ( id, slug )")
     .eq("id", sprintId)
     .maybeSingle();
 
@@ -130,6 +131,15 @@ const createInput = z.object({
   name: z.string().trim().min(1, "A sprint needs a name.").max(120),
   startsOn: calendarDate.nullable().optional(),
   endsOn: calendarDate.nullable().optional(),
+  /**
+   * The one sentence the sprint is for.
+   *
+   * `sprints.goal` has been in the schema since the first migration and nothing
+   * had ever written or rendered it — `grep -rn goal components/app app/app`
+   * returned nothing at all. A whole column no code path could reach, and a
+   * sprint goal is the first thing anybody types on planning day.
+   */
+  goal: z.string().trim().max(500).nullable().optional(),
 });
 
 /**
@@ -174,6 +184,7 @@ export async function createSprint(input: unknown): Promise<SprintResult> {
       name: parsed.data.name,
       starts_on: startsOn ?? null,
       ends_on: endsOn ?? null,
+      goal: parsed.data.goal?.length ? parsed.data.goal : null,
     })
     .select("number")
     .single();
@@ -199,6 +210,7 @@ const updateInput = z.object({
   name: z.string().trim().min(1, "A sprint needs a name.").max(120).optional(),
   startsOn: calendarDate.nullable().optional(),
   endsOn: calendarDate.nullable().optional(),
+  goal: z.string().trim().max(500).nullable().optional(),
 });
 
 export async function updateSprint(input: unknown): Promise<SprintResult> {
@@ -218,10 +230,13 @@ export async function updateSprint(input: unknown): Promise<SprintResult> {
     return { ok: false, error: "A sprint cannot end before it starts." };
   }
 
-  const patch: { name?: string; starts_on?: string | null; ends_on?: string | null } = {};
+  const patch: TablesUpdate<"sprints"> = {};
   if (parsed.data.name !== undefined) patch.name = parsed.data.name;
   if (parsed.data.startsOn !== undefined) patch.starts_on = parsed.data.startsOn;
   if (parsed.data.endsOn !== undefined) patch.ends_on = parsed.data.endsOn;
+  // An emptied goal is null, not "". The header asks "is there a goal?" and an
+  // empty string answers yes.
+  if (parsed.data.goal !== undefined) patch.goal = parsed.data.goal?.length ? parsed.data.goal : null;
   if (Object.keys(patch).length === 0) return { ok: true };
 
   const { error } = await scope.supabase.from("sprints").update(patch).eq("id", scope.sprint.id);
@@ -319,6 +334,29 @@ export async function deleteSprint(input: unknown): Promise<SprintResult> {
     return {
       ok: false,
       error: `${scope.sprint.name} still holds ${count} ${count === 1 ? "item" : "items"}. Move or delete them first.`,
+    };
+  }
+
+  // And the ones in the bin, which the count above cannot see.
+  //
+  // The read policy hides a soft-deleted item from every SELECT this app can
+  // make — that is the point of it — so a sprint holding nothing BUT deleted
+  // items counts zero here and would look empty. Deleting it cascades them
+  // away for real, and their time entries with them, which is hours somebody
+  // logged disappearing behind a control labelled "delete an empty sprint".
+  const { data: binned } = await scope.supabase.rpc("list_deleted_work_items", {
+    p_sprint_id: scope.sprint.id,
+  });
+
+  if ((binned ?? []).length > 0) {
+    const n = (binned ?? []).length;
+    const minutes = (binned ?? []).reduce((total, row) => total + (row.minutes_logged ?? 0), 0);
+    return {
+      ok: false,
+      error:
+        `${scope.sprint.name} still holds ${n} deleted ${n === 1 ? "item" : "items"}` +
+        (minutes > 0 ? ` carrying ${(minutes / 60).toFixed(1)} h` : "") +
+        ". Restore them, or move them, before deleting the sprint.",
     };
   }
 

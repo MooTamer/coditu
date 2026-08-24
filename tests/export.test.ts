@@ -241,3 +241,76 @@ describe("scoping — one client's work can never appear under another's", () =>
     expect(exportSlug(mismatched)).toBe("nile-atelier-sprint-17");
   });
 });
+
+/**
+ * A criterion that is a picture, in a client-facing export.
+ *
+ * B4 of the thread brief asks the question directly: *"The flattened `body` for
+ * an image-only criterion is `[image: alt]` — check what that does to the CSV
+ * and the PDF and record the answer."*
+ *
+ * The answer, asserted here rather than reasoned about: **it renders as
+ * `[image: alt]`, in both, and that is the right outcome.**
+ *
+ * - It is **honest**. The criterion exists, it is ticked or it is not, and its
+ *   content is a screenshot the client is not being sent. "There is a picture
+ *   here called X" is exactly what happened.
+ * - It **cannot corrupt the file.** `criterionText` collapses newlines on the
+ *   way in, so a `- [ ] …` line in Markdown cannot split into a list item and a
+ *   stray paragraph, and a CSV cell cannot break its row. Square brackets need
+ *   no quoting in either format.
+ * - It **does not change the contract.** `docs/04-EXPORT-SPEC.md` says a
+ *   criterion exports as its text. A criterion whose text is `[image: …]`
+ *   exports as its text.
+ *
+ * The alternative — embedding the image, or a link to it — was rejected: the
+ * attachment route requires a session, so a link in a client's CSV would be a
+ * 401 with the client's name on it, and that IS a change to the contract, which
+ * is decision gate §8.2 and not ours to make.
+ */
+describe("a criterion that is only a picture", () => {
+  const withPicture = (): ExportPayload => ({
+    ...EXPORT_FIXTURE,
+    items: [
+      {
+        ...EXPORT_FIXTURE.items[0],
+        criteria: [
+          // Exactly what `flattenToText` produces for an image node, and what
+          // `criterionText` therefore stores in `acceptance_criteria.body`.
+          { body: "[image: settings-panel.png]", isDone: true },
+          { body: "[image]", isDone: false },
+        ],
+      },
+    ],
+  });
+
+  it("survives the CSV as its text, with the row intact", () => {
+    const csv = generateCsv(withPicture());
+    const rows = csv.trimEnd().split("\n");
+    expect(rows).toHaveLength(2); // header + one item, so nothing split a row
+    expect(csv).toContain("[image: settings-panel.png]");
+    expect(csv).toContain("[image]");
+  });
+
+  it("survives the Markdown as one checklist line each", () => {
+    const markdown = generateMarkdown(withPicture());
+    expect(markdown).toContain("- [x] [image: settings-panel.png]");
+    expect(markdown).toContain("- [ ] [image]");
+    // The line count is the thing that would break: a stored newline turns one
+    // criterion into a list item plus a stray paragraph.
+    const lines = markdown.split("\n").filter((line) => line.startsWith("- ["));
+    expect(lines).toHaveLength(2);
+  });
+
+  it("carries no link into a client's file", () => {
+    // `/api/attachments/…` needs a session. A link to it in a client's export
+    // is a 401 with the client's name on it, and adding one is a change to
+    // `04-EXPORT-SPEC.md` — decision gate §8.2, not ours to make.
+    const csv = generateCsv(withPicture());
+    const markdown = generateMarkdown(withPicture());
+    for (const output of [csv, markdown]) {
+      expect(output).not.toContain("/api/attachments");
+      expect(output).not.toContain("storage/v1/object");
+    }
+  });
+});

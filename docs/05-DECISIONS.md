@@ -1939,3 +1939,321 @@ capture phase so it closes the picture and leaves the item open.
 `aria-multiline`. A `contenteditable` div is a generic element to axe and `aria-label` on a generic
 element is prohibited — the rule had never fired only because the existing audit types into the
 composer before it runs, and an empty editor is the common state.
+
+---
+
+## 2026-08-25 · `app_settings` is where every tunable lives, and why nothing is a constant
+
+**Decision.** A single-row `public.app_settings` table holds the hourly rate, the payout share
+threshold, the effective-from sprint, the USD→EGP rate and its source, the image upload cap, and the
+default weekly capacity. `lib/settings.ts` is the only thing that reads it, once per request through
+React's `cache`. An admin edits every one of them from `/app/settings`.
+
+**Who asked.** The team, 2026-08-24: *"nothing is hardcoded, everything that is a decision is editable
+in the interface."* That instruction outranks convenience, and it has a sharp edge: a rate in a `const`
+is a change request that needs a deploy, and this team deploys their own tool. Every number the thread
+brief names — $12 an hour, 25%, 8 MB, 2400 minutes — is the **initial value of a setting**, not a
+constant, and the migration's `default` is the only place those digits appear.
+
+**Why one row.** A second row would immediately raise "which one is live?" and the honest answer would
+be "whichever the query ordered first". `check (id = 1)` makes the question unaskable.
+
+**Why every reader still carries the default.** The hosted database is behind local and always has
+been. `lib/settings.ts` treats a missing table, a missing row and a missing column as one answer — use
+the default, render the page — because a sprint page that 500s over an unreadable image cap is the
+`sprints.notes_written_at` outage a second time. The defaults in TypeScript are byte-for-byte the
+migration's, and changing one without the other is the bug this note exists to prevent.
+
+**Rejected.** Per-project settings (these are decisions about Coditu, not about a client). Environment
+variables (a deploy to change a rate is the thing being removed). `unstable_cache` / `'use cache'`
+around the read (a settings row that goes stale across requests is worse than one query per render,
+and nothing else in this repo uses either primitive — Next 16 has moved that ground more than once).
+
+---
+
+## 2026-08-25 · A work item's key names its project (§8.4), and a slug outlives its rename (§8.5)
+
+**Asked and answered by the team, 2026-08-25.** Both were decision gates in the thread brief; neither
+was resolved on our own judgement.
+
+### The key prefix — per project
+
+`work_items.key` defaulted to `'COD-' || nextval(work_item_key_seq)`: one global sequence, so every
+project's items were `COD-nnn` whoever the client was. Now `projects.key_prefix` and
+`projects.next_key_number` carry it, and `assign_work_item_key` derives both from the item's own sprint
+— invariant 1, in a trigger.
+
+**Existing keys are immutable.** They are in comments, in exports and in people's memories. So the
+project owning the most `COD-` items keeps `COD` (MEINEvim, locally and in production), everybody else
+takes a prefix derived from their slug, and each counter starts above the highest number that prefix
+has ever issued — across every project, because `COD-243` belongs to Converso while `COD` belongs to
+MEINEvim.
+
+**Why a column and not a sequence per project.** A sequence per project is DDL at runtime. A column
+advanced by `update … returning` takes a row lock, which is exactly the serialisation that makes ten
+items created on planning morning impossible to collide. The trigger loops until the key is free, so a
+counter that is behind — an import that stated its own keys, a restore — heals instead of failing on
+the unique index with a message nobody can act on.
+
+**`work_item_key_seq` stays.** The seed and `scripts/import-notion-export.mjs` both `setval` it and
+`supabase/tests/seed.sql` asserts on it. It is no longer how a key is issued.
+
+### The slug — keep the old one as a redirect
+
+Every slug a project has ever had is kept in `project_slug_aliases`, and `getProjectBySlug` falls back
+to it when the live lookup misses. A rename therefore breaks no bookmark, no pasted link and nobody's
+address bar. The alias lookup only runs on the requests that would otherwise 404.
+
+A live slug and an alias share one namespace, enforced by `guard_slug_namespace` on both tables — two
+answers to "which project is `/app/projects/x`?" is the failure this feature would otherwise introduce.
+Renaming *back* to a previous slug deletes the now-redundant alias rather than colliding with it.
+
+**Rejected.** Refusing the rename outright (the name is the thing people get wrong on day one, and
+making it permanent means archiving and recreating a project to fix a typo). Rewriting existing keys to
+a new prefix (they are in exports a client has already read).
+
+---
+
+## 2026-08-25 · `order_index` is assigned by the database, not by a read-then-write
+
+**Decision.** `work_items.order_index` and `acceptance_criteria.order_index` default to `-1`, which is
+not a position, and `assign_order_index` replaces any negative value with `max + 1` under a row lock on
+the parent sprint or item.
+
+**Why.** Every caller did `select max(order_index)` and then inserted. That is a read-modify-write with
+no lock in the middle, and planning day is precisely when ten items get created in one sitting — F4 of
+the thread brief names it. The old default was `0`, which is a real position, so "I did not say" and
+"put it first" were the same value and neither caller could express the other.
+
+The lock is `for no key update`: the weakest one that still serialises two inserts against each other,
+and it blocks neither readers nor an update to the sprint's own columns. A stated position is left
+alone, which is what the seed and the Notion importer need — their numbering is the order somebody
+chose.
+
+**Measured, not assumed:** a four-row `insert … select` gets 14, 15, 16, 17, because a BEFORE ROW
+trigger sees the rows the same statement inserted before it.
+
+---
+
+## 2026-08-25 · Creating a client or a project is a lead's call, not an admin's
+
+**Decision.** `lib/actions/projects.ts` admits admin **and** lead, matching the `leads insert clients`
+/ `leads insert projects` policies that have been in `20260820120600_rls.sql` since the first
+migration.
+
+**Why this is written down.** The thread brief asked for admin-only. The database has said
+admin-or-lead from the start, and a lead who may open a sprint, create work items and reorder a
+backlog but not the project those sprints belong to is a line nobody drew on purpose. Narrowing the
+action while leaving the policy open would also put the rule in the one place a future reader does not
+look. Correctness over the brief, recorded here as `CLAUDE.md` requires.
+
+**Not widened.** An engineer still cannot. And archiving is used in place of the delete policy that
+exists on the table: `projects.id` cascades to sprints, to items, and to the hours logged against them,
+which are what an invoice was built from.
+
+---
+
+## 2026-08-25 · A document stores a path, not a signed URL (C1)
+
+**The bug, first, because the decision only makes sense next to it.**
+`uploadCommentImage` uploaded to the private `comment-images` bucket and returned a **signed URL with a
+one-hour expiry**. The editor stored that string verbatim inside `body_json`. An hour later the image
+was dead — permanently, because the document held the expired string — and nothing anywhere said so:
+the `<img>` simply failed. Every screenshot posted to this app before today is already broken or on its
+way there.
+
+**Decision.** A document stores `/api/attachments/<profile>/<uuid>.<ext>`: a same-origin path that
+never expires. `app/api/attachments/[...path]/route.ts` re-checks `is_active_member` on **every**
+request, matches the path against the exact shape this app writes rather than sanitising it, names the
+bucket as a constant so no request can pick another, and 307s to a five-minute signed URL.
+
+**Why the allowlist did not have to change.** `isSafeImageSrc` has always accepted same-origin `/…`
+paths. `lib/comments/schema.ts` is untouched, and `comment-body.tsx` is still the one place that walks
+stored JSON.
+
+**Why a redirect and not a stream.** The bytes go straight from storage to the browser instead of
+through this server twice. On a hosted deployment that is the difference between an image and a bill.
+
+**Caching.** `private, max-age=120` and `Vary: Cookie`, never `public` — a client's work screenshot
+must not land in a shared CDN cache where the next reader gets it with no session. The browser TTL is
+deliberately shorter than the signature's, so a cached redirect cannot outlive the URL it points at.
+
+**The documents that already exist** are rewritten by `20260825093000_stable_image_refs.sql`:
+idempotent, re-runnable, and a document it does not recognise is left byte-for-byte alone.
+
+**Rejected.** Making the bucket public (a client's screenshots would be readable by URL for ever).
+Re-signing at read time inside `comment-body.tsx` (it is a Server Component, so it *could* — and then
+the security boundary would also be doing IO, which is the last place that belongs). A longer expiry
+(one hour was already too short by definition; any finite number is).
+
+---
+
+## 2026-08-25 · Upload is a route handler, because `fetch` cannot report progress (C3)
+
+**Decision.** `POST /api/uploads`, driven by `XMLHttpRequest` from the editor, replacing the Server
+Action. A placeholder node goes into the document at the caret carrying a local preview of the file,
+and fills as the bytes go.
+
+**Why.** A Server Action call is a `fetch`, and no browser reports **upload** progress on one. The old
+feedback was `uploading…` in the toolbar corner: it did not say which image, how far, or where the
+picture would land, so an 8MB screenshot on a hotel connection looked exactly like a hang — which is
+the moment somebody pastes it again and ends up with two.
+
+**Why the placeholder is a node and not an overlay.** It is the picture, in the place it will occupy,
+at its own aspect ratio, so nothing about the layout moves when it resolves. On failure it is removed
+entirely — no broken image, no orphan — and the reason is said out loud. It can never be stored:
+`parseHTML` returns nothing, `renderHTML` emits an empty div, and the composer refuses to submit while
+one is present, with a sentence rather than a silent strip.
+
+**The intrinsic size is read on the server**, out of the file's own header, because a client-supplied
+dimension is a claim and a claim that drives layout can distort it. AVIF returns null rather than a
+guess, and every reader tolerates null — every image posted before today has none.
+
+**HEIC is refused by name**, with the iPhone setting that fixes it. Transcoding would pull a native
+dependency into this app for a case iOS usually converts away on upload; "Images only — PNG, JPEG,
+WebP, GIF or AVIF" is useless to somebody holding a phone that calls it a photo.
+
+---
+
+## 2026-08-25 · Done criteria sink at the render edge, never in `order_index` (D1)
+
+**Decision.** The list's sort key is `(is_done, order_index)`, applied in the component. `order_index`
+is never rewritten by a tick.
+
+**Why.** Ticking a box must not rewrite somebody's manual ordering, and un-ticking has to return the
+criterion to exactly the position it held before — which it does, trivially, because the position was
+never touched. Writing the sort would make a tick a reorder, and a reorder is a lead's decision.
+
+**The optimistic state sorts by the same key the server does**, or the row jumps once on tick and again
+on refresh — which reads as the write having failed and then succeeded.
+
+**Dragging across the done boundary is refused** with a sentence rather than silently reinterpreted:
+the two groups are separate readings of one list, and dropping an undone criterion below a done one
+would write an order the render-edge sort immediately undoes.
+
+**The export order is `order_index`, always.** "Done last" is a reading affordance for the team; the
+CSV, the Markdown and the client PDF are a contract and `docs/04-EXPORT-SPEC.md` is unchanged.
+
+---
+
+## 2026-08-25 · The earnings model, and why it does not break invariant 1 (E6)
+
+Invariant 1 says nothing is global and no query may return an item outside the active project's scope.
+Earnings aggregate **across** projects — a person's money is the sum of their shares in every sprint
+they worked.
+
+**The resolution:**
+
+> The earnings model aggregates **sprint-level totals, never work items**. `/app/earnings` lists
+> sprints and money; it does not list, link to, or leak a single item title, key, client name or
+> component. Each sprint row is still scoped to its own project by construction. Invariant 1 is about
+> items; this view never touches one.
+
+`v_sprint_minutes` aggregates by `(sprint, person)` and `lib/data/earnings.ts` selects no `work_items`
+column at all. If a design draft ever starts wanting to show "which items made this money", the answer
+is no — that is the invariant talking.
+
+**Money appears on exactly two screens**, `/app/earnings` and a card on `/app/settings`, and the
+boundary is asserted twice: a rendered assertion over every shared screen on a sprint that *has* a
+confirmed payout, and a source-level grep proving no client-facing file can reach a figure. The second
+one is red-green checked. The link is in the account menu and the phone's More sheet and deliberately
+**not** in the rail or the top bar — those are visible on every screen that gets shared.
+
+**Rejected.** A per-person earnings page linked from People (People is a screen an admin shows somebody
+while sitting next to them). Putting the hours-to-money conversion in the sprint header behind a role
+check (a role check is a thing that can be got wrong once; not importing the module cannot).
+
+---
+
+## 2026-08-25 · A confirmed payout snapshots its rate, and is append-only (E3, E4)
+
+**Decision.** `sprint_payouts` stores `total_minutes`, `hourly_rate_cents`, `pot_cents`,
+`usd_egp_rate_micros` and `usd_egp_source` **at the moment of confirmation**, and none of them may ever
+be updated. A later confirmation writes a new row and marks the old one superseded; the old row is
+never rewritten and never deleted.
+
+**Why.** A number a person has agreed to is a record, not a live calculation — the same principle as
+`sprints.notes_written_at`. Somebody was paid against that figure. A confirmed sprint's EGP amount
+moving overnight because the pound moved is the single most corrosive thing this feature could do.
+
+**Enforced in the database, not in the action:** `guard_payout_immutable` refuses a change to any
+column but `superseded_at`/`superseded_by`, and refuses to un-supersede. A partial unique index allows
+at most one live payout per sprint, so two admins confirming at once means one of them loses and gets
+a sentence rather than a Postgres error.
+
+**When the minutes change afterwards** the confirmation goes stale **loudly** — a banner naming how
+much moved — and keeps showing its own figures. It does not silently recompute. `updateTimeEntry` and
+`deleteTimeEntry` revalidate `/app/earnings` in the same call, which is what makes the banner appear;
+wiring that later would have left two features individually correct and jointly wrong.
+
+**The live rate never blocks a render.** The stored value is the source of truth for rendering; the
+fetch only ever updates it, daily at most, from `after()` once the response is on the wire. Deliberately
+no `unstable_cache` and no `'use cache'`: nothing in this repo uses either, Next 16 has moved that
+ground more than once, and a `revalidate`d fetch would leave a cold instance rendering with no rate at
+all — the exact failure being designed out.
+
+---
+
+## 2026-08-25 · The assignee and the reviewer may rewrite a criterion's body (§8)
+
+**Who asked, and in what words.** The team, 2026-08-24: *"everything important should be editable, we
+are developers, don't lock anything as hardcoded."*
+
+**Decision.** The set that may already tick a criterion — the assignee and the reviewer — may now say
+what the box says. **Insert and delete stay with admin and lead**, so the shape of the scope is still a
+lead's call; the wording of one line is not.
+
+`guard_criteria_columns` no longer names `body` or `body_json`; it names `work_item_id` and
+`order_index`, which are the two that move a criterion rather than edit it. The row policy is unchanged
+and is what restricts an engineer to criteria on items they own or review — an unrelated engineer's
+write still matches no row.
+
+**Recorded here because it is an auth-model change**, and `CLAUDE.md` says to ask before making one.
+The next reader will want to know who asked, which is the whole point of this entry.
+
+**pgTAP both ways:** an assignee rewrites a body and cannot reorder or re-parent it; an engineer on
+neither end of the item changes nothing.
+
+---
+
+## 2026-08-25 · The image viewer traverses the item (§8.1)
+
+**Asked and answered by the team, 2026-08-25: in scope.**
+
+Left/right arrows and a one-finger horizontal swipe move between every image in the item — criteria
+screenshots and thread screenshots are one gallery, in document order — and a downward swipe closes.
+
+**Pinch is deliberately untouched.** No `touch-action: none`, and a second finger abandons the swipe
+tracker entirely. Zooming into a screenshot of somebody's SCSS is the most useful thing this viewer
+does on a phone, and trapping the gesture to implement a worse version of it is a bad trade.
+
+**The slide list is read out of the DOM**, not threaded through a React context. The thread is rendered
+on the server — `comment-body.tsx` is the security boundary and stays there — so a context would
+require every image to register itself on mount and would still be wrong for the frames before it did.
+The DOM already holds the answer, in the right order, and it is correct the instant somebody clicks.
+
+---
+
+## 2026-08-25 · The ring keeps its number, and the track got a token of its own (D2)
+
+**The brief said replace `3/5` with a ring. It also said: "Contrast on a grouping-tinted row… Recompute, do not assume."** So it was recomputed, and the recomputation changed the answer.
+
+Measured, at the worst of four background layers (`--raised` and `--canvas`, each plain and under each grouping tint), in both themes:
+
+| | light | dark |
+|---|---|---|
+| Track at `--hairline-strong` | **1.47:1** | **1.37:1** |
+| Arc, blue stop `#2B57FF` | 4.44:1 | 3.25:1 |
+| Arc, teal stop `#21E2C6` | **1.36:1** | 10.61:1 |
+
+Two findings, and the second is the one that matters.
+
+**The track was invisible.** A ring's track is a non-text graphical object, so the bar is WCAG 1.4.11 at 3:1, and 1.47:1 is not a track, it is a ring that reads as a floating arc. `--ring-track` is a new token computed for exactly this: 48% ink in light (**3.26:1**), 34% white in dark (**3.01:1**).
+
+**The teal half of the gradient is invisible on a light surface, which is the default theme.** At 1.36:1 a mostly-complete ring's tail simply is not there for anybody who is not looking hard. `role="img"` and an `aria-label` cover a screen reader and do **nothing** for low vision.
+
+**Decision: the count stays rendered as text beside the ring**, on the table, the board cards and the mobile cards. The ring is the at-a-glance shape; the number is the information. That makes the graphic supplementary rather than "required to understand the content", which is the 1.4.11 exception, and it is true rather than argued.
+
+**This costs the sticky Task column about 18px, and the brief asked it not to spend that** ("it does not make the sticky Task column wider — measure"). The ring is 14px there rather than 17 to pay some of it back. `CLAUDE.md`'s rule is that on **correctness** correctness wins and it gets recorded, so this is the record. If the team would rather have the pixels, the change is one span in `sprint-table.client.tsx` — but they should read the 1.36:1 first.
+
+**Not changed:** the gradient itself. `signal-gradient` is a brand asset and the design bundle wins on a colour. What it is *used for* is the thing that moved.

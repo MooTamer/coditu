@@ -2,13 +2,18 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, LogOut } from "lucide-react";
 
+import { AdminSettings } from "@/components/app/admin-settings.client";
 import { AvatarSettings } from "@/components/app/avatar-settings.client";
 import { NameSettings } from "@/components/app/name-settings.client";
 import { PushSettings } from "@/components/app/push-settings.client";
 import { Mono } from "@/components/coditu/mono";
 import { Reveal } from "@/components/motion/reveal";
 import { signOut } from "@/lib/actions/auth";
-import { getCurrentProfile } from "@/lib/supabase/server";
+import { getMyEarnings } from "@/lib/data/earnings";
+import { listTeam } from "@/lib/data/profiles";
+import { createClient, getCurrentProfile } from "@/lib/supabase/server";
+import { getAppSettings } from "@/lib/settings";
+import { timestamp, usdFromCents } from "@/lib/format";
 
 export const metadata = { title: "Settings" };
 
@@ -31,6 +36,24 @@ export const metadata = { title: "Settings" };
 export default async function Page() {
   const profile = await getCurrentProfile();
   if (!profile) notFound();
+
+  const isAdmin = profile.role === "admin";
+  const [settings, mine, team] = await Promise.all([
+    getAppSettings(),
+    getMyEarnings(),
+    isAdmin ? listTeam() : Promise.resolve([]),
+  ]);
+
+  // Every sprint, newest first, for the effective-from picker. Read here rather
+  // than in the client component so the picker is server-rendered with the
+  // rest of the page.
+  const supabase = await createClient();
+  const { data: sprintRows } = isAdmin
+    ? await supabase
+        .from("sprints")
+        .select("id, name, starts_on, projects!inner ( name )")
+        .order("starts_on", { ascending: false, nullsFirst: false })
+    : { data: [] };
 
   return (
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
@@ -120,6 +143,132 @@ export default async function Page() {
 
         <PushSettings />
       </Reveal>
+
+
+      {/* Money appears on exactly two screens in this app, and this is the
+          second. Everything under `/app/projects/**` and every export is
+          deliberately free of it — those are the ones that get shared with a
+          client. `e2e/earnings.spec.ts` asserts that twice. */}
+      <Reveal
+        tier="section"
+        delay={0.26}
+        as="section"
+        aria-labelledby="earnings"
+        className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
+      >
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h2 id="earnings" className="text-[16px] font-bold tracking-[-0.015em]">
+            Your earnings
+          </h2>
+          <Mono size="meta" className="text-[var(--ink-faint)]">
+            never on a screen a client sees
+          </Mono>
+        </div>
+
+        {mine?.isDeveloper === false ? (
+          <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
+            Your hours count toward every sprint&rsquo;s pot; you do not take a share of it. An
+            admin decides that, and the confirmation screen says so by name so it is never a
+            surprise.
+          </p>
+        ) : (
+          <dl className="mt-4 flex flex-col gap-3">
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <dt className="w-[132px] shrink-0">
+                <Mono size="eyebrow" className="text-[var(--ink-faint)]">
+                  This sprint
+                </Mono>
+              </dt>
+              <dd className="min-w-0 text-[14px]">
+                {mine?.current ? (
+                  <>
+                    <span className="font-semibold tabular-nums">
+                      {usdFromCents(mine.current.cents)}
+                    </span>
+                    <Mono size="meta" className="ml-2 text-[var(--ink-faint)]">
+                      provisional · {mine.current.name}
+                    </Mono>
+                  </>
+                ) : (
+                  <span className="text-[var(--ink-faint)]">not tracked yet</span>
+                )}
+              </dd>
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <dt className="w-[132px] shrink-0">
+                <Mono size="eyebrow" className="text-[var(--ink-faint)]">
+                  Last confirmed
+                </Mono>
+              </dt>
+              <dd className="min-w-0 text-[14px]">
+                {mine?.lastConfirmed ? (
+                  <>
+                    <span className="font-semibold tabular-nums">
+                      {usdFromCents(mine.lastConfirmed.cents)}
+                    </span>
+                    <Mono size="meta" className="ml-2 text-[var(--ink-faint)]">
+                      {mine.lastConfirmed.name} · {timestamp(mine.lastConfirmed.at)}
+                    </Mono>
+                  </>
+                ) : (
+                  <span className="text-[var(--ink-faint)]">nothing confirmed yet</span>
+                )}
+              </dd>
+            </div>
+          </dl>
+        )}
+
+        <div className="mt-5 border-t border-[var(--hairline)] pt-5">
+          <Link
+            href="/app/earnings"
+            className="inline-flex h-11 items-center gap-2 rounded-control border border-[var(--hairline-strong)] px-4 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
+          >
+            Open Earnings
+            <ArrowRight size={14} strokeWidth={2} aria-hidden />
+          </Link>
+        </div>
+      </Reveal>
+
+      {isAdmin ? (
+        <Reveal
+          tier="section"
+          delay={0.28}
+          as="section"
+          aria-labelledby="tunables"
+          className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
+        >
+          <div className="flex flex-wrap items-baseline gap-3">
+            <h2 id="tunables" className="text-[16px] font-bold tracking-[-0.015em]">
+              How Coditu is set up
+            </h2>
+            <Mono size="meta" className="text-[var(--ink-faint)]">
+              an admin changes these
+            </Mono>
+          </div>
+
+          <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
+            Every number this app makes a decision with, in one place, with what it affects.
+            None of them is a constant in the source — a rate that needs a deploy to change is a
+            rate nobody changes.
+          </p>
+
+          <div className="mt-5">
+            <AdminSettings
+              settings={settings}
+              sprints={(sprintRows ?? []).map((sprint) => ({
+                id: sprint.id,
+                label: `${sprint.projects?.name ?? "—"} · ${sprint.name}`,
+              }))}
+              developers={team.map((person) => ({
+                id: person.id,
+                fullName: person.fullName,
+                isDeveloper: person.isDeveloper,
+                isActive: person.isActive,
+              }))}
+            />
+          </div>
+        </Reveal>
+      ) : null}
 
       <Reveal
         tier="section"

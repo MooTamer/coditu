@@ -7,6 +7,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, useTransition 
 import { useMounted } from "@/lib/hooks/use-client-state";
 
 import { useToast } from "@/components/app/toast.client";
+import { hasPendingUpload } from "@/components/app/uploading-image.client";
 import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
 import { postComment } from "@/lib/actions/comments";
@@ -53,6 +54,11 @@ function readDraft(itemKey: string, hydrated: boolean, version: number): unknown
     const stored = window.localStorage.getItem(draftKey(itemKey));
     if (!stored) return null;
     const parsed: unknown = JSON.parse(stored);
+    // A draft written while an upload was in flight holds a `blob:` URL that
+    // died with the tab it was made in. Restoring one would put a permanently
+    // broken picture in front of somebody with no way to tell what it was, so
+    // the placeholder is dropped and the words it sat between are kept.
+    if (hasPendingUpload(parsed)) return stripPendingUploads(parsed);
     return isEmptyDocument(parsed) ? null : parsed;
   } catch {
     // A corrupt draft is not worth an error message; start clean.
@@ -60,15 +66,29 @@ function readDraft(itemKey: string, hydrated: boolean, version: number): unknown
   }
 }
 
+/** The same document with every unfinished upload taken out of it. */
+function stripPendingUploads(node: unknown): unknown {
+  if (!node || typeof node !== "object") return node;
+  const current = node as { type?: string; content?: unknown[] };
+  if (!current.content) return node;
+  const content = current.content
+    .filter((child) => !hasPendingUpload(child))
+    .map(stripPendingUploads);
+  return { ...current, content };
+}
+
 export function CommentComposer({
   itemId,
   itemKey,
   people,
+  maxBatch,
   onPending,
 }: {
   itemId: string;
   itemKey: string;
   people: ProfileRef[];
+  /** How many images one paste may carry — from `app_settings`. */
+  maxBatch?: number;
   /**
    * Called with the document at the moment of sending, from INSIDE this
    * component's transition — which is what scopes the thread's optimistic entry
@@ -138,6 +158,16 @@ export function CommentComposer({
     // render state, and React will not re-render when it changes.
     const current = docRef.current !== EMPTY_DOC ? docRef.current : (restored ?? EMPTY_DOC);
     if (isEmptyDocument(current)) return;
+
+    // An image that has not landed yet is a `blob:` URL that exists in this tab
+    // and nowhere else. Posting now would store a picture nobody — including
+    // its author, on their next reload — could ever see. Waiting two seconds is
+    // better than that, and better than silently dropping the screenshot
+    // somebody went to the trouble of pasting.
+    if (hasPendingUpload(current)) {
+      toast("An image is still uploading. It will be a moment.");
+      return;
+    }
 
     /** Empties the box, as if it had already sent. */
     const clear = () => {
@@ -228,6 +258,8 @@ export function CommentComposer({
         onEscape={() => undefined}
         onToast={toast}
         autoFocus
+        workItemId={itemId}
+        maxBatch={maxBatch}
       />
 
       <div className="flex items-center gap-3">

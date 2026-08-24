@@ -4,6 +4,7 @@ import { PersonAvatar } from "@/components/app/person-avatar";
 import { ComponentTag } from "@/components/coditu/component-icon";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
+import { ProgressRing } from "@/components/coditu/progress-ring";
 import type { WorkItemRow } from "@/lib/data/sprint";
 import { calendarDate, hours } from "@/lib/format";
 import { groupingHue, groupingTint } from "@/lib/work-items";
@@ -103,7 +104,17 @@ export function SprintCards({
               <Mono size="meta" className="text-[var(--ink-muted)]">
                 {calendarDate(row.deadline)}
               </Mono>
-              <Mono size="meta" className="ml-auto text-[var(--ink-muted)]">
+              {/* Here too, or the information disappears entirely below 900px
+                  where the table becomes this card stack. */}
+              {row.criteriaTotal > 0 ? (
+                <span className="ml-auto flex shrink-0 items-center gap-[5px]">
+                  <ProgressRing done={row.criteriaDone} total={row.criteriaTotal} size={16} strokeWidth={5} />
+                  <Mono size="meta" className="text-[var(--ink-muted)]">
+                    {row.criteriaDone}/{row.criteriaTotal}
+                  </Mono>
+                </span>
+              ) : null}
+              <Mono size="meta" className="shrink-0 text-[var(--ink-muted)]">
                 {row.grouping ?? "—"}
               </Mono>
             </span>

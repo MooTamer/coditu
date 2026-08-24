@@ -104,6 +104,53 @@ export async function setProfileRole(input: unknown): Promise<ProfileResult> {
 
 /* -------------------------------------------------------------------------- */
 
+const capacityInput = z.object({
+  profileId: uuid,
+  // Invariant 2: minutes under the hood, hours at the render edge. The control
+  // steps in half hours, so this arrives as 1200, 1500, 2400 — never 40. The
+  // ceiling is a literal week; anything above it is a typo, not availability.
+  weeklyCapacityMinutes: z.number().int().positive().max(10_080),
+});
+
+/**
+ * What somebody's week holds.
+ *
+ * `profiles.weekly_capacity_minutes` drives the load bars on People and
+ * `v_person_load`, and until now it was displayed everywhere and editable
+ * nowhere — every profile carried whatever `handle_new_user` defaulted to. The
+ * docs say plainly that "role, capacity and access are decisions *about* a
+ * person and are an admin's", and `guard_profile_privilege_columns` has always
+ * agreed; only the control was missing.
+ */
+export async function setWeeklyCapacity(input: unknown): Promise<ProfileResult> {
+  const parsed = capacityInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That is not a week we can store." };
+
+  const scope = await requireAdmin();
+  if ("error" in scope) return { ok: false, error: scope.error };
+
+  const { data: target } = await scope.supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("id", parsed.data.profileId)
+    .maybeSingle();
+
+  if (!target) return { ok: false, error: "That person is no longer on the team." };
+
+  const { error } = await scope.supabase
+    .from("profiles")
+    .update({ weekly_capacity_minutes: parsed.data.weeklyCapacityMinutes })
+    .eq("id", target.id);
+
+  if (error) return { ok: false, error: "That change did not save. Nothing was lost — try again." };
+
+  revalidatePath("/app/people");
+  revalidatePath("/app/my-work");
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+
 const activeInput = z.object({ profileId: uuid, isActive: z.boolean() });
 
 /**

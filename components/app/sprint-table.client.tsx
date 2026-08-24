@@ -35,6 +35,7 @@ import {
 } from "@/components/app/row-editors.client";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { ProgressRing } from "@/components/coditu/progress-ring";
 import { settle } from "@/lib/action-result";
 import { reorderWorkItems } from "@/lib/actions/work-items";
 import type { ComponentRef } from "@/lib/data/components";
@@ -397,10 +398,19 @@ function Row({
           >
             {row.title}
           </Link>
+          {/* The ring, AND the count — see `progress-ring.tsx` for why both.
+              The short version: the gradient's teal stop measures 1.36:1 on a
+              light surface, so a mostly-complete ring's tail is invisible to
+              anybody who is not looking hard, and `aria-label` does nothing for
+              low vision. The ring is the at-a-glance shape; the number is the
+              information. Zero criteria renders neither. */}
           {row.criteriaTotal > 0 ? (
-            <Mono size="eyebrow" className="ml-auto shrink-0 normal-case tracking-normal text-[var(--ink-faint)]">
-              {row.criteriaDone}/{row.criteriaTotal}
-            </Mono>
+            <span className="ml-auto flex shrink-0 items-center gap-[5px]">
+              <ProgressRing done={row.criteriaDone} total={row.criteriaTotal} size={14} strokeWidth={5} />
+              <Mono size="eyebrow" className="normal-case tracking-normal text-[var(--ink-faint)]">
+                {row.criteriaDone}/{row.criteriaTotal}
+              </Mono>
+            </span>
           ) : null}
         </span>
       </td>

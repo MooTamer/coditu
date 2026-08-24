@@ -1,16 +1,28 @@
 import Link from "next/link";
 
 import { ClientMark } from "@/components/app/client-mark";
+import { ProjectAdmin, ProjectRowControls } from "@/components/app/project-admin.client";
 import { Mono } from "@/components/coditu/mono";
 import { ToneChip } from "@/components/coditu/status-chip";
 import { Reveal } from "@/components/motion/reveal";
-import { listProjects } from "@/lib/data/projects";
+import { listArchivedProjects, listClients, listProjects } from "@/lib/data/projects";
 import { hoursOrDash } from "@/lib/format";
+import { getCurrentProfile } from "@/lib/supabase/server";
 
 export const metadata = { title: "Projects" };
 
 export default async function ProjectsPage() {
-  const projects = await listProjects();
+  const [projects, clients, archived, profile] = await Promise.all([
+    listProjects(),
+    listClients(),
+    listArchivedProjects(),
+    getCurrentProfile(),
+  ]);
+
+  // Admin or lead, matching the `leads insert/update projects` policies. The
+  // controls simply do not render for an engineer; RLS refuses their write
+  // anyway, and a button that always fails is worse than no button.
+  const canManage = profile?.role === "admin" || profile?.role === "lead";
 
   return (
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
@@ -19,6 +31,15 @@ export default async function ProjectsPage() {
         <p className="mt-1 max-w-[68ch] text-[13.5px] text-[var(--ink-muted)]">
           Every project, its client, and where its sprint stands.
         </p>
+      </Reveal>
+
+      <Reveal tier="section" delay={0.05}>
+        <ProjectAdmin
+          projects={projects}
+          clients={clients}
+          archived={archived}
+          canManage={canManage}
+        />
       </Reveal>
 
       <Reveal tier="section" delay={0.075} className="overflow-hidden rounded-list border border-[var(--hairline)] bg-[var(--raised)]">
@@ -59,10 +80,19 @@ export default async function ProjectsPage() {
               {hoursOrDash(project.minutesLogged)} h
             </Mono>
 
+            {canManage ? <ProjectRowControls project={project} /> : null}
+
             {/* index is only used to keep the key stable when two projects share a name */}
             <span className="sr-only">{index}</span>
           </div>
         ))}
+
+        {projects.length === 0 ? (
+          <p className="px-5 py-4 text-[13.5px] text-[var(--ink-faint)]">
+            No projects yet.
+            {canManage ? " Add the client first, then open the project above." : ""}
+          </p>
+        ) : null}
       </Reveal>
     </main>
   );

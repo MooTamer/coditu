@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, Wallet } from "lucide-react";
 
 import { PersonAvatar, type AvatarPerson } from "@/components/app/person-avatar";
 import { Mono } from "@/components/coditu/mono";
@@ -198,6 +198,23 @@ export function AccountMenu({ me }: { me: AccountIdentity }) {
                 >
                   <Settings size={15} strokeWidth={1.9} aria-hidden />
                   Settings
+                </Link>
+
+                {/* Earnings lives here and in the phone's "More" sheet, and
+                    deliberately NOT in the rail or the top bar. It is the one
+                    screen with money on it, and the rail is visible on every
+                    screen that gets shared — a projector in a client meeting, a
+                    screenshot in a chat. A link labelled "Earnings" beside
+                    "Sprint" advertises it on all of them. */}
+                <Link
+                  role="menuitem"
+                  href="/app/earnings"
+                  prefetch={false}
+                  onClick={() => setOpen(false)}
+                  className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
+                >
+                  <Wallet size={15} strokeWidth={1.9} aria-hidden />
+                  Earnings
                 </Link>
 
                 <button

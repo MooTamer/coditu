@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(88);
+select plan(136);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -417,7 +417,13 @@ update public.work_items set order_index = 0 where id = '60000000-0000-0000-0000
 update public.work_items set order_index = 1 where id = '60000000-0000-0000-0000-000000000002';
 
 -- =========================================================================
--- acceptance_criteria — tick yes, rewrite no
+-- acceptance_criteria — the assignee ticks it AND says what it says
+--
+-- Widened on 2026-08-25 at the team's request: "everything important should be
+-- editable, we are developers, don't lock anything as hardcoded." The set that
+-- may already tick a box may now rewrite what the box says. Adding and removing
+-- criteria stays with admin/lead, because that is the shape of the scope rather
+-- than the wording of one line.
 -- =========================================================================
 
 select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
@@ -425,12 +431,25 @@ select lives_ok(
   $$update public.acceptance_criteria set is_done = true where id = '70000000-0000-0000-0000-000000000001'$$,
   'positive: an assignee may tick an acceptance criterion'
 );
-select throws_ok(
+select lives_ok(
   $$update public.acceptance_criteria set body = 'rewritten' where id = '70000000-0000-0000-0000-000000000001'$$,
+  'positive: an assignee may rewrite what the criterion says'
+);
+select throws_ok(
+  $$update public.acceptance_criteria set order_index = 9 where id = '70000000-0000-0000-0000-000000000001'$$,
   '42501',
   null,
-  'negative: an engineer cannot rewrite an acceptance criterion'
+  'negative: an assignee cannot reorder the checklist'
 );
+select throws_ok(
+  $$update public.acceptance_criteria set work_item_id = '60000000-0000-0000-0000-000000000002'
+    where id = '70000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: an assignee cannot move a criterion to another item'
+);
+update public.acceptance_criteria set body = 'Toggle sits at the top of settings'
+where id = '70000000-0000-0000-0000-000000000001';
 select pg_temp.act_as_owner();
 
 -- =========================================================================
@@ -974,24 +993,462 @@ select lives_ok(
   'positive: the assignee ticks the box'
 );
 
-select throws_ok(
+select lives_ok(
   $$update public.acceptance_criteria
-    set body_json = '{"type":"doc","content":[]}'::jsonb
+    set body_json = '{"type":"doc","content":[]}'::jsonb,
+        body = 'something else'
     where id = '70000000-0000-0000-0000-000000000001'$$,
-  '42501',
-  null,
-  'negative: the assignee cannot rewrite the document behind it'
+  'positive: the assignee rewrites the document and the text the exports read, together'
 );
 
-select throws_ok(
-  $$update public.acceptance_criteria set body = 'something else'
-    where id = '70000000-0000-0000-0000-000000000001'$$,
-  '42501',
-  null,
-  'negative: nor the text the exports read'
+-- Otto is on neither end of this item. The POLICY is what stops him, and it
+-- stops him by matching no row rather than by raising — so assert the value.
+select pg_temp.act_as('44444444-4444-4444-4444-444444444444');
+update public.acceptance_criteria set body = 'Otto was here'
+where id = '70000000-0000-0000-0000-000000000001';
+select isnt(
+  (select body from public.acceptance_criteria where id = '70000000-0000-0000-0000-000000000001'),
+  'Otto was here',
+  'negative: an engineer who neither owns nor reviews the item cannot rewrite its criteria'
 );
 
 select pg_temp.act_as_owner();
+
+-- =========================================================================
+-- app_settings — the home of every tunable
+--
+-- Everyone active reads them (the image cap is in an error message, the rate
+-- is on the earnings screen); only an admin writes. There is no insert policy
+-- and no delete policy on purpose: the row is created by its migration and is
+-- not something the app makes or destroys.
+-- =========================================================================
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+
+select is(
+  (select hourly_rate_cents from public.app_settings where id = 1),
+  1200,
+  'positive: an engineer reads the settings row'
+);
+
+-- A row-filtering policy denies by matching nothing, so this succeeds and
+-- changes nothing. Assert the value, never the row count.
+update public.app_settings set hourly_rate_cents = 9999 where id = 1;
+select is(
+  (select hourly_rate_cents from public.app_settings where id = 1),
+  1200,
+  'negative: an engineer cannot change what an hour pays'
+);
+
+select throws_ok(
+  $$insert into public.app_settings (id, hourly_rate_cents) values (2, 500)$$,
+  null,
+  null,
+  'negative: an engineer cannot insert a settings row'
+);
+
+-- `anon` gets nothing anywhere in this app — the grant is revoked, not merely
+-- policed, so this is a permission error rather than an empty result.
+select pg_temp.act_as_anon();
+select throws_ok(
+  $$select 1 from public.app_settings$$,
+  '42501',
+  null,
+  'negative: a signed-out caller reads no settings at all'
+);
+
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+
+update public.app_settings set hourly_rate_cents = 1500, payout_share_threshold_pct = 30 where id = 1;
+select is(
+  (select hourly_rate_cents from public.app_settings where id = 1),
+  1500,
+  'positive: an admin changes what an hour pays'
+);
+
+select throws_ok(
+  $$update public.app_settings set hourly_rate_cents = 0 where id = 1$$,
+  '23514',
+  null,
+  'negative: an hour cannot be worth nothing'
+);
+
+select pg_temp.act_as_owner();
+update public.app_settings set hourly_rate_cents = 1200, payout_share_threshold_pct = 25 where id = 1;
+
+select throws_ok(
+  $$insert into public.app_settings (id) values (2)$$,
+  '23514',
+  null,
+  'negative: there cannot be a second settings row'
+);
+
+-- =========================================================================
+-- Item keys come from the project, not from one global sequence
+-- =========================================================================
+
+insert into public.work_items (id, sprint_id, title) values
+  ('61000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'first unkeyed');
+
+-- The number is not asserted, only the prefix and the step. A refused insert
+-- burns a number exactly as a sequence does — `assign_work_item_key` advances
+-- the counter before the policy gets a say — and a test that pins the first
+-- number would break the moment somebody adds another negative case above.
+select matches(
+  (select key from public.work_items where id = '61000000-0000-0000-0000-000000000001'),
+  (select '^' || key_prefix || '-\d+$' from public.projects where id = '40000000-0000-0000-0000-000000000001'),
+  'positive: an item with no key takes its own project''s prefix'
+);
+
+insert into public.work_items (id, sprint_id, title) values
+  ('61000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000001', 'second unkeyed');
+
+select is(
+  (select substring(key from '\d+$')::int from public.work_items where id = '61000000-0000-0000-0000-000000000002'),
+  (select substring(key from '\d+$')::int + 1 from public.work_items where id = '61000000-0000-0000-0000-000000000001'),
+  'positive: the next one takes the next number, under the row lock that makes ten at once safe'
+);
+
+insert into public.work_items (id, sprint_id, title) values
+  ('61000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000002', 'other project');
+
+select isnt(
+  (select substring(key from '^[A-Z0-9]+') from public.work_items where id = '61000000-0000-0000-0000-000000000003'),
+  (select substring(key from '^[A-Z0-9]+') from public.work_items where id = '61000000-0000-0000-0000-000000000001'),
+  'positive: another project''s item carries another project''s prefix'
+);
+
+select is(
+  (select key from public.work_items where id = '60000000-0000-0000-0000-000000000001'),
+  'RLS-140',
+  'positive: a stated key is left exactly as it was stated'
+);
+
+select throws_ok(
+  $$insert into public.work_items (sprint_id, key, title)
+    values ('50000000-0000-0000-0000-000000000001', 'lowercase-1', 'malformed')$$,
+  '23514',
+  null,
+  'negative: a key that is not PREFIX-number is refused'
+);
+
+select throws_ok(
+  format(
+    $$update public.projects set key_prefix = %L where id = '40000000-0000-0000-0000-000000000002'$$,
+    (select key_prefix from public.projects where id = '40000000-0000-0000-0000-000000000001')
+  ),
+  '23505',
+  null,
+  'negative: two projects cannot share a key prefix'
+);
+
+-- =========================================================================
+-- Slug aliases — a rename must not 404 every bookmark the team has
+-- =========================================================================
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+
+select lives_ok(
+  $$insert into public.project_slug_aliases (slug, project_id)
+    values ('rls-meinevim-old', '40000000-0000-0000-0000-000000000001')$$,
+  'positive: a lead keeps a renamed project''s old address alive'
+);
+
+select throws_ok(
+  $$insert into public.project_slug_aliases (slug, project_id)
+    values ('rls-nile-portal', '40000000-0000-0000-0000-000000000001')$$,
+  '23505',
+  null,
+  'negative: an alias cannot shadow a live project address'
+);
+
+select throws_ok(
+  $$update public.projects set slug = 'rls-meinevim-old'
+    where id = '40000000-0000-0000-0000-000000000002'$$,
+  '23505',
+  null,
+  'negative: a live address cannot take over another project''s alias'
+);
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select throws_ok(
+  $$insert into public.project_slug_aliases (slug, project_id)
+    values ('rls-sneaky', '40000000-0000-0000-0000-000000000001')$$,
+  '42501',
+  null,
+  'negative: an engineer cannot invent a project address'
+);
+
+-- =========================================================================
+-- order_index appends under a lock rather than defaulting to 0
+-- =========================================================================
+
+select pg_temp.act_as_owner();
+
+select is(
+  (select order_index from public.work_items where id = '61000000-0000-0000-0000-000000000002'),
+  (select max(order_index) from public.work_items where sprint_id = '50000000-0000-0000-0000-000000000001'),
+  'positive: an item created without a position lands at the end, not on top of the first one'
+);
+
+insert into public.acceptance_criteria (id, work_item_id, body) values
+  ('71000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000001', 'appended');
+
+select is(
+  (select order_index from public.acceptance_criteria where id = '71000000-0000-0000-0000-000000000001'),
+  1,
+  'positive: a criterion created without a position lands after the one already there'
+);
+
+
+-- =========================================================================
+-- A work item is deleted softly, and the read policy is what makes that true
+--
+-- The rule lives in one place on purpose. Fifteen queries read work items;
+-- a filter in each of them is fifteen chances to forget one, and the one you
+-- forget is the export.
+-- =========================================================================
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+
+select isnt_empty(
+  $$select public.set_work_item_deleted('60000000-0000-0000-0000-000000000002', true)$$,
+  'positive: a lead deletes a work item'
+);
+
+select is_empty(
+  $$select 1 from public.work_items where id = '60000000-0000-0000-0000-000000000002'$$,
+  'positive: a deleted item is invisible even to the lead who deleted it'
+);
+
+select is(
+  (select count(*)::int from public.work_items w
+   where w.sprint_id = '50000000-0000-0000-0000-000000000001'),
+  (select count(*)::int from public.work_items w
+   where w.sprint_id = '50000000-0000-0000-0000-000000000001' and w.deleted_at is null),
+  'positive: every count over the sprint already excludes it, with no filter written anywhere'
+);
+
+select is(
+  (select count(*)::int from public.list_deleted_work_items('50000000-0000-0000-0000-000000000001')),
+  1,
+  'positive: the bin has it, so "reversible" outlasts the toast'
+);
+
+select isnt_empty(
+  $$select public.set_work_item_deleted('60000000-0000-0000-0000-000000000002', false)$$,
+  'positive: restoring brings it back'
+);
+
+select isnt_empty(
+  $$select 1 from public.work_items where id = '60000000-0000-0000-0000-000000000002'$$,
+  'positive: and it is readable again'
+);
+
+-- No delete policy exists at all now, so a hard delete matches no rows rather
+-- than raising. Assert the row, never the count.
+delete from public.work_items where id = '60000000-0000-0000-0000-000000000002';
+select isnt_empty(
+  $$select 1 from public.work_items where id = '60000000-0000-0000-0000-000000000002'$$,
+  'negative: not even a lead hard-deletes a work item'
+);
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+
+select throws_ok(
+  $$select public.set_work_item_deleted('60000000-0000-0000-0000-000000000001', true)$$,
+  '42501',
+  null,
+  'negative: an engineer cannot delete a work item'
+);
+
+select throws_ok(
+  $$select public.list_deleted_work_items('50000000-0000-0000-0000-000000000001')$$,
+  '42501',
+  null,
+  'negative: an engineer cannot look in the bin'
+);
+
+select throws_ok(
+  $$update public.work_items set deleted_at = now()
+    where id = '60000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: nor reach the column directly — the guard names it'
+);
+
+-- =========================================================================
+-- Moving an item between sprints, and the project boundary it must not cross
+-- =========================================================================
+
+select pg_temp.act_as_owner();
+insert into public.sprints (id, project_id, number, name, status) values
+  ('50000000-0000-0000-0000-000000000009', '40000000-0000-0000-0000-000000000001', 99, 'Sprint — Week 99', 'planned');
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+
+select lives_ok(
+  $$update public.work_items set sprint_id = '50000000-0000-0000-0000-000000000009'
+    where id = '60000000-0000-0000-0000-000000000002'$$,
+  'positive: a lead carries an item over to the next sprint'
+);
+
+select is(
+  (select order_index from public.work_items where id = '60000000-0000-0000-0000-000000000002'),
+  0,
+  'positive: it lands at the end of its new sprint rather than keeping a position that meant something elsewhere'
+);
+
+select throws_ok(
+  $$update public.work_items set sprint_id = '50000000-0000-0000-0000-000000000002'
+    where id = '60000000-0000-0000-0000-000000000002'$$,
+  '23514',
+  null,
+  'negative: an item cannot move to another project''s sprint — its key would name a client it left'
+);
+
+select pg_temp.act_as_owner();
+update public.work_items set sprint_id = '50000000-0000-0000-0000-000000000001', order_index = 1
+where id = '60000000-0000-0000-0000-000000000002';
+
+
+-- =========================================================================
+-- Earnings — who takes a share, and what a confirmed distribution is
+--
+-- A confirmed payout is a record of an agreement, not a cache of a
+-- calculation. Everything below is about making that true in the database
+-- rather than in the application: the numbers cannot be rewritten, the row
+-- cannot be deleted, and a second live payout for one sprint cannot exist.
+-- =========================================================================
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+
+-- `guard_profile_privilege_columns` is an allowlist written as a denylist, and
+-- this is the fifth column added to it. Without the entry, an engineer could
+-- decide they take a share.
+select throws_ok(
+  $$update public.profiles set is_developer = true
+    where id = '33333333-3333-3333-3333-333333333333'$$,
+  '42501',
+  null,
+  'negative: an engineer cannot decide that they take a share'
+);
+
+select throws_ok(
+  $$insert into public.sprint_payouts
+      (sprint_id, confirmed_by, total_minutes, hourly_rate_cents, pot_cents)
+    values ('50000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333',
+            480, 1200, 9600)$$,
+  '42501',
+  null,
+  'negative: an engineer cannot confirm a distribution'
+);
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select throws_ok(
+  $$insert into public.sprint_payouts
+      (sprint_id, confirmed_by, total_minutes, hourly_rate_cents, pot_cents)
+    values ('50000000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222',
+            480, 1200, 9600)$$,
+  '42501',
+  null,
+  'negative: nor can a lead — confirming money is an admin''s alone'
+);
+
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+
+select lives_ok(
+  $$update public.profiles set is_developer = true
+    where id in ('22222222-2222-2222-2222-222222222222','33333333-3333-3333-3333-333333333333')$$,
+  'positive: an admin decides who takes a share'
+);
+
+select lives_ok(
+  $$insert into public.sprint_payouts
+      (id, sprint_id, confirmed_by, total_minutes, hourly_rate_cents, pot_cents,
+       usd_egp_rate_micros, usd_egp_source)
+    values ('90000000-0000-0000-0000-000000000001',
+            '50000000-0000-0000-0000-000000000001',
+            '11111111-1111-1111-1111-111111111111',
+            480, 1200, 9600, 50860000, 'live')$$,
+  'positive: an admin confirms a distribution'
+);
+
+select lives_ok(
+  $$insert into public.sprint_payout_shares (payout_id, profile_id, minutes_logged, share_cents)
+    values ('90000000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 30, 4800),
+           ('90000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333', 450, 4800)$$,
+  'positive: and its shares'
+);
+
+-- The identity the whole feature rests on, asserted against the stored rows
+-- rather than only against the TypeScript that computed them.
+select is(
+  (select sum(share_cents)::int from public.sprint_payout_shares
+   where payout_id = '90000000-0000-0000-0000-000000000001'),
+  (select pot_cents from public.sprint_payouts
+   where id = '90000000-0000-0000-0000-000000000001'),
+  'positive: the shares sum to the pot exactly'
+);
+
+select throws_ok(
+  $$insert into public.sprint_payouts
+      (sprint_id, confirmed_by, total_minutes, hourly_rate_cents, pot_cents)
+    values ('50000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
+            600, 1200, 12000)$$,
+  '23505',
+  null,
+  'negative: a sprint cannot have two live payouts — two admins confirming at once, and one loses'
+);
+
+select throws_ok(
+  $$update public.sprint_payouts set pot_cents = 999999
+    where id = '90000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: a confirmed pot cannot be rewritten, not even by the admin who confirmed it'
+);
+
+select lives_ok(
+  $$update public.sprint_payouts set superseded_at = now()
+    where id = '90000000-0000-0000-0000-000000000001'$$,
+  'positive: it can be superseded, which is the only thing that may change it'
+);
+
+select throws_ok(
+  $$update public.sprint_payouts set superseded_at = null
+    where id = '90000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: and a superseded payout stays superseded'
+);
+
+select lives_ok(
+  $$insert into public.sprint_payouts
+      (sprint_id, confirmed_by, total_minutes, hourly_rate_cents, pot_cents)
+    values ('50000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
+            600, 1200, 12000)$$,
+  'positive: superseding the first is what makes room for the second'
+);
+
+-- Refused by the GRANT, not by a policy — `authenticated` was never given
+-- DELETE on this table, so Postgres stops it before RLS is consulted at all.
+-- Two layers, and this is the outer one; the missing policy is the inner.
+select throws_ok(
+  $$delete from public.sprint_payouts where id = '90000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: nobody deletes a confirmed payout'
+);
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select isnt_empty(
+  $$select 1 from public.sprint_payouts where id = '90000000-0000-0000-0000-000000000001'$$,
+  'positive: everyone active reads everyone''s — that is the team''s rule'
+);
+
+select pg_temp.act_as_owner();
+
 
 select * from finish();
 rollback;

@@ -397,3 +397,147 @@ test.describe("accessibility, on a phone", () => {
     }
   });
 });
+
+/**
+ * The composer's toolbar, on a real touch screen.
+ *
+ * `onMouseDown` preventing default is what keeps ProseMirror's stored marks —
+ * the "what I type next is bold" state an empty document has instead of a
+ * range. On a touch screen the synthetic mouse event is **not guaranteed**:
+ * Safari fires it after a delay and some Android keyboards not at all, so the
+ * mark was already gone by the time the handler ran. `onPointerDown` is the
+ * fix, and this is what proves it — on a phone, which is the only place it can
+ * be proved.
+ */
+test.describe("bold works before there are any words, with a finger", () => {
+  test.use({ sprintTotals: "read" });
+
+  test("tap Bold on an empty composer, type, and the stored document is bold", async ({
+    adminPage: page,
+  }, testInfo) => {
+    // One quiet row per Playwright PROJECT. Three projects seeding comments on
+    // one item is three workers deleting each other's fixture — the race
+    // `playwright.config.ts` records for `composer.spec.ts`.
+    const key = SEED.threadPerProject[testInfo.project.name] ?? SEED.thread;
+    await query(
+      `delete from comments where work_item_id = (select id from work_items where key = $1)`,
+      [key]
+    );
+
+    await page.goto(`${SEED.sprint}/items/${key}`);
+    await page.getByRole("button", { name: /Write a comment/ }).click();
+    const editor = page.getByRole("textbox", { name: "Comment" });
+    await expect(editor).toBeVisible();
+    await editor.click();
+
+    const bold = page.getByRole("button", { name: "Bold" });
+    await expect(bold).toBeVisible();
+    // The whole point: pressed with no selection at all.
+    await bold.tap();
+    await expect(bold).toHaveAttribute("aria-pressed", "true");
+
+    await page.keyboard.type("x");
+    await page.getByRole("button", { name: "Comment", exact: true }).click();
+
+    await expect
+      .poll(async () => {
+        const [row] = await query<{ marks: string | null }>(
+          `select c.body_json #>> '{content,0,content,0,marks,0,type}' as marks
+             from comments c
+             join work_items w on w.id = c.work_item_id
+            where w.key = $1
+            order by c.created_at desc limit 1`,
+          [key]
+        );
+        return row?.marks ?? null;
+      })
+      .toBe("bold");
+
+    await query(
+      `delete from comments where work_item_id = (select id from work_items where key = $1)`,
+      [key]
+    );
+  });
+
+  test("the toolbar scrolls sideways rather than becoming two rows", async ({ adminPage: page }, testInfo) => {
+    // One quiet row per Playwright PROJECT. Three projects seeding comments on
+    // one item is three workers deleting each other's fixture — the race
+    // `playwright.config.ts` records for `composer.spec.ts`.
+    const key = SEED.threadPerProject[testInfo.project.name] ?? SEED.thread;
+    await page.goto(`${SEED.sprint}/items/${key}`);
+    await page.getByRole("button", { name: /Write a comment/ }).click();
+    await expect(page.getByRole("textbox", { name: "Comment" })).toBeVisible();
+
+    // At 320px a wrapped toolbar is two rows of buttons above a two-line
+    // composer, and the thing being written disappears under the keyboard.
+    const rows = await page.evaluate(() => {
+      const buttons = [...document.querySelectorAll<HTMLElement>('[aria-label="Bold"], [aria-label="Image"]')];
+      if (buttons.length < 2) return -1;
+      const tops = new Set(buttons.map((b) => Math.round(b.getBoundingClientRect().top)));
+      return tops.size;
+    });
+    expect(rows, "the toolbar wrapped to a second row").toBe(1);
+  });
+
+  test("every toolbar target clears 44px on a coarse pointer", async ({ adminPage: page }, testInfo) => {
+    // One quiet row per Playwright PROJECT. Three projects seeding comments on
+    // one item is three workers deleting each other's fixture — the race
+    // `playwright.config.ts` records for `composer.spec.ts`.
+    const key = SEED.threadPerProject[testInfo.project.name] ?? SEED.thread;
+    await page.goto(`${SEED.sprint}/items/${key}`);
+    await page.getByRole("button", { name: /Write a comment/ }).click();
+    await expect(page.getByRole("textbox", { name: "Comment" })).toBeVisible();
+
+    // Measured the way the existing target audit measures: the button plus the
+    // padding around it, because the 28px glyph sits flush in a 34px row.
+    const small = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('[aria-pressed], [aria-label="Image"]')]
+        .filter((el) => {
+          const box = el.getBoundingClientRect();
+          return box.width > 0 && box.height > 0 && (box.height < 27.5 || box.width < 27.5);
+        })
+        .map((el) => `${el.getAttribute("aria-label")} ${Math.round(el.getBoundingClientRect().height)}px`)
+    );
+    expect(small, "a toolbar button is too small to hit").toEqual([]);
+  });
+});
+
+/**
+ * The one field the 16px rule does not match.
+ *
+ * `app/globals.css`'s coarse-pointer block names `input, select, textarea`, and
+ * the rich-text surface is a `contenteditable` **div** — so it inherited
+ * nothing, and `.coditu-prose p` re-declared 14px. iOS Safari auto-zooms any
+ * focusable editable element under 16px and does not zoom back out, which is
+ * exactly the failure that block exists to prevent, arriving through the one
+ * element it did not match.
+ *
+ * Asserted as a computed style rather than by eye, because the whole class of
+ * bug is a rule that looks like it applies and does not.
+ */
+test.describe("the editor does not zoom an iPhone in and leave it there", () => {
+  test.use({ sprintTotals: "read" });
+
+  test("every editable surface computes to at least 16px", async ({ adminPage: page }, testInfo) => {
+    const key = SEED.threadPerProject[testInfo.project.name] ?? SEED.thread;
+    await page.goto(`${SEED.sprint}/items/${key}`);
+    await page.getByRole("button", { name: /Write a comment/ }).click();
+    await expect(page.getByRole("textbox", { name: "Comment" })).toBeVisible();
+
+    const tooSmall = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '.coditu-prose, .coditu-prose p, input, select, textarea'
+        ),
+      ]
+        .filter((el) => el.getBoundingClientRect().height > 0)
+        .map((el) => ({
+          what: el.tagName.toLowerCase() + (el.className ? `.${String(el.className).split(" ")[0]}` : ""),
+          size: parseFloat(getComputedStyle(el).fontSize),
+        }))
+        .filter((row) => row.size < 16)
+    );
+
+    expect(tooSmall, "a field under 16px will zoom mobile Safari in").toEqual([]);
+  });
+});

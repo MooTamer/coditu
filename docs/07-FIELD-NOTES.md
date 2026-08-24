@@ -102,11 +102,36 @@ ahead of its migration, `42703` on every sprint page), and by 2026-08-22 product
 behind — including the fix for a sign-up handing itself `role: admin`.
 
 Applying them is the user's own terminal (the CLI on this machine is logged into a different account
-and gets `403`):
+and gets `403`; a cloud session has no token at all, and the Supabase MCP server needs an interactive
+OAuth round trip it cannot run):
 
 ```bash
 supabase link --project-ref hayfsvsepgfescojesbd && supabase db push
 ```
+
+**Prefer `scripts/push-to-hosted.sh`** — the same push, with the before-and-after numbers taken
+automatically and sixteen assertions on the result. It exists because the list in `06-PROGRESS.md`
+has two steps whose failure is silent, and a checklist read at the end of a long day is the wrong
+shape for those. Rehearsed 2026-08-24 against a bare-Postgres copy stood up at production's exact
+migration state; all eight migrations, all three seeds, all sixteen checks.
+
+**Never `supabase db push --include-seed`.** It runs `supabase/seed.sql`, whose accounts are created
+with `crypt('coditu', …)` — see "The seed password reached production" below, which is what that flag
+did once already. The three files under `supabase/seeds/` are a different thing and are safe; the
+script runs them individually through `psql` for exactly this reason.
+
+### `supabase db push` swallows `raise notice`
+A migration that reports what it did through `raise notice` reports it to nobody: the CLI prints
+`Applying migration …` and its own JSON summary, and the server's notices are not in either. Measured
+directly — `20260825093000_stable_image_refs.sql` raises
+`stable image refs: % comments, % criteria rewritten`, and `grep -c 'stable image refs' push.log`
+returns **0**.
+
+This matters more than it sounds, because a well-written data migration is idempotent, so **the number
+is gone the moment it runs** — a second run correctly finds nothing left to do and reports zero. If a
+migration rewrites rows and you want to know how many, **count them yourself before you push**, with
+the same predicate the migration uses. `scripts/push-to-hosted.sh` does that and cross-checks the
+notice if it ever does appear.
 
 **Checking what production actually has**, read-only, with the service-role key:
 a column — `GET /rest/v1/<table>?select=<col>&limit=1`, `400` means missing; a bucket —
@@ -265,19 +290,28 @@ audited after typing looks clean. Give the editing surface `role="textbox"` and 
 
 ## Domain
 
-### The status vocabulary is one shape
-`work_item_status` was renamed 2026-08-21 so every value names a *condition*: `todo → ready`,
-`dev_started → in_progress`, `ready_for_peer_review → in_peer_review`, `in_review → in_qa`.
-`changes_requested` stays past-tense deliberately (GitHub uses the term verbatim). `in_qa` means the QA
-pass after peer review; `in_peer_review` is the one tied to `reviewer_id`.
+### The status vocabulary — this note was wrong, and here is what is true
+**Corrected 2026-08-25.** This entry described a rename of `work_item_status` on 2026-08-21 —
+`todo → ready`, `dev_started → in_progress`, `ready_for_peer_review → in_peer_review`,
+`in_review → in_qa`. **That rename is not in this repository.** `20260820120000_enums.sql` still
+declares the original eight values, no later migration renames them, `enum_range(null::work_item_status)`
+on a freshly reset database returns `{draft,todo,dev_started,ready_for_peer_review,in_review,changes_requested,done,blocked}`,
+and `parseStatusFilter` — which this note said holds the retired spellings — **does not exist**. Verified
+three ways rather than assumed.
+
+Either the rename happened somewhere this repository is not, or the note was written from a plan. A
+stale note is worse than no note because it is trusted, so: **the vocabulary is the original eight**,
+and `lib/work-items.ts` is the one place to read it.
+
+The one part of the entry that survives is `STATUS_ALIASES` in `lib/import/notion.ts`, which does exist
+and does map old Notion spellings onto these values.
 
 **Still outstanding: `blocked` is not a status, it is a flag over one.** A blocked item is also
 mid-build or waiting on a reviewer, and storing `blocked` in the status column destroys the state
 needed to unblock it. The fix is a nullable `blocked_reason` with "blocked" derived from it; deferred,
 and it needs a backfill decision for existing rows.
 
-Retired values stay readable in `parseStatusFilter` (bookmarked `?status=` links) and `STATUS_ALIASES`
-in `lib/import/notion.ts` (old Notion CSVs).
+Old Notion spellings stay readable through `STATUS_ALIASES` in `lib/import/notion.ts`.
 
 ### The component registry is a copy of the EVIM repo
 `public.components` for MEINEvim is generated from `../microsoft-web-parts-final`: one row per SPFx
@@ -327,3 +361,136 @@ while it is still unpushed — that is the only cheap moment.
 It replays commits onto their own parent and walks straight back into conflicts a merge commit had
 already settled. `git rebase --abort` restores everything (a rebase runs on a detached HEAD, so the
 branch never moved). After any merge whose resolution matters, prefer `git pull --ff-only`.
+
+---
+
+## Verification without Docker
+
+### The whole database layer can be verified on a bare Postgres
+`npm run db:test` is `supabase test db`, which needs the Docker stack. On a machine or a container
+with no Docker daemon — a cloud session, a locked-down CI box — the database half of the gate is still
+reachable, and it is worth an hour to set up because it is most of the gate:
+
+```bash
+apt-get install -y postgresql-16-pgtap        # pgTAP is the only real dependency
+initdb -D "$PGDIR" -U postgres --auth=trust   # as an unprivileged user; initdb refuses root
+pg_ctl -D "$PGDIR" -o '-p 54422' -w start
+```
+
+Then a **bootstrap** creating the pieces the migrations actually reference — and it is a short list,
+which is the surprising part. `grep -rhoE '\b(auth|storage|realtime|extensions)\.[a-z_]+' supabase/migrations/`
+returns exactly six: `auth.uid`, `auth.users`, `auth.sign`, `storage.buckets`, `storage.objects`,
+`storage.foldername`. Plus the roles (`anon`, `authenticated`, `service_role`, `authenticator`), the
+`extensions` schema, and the `supabase_realtime` publication. With those in place **every migration
+applies in order, the seed loads, and `supabase/tests/*.sql` runs through `psql` with the same TAP
+output `supabase test db` prints.**
+
+What this does NOT give you: PostgREST, so no `PGRST204` and no e2e; GoTrue, so nothing can sign in;
+storage's HTTP API, so an upload cannot be exercised end to end. Those are the parts a browser needs,
+and a browser needs the stack.
+
+### `alter database postgres` in a bootstrap script configures the wrong database
+`supabase-shim.sql` set the search_path with `alter database postgres set search_path = …`, which is
+correct exactly once — when the database really is called `postgres`, as the walkthrough above happens
+to make it. Load the shim into any other database (a rehearsal copy stood up at production's migration
+state, a second cluster) and the statement succeeds while configuring a database you are not connected
+to. **Nothing fails until `supabase/seed.sql` reaches `gen_salt('bf')`**, which lives in `extensions`
+and is suddenly not on the path — 1,900 lines in, with the projects and work items already inserted
+and everything after them missing.
+
+`alter database` takes a name and not an expression, so the fix is a `do` block with
+`format('alter database %I …', current_database())`. Fixed 2026-08-24; the note stays because the
+shape is general — a bootstrap script that names a database is a bootstrap script that works once.
+
+### `supabase/seed.sql` needs the current migration set, not an older one
+It ends with `select public.rebalance_project_keys();`, which arrives in
+`20260825091000_project_keys_and_slugs.sql`. That is correct for `db reset` (migrations, then seed) and
+it means the seed **cannot** be loaded onto a database held at an older migration state. To rehearse
+against production's state, comment that one line out for the rehearsal copy — do not stub the
+function, or the migration under test will replace a fake and you will have proved nothing.
+
+### `supabase gen types` needs Docker even with `--db-url`
+It spins up `postgres-meta` in a container regardless, so `npm run db:types` fails with
+`failed to connect to the docker API` even when it is pointed straight at a running Postgres. On a
+Docker-less machine `lib/supabase/database.types.ts` has to be hand-edited, and the generator's own
+conventions matter if the next `db:types` is not going to produce a large spurious diff:
+
+- Keys are **alphabetical** within `Row`, `Insert` and `Update`, and tables are alphabetical too.
+- A column is optional in `Insert` when it is nullable **or has a default** — so a `not null` column
+  with no default becomes *required*, and every caller then has to supply it. That is why
+  `work_items.key` was given `default ''` rather than having its default dropped: a BEFORE INSERT
+  trigger fills it either way, but the generator cannot see the trigger.
+- Every foreign key produces a `Relationships` entry **per referenced relation**, including the views
+  — a `profile_id` reference generates one for `profiles` and one for `v_person_load`.
+
+### `next build` is a real check, and it runs anywhere
+It type-checks, resolves every route, and catches a server/client boundary error that `tsc` will not.
+It needs the public env vars to be *present*, not correct:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54421 \
+NEXT_PUBLIC_SUPABASE_ANON_KEY=any-string-over-twenty-chars \
+npm run build
+```
+
+Read the field note above about `.env.production.local` before doing this on a machine that has one.
+
+---
+
+## The editor and its images
+
+### A `blob:` URL must never reach `body_json`
+An in-flight upload is rendered from `URL.createObjectURL(file)`, which exists in one tab and dies with
+it. Store one and it is a permanently broken image for everybody including its author on their next
+reload — the same class of bug as the expiring signed URL, arrived at from the other direction.
+
+Three things stop it and all three are load-bearing: the placeholder node's `parseHTML` returns nothing
+so it can never come back off a clipboard, its `renderHTML` emits an empty div so a document serialised
+by mistake carries no URL, and both the composer and the criteria editor refuse to submit while
+`hasPendingUpload(doc)` is true. The draft restore strips them too, because a draft written mid-upload
+outlives the tab that made it.
+
+### `fetch` does not report upload progress, and never has
+Only `XMLHttpRequest` fires `upload.onprogress`. A Server Action call is a `fetch`, so any upload that
+goes through one can show a spinner and nothing better. That is the entire reason `/api/uploads` is a
+route handler; it is not a preference.
+
+Cap the reported percentage at **99** until the response lands. The last percent belongs to the server
+answering, and a bar sitting at 100 while nothing happens reads as a hang.
+
+### The 16px rule does not reach the editor, because it is not an input
+`app/globals.css`'s coarse-pointer block names `input, select, textarea`. The rich-text surface is a
+`contenteditable` **div**, so it matched nothing — and `.coditu-prose p` re-declared 14px. iOS Safari
+auto-zooms any focusable **editable element** under 16px, `contenteditable` included, and does not zoom
+back out: tapping into the composer on an iPhone left the reader at 1.4x with the sheet off the side of
+the screen. Which is exactly the failure that block exists to prevent, arriving through the one element
+it does not match.
+
+The fix names `.coditu-prose` explicitly, and it is safe to scope it that way because
+`comment-body.tsx` renders a stored comment with its own classes — how a thread READS on a phone is
+untouched, only what you type into is raised. Asserted as a computed style in `mobile.spec.ts`, because
+the whole class of bug is a rule that looks like it applies and does not.
+
+### Toolbar buttons need `onPointerDown` as well as `onMouseDown`
+The existing note about stored marks is right and incomplete: a synthetic mouse event is **not
+guaranteed** on a touch screen. Safari fires it after a delay and some Android keyboards not at all, so
+on a phone the stored mark was lost before `onMouseDown` ever ran. Prevent both, and set
+`touch-action: manipulation` so the double-tap-to-zoom delay does not make the toolbar feel dead.
+
+---
+
+## Regexes and character classes
+
+### A hyphen between two escapes is a RANGE, and it is silent
+`/[\s -\\%?#]/` looks like "whitespace, space, hyphen, backslash, percent, question mark, hash". It is
+whitespace **plus every character from space (0x20) to backslash (0x5C)** — which includes every digit,
+every uppercase letter, `/` and `-`. A path-traversal guard written that way rejects every valid input
+and looks like it is working, because rejecting things is what a guard does.
+
+Write the range out: `/[\s\u0000-\u001F\u007F\\%?#]/`. And keep the escapes as escapes — a literal
+control character in a source file makes `grep` call it a binary file, makes the diff unreadable, and
+makes review impossible.
+
+Both `lib/attachments.ts` and `components/app/rich-text-editor.client.tsx` had this, and the second one
+(`/[\s -]/` in `normaliseHref`) would have refused every hyphenated domain.
+

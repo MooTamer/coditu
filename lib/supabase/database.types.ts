@@ -138,6 +138,80 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          default_weekly_capacity_minutes: number
+          hourly_rate_cents: number
+          id: number
+          max_image_batch: number
+          max_image_bytes: number
+          payout_from_sprint_id: string | null
+          payout_share_threshold_pct: number
+          updated_at: string
+          updated_by: string | null
+          usd_egp_fetched_at: string | null
+          usd_egp_rate_micros: number | null
+          usd_egp_source: string | null
+        }
+        Insert: {
+          default_weekly_capacity_minutes?: number
+          hourly_rate_cents?: number
+          id?: number
+          max_image_batch?: number
+          max_image_bytes?: number
+          payout_from_sprint_id?: string | null
+          payout_share_threshold_pct?: number
+          updated_at?: string
+          updated_by?: string | null
+          usd_egp_fetched_at?: string | null
+          usd_egp_rate_micros?: number | null
+          usd_egp_source?: string | null
+        }
+        Update: {
+          default_weekly_capacity_minutes?: number
+          hourly_rate_cents?: number
+          id?: number
+          max_image_batch?: number
+          max_image_bytes?: number
+          payout_from_sprint_id?: string | null
+          payout_share_threshold_pct?: number
+          updated_at?: string
+          updated_by?: string | null
+          usd_egp_fetched_at?: string | null
+          usd_egp_rate_micros?: number | null
+          usd_egp_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_settings_payout_from_sprint_id_fkey"
+            columns: ["payout_from_sprint_id"]
+            isOneToOne: false
+            referencedRelation: "sprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_settings_payout_from_sprint_id_fkey"
+            columns: ["payout_from_sprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_sprint_summary"
+            referencedColumns: ["sprint_id"]
+          },
+          {
+            foreignKeyName: "app_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
       attachments: {
         Row: {
           bytes: number
@@ -426,6 +500,7 @@ export type Database = {
           id: string
           initials: string
           is_active: boolean
+          is_developer: boolean
           must_set_password: boolean
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
@@ -438,6 +513,7 @@ export type Database = {
           id: string
           initials: string
           is_active?: boolean
+          is_developer?: boolean
           must_set_password?: boolean
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
@@ -450,12 +526,39 @@ export type Database = {
           id?: string
           initials?: string
           is_active?: boolean
+          is_developer?: boolean
           must_set_password?: boolean
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           weekly_capacity_minutes?: number
         }
         Relationships: []
+      }
+      project_slug_aliases: {
+        Row: {
+          created_at: string
+          project_id: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          project_id: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          project_id?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_slug_aliases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {
@@ -464,7 +567,9 @@ export type Database = {
           created_at: string
           id: string
           is_archived: boolean
+          key_prefix: string
           name: string
+          next_key_number: number
           scope: string | null
           slug: string
           updated_at: string
@@ -475,7 +580,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_archived?: boolean
+          key_prefix?: string
           name: string
+          next_key_number?: number
           scope?: string | null
           slug: string
           updated_at?: string
@@ -486,7 +593,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_archived?: boolean
+          key_prefix?: string
           name?: string
+          next_key_number?: number
           scope?: string | null
           slug?: string
           updated_at?: string
@@ -543,6 +652,113 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_person_load"
             referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      sprint_payout_shares: {
+        Row: {
+          minutes_logged: number
+          payout_id: string
+          profile_id: string
+          share_cents: number
+        }
+        Insert: {
+          minutes_logged: number
+          payout_id: string
+          profile_id: string
+          share_cents: number
+        }
+        Update: {
+          minutes_logged?: number
+          payout_id?: string
+          profile_id?: string
+          share_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sprint_payout_shares_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "sprint_payouts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sprint_payout_shares_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sprint_payout_shares_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      sprint_payouts: {
+        Row: {
+          confirmed_at: string
+          confirmed_by: string
+          hourly_rate_cents: number
+          id: string
+          pot_cents: number
+          sprint_id: string
+          superseded_at: string | null
+          superseded_by: string | null
+          total_minutes: number
+          usd_egp_rate_micros: number | null
+          usd_egp_source: string | null
+        }
+        Insert: {
+          confirmed_at?: string
+          confirmed_by: string
+          hourly_rate_cents: number
+          id?: string
+          pot_cents: number
+          sprint_id: string
+          superseded_at?: string | null
+          superseded_by?: string | null
+          total_minutes: number
+          usd_egp_rate_micros?: number | null
+          usd_egp_source?: string | null
+        }
+        Update: {
+          confirmed_at?: string
+          confirmed_by?: string
+          hourly_rate_cents?: number
+          id?: string
+          pot_cents?: number
+          sprint_id?: string
+          superseded_at?: string | null
+          superseded_by?: string | null
+          total_minutes?: number
+          usd_egp_rate_micros?: number | null
+          usd_egp_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sprint_payouts_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sprint_payouts_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "sprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sprint_payouts_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "sprint_payouts"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -674,6 +890,7 @@ export type Database = {
           closed_at: string | null
           component_id: string | null
           created_at: string
+          deleted_at: string | null
           deadline: string | null
           description: string | null
           estimate_minutes: number | null
@@ -695,6 +912,7 @@ export type Database = {
           closed_at?: string | null
           component_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           deadline?: string | null
           description?: string | null
           estimate_minutes?: number | null
@@ -716,6 +934,7 @@ export type Database = {
           closed_at?: string | null
           component_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           deadline?: string | null
           description?: string | null
           estimate_minutes?: number | null
@@ -816,6 +1035,29 @@ export type Database = {
           },
         ]
       }
+      v_sprint_minutes: {
+        Row: {
+          minutes_logged: number | null
+          profile_id: string | null
+          sprint_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "sprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_sprint_summary: {
         Row: {
           blocked_count: number | null
@@ -860,11 +1102,38 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      derive_key_prefix: {
+        Args: { p_exclude?: string; p_slug: string }
+        Returns: string
+      }
       is_active_member: { Args: never; Returns: boolean }
       is_admin_or_lead: { Args: never; Returns: boolean }
+      list_deleted_work_items: {
+        Args: { p_sprint_id: string }
+        Returns: {
+          deleted_at: string
+          id: string
+          key: string
+          minutes_logged: number
+          title: string
+        }[]
+      }
+      rebalance_project_keys: { Args: never; Returns: undefined }
+      rewrite_attachment_srcs: {
+        Args: { depth?: number; doc: Json }
+        Returns: Json
+      }
+      reorder_criteria: {
+        Args: { p_criterion_id: string; p_ordered_ids: string[] }
+        Returns: string
+      }
       reorder_work_items: {
         Args: { p_item_id: string; p_ordered_ids: string[] }
         Returns: string
+      }
+      set_work_item_deleted: {
+        Args: { p_deleted: boolean; p_item_id: string }
+        Returns: Json
       }
       work_item_project_id: { Args: { item_id: string }; Returns: string }
       work_item_status_rank: {

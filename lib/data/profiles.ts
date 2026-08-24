@@ -46,6 +46,9 @@ export interface TeamMember extends ProfileRef {
   isActive: boolean;
   /** Invariant 2: minutes. Divided by 60 at the render edge only. */
   weeklyCapacityMinutes: number;
+  /** Whether they take a share of a sprint's pot. An admin decides; a
+   *  non-developer's minutes still count toward it. */
+  isDeveloper: boolean;
 }
 
 /**
@@ -65,7 +68,7 @@ export const listTeam = cache(async (): Promise<TeamMember[]> => {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, initials, avatar_url, role, is_active, weekly_capacity_minutes")
+    .select("id, full_name, initials, avatar_url, role, is_active, weekly_capacity_minutes, is_developer")
     .order("is_active", { ascending: false })
     .order("full_name");
 
@@ -79,5 +82,6 @@ export const listTeam = cache(async (): Promise<TeamMember[]> => {
     role: row.role as AppRole,
     isActive: row.is_active,
     weeklyCapacityMinutes: row.weekly_capacity_minutes,
+    isDeveloper: row.is_developer,
   }));
 });

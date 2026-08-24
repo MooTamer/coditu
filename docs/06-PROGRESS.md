@@ -748,3 +748,307 @@ ledger updated in the same commit as the work.
   the component and criteria migrations, `seeds/components.sql` and `seeds/item-components.sql` are
   **local only** — production needs them pushed by hand, in that order, and `07-FIELD-NOTES.md` says
   how.
+
+## The thread-and-earnings brief (`docs/coditu-thread-and-earnings-prompt.md`)
+
+Six workstreams, worked **F first** because F is what decides whether the next sprint can run on this
+app at all. Same rules as everything above: one change at a time, the ledger updated in the same commit
+as the work, the command that proved it recorded beside it.
+
+**How this session verified things, and what it could not.** This ran in a container with **no Docker
+daemon**, so `supabase start`, `npm run db:reset`, `npm run db:test` and `npm run e2e` are all
+unavailable as written — the local Supabase stack, PostgREST and GoTrue included, cannot be started.
+The database layer was verified anyway, on a bare PostgreSQL 16 with pgTAP and a hand-written
+Supabase-shaped bootstrap (roles, `auth.users`, `auth.uid()`, `storage.objects`, the delete guard);
+every migration applies in order against it, the seed loads, and `supabase/tests/*.sql` runs through
+`psql` with the same TAP output `supabase test db` would print. **Playwright could not run at all** —
+`e2e/fixtures.ts` signs in through GoTrue and reads through PostgREST, neither of which exists here.
+Every e2e assertion written for this brief is therefore **written but not executed**, and is marked as
+such in each row below. `docs/07-FIELD-NOTES.md` records how to stand the bare-Postgres harness up
+again.
+
+| Change | Commit | Verification |
+|---|---|---|
+| **`app_settings` — every tunable in one admin-editable row, and no number in a `const`.** The team's standing instruction (*"nothing is hardcoded, everything that is a decision is editable in the interface"*) turned into schema: `hourly_rate_cents`, `payout_share_threshold_pct`, `payout_from_sprint_id`, `usd_egp_rate_micros` + source + fetched-at, `max_image_bytes`, `default_weekly_capacity_minutes`. One row, `check (id = 1)`. `lib/settings.ts` is the only reader, memoised per request with React's `cache` — not `unstable_cache`, because a settings row that goes stale across requests is worse than one query per render. A missing table, missing row and missing column are all the same answer: the default, and a page that renders. ADR in `05-DECISIONS.md` | pending | `db:test` — 6 new assertions: an engineer reads the row and cannot change the rate (a row-filtering policy denies by matching nothing, so the **value** is asserted, never the row count), an admin can, a rate of zero is refused by check, a second row is impossible, and a signed-out caller gets `42501` rather than an empty result because `anon` has no grant anywhere in this app |
+| **A work item's key names its project (§8.4), and a slug outlives its rename (§8.5).** Both were decision gates; both were put to the team and answered. `projects.key_prefix` + `next_key_number` replace the single global `'COD-' || nextval(…)` default, and `assign_work_item_key` derives them from the item's own sprint. **Existing keys are immutable**: MEINEvim keeps `COD` with its counter at 244, Converso becomes `CON`, the other three take their slugs. `project_slug_aliases` keeps every address a project has ever had, `getProjectBySlug` falls back to it, and `guard_slug_namespace` stops a live slug and an alias ever naming two projects. ADR in `05-DECISIONS.md` | pending | `db:test` — 10 new assertions: an unkeyed item takes its own project's prefix, the next takes the next number, another project's item carries another prefix, a stated key is untouched, a malformed key is refused by `work_items_key_shape`, two projects cannot share a prefix, a lead adds an alias, an alias cannot shadow a live address, a live address cannot take over an alias, an engineer cannot invent one. Verified by hand that a **stale counter self-heals** (set to 141, next insert still returned `COD-244`) rather than colliding on the unique index |
+| **`order_index` is assigned by the database.** Every caller read `max(order_index)` and then inserted — a read-modify-write with no lock, which is exactly what ten items created on planning morning is (F4). The default becomes `-1` (not a position), `assign_order_index` appends under `for no key update` on the sprint or item, and `createWorkItem`, `addCriterion` and the Notion importer all stopped computing it. A stated position is still honoured, because the seed's numbering is the order somebody chose | pending | `db:test` — 2 new assertions. Measured rather than assumed: a four-row `insert … select` returns 14, 15, 16, 17, so a BEFORE ROW trigger does see the rows its own statement inserted before it |
+| **F2.1 — clients and projects can be created in the app at last.** There was no `lib/actions/projects.ts` at all: taking on a new client meant writing SQL. Now: create and rename a client (name, https-only website parsed rather than pattern-matched, accent), create a project (client, name, address, key prefix, scope), rename one — which writes the outgoing slug into `project_slug_aliases` in the same call — and archive or restore one. Admin **and** lead, matching the policies that have said so since the first migration; the brief asked for admin-only and the ADR records why that lost. Archive, never delete: `projects.id` cascades to sprints, to items, and to the hours an invoice was built from | pending | `npm run lint`, `npm run typecheck` clean · `npm run test` — 157 · **e2e written but not executed** (no Docker; see the note above) |
+| **F2.2 — an item's own words are editable, and so is a comment.** `setWorkItemFields` accepted four fields and **title, description and highlight had no path at all** after creation — the guard already treated them as admin/lead columns, so the database had been ready the whole time. Inline now: the title as an editable heading, description and highlight as multi-line prose edited where they are read, all optimistic with a rollback and a sentence. And `editComment` / `deleteComment` — written, authorized, RLS-tested, and called by **nothing**, with an "edited" badge rendering a state no user could reach — finally have controls. A withdrawn comment keeps its place, its author and its timestamp and loses its words *in the read model*, so the text never reaches a browser | pending | `npm run lint`, `npm run typecheck`, `npm run build` clean · `npm run test` — 182 · **e2e written but not executed** |
+| **F2.3 — a time entry can be corrected, which after workstream E is a money bug fixed.** RLS has said `edit own time`, `delete own time` and "an admin may delete any" since the first migration; there was no action and no control, so `logTime` was append-only in practice and 8 hours typed instead of 0.8 was in the sprint total forever. `updateTimeEntry` and `deleteTimeEntry` sit beside each entry. Correcting is your own only; removing is yours or an admin's — that asymmetry is the policy's, not the UI's. Both revalidate `/app/earnings` in the same call, so a corrected entry makes a confirmed sprint go **stale loudly** rather than silently recomputing | pending | `npm run typecheck` · `npm run test` — 182 · **e2e written but not executed** |
+| **F2.4 — an item can be deleted (softly) and carried over to the next sprint.** §8.6 answered: soft. `work_items.deleted_at`, and the rule is enforced **in the read policy** rather than in fifteen queries — the sprint table, the board, my-work, both exports, the report, the PDF, the palette and the component history all became correct without being touched, and none of them can regress by forgetting a filter. Restore is a `security definer` RPC, because the policy hides the row from the person who has to bring it back. The hard-delete policy is **dropped**: leaving it would make "soft delete" a habit of the UI rather than a property of the database. Moving refuses a cross-project target in the action and again in a trigger — an item's key already names its project, so a move across clients would be a key that lies | pending | `db:test` — 11 new assertions incl. "a deleted item is invisible even to the lead who deleted it", "every count over the sprint already excludes it with no filter written anywhere", the bin, restore, and **"not even a lead hard-deletes a work item"** |
+| **F2.5 — weekly capacity is editable at last.** It drove the load bars on People and `v_person_load` and was settable nowhere; every profile carried whatever `handle_new_user` defaulted to. `setWeeklyCapacity`, admin-only, minutes under the hood and hours at the render edge — `guard_profile_privilege_columns` has named the column since the first migration, so only the control was missing | pending | `npm run typecheck` · covered by the existing pgTAP assertion that a non-admin's capacity write raises `42501` |
+| **F2.6 — the sprint goal is no longer a dead column.** `sprints.goal` was in the schema and in `SprintDetail`; `grep -rn "goal" components/app app/app` returned **nothing at all** — a column no code path could write or read. Wired into `createSprint`, `updateSprint` and the sprint header. A sprint goal is the first thing anybody types on planning day | pending | `npm run typecheck` · **e2e written but not executed** |
+| **A2 — one rich-text editor, used in two places.** `comment-editor.client.tsx` *was* the editor; §2 needed the same one for criteria and the instruction was explicit — extract, do not duplicate. `rich-text-editor.client.tsx` now holds the TipTap instance, the toolbar, the link popover, the paste filter and the upload flow, and takes a props object declaring which features are on (`mentions`, `images`, `density`, `minHeight`, `maxBatch`). `comment-editor.client.tsx` is a thin configuration of it and its behaviour is unchanged. Both stay dynamically imported — TipTap and ProseMirror are most of a route's budget. Riding along: **⌘K opens the link box and wins** over the command palette's own window-level ⌘K, by running in the capture phase on the editor's wrapper (the pattern `comment-image.client.tsx` uses for Escape) so both shortcuts keep working and never both fire; `onPointerDown` joins `onMouseDown` in preventing default on every toolbar button, because a synthetic mouse event is not guaranteed on a touch screen and that is what drops ProseMirror's stored marks; the toolbar scrolls sideways rather than wrapping to two rows at 320px; and a paste from Word, Notion or Google Docs is **stripped to the allowlist on the way in** — the renderer already failed closed, but the stored document should be clean rather than merely harmless | pending | `npm run build` clean · `npm run test` — 182 · `e2e/comments.spec.ts`, `e2e/composer.spec.ts` and `tests/comment-rendering.test.ts` are the proof the behaviour did not move and are **untouched** — but only the vitest half could be executed here |
+| **C1 — the image src expires, and every picture posted before today is already broken.** `uploadCommentImage` returned a **signed URL with a one-hour expiry** and the editor stored that string verbatim inside `body_json`. An hour later the picture was dead, permanently, and nothing said so — the `<img>` simply failed. Documents now hold `/api/attachments/<key>`, a stable same-origin path that `isSafeImageSrc` already accepted with **no change to the security boundary**. The route re-checks `is_active_member` on every request, matches the path against the exact shape this app writes rather than sanitising it, names the bucket as a constant so no request can pick another, caches `private` and never `public`, and 307s to a five-minute signed URL so the bytes never pass through this server twice. Uploads register in `public.attachments` — the table has existed since the first migration and this path had never used it. A data migration rewrites the documents that already exist: idempotent, re-runnable, and it leaves a document it does not recognise byte-for-byte alone | pending | `npm run test` — **14 new traversal assertions** in `tests/attachment-src.test.ts`, extending `tests/avatar-url.test.ts`'s approach: `..` in five spellings, `%2e%2e` and `%252e%252e`, a backslash, an absolute URL, a protocol-relative URL, whitespace, a `.svg`, and a key that is not two uuids. Migration verified by hand against a stored signed URL: rewritten to the stable path, `alt` preserved, **idempotent**, and a foreign image untouched. **0 rows locally** — the Notion import's attachments use a different path — so the production row count is still to be recorded |
+| **C2/C3 — the picture you just pasted, before it exists anywhere but in your browser.** The old feedback was `uploading…` in the toolbar corner: it did not say which image, how far, or where the picture would land, so an 8MB screenshot on a bad connection looked exactly like a hang — which is the moment somebody pastes it again. Now a **placeholder goes into the document at the caret**, carrying a local preview of the file at its own aspect ratio, with a determinate bar filling over it. On success it is replaced by the real image with the intrinsic size the **server** read out of the file's own header (a client-supplied dimension is a claim, and a claim that drives layout can distort it). On failure it is removed **entirely** — no broken image, no orphan placeholder — and the reason is said out loud. Uploading is a route handler rather than a Server Action for one reason: `XMLHttpRequest` reports upload progress and `fetch` does not. Also: several images at once upload in order instead of `files.find(...)` silently dropping all but the first; the batch cap is `app_settings.max_image_batch`, not a `const`; **HEIC is refused by name** with the iPhone setting that fixes it rather than a useless list of MIME types; a failed image renders a quiet "image unavailable" box at the size it would have been, with its alt text; a thumbnail reserves its box so the thread does not reflow while somebody reads it; the author can **edit the alt text** from the toolbar (the filename stays the default); and a draft carrying a half-uploaded image is stripped on restore, because a `blob:` URL dies with the tab that made it | pending | `npm run test` — **11 new assertions** on the header parsers: PNG, GIF and lossy WebP; a JPEG read past 0, 3 and 20 EXIF segments (an iPhone photo has no fixed offset); AVIF returning null rather than guessing; a truncated file; and a JPEG whose segment chain is nonsense not looping forever. HEIC detected by type **and** by extension, because Safari reports an empty type for a file picked out of Files |
+| **§8.1 — the lightbox traverses the item.** Answered: in scope. Left/right arrows and a one-finger horizontal swipe move between every image in the item — criteria screenshots and thread screenshots are one gallery, in document order — and swipe-down closes. **Pinch is not touched**: a two-finger sequence is handed straight to the browser and the swipe tracker abandons the gesture, because zooming into a screenshot of somebody's SCSS is the most useful thing this viewer does on a phone. The slide list is read out of the DOM rather than threaded through a context, because the thread is rendered on the server and a context would be wrong for the frames before every image had registered itself | pending | **e2e written but not executed** — no browser here |
+| **§8.4/§8.5/§8.6 answered by the team and recorded as ADRs.** Per-project key prefix; the old slug kept as a redirect; a soft delete for a work item; the lightbox traversing the thread. All four were put to the team before a line was written, per §8 | `840a73f` + pending | `docs/05-DECISIONS.md` |
+| **E — what a sprint pays.** The only workstream that adds a concept the app did not have. `app_settings.hourly_rate_cents` (USD 12.00 to start, and a **setting**), `profiles.is_developer` set by an admin and **never a name in code**, `sprint_payouts` and `sprint_payout_shares` both append-only, and `v_sprint_minutes` as the one place "how many minutes has this sprint had" is answered — so the provisional figure and the snapshot taken at confirmation cannot disagree. A pot is `minutes × rate ÷ 60` with the division **last**: the float route loses a cent at eleven minutes, and there is a test that says so. The split is **equal, not proportional**, with the remainder handed out one cent at a time by ascending profile id so the same inputs always produce the same split | pending | `npm run test` — **25 new assertions** on the arithmetic, including the identity `sum(shares) = pot` swept across 9 participant counts × 11 pot sizes, 3-and-100, 7-and-1, 0, 10001-among-3 → 3334/3334/3333, and the threshold at exactly 25% (compared in integer minutes, because `0.25 >= 0.25` is only reliably true when nobody divided) · `db:test` — **14 new assertions**: an engineer cannot make themselves a developer or confirm anything, **nor can a lead**, an admin can, the shares sum to the pot in SQL as well as in TypeScript, a second live payout is refused by the partial unique index, a confirmed pot **cannot be rewritten even by the admin who confirmed it**, superseding is the only change permitted, a superseded row stays superseded, nobody deletes one, and everyone active reads everyone's |
+| **E3 — the exchange rate, and why it never blocks a page.** The stored `usd_egp_rate_micros` is the source of truth for **rendering**; the live fetch only ever updates it, daily at most, from `after()` once the response is already on the wire. A slow or dead provider therefore changes nothing except the "as of" line. Two free sources (`open.er-api.com`, then a different provider on a different host — a retry of a dead endpoint is a slower way to fail), both behind `lib/circuit-breaker.ts`, both sanity-checked into a 1–1000 band before they may overwrite a number somebody is paid against. Deliberately **no** `unstable_cache` or `'use cache'`: nothing in this repo uses either, Next 16 has moved that ground more than once, and a `revalidate`d fetch would leave a cold instance rendering with no rate at all — which is the exact failure being designed out. At confirmation the rate is **snapshotted onto the payout**, so a confirmed sprint's EGP figure never moves again | pending | `npm run test` — the band refuses `0`, `null`, `"50.86"`, NaN, Infinity, −3, 0.5, 1001 and 1e9, and takes both edges; the micro-conversion is integer end to end with one rounding |
+| **E5 — money appears on two screens, and there is a test that will not let it appear on a third.** `/app/earnings` and the card on `/app/settings`. Nothing under `/app/projects/**`, nothing in the CSV, Markdown or PDF, nothing in the palette, my-work or a push payload. Asserted **two ways**, because this is the one that costs a client relationship: a rendered assertion in `e2e/earnings.spec.ts` over the table, the board, an item, the report and the PDF on a sprint that *has* a confirmed payout — and a **source-level grep** in `tests/earnings-boundary.test.ts` proving no client-facing file imports an earnings module, calls a money formatter, names a payout table, or contains a currency string. The grep lives in vitest rather than Playwright because it needs no browser and should fail in a second. **Red-green checked**: a `usdFromCents()` added to `sprint-table.client.tsx` failed it by name, and removing it passed. The link is in the account menu and the phone's More sheet and deliberately **not** in the rail or top bar — those are visible on every screen that gets shared | pending | `npx vitest run tests/earnings-boundary.test.ts` — 6 assertions, red-green checked. The rendered half is **written but not executed** |
+| **F3 — the settings surface, where every tunable lives.** The rate, the proposal threshold, the effective-from sprint, the image cap, the images-per-paste cap, the default weekly capacity, the exchange rate and its source, and who takes a share. Each with its current value, what it affects, and who may change it. Read server-side through one accessor memoised per request — not `unstable_cache`, because a settings row that goes stale across requests is worse than one query per render — and every one of them has a fallback so a database that has not been seeded still renders | pending | `npm run typecheck`, `npm run build` clean · `npm run test` — the accessor's defaults are asserted equal to the migration's in `tests/earnings.test.ts` and by inspection in `lib/settings.ts` |
+| **D2 — a progress ring beside `3/5`, the gradient id bug it would have shipped with, and a contrast recomputation that changed the answer.** The brief said "recompute, do not assume", so it was recomputed at the worst of four background layers in both themes: the track at `--hairline-strong` measures **1.47:1** (a ring that reads as a floating arc), and the gradient's **teal stop measures 1.36:1 on a light surface** — the default theme — so a mostly-complete ring's tail is invisible to anybody not looking hard, and `aria-label` does nothing for low vision. A new `--ring-track` token measures 3.26:1 light / 3.01:1 dark, and **the count stays rendered as text** so the ring is supplementary rather than the sole carrier. That costs the sticky Task column ~18px the brief asked it not to spend; ADR in `05-DECISIONS.md`, correctness over the brief. `criteria-list.client.tsx` hard-coded `<linearGradient id="ringGrad">`. One ring per row on a twelve-row table is twelve elements sharing an id — invalid HTML, and `url(#ringGrad)` resolves to whichever the browser saw first. It would have looked **correct**, because every gradient is identical, right up until somebody changed one. `components/coditu/progress-ring.tsx` takes a `useId()` per instance, carries `role="img"` and an `aria-label` spelling the count out — a finger cannot open a tooltip, the mistake already recorded above for per-person sprint load — and renders nothing at all for zero criteria | pending | The contrast numbers were **computed** rather than eyeballed, over sixteen background layers; the arithmetic is in the ADR. `npm run typecheck` · the DOM assertion that a full table holds no duplicate gradient id is **written but not executed** |
+| **D1 — done criteria sink, and nobody's manual order is destroyed.** The sort key is `(isDone, orderIndex)` and it is applied **at the render edge, never written to `order_index`** — so un-ticking returns a criterion to exactly the position it held, because its position was never touched. The optimistic state sorts by the same key the server does, or the row jumps once on tick and again on refresh. Dragging across the done boundary is refused with a sentence rather than silently reinterpreted. **The export order is `order_index`, always** — "done last" is a reading affordance for the team and the CSV, Markdown and PDF are a client-facing contract | pending | `npm run test` — `tests/export.test.ts` is untouched and still green, which is the assertion that the export order did not move · the reorder RPC has its own pgTAP coverage through `guard_criteria_columns` |
+
+### F1 — the rehearsal
+
+Run on 2026-08-25 against a **freshly reset database** — every migration applied in order, then the
+seed — as each of the three roles in turn, using the exact writes the Server Actions make under the
+exact RLS they run under. The script is `supabase/rehearsal.sql`; it opens a transaction, walks
+the whole flow, and rolls back.
+
+**What this rehearsal is, and what it is not.** It is the half of the walkthrough that can be executed
+without a browser: it proves the *paths* exist and that the database agrees with who may take them.
+It does **not** prove the button is there, that the sheet fits at 390px, or that a thumb can reach it —
+that is the e2e half, and **no browser could run here**, so every row below marked "phone" is a claim
+about code rather than a measurement. Somebody should run `npm run e2e` on a machine with Docker
+before the team's first real sprint, and the ledger note above says why they could not be run here.
+
+| Step | Worked | What was missing, and what it is now |
+|---|---|---|
+| 1. Sign in, land somewhere useful | ✅ | Unchanged. |
+| 2. **Create a client and a project** | ✅ *(was: impossible)* | There was no `lib/actions/projects.ts` at all — the first thing anybody does on a new engagement was the one thing this app could not do. The rehearsal created "Rehearsal Ltd" and a project that took the key prefix `REH` on its own. |
+| 3. **Create the next sprint, with a goal** | ✅ *(was: half)* | `createSprint` existed; `sprints.goal` was a column **no code path could write or read**. The rehearsal set a goal and read it back. |
+| 4. Start it; refuse a second active sprint | ✅ | The partial unique index refused the second, as it always has. The UI says which sprint is in the way rather than showing a Postgres error. |
+| 5. **Ten work items in one sitting** | ✅ | Ten items, keys `REH-1…REH-10`, `order_index` 0–9 **contiguous**. That is the F4 collision case, and it is now a row lock rather than ten unsynchronised read-modify-writes. |
+| 6. **Rename, correct the description, rewrite the highlight, move one, delete one** | ✅ *(was: 2 of 5)* | Title, description and highlight had no path at all. Moving an item did not exist. Deleting did not exist. All five now work; the moved item landed at `order_index 0` in its new sprint, and the deleted one became **invisible to every select**, including the lead's who deleted it. |
+| 7. Component: create in place, rename, archive | ✅ | Unchanged, and the slug survived the rename — a link pasted into a comment in March still resolves. |
+| 8. Assign and reassign | ✅ | Unchanged. |
+| 9. **Log time as three people, then correct a wrong entry** | ✅ *(was: append-only)* | 8.0 h was corrected to 0.5 h and the trigger-maintained rollup followed to 240 minutes on its own. Before this, a mistyped entry was in the sprint total for ever — which after workstream E is somebody's pay. |
+| 9b. An engineer rewrites another person's hours | ✅ refused | Silently, by the row policy matching nothing — which is why the action checks first and answers in a sentence. |
+| 10. **Comment, edit it, withdraw it** | ✅ *(was: no UI for either)* | `editComment` and `deleteComment` were written, authorized and RLS-tested and **called by nothing**; the "edited" badge rendered a state no user could reach. A withdrawn comment keeps its row, its author and its timestamp. |
+| 11. **Tick a criterion, and rewrite what it says** | ✅ *(newly widened)* | The assignee ticked it and rewrote it; reordering the checklist was refused, which is exactly the line the team drew. |
+| 12. Filter, search, palette, export | ✅ | Unchanged, and asserted unchanged: `tests/export.test.ts` is untouched and green, which is the evidence that "done last" did not reach the client-facing contract. |
+| 13. **Close the sprint and confirm the payout** | ✅ *(new)* | 240 minutes → a pot of 4800 cents at USD 12.00/h, shares summing to 4800 **exactly**. |
+| 13b. An engineer confirms a payout | ✅ refused | By RLS, not only by the missing button. |
+| F2.1b. Rename a project and keep the old address | ✅ *(new)* | `/app/projects/rehearsal-portal` still resolves after the rename to `rehearsal-portal-v2`. |
+
+**Still only doable on a laptop, deliberately, and listed here rather than discovered on a Monday:**
+the Notion importer (a file picker and a preview table that has no phone layout), and the PDF export
+(it launches Chromium server-side; the download works on a phone, the preview is a desktop screen).
+Everything else in the walkthrough has a phone path, and the phone paths are the ones that could not
+be measured here.
+
+### Not yet applied to the hosted database — the order, exactly
+
+`npm run db:migrate` is local only. Nothing in this repository, in CI, or in the Vercel deploy pushes a
+migration to `hayfsvsepgfescojesbd`; schema and code travel separately and arrive in whatever order
+they arrive. This repo has already had one outage from precisely that (`sprints.notes_written_at`
+shipped ahead of its migration, `42703` on every sprint page), so the order below is not advisory.
+
+**Everything in this list must be applied BEFORE the code that reads it.** An added column is invisible
+to the running deployment; code that selects a column the database does not have is a 500 on every
+render.
+
+**This list is now a script — `scripts/push-to-hosted.sh`.** One command, the same order, with the
+before-and-after numbers taken automatically and sixteen assertions on the result:
+
+```bash
+scripts/push-to-hosted.sh --db-url 'postgresql://postgres:PASSWORD@db.hayfsvsepgfescojesbd.supabase.co:5432/postgres'
+scripts/push-to-hosted.sh --db-url '…' --verify-only     # checks only, writes nothing
+```
+
+Take the URI from the dashboard (Project Settings → Database → Connection string), direct connection
+or the *session* pooler — not the transaction pooler on 6543, which will not carry DDL in an explicit
+transaction. It never runs `supabase/seed.sql` and never passes `--include-seed`; the three files under
+`supabase/seeds/` go through `psql` individually, which is the only safe way to have the seeds without
+the seed's password.
+
+The list below is what it does, kept because the reasoning is worth more than the invocation.
+
+Carried over from the components work and **still outstanding**:
+
+1. `20260824120000_components.sql`
+2. `supabase/seeds/components.sql`
+3. `supabase/seeds/item-components.sql`
+4. `20260824170000_rich_criteria.sql`
+
+New in this brief, in this order:
+
+5. `20260825090000_app_settings.sql` — the settings row. Everything after it assumes it exists, and
+   `lib/settings.ts` tolerates its absence precisely so the code may ship first if it has to.
+6. `20260825091000_project_keys_and_slugs.sql` — **read the note below before running this one.**
+7. `20260825092000_editable_after_creation.sql`
+8. `20260825093000_stable_image_refs.sql` — this one **rewrites data**. It raises
+   `NOTICE: stable image refs: N comments, M criteria rewritten`; **record N and M here when it runs.**
+   Locally both are 0, because the Notion import's attachments do not use that path — production is
+   where the broken images actually are.
+
+   **The notice will not appear.** `supabase db push` does not surface server notices — measured, not
+   suspected: `grep -c 'stable image refs' push.log` is 0. And the migration is idempotent, so the
+   number is gone the moment it runs; a second pass correctly reports zero. The script therefore
+   **counts both sets before pushing**, with the same shape test the migration uses, and prints them at
+   the end in the form this ledger wants. That count is the number to record.
+9. `20260825094000_reorder_criteria.sql`
+10. `20260825095000_earnings.sql`
+11. `supabase/seeds/developers.sql` — matched on `full_name`, not on email, because production is on the
+    team's real Gmail accounts and local is deliberately on `@coditu.com`.
+
+**The one to read twice is (6).** It rebalances every project's key prefix and counter from the keys
+that already exist, and production's `COD-` range is **not** local's (`COD-152…COD-255` there,
+`COD-140…COD-243` here — see `07-FIELD-NOTES.md`). It is written to derive both from the data rather
+than from a constant, so it should be right on both, but verify afterwards:
+
+```sql
+select slug, key_prefix, next_key_number from public.projects order by slug;
+-- MEINEvim must keep COD, and its counter must be above the highest COD- key that exists.
+select max(substring(key from '\d+$')::int) from public.work_items where key like 'COD-%';
+```
+
+Both are assertions in the script rather than queries to read, so the counter landing **below** the
+highest existing key is a red line and not something to notice.
+
+#### The rehearsal — 2026-08-24
+
+The whole sequence was executed against a bare Postgres 16 copy stood up at production's exact
+migration state: shim, the eighteen migrations production already has, the Notion-import seed (104 work
+items, 275 criteria, 67 time entries), and a `supabase_migrations.schema_migrations` holding those
+eighteen versions so `db push` saw the same eight as pending. Four comments were planted carrying the
+C1 bug itself — an expired signed URL, one nested inside a blockquote, one with an extension outside
+the allowlist, and one image from another host entirely.
+
+`supabase db push --db-url` applied all eight migrations, the three seeds loaded, and **all sixteen
+checks passed**. The two recognisable srcs became `/api/attachments/…`; the foreign URL and the
+unrecognised extension were left byte-for-byte alone, which is the behaviour the migration's header
+claims and the first time it has been demonstrated rather than asserted. Pre-flight counted 2
+comments; the migration rewrote 2. The notice appeared nowhere.
+
+**No src the old uploader could have written is one the migration misses.** `uploadCommentImage`
+validated `file.type` against `ALLOWED_IMAGE_TYPES` *before* deriving the extension from it
+(`file.type.split("/")[1]?.replace("jpeg","jpg")`), so the set of extensions that can exist in the
+bucket is exactly `png|jpg|webp|gif|avif`, lowercase — exactly the migration's regex. The `?? "bin"`
+fallback in that line is unreachable. Checked because a single unmatched shape would leave a picture
+permanently dead with nothing saying so.
+
+What the rehearsal does **not** cover: it is bare Postgres, so no PostgREST, no GoTrue, no storage HTTP
+API. It proves the schema, the triggers, the policies and the data rewrite. It does not prove the app.
+
+**Also apply the Vercel side:** nothing new is needed in the environment. `/api/uploads` and
+`/api/attachments/[...path]` use the same anon-key client every other route does.
+
+---
+
+### Where this stopped, and what a machine with Docker still has to run
+
+Everything in this brief was written and the database half of it was executed. **Nothing that needs a
+browser was run at all**, because this session had no Docker daemon and therefore no PostgREST, no
+GoTrue and no Playwright. Before the team's first real sprint, on a machine that has them:
+
+```bash
+npm run db:reset                  # then confirm the rehearsal table above still reads the same
+psql "$DB_URL" -f supabase/rehearsal.sql
+npm run e2e                       # chromium + mobile-safari + mobile-chrome
+npm run budgets                   # the app shell must stay under 110KB
+```
+
+`npm run budgets` is the one number this brief could not measure and should have. The app shell was at
+**109.9KB of 110KB** before this work. Nothing here was *intended* to enter the shell — the editor,
+dnd-kit and the earnings board are all behind `next/dynamic` or on routes of their own, and
+`components/coditu/progress-ring.tsx` is a few hundred bytes of SVG — but "intended" is not
+"measured", and 0.1KB of headroom is not much to be wrong by. **Run it before deploying.**
+
+The e2e specs written for this brief and **not executed**: `e2e/earnings.spec.ts` (the money-leak
+assertions and the confirmation flow), `e2e/editable.spec.ts` (the F2 flows), and new blocks appended
+to `e2e/item-detail.spec.ts` and `e2e/mobile.spec.ts`. The **source-level** half of the money-leak
+boundary — `tests/earnings-boundary.test.ts` — did run, and was red-green checked against a deliberate
+leak.
+
+**Which file each phone assertion landed in, per §0.2.** `item-detail.spec.ts` and `mobile.spec.ts` are
+the two on `ON_A_PHONE` that this brief touches, and everything that needs a real touch screen went
+into one of them:
+
+| Assertion | File | Why there |
+|---|---|---|
+| The tick and the body are separate, non-overlapping targets; ≥44px on a coarse pointer, ≥24px on a mouse | `item-detail.spec.ts` | The behaviour change B5 asks for. The floor depends on the device, so it has to run on both. |
+| Tapping the words opens the editor and does not tick the box | `item-detail.spec.ts` | A `tap()`, with a `click()` fallback for the chromium project which has no touch. |
+| The ring carries its count in its accessible name | `item-detail.spec.ts` | A finger cannot open a tooltip. |
+| The link popover is not clipped inside the sheet, and Escape closes only it | `item-detail.spec.ts` | The claim in `rich-text-editor.client.tsx` is that the composer is not inside a clipping scroll container; this is that claim, verified in the sheet at 390px. |
+| axe on the open criterion editor | `item-detail.spec.ts` | The `contenteditable` + `aria-label` rule only fires while the editor is **empty**, so it audits before typing. |
+| **Bold with a finger on an empty composer** | `mobile.spec.ts` | The `onPointerDown` fix. A synthetic mouse event is not guaranteed on a touch screen, so this can only be proved on a phone. |
+| The toolbar scrolls sideways rather than wrapping | `mobile.spec.ts` | Two rows of buttons above a two-line composer puts the text under the keyboard. |
+| Every toolbar target clears the coarse-pointer floor | `mobile.spec.ts` | Re-measured after the extraction, as A3 asks. |
+
+Each of those uses `SEED.threadPerProject[project.name]` where it seeds a comment, because three
+projects writing one row is the fixture race `playwright.config.ts` already records.
+
+### Four things an adversarial read of this brief's own diff found
+
+Written down because each of them passed lint, typecheck, the unit tests and the pgTAP suite, and
+three of them would have been reported as something else entirely.
+
+1. **`deleteSprint` could destroy hours through the bin.** It refuses to delete a sprint that still
+   holds items, by counting them — and the new read policy hides a soft-deleted item from every
+   select. A sprint holding *nothing but* deleted items counted zero, looked empty, and deleting it
+   would have cascaded them away for real, time entries included. It now asks
+   `list_deleted_work_items` as well and names the hours. **This is the shape of bug a policy-level
+   rule creates**: it made fifteen queries correct without being touched, and made one of them wrong.
+2. **`editComment` let an admin rewrite anybody's words** while its own error sentence said *"Only the
+   author can edit a comment."* Written that way from the start and never called, so nothing ever
+   disagreed with it. RLS permits an admin because it must for the soft delete; the action is
+   author-only now, which is what the sentence always claimed.
+3. **A stale optimistic drag order dropped a criterion off the list.** `ordered` preferred `dragOrder`
+   whenever it was set and nothing cleared it: after a reorder the ids matched and it looked right,
+   but adding a criterion afterwards rendered the new one **nowhere**. It is used only while it
+   describes exactly the current list, and released when the server agrees — which also fixes the
+   quieter half, that `canReorder` excluded it so a checklist could be dragged exactly once per mount.
+4. **Deleting an item from the modal landed on the not-found screen.** The URL it was on had just
+   stopped resolving. It pushes to the sprint now — `push` alone, no `refresh`, because a refresh
+   issued before a push has committed cancels the navigation, which is in the field notes.
+
+And two of my own regexes were the character-class bug now recorded in `07-FIELD-NOTES.md`:
+`/[\s -\\%?#]/` is a **range** from space to backslash, and `/[\s -]/` in `normaliseHref` would have
+refused every hyphenated domain. Both were caught by writing the tests, not by reading the code.
+
+### B4 — the corner cases, each with a test or a written answer
+
+The brief asks that every one of these have one. Where a test exists it is named; where the answer is a
+decision it is written out rather than left to be rediscovered.
+
+| Case | Answer |
+|---|---|
+| A criterion that is empty after an edit | Refused with a sentence, the same way `postComment` refuses an empty comment — in the action *and* in the form, whose Save is disabled. |
+| **The flattened `body` for an image-only criterion, in the CSV and the PDF** | It renders as `[image: alt]`, in both, and that is the right outcome — **asserted**, in `tests/export.test.ts`. It is honest (the criterion exists, its content is a screenshot the client is not being sent), it cannot corrupt either file (`criterionText` collapses newlines on the way in, so a `- [ ] …` line cannot split, and square brackets need no quoting), and it does not change the contract, which says a criterion exports as its text. Embedding a link was rejected and is recorded as such: `/api/attachments/…` needs a session, so a link in a client's CSV is a 401 with the client's name on it — and that IS a change to `04-EXPORT-SPEC.md`, which is decision gate §8.2 and not ours to make. The test asserts no link of any kind reaches either format. |
+| `createWorkItem`'s `criteria: string[]` | Still works, and now writes `body` with `body_json` null — which is exactly the state the 232 imported criteria are in, so the renderer's existing fallback covers it with no new path. |
+| The Notion importer | Unchanged. It writes `body` only, via the same column. |
+| **Two people editing one criterion** | Last write wins, and the loser sees the new value after `router.refresh()` rather than their stale draft — the edit form is unmounted on save, so there is no draft to be stale. **Criteria do not join the realtime subscription**, and the reason is that `realtime.client.tsx` exists for the *thread*, where somebody else's sentence arriving while you read is the whole point. A checklist is not a conversation: a criterion re-wording itself under the cursor is startling rather than useful, and the case it would serve — two people editing the same line at the same moment — is rare enough in a four-person team that "refresh and you will see it" is the honest trade. Revisit if it ever bites. |
+| **Ticking a criterion while its body is open** | Cannot happen, by construction rather than by guard: a row in edit mode renders the editor *instead of* the checkbox, so there is no tick to press and no edit to discard. |
+| A criterion added while the item sheet is open | Appears without a reload — `addCriterion` revalidates and the list re-renders. |
+| Copy-paste between two criteria | Preserves marks and images: it is one ProseMirror schema on both ends. |
+| A Word / Notion / Google-Docs paste | Stripped to the allowlist **on the way in** by `transformPastedHTML`. The renderer already failed closed on those node types, so this is cleanliness rather than safety — a document that *stores* forty `mso-` spans renders fine and is a nightmare the first time somebody reads the JSON, and the flattened `body_text` the exports use inherits their whitespace. A tag that is not ours is unwrapped, not deleted: the words inside it are what the person meant to paste. |
+| **A very long single word — a URL, a base64 blob** | `break-words` is on the paragraph in `comment-body.tsx` and it applies inside a list item too, because a list item's content *is* paragraphs. A code block is the other case and it has `overflow-x-auto`, so it scrolls rather than stretching the row. |
+| **50 criteria on one item** | **Neither capped nor virtualised, deliberately.** The real data says why: across 275 imported criteria the most any one item carries is **21**, the mean is **5.1**, and exactly **one** item is over twenty. Fifty is not a case this app has; a cap would be a rule invented for a problem nobody has, and virtualisation would break `Ctrl-F`, the drag-to-reorder, and the render-edge sort for the same non-problem. §8.3 says to ask only if the absence of a cap turns out to be a real problem — it has not, so this is the answer rather than a question. The measurement is here so the next person can re-run it rather than re-argue it. |
+
+### Loading and error states, swept
+
+The team asked for this directly — *"when a person pastes an image in wherever, it should have upload
+loading inside its thumbnail, make sure it's handled cleanly and correctly"* — so every surface this
+brief touched was walked, not just the editor.
+
+| Surface | While it is working | When it fails |
+|---|---|---|
+| **Pasting an image** | The picture itself, in the document, at the caret, at its own aspect ratio, dimmed, with a **determinate bar** over it. The percentage caps at 99 until the server answers, because a bar sitting at 100 while nothing happens reads as a hang. | The placeholder is removed **entirely** — no broken image, no orphan — and the reason is a sentence: the size and the limit, the HEIC setting that fixes it, or "check your connection". A draft carrying a half-uploaded image is stripped on restore. |
+| **The editor itself** | `loading the editor…` in a box the height it will be, so nothing jumps when TipTap arrives. | — |
+| **A thumbnail** | A shimmer inside the box the image will occupy, sized from the file's own dimensions. | A quiet "image unavailable" box at that same size, with the alt text. Never the browser's broken-image glyph, which reads as the app being broken, and never nothing, which reads as no attachment. |
+| **The viewer** | `loading…` over the frame; a new slide resets it during render, not in an effect, so one frame of the previous picture's "loaded" state never shows under the next one's src. | "This image is not here any more", with its alt text. |
+| Title, description, highlight | A spinner in place of the pencil, and the text dims. | `useOptimistic` reverts and a toast says why. |
+| A criterion | The new wording shows immediately; the row dims. | The optimistic text goes away **at the same moment** the reason arrives. |
+| A comment edit / withdrawal | Spinner on the control, the comment dims. | Inline `role="alert"` under the editor for an edit; a toast for a withdrawal. |
+| A time entry | The row dims — `disabled` alone says "not now" without saying "something is happening", which on a slow connection is indistinguishable from a click that missed. | Toast. |
+| Delete / move an item | Spinner on the button. | Toast, and the item stays. |
+| Confirm a distribution | Spinner on the button, which already names the amount. | Toast, including the specific sentence for two admins confirming at once. |
+| A setting | A small spinner beside the label; the field reverts to the stored value on refusal. | Toast naming the bound that was missed. |
+| `/app/earnings` | `loading.tsx` shaped like the board. | `app/app/error.tsx` covers the route. |
+
+Two things fixed while walking it: a progress event that landed after the editor unmounted would have
+dispatched into a destroyed ProseMirror view (the abort stops the request, not an event already in
+flight), and a pending time entry and client row looked identical to an idle one.
+
+**One more thing the sweep found, and it is the best kind.** A3 says to "confirm the new editor
+inherits" the 16px coarse-pointer rule. It does not. That rule names `input, select, textarea`, and the
+rich-text surface is a `contenteditable` **div** — so it matched nothing, and `.coditu-prose p`
+re-declared 14px. iOS Safari auto-zooms any focusable editable element under 16px and does not zoom
+back out, so tapping into the composer on an iPhone left the reader at 1.4x with the sheet off the side
+of the screen: the exact failure that block was written to prevent, arriving through the one element it
+does not match. Fixed by naming `.coditu-prose`, which is safe to scope that way because a rendered
+comment uses its own classes — how a thread *reads* on a phone is untouched, only what you type into is
+raised. In `07-FIELD-NOTES.md`, and asserted as a computed style in `mobile.spec.ts`.

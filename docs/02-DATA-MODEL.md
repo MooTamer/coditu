@@ -40,7 +40,8 @@ Defined once as a Postgres function and once in TypeScript. A test asserts the t
 ### `profiles`
 `id uuid pk references auth.users on delete cascade`, `full_name`, `initials`, `avatar_url`,
 `role app_role default 'engineer'`, `weekly_capacity_minutes int default 2400`,
-`is_active bool default true`, `must_set_password bool not null default false`, timestamps.
+`is_active bool default true`, `must_set_password bool not null default false`,
+`is_developer bool not null default false`, timestamps.
 Populated by an `on auth.users` insert trigger.
 
 `weekly_capacity_minutes` is minutes, per invariant 2. 2400 = 40 hours.
@@ -51,6 +52,16 @@ Populated by an `on auth.users` insert trigger.
 switch off is not a forced change. **The default is `false` and has to stay `false`:** default it
 `true` and every account that already exists is locked out at once. There is no email recovery path
 in this application at all — see `05-DECISIONS.md`, 2026-08-22.
+
+`is_developer` decides whether somebody takes a share of a sprint's pot. It is the fifth column
+`guard_profile_privilege_columns` names, and the reason is the sharpest of the five: without the entry
+an engineer could decide they get paid. A non-developer's minutes still **count toward** the pot — the
+confirmation screen names them and says they take no share. Set by an admin on `/app/settings`, and
+**never by a name or an email in code**; `supabase/seeds/developers.sql` is the initial answer only,
+matched on `full_name` because production and local do not share email addresses.
+
+`weekly_capacity_minutes` became editable on 2026-08-25 — it had driven the load bars on People and
+every `v_person_load` row since the first migration and was settable nowhere.
 
 `full_name` and `avatar_url` are deliberately absent from that trigger's list. How a person presents
 themselves is not a privilege; both are set by their owner on `/app/settings`, and `initials` is
@@ -80,7 +91,45 @@ EVIM lives here with `logo_path = '/clients/evim.svg'` and `website_url = 'https
 
 ### `projects`
 `id`, `client_id fk`, `name`, `slug unique`, `scope text`, `accent_hex`,
-`is_archived bool default false`, timestamps.
+`is_archived bool default false`, `key_prefix text not null unique`,
+`next_key_number int not null default 1`, timestamps.
+
+`key_prefix` and `next_key_number` are how a work item gets its key, replacing the single global
+`work_item_key_seq` default. `assign_work_item_key` derives both from the item's own sprint —
+invariant 1, in a trigger — and advances the counter with `update … returning`, whose row lock is what
+makes ten items created on planning morning impossible to collide. The loop inside it re-checks the
+unique index, so a counter that is *behind* (an import that stated its own keys, a restore) heals
+instead of failing with a message nobody can act on. **Existing keys are immutable**: MEINEvim keeps
+`COD`, everybody else takes a prefix derived from their slug, and each counter starts above the
+highest number that prefix has ever issued — globally, because `COD-243` belongs to Converso while
+`COD` belongs to MEINEvim.
+
+### `project_slug_aliases`
+`slug text pk`, `project_id fk projects on delete cascade`, `created_at`.
+
+Every address a project has ever had. A rename writes the outgoing slug here in the same call and
+`getProjectBySlug` falls back to it, so no bookmark, pasted link or open address bar breaks. A live
+slug and an alias share one namespace, enforced by `guard_slug_namespace` on **both** tables — two
+answers to "which project is `/app/projects/x`?" is the failure this feature would otherwise
+introduce. Renaming *back* to a previous slug deletes the now-redundant alias.
+
+### `app_settings`
+One row, `id smallint pk default 1 check (id = 1)`. `hourly_rate_cents int not null default 1200`,
+`payout_share_threshold_pct int not null default 25`, `payout_from_sprint_id fk sprints`,
+`usd_egp_rate_micros bigint`, `usd_egp_fetched_at timestamptz`,
+`usd_egp_source text check (in ('live','manual'))`, `max_image_bytes int not null default 8388608`,
+`max_image_batch int not null default 6`,
+`default_weekly_capacity_minutes int not null default 2400`, `updated_at`, `updated_by fk profiles`.
+
+Every tunable in Coditu, in one admin-editable row. The team's standing instruction is that nothing is
+hardcoded, and the sharp edge of it is that a rate in a `const` is a change request that needs a
+deploy. `check (id = 1)` makes "which row is live?" unaskable. Read through `lib/settings.ts`, which is
+the only thing that touches it and which carries the same defaults so a database that has not been
+migrated still renders — the `sprints.notes_written_at` outage in one sentence.
+
+Readable by any active member (the rate is on the earnings screen, the image cap is in an error
+message); writable by an admin. No insert policy and no delete policy: the row is created by its
+migration and is not something the app makes or destroys.
 
 ### `sprints`
 `id`, `project_id fk`, `number int`, `name`, `starts_on date`, `ends_on date`, `goal text`,
@@ -89,8 +138,13 @@ EVIM lives here with `logo_path = '/clients/evim.svg'` and `website_url = 'https
 - `unique (project_id, number)`
 - A **partial unique index** enforces at most one `active` sprint per project.
 
+`goal` was in this table from the first migration and **nothing could write or read it** —
+`grep -rn "goal" components/app app/app` returned nothing at all. Wired into `createSprint`,
+`updateSprint` and the sprint header on 2026-08-25.
+
 ### `work_items`
-`id`, `sprint_id fk on delete cascade`, `key text unique` (`COD-140`, from a sequence), `title`,
+`id`, `sprint_id fk on delete cascade`, `key text unique` (`COD-140`, from the item's own project —
+see `projects.key_prefix`), `deleted_at timestamptz`, `title`,
 `description text`, `highlight text`, `status`, `type`, `assignee_id fk profiles null`,
 `reviewer_id fk profiles null`, `deadline date`, `estimate_minutes int`,
 `minutes_logged int not null default 0`, `grouping smallint null`, `component_id fk components null`,
@@ -129,7 +183,54 @@ deleting one would blank the column on every item that named it. `is_archived` r
 pickers and keeps the history.
 
 ### `acceptance_criteria`
-`id`, `work_item_id fk on delete cascade`, `body text`, `is_done bool default false`, `order_index int`.
+`id`, `work_item_id fk on delete cascade`, `body text`, `body_json jsonb`,
+`is_done bool default false`, `order_index int default -1`.
+
+`body_json` is a ProseMirror document on the same terms as `comments.body_json` — same editor, same
+renderer, same allowlist, same storage bucket for the pictures — and `body` is its flattened text
+projection, written in the same statement, because the CSV and Markdown exports are a contract and
+read that column. Null for the 232 imported criteria that have only ever been a sentence.
+
+`order_index` defaults to `-1`, which is **not a position**: negative means append, and
+`assign_order_index` replaces it with `max + 1` under a row lock on the parent. The old default was
+`0`, which is a real position, so "I did not say" and "put it first" were the same value and neither
+caller could express the other. `work_items.order_index` works the same way and for the same reason.
+
+**Who may write what** changed on 2026-08-25 at the team's request. The row policy still restricts an
+engineer to criteria on items they are assigned to or reviewing; within those, `guard_criteria_columns`
+now lets them rewrite `body` **and** `body_json` as well as tick `is_done`. `work_item_id` and
+`order_index` — the two that move a criterion rather than edit it — stay with admin and lead, as do
+insert and delete.
+
+### `sprint_payouts`
+`id`, `sprint_id fk sprints on delete cascade`, `confirmed_by fk profiles on delete restrict`,
+`confirmed_at`, `total_minutes int`, `hourly_rate_cents int`, `pot_cents int`,
+`usd_egp_rate_micros bigint`, `usd_egp_source text`, `superseded_at timestamptz`,
+`superseded_by fk sprint_payouts`.
+
+**Append-only, and enforced as such.** Everything above the supersede columns is a snapshot of what
+was true at the moment somebody agreed to it, and `guard_payout_immutable` refuses a change to any of
+it — a confirmed pot cannot be rewritten even by the admin who confirmed it. A later confirmation
+writes a new row and marks the old one superseded; a superseded row cannot be un-superseded. There is
+no delete policy and no DELETE grant, so nobody removes one.
+
+`sprint_payouts_one_live_idx` is a **partial unique index** on `(sprint_id) where superseded_at is
+null`. Two admins confirming at once is the one race an application check cannot win, so the index
+decides it and the loser gets a sentence rather than a Postgres error.
+
+### `sprint_payout_shares`
+`payout_id fk on delete cascade`, `profile_id fk profiles on delete restrict`, `minutes_logged int`,
+`share_cents int`, `primary key (payout_id, profile_id)`.
+
+**`sum(share_cents) = pot_cents` exactly.** The split is equal, not proportional — the team's rule —
+and the remainder is handed out one cent at a time by ascending `profile_id`, so the same inputs
+always produce the same split. `tests/earnings.test.ts` asserts the identity across nine participant
+counts and eleven pot sizes; `supabase/tests/rls.sql` asserts it again against the stored rows.
+
+`on delete restrict` on both `profile_id` columns, deliberately. Deleting a profile already cascades
+through ten tables and the standing answer is "merge duplicates, never delete them"; a share is a
+record of money owed to a person and must not become the eleventh thing that quietly disappears with
+them.
 
 ### `time_entries`
 `id`, `work_item_id fk`, `profile_id fk`,
@@ -205,6 +306,14 @@ work_items(component_id) where component_id is not null
 ```
 
 ---
+
+### `v_sprint_minutes`
+`security_invoker`. Minutes per person per sprint, grouped from `time_entries` through `work_items`.
+
+One place, so the provisional figure on the earnings screen and the snapshot taken at confirmation
+cannot disagree about which minutes count. `security_invoker` is what makes a soft-deleted work item
+drop out on its own — the read policy on `work_items` hides it — rather than through a filter somebody
+has to remember to write.
 
 ## Auth and RLS
 

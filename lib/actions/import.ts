@@ -120,15 +120,10 @@ export async function commitImport(input: unknown): Promise<CommitResult> {
     return { ok: false, error: "Every row has something to fix — nothing was written." };
   }
 
-  const { data: existing } = await supabase
-    .from("work_items")
-    .select("order_index")
-    .eq("sprint_id", sprint.id)
-    .order("order_index", { ascending: false })
-    .limit(1);
-
-  let nextOrder = (existing?.[0]?.order_index ?? -1) + 1;
-
+  // `order_index` is omitted, not computed. `assign_order_index` appends under
+  // a row lock on the sprint, and it does so per row inside one INSERT — so a
+  // batch of forty imported rows still lands in order, and an import running
+  // while somebody creates an item by hand cannot collide with it.
   const { data: inserted, error } = await supabase
     .from("work_items")
     .insert(
@@ -141,7 +136,6 @@ export async function commitImport(input: unknown): Promise<CommitResult> {
         reviewer_id: row.reviewerName ? (byName.get(row.reviewerName) ?? null) : null,
         deadline: row.deadline,
         grouping: row.grouping,
-        order_index: nextOrder++,
       }))
     )
     .select("id, title");

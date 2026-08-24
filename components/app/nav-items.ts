@@ -1,4 +1,4 @@
-import { CheckCheck, FolderOpen, Import, Rows3, Settings, Users } from "lucide-react";
+import { CheckCheck, FolderOpen, Import, Rows3, Settings, Users, Wallet } from "lucide-react";
 
 /**
  * The application's destinations, and the rule for when each one is current.
@@ -81,6 +81,24 @@ export const SETTINGS_ITEM: NavItem = {
 };
 
 /**
+ * Earnings is not in `NAV` either, and for a sharper reason than Settings.
+ *
+ * It is the one screen in this app with money on it, and the rail and the top
+ * bar are visible on every screen that gets shared — a projector in a client
+ * meeting, a screenshot in a chat, somebody looking over a shoulder. A link
+ * labelled "Earnings" beside "Sprint" advertises it on all of them. It lives in
+ * the account menu and the phone's overflow sheet, which are behind a
+ * deliberate tap.
+ */
+export const EARNINGS_ITEM: NavItem = {
+  id: "earnings",
+  label: "Earnings",
+  href: "/app/earnings",
+  Icon: Wallet,
+  isActive: (path) => path.startsWith("/app/earnings"),
+};
+
+/**
  * What a phone puts in the bar, and what goes behind "More".
  *
  * Four across at 390px is 97px each, which is comfortable; five is 78px and
@@ -94,8 +112,9 @@ export const TABS: readonly NavItem[] = TAB_IDS.map(
   (id) => NAV.find((item) => item.id === id)!
 );
 
-/** People, Import and Settings — reached through the overflow sheet. */
+/** People, Import, Earnings and Settings — reached through the overflow sheet. */
 export const OVERFLOW: readonly NavItem[] = [
   ...NAV.filter((item) => !TAB_IDS.includes(item.id as (typeof TAB_IDS)[number])),
+  EARNINGS_ITEM,
   SETTINGS_ITEM,
 ];

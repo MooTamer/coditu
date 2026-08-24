@@ -23,8 +23,17 @@ Geometry, spacing, and copy come from `design/project/Coditu App.dc.html`. What 
 /app/my-work                               assigned to me · awaiting my review · my hours this week
 /app/people                                team load
 /app/import                                Notion CSV importer
-/app/settings                              your profile: name, picture, notifications, account, sign out
+/app/settings                              your profile: name, picture, notifications, your earnings,
+                                           account, sign out — plus, for an admin, every tunable
+/app/earnings                              what each sprint paid, and the confirmation panel
+/api/attachments/[...path]                 Route Handler: authorizes, then signs a fresh storage URL
+/api/uploads                               Route Handler: one image, with upload progress
 ```
+
+**`/app/earnings` is reachable from the account menu and the phone's "More" sheet, and from nowhere
+else.** Not the rail, not the top bar. Those are visible on every screen that gets shared — a
+projector in a client meeting, a screenshot in a chat — and a link labelled "Earnings" beside "Sprint"
+advertises the one screen with money on it on all of them.
 
 Filter, sort, and view state live in the URL (`?status=dev_started,todo&assignee=…&component=evim-themen-kachel&view=board`)
 so a view is shareable and survives reload. `component` is a **slug**, validated against the project's
@@ -118,7 +127,55 @@ closes, focus returns to the originating row, body scroll locked.
 - **Right**: status, then the **component** — the only property that goes somewhere, linking to
   everything that has ever happened to that web part — then type, assignee, reviewer, deadline,
   estimate and grouping, each inline-editable and optimistic. Then **Log time**: 0.5h steps (30 minutes) via − / +, today's
-  date, a gradient `Log {n} h` button, your entries on this item, and a total.
+  date, a gradient `Log {n} h` button, your entries on this item, and a total. Then **Move** and
+  **Delete**.
+
+### What is editable here, and by whom
+
+Everything below is optimistic with a rollback and a visible error (invariant 4). All of it was
+schema-ready and screen-less until 2026-08-25; a title you cannot correct is not restraint, it is an
+unfinished CRUD.
+
+| Field | Who | Notes |
+|---|---|---|
+| Title | admin, lead | An editable heading. ⏎ saves, Esc abandons. |
+| Description, highlight | admin, lead | Multi-line plain text edited where it is read; `whitespace-pre-line`, because 58 imported descriptions are requirement lists. Clicking away **saves**. An emptied field is null, never `""`. |
+| A criterion's body | assignee, reviewer, admin, lead | The same rich editor as a comment. Widened at the team's request — see `05-DECISIONS.md`. |
+| Add / remove / reorder a criterion | admin, lead | The shape of the scope is a lead's call. Removing offers an undo toast. |
+| A comment | its author | The same editor, pre-filled. `edited_at` is stamped and the badge finally means something. |
+| Withdrawing a comment | its author, admin | Soft. It keeps its place, its author and its timestamp, and says it was withdrawn — its words are nulled in the **read model**, so they never reach a browser. |
+| A time entry | the person who logged it | Minutes and date. An admin may **delete** anyone's; nobody rewrites anyone else's record of what they did. |
+| Moving the item | admin, lead | Within the project only. A cross-project move is refused in the action and again in a trigger — the key already names the project, so a moved item would carry a key that lies. |
+| Deleting the item | admin, lead | Soft. The confirm names the hours it takes out of the sprint; the toast offers them straight back. |
+
+### Acceptance criteria
+
+A checklist that can hold a document — paragraphs, code blocks, links and screenshots pasted straight
+in, indented under the criterion's text rather than beside the checkbox, so a criterion with three
+screenshots still reads as one to-do item.
+
+**Done sinks.** The sort key is `(is_done, order_index)` applied at the render edge and never written,
+so un-ticking returns a criterion to exactly the position it held. Dragging reorders within a group;
+across the boundary is refused with a sentence. The move is a `micro`-tier transition and
+`prefers-reduced-motion` drops it entirely. The count is announced `aria-live="polite"`; the reorder
+is not, because dnd-kit already has a live region for it and two describing one list is noise.
+
+The tick, the body and the row controls are **three separate targets**, each ≥44px on a coarse
+pointer. Tapping the words opens the editor and does not tick the box.
+
+### An image in the thread
+
+A `clamp(88px, 22vw, 132px)` thumbnail that reserves its own box from the file's intrinsic dimensions,
+so the thread does not reflow while somebody is reading it. Tapping opens a viewer capped at
+`max-h-[76dvh]`; **left/right arrows and a one-finger swipe move between every image in the item**, a
+downward swipe closes, and pinch-to-zoom is untouched. A source that 404s renders a quiet "image
+unavailable" box at the size the picture would have been, with its alt text — never the browser's
+broken-image glyph, and never nothing.
+
+**While it uploads** the picture is already in the document, dimmed, at its own aspect ratio, with a
+determinate bar over it. On failure the placeholder is removed entirely and the reason is said out
+loud; the composer refuses to send while one is in flight rather than storing a `blob:` URL that dies
+with the tab. The author can edit the alt text from the toolbar; the filename is the default.
 
 ## Components
 
@@ -276,3 +333,58 @@ boundaries only at the composer, command palette, drag-and-drop, export dialog, 
 theme toggle. Realtime subscribes to the **active sprint only**, unsubscribes on unmount, and coalesces
 bursts through a 120ms buffer. `npm run analyze` plus a CI budget check that fails the build on a
 route over cap. Lighthouse CI on the marketing route.
+
+---
+
+## Earnings · `/app/earnings`
+
+The one screen in this app with money on it, and one of exactly two places a figure may appear — the
+other is a card on `/app/settings`. Nothing under `/app/projects/**` and nothing in any export carries
+one. That boundary is the most important requirement in the feature and it is asserted twice: against
+rendered output on a sprint that *has* a confirmed payout, and as a source-level grep so the next
+person cannot add one by accident.
+
+**A card per sprint, phone first.** No horizontal scroll at 320px, every target ≥44px, the numbers
+legible without zooming.
+
+- **Provisional** until confirmed, and it says so. Recomputed on every render from the time entries as
+  they stand.
+- **Confirmed** shows the snapshot — the pot, each share, the rate per hour and the FX rate it was
+  confirmed at — and never moves again.
+- **The pot is `minutes × rate ÷ 60`** with the division last. The split is **equal, not
+  proportional**: the person with 40 hours and the person with 12 take the same amount.
+- **Not tracked**, never `$0.00`, for a sprint before `app_settings.payout_from_sprint_id`. Zero is a
+  claim about money that was never counted.
+
+**The confirmation panel** is an admin's. Every developer who logged anything is listed with their
+minutes and their share of the total, pre-ticked at or above the threshold — the threshold is a
+suggestion engine and the confirmed set is the truth. The pot, the per-person amount in USD and EGP,
+and the rate being used are shown **before** the button. A non-developer who logged time is named
+explicitly: *"Includes 2.0 h logged by Adam Nafie, who takes no share."*
+
+**When the minutes change after a confirmation** a banner says so by name and by amount, and the
+confirmed figures keep being shown. An admin re-confirms, which supersedes the previous row and leaves
+it in the record.
+
+A sprint with nothing logged offers nothing to confirm and says so. Confirming twice with no change in
+between is a no-op, not a second row.
+
+## Settings · what an admin sets up
+
+Below the profile sections, for an admin only: **every tunable in Coditu**, each with its current
+value, what it affects, and who may change it — the hourly rate, the proposal threshold, the
+effective-from sprint, the image upload cap, how many images one paste may carry, the default weekly
+capacity, the exchange rate and its source, and who takes a share.
+
+Each field saves on blur. None of these numbers exists as a constant anywhere in the source: a rate
+that needs a deploy to change is a rate nobody changes.
+
+## Projects · administration
+
+`/app/projects` gained the two things that could only be done in SQL: **New client** (name, https-only
+website, accent) and **New project** (client, name, address, key prefix, scope). A project row carries
+rename and archive controls for an admin or a lead.
+
+**The address is permanent in the sense that matters**: renaming it keeps the old one working for ever
+through `project_slug_aliases`, and the form says so. **Archive, never delete** — a project cascades to
+its sprints, its items, and the hours an invoice was built from.

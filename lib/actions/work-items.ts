@@ -37,7 +37,7 @@ async function resolveScope(itemId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("work_items")
-    .select("id, assignee_id, reviewer_id, sprints!inner ( number, projects!inner ( slug ) )")
+    .select("id, key, assignee_id, reviewer_id, sprints!inner ( id, number, projects!inner ( slug ) )")
     .eq("id", itemId)
     .maybeSingle();
 
@@ -47,8 +47,10 @@ async function resolveScope(itemId: string) {
     profile,
     supabase,
     itemId: data.id,
+    itemKey: data.key,
     assigneeId: data.assignee_id,
     reviewerId: data.reviewer_id,
+    sprintId: data.sprints.id,
     slug: data.sprints.projects.slug,
     sprintNumber: data.sprints.number,
   };
@@ -232,7 +234,9 @@ async function resolveCriterionScope(criterionId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("acceptance_criteria")
-    .select("id, work_item_id, work_items!inner ( key, sprints!inner ( number, projects!inner ( slug ) ) )")
+    .select(
+      "id, work_item_id, work_items!inner ( key, assignee_id, reviewer_id, sprints!inner ( number, projects!inner ( slug ) ) )"
+    )
     .eq("id", criterionId)
     .maybeSingle();
 
@@ -242,6 +246,9 @@ async function resolveCriterionScope(criterionId: string) {
     supabase,
     criterionId: data.id,
     itemId: data.work_item_id,
+    itemKey: data.work_items.key,
+    assigneeId: data.work_items.assignee_id,
+    reviewerId: data.work_items.reviewer_id,
     slug: data.work_items.sprints.projects.slug,
     sprintNumber: data.work_items.sprints.number,
   };
@@ -293,19 +300,14 @@ export async function addCriterion(input: unknown): Promise<ActionResult> {
   const body = criterionText(parsed.data.doc).slice(0, MAX_CRITERION_TEXT);
 
   // Appended, never inserted at the top: the order is somebody's checklist.
-  const { data: last } = await scope.supabase
-    .from("acceptance_criteria")
-    .select("order_index")
-    .eq("work_item_id", scope.itemId)
-    .order("order_index", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
+  // `order_index` is omitted rather than computed — `assign_order_index` picks
+  // the next one under a row lock on the item, which a read-then-write here
+  // could not, and two people adding a criterion at once used to land on the
+  // same number.
   const { error } = await scope.supabase.from("acceptance_criteria").insert({
     work_item_id: scope.itemId,
     body,
     body_json: parsed.data.doc as never,
-    order_index: (last?.order_index ?? -1) + 1,
   });
 
   if (error) return { ok: false, error: "That criterion did not save. Nothing was lost — try again." };
@@ -322,10 +324,18 @@ export async function editCriterion(input: unknown): Promise<ActionResult> {
 
   const scope = await resolveCriterionScope(parsed.data.criterionId);
   if (!scope) return { ok: false, error: "You are not signed in, or that criterion no longer exists." };
-  if (scope.profile.role === "engineer") {
-    // The database says the same thing in `guard_criteria_columns`; this is so
-    // the answer is a sentence rather than a permission error.
-    return { ok: false, error: "Only an admin or lead can rewrite a criterion." };
+
+  // Widened 2026-08-25 at the team's request: the assignee and the reviewer —
+  // the same set that may already tick — may now say what the box says. Adding
+  // and removing criteria stays with admin/lead, because that is the shape of
+  // the scope rather than the wording of one line. The row policy is what
+  // actually enforces "assigned to or reviewing"; this is so an engineer
+  // looking at somebody else's item gets a sentence instead of a write that
+  // silently matches no row.
+  const involved =
+    scope.assigneeId === scope.profile.id || scope.reviewerId === scope.profile.id;
+  if (scope.profile.role === "engineer" && !involved) {
+    return { ok: false, error: "Only the assignee, the reviewer, or a lead can rewrite this criterion." };
   }
 
   if (isEmptyDocument(parsed.data.doc)) {
@@ -343,6 +353,60 @@ export async function editCriterion(input: unknown): Promise<ActionResult> {
   if (error) return { ok: false, error: "That change did not save. Nothing was lost — try again." };
 
   revalidatePath(sprintPath(scope.slug, scope.sprintNumber));
+  return { ok: true };
+}
+
+const reorderCriteriaInput = z.object({
+  criterionId: uuid,
+  /** The full ordered list of criterion ids on the item, after the move. */
+  orderedIds: z.array(uuid).min(1).max(200),
+});
+
+/**
+ * Renumber an item's checklist.
+ *
+ * One statement through `reorder_criteria`, for the reasons `reorder_work_items`
+ * documents at length: N updates over the wire are not atomic, and RLS does not
+ * raise on a row it filters out — it writes nothing and reports success, which
+ * leaves a half-reordered checklist that looks deliberate.
+ *
+ * Reordering stays with admin and lead even though an assignee may now rewrite
+ * what a criterion says. The order of a checklist is the shape of the scope;
+ * the wording of one line is not.
+ */
+export async function reorderCriteria(input: unknown): Promise<ActionResult> {
+  const parsed = reorderCriteriaInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That reorder did not make sense." };
+
+  const scope = await resolveCriterionScope(parsed.data.criterionId);
+  if (!scope) return { ok: false, error: "You are not signed in, or that criterion no longer exists." };
+  if (scope.profile.role === "engineer") {
+    return { ok: false, error: "Only an admin or lead can reorder this checklist." };
+  }
+
+  const { data, error } = await scope.supabase.rpc("reorder_criteria", {
+    p_criterion_id: scope.criterionId,
+    p_ordered_ids: parsed.data.orderedIds,
+  });
+
+  if (error) {
+    // 42501 is either the function's own short-count check or
+    // `guard_criteria_columns` refusing an engineer's `order_index`.
+    if (error.code === "42501") {
+      return { ok: false, error: "You are not allowed to reorder every criterion on this item." };
+    }
+    return { ok: false, error: "The new order did not save. Nothing was lost — try again." };
+  }
+
+  if (data === "foreign-criterion") {
+    return { ok: false, error: "That reorder referenced a criterion on another item." };
+  }
+  if (data === "no-criterion") {
+    return { ok: false, error: "That criterion no longer exists." };
+  }
+
+  revalidatePath(sprintPath(scope.slug, scope.sprintNumber));
+  revalidatePath(`${sprintPath(scope.slug, scope.sprintNumber)}/items/${scope.itemKey}`);
   return { ok: true };
 }
 
@@ -399,12 +463,130 @@ export async function logTime(input: unknown): Promise<ActionResult> {
 
   if (error) return { ok: false, error: "That time did not save. Nothing was lost — try again." };
 
-  revalidatePath(sprintPath(scope.slug, scope.sprintNumber));
+  revalidateTimePaths(scope.slug, scope.sprintNumber, scope.itemKey);
   return { ok: true };
 }
 
+/**
+ * Resolve a time entry, its item, and whether the caller may touch it.
+ *
+ * RLS has said `edit own time`, `delete own time`, and "admins may delete any"
+ * since the first migration. There was no action and no control, so `logTime`
+ * was append-only in practice: type 8 hours instead of 0.8 and it was in the
+ * sprint total forever. After workstream E that is not a typo, it is what
+ * somebody gets paid.
+ */
+async function resolveEntryScope(entryId: string) {
+  const profile = await getCurrentProfile();
+  if (!profile) return null;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("time_entries")
+    .select("id, profile_id, minutes, work_items!inner ( id, key, sprints!inner ( number, projects!inner ( slug ) ) )")
+    .eq("id", entryId)
+    .maybeSingle();
+
+  if (!data) return null;
+  const item = data.work_items;
+  return {
+    profile,
+    supabase,
+    entryId: data.id,
+    ownerId: data.profile_id,
+    minutes: data.minutes,
+    itemKey: item.key,
+    slug: item.sprints.projects.slug,
+    sprintNumber: item.sprints.number,
+  };
+}
+
+const updateTimeInput = z.object({
+  entryId: uuid,
+  minutes: z.number().int().positive().max(1440).optional(),
+  workedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "That is not a calendar date.").optional(),
+  note: z.string().max(500).nullable().optional(),
+});
+
+/**
+ * Correct a time entry.
+ *
+ * Your own only — an admin may **delete** anyone's, which is the escape hatch
+ * RLS grants, but nobody rewrites somebody else's record of what they did. That
+ * asymmetry is deliberate and it is the policy's, not this file's.
+ */
+export async function updateTimeEntry(input: unknown): Promise<ActionResult> {
+  const parsed = updateTimeInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "That correction did not make sense." };
+  }
+
+  const scope = await resolveEntryScope(parsed.data.entryId);
+  if (!scope) return { ok: false, error: "You are not signed in, or that entry no longer exists." };
+  if (scope.ownerId !== scope.profile.id) {
+    return { ok: false, error: "Only the person who logged an entry can correct it." };
+  }
+
+  const patch: TablesUpdate<"time_entries"> = {};
+  if (parsed.data.minutes !== undefined) patch.minutes = parsed.data.minutes;
+  if (parsed.data.workedOn !== undefined) patch.worked_on = parsed.data.workedOn;
+  if (parsed.data.note !== undefined) patch.note = parsed.data.note?.length ? parsed.data.note : null;
+  if (Object.keys(patch).length === 0) return { ok: true };
+
+  const { error } = await scope.supabase.from("time_entries").update(patch).eq("id", scope.entryId);
+  if (error) return { ok: false, error: "That correction did not save. Nothing was lost — try again." };
+
+  revalidateTimePaths(scope.slug, scope.sprintNumber, scope.itemKey);
+  return { ok: true };
+}
+
+export async function deleteTimeEntry(input: unknown): Promise<ActionResult> {
+  const parsed = z.object({ entryId: uuid }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That is not an entry we recognise." };
+
+  const scope = await resolveEntryScope(parsed.data.entryId);
+  if (!scope) return { ok: false, error: "You are not signed in, or that entry no longer exists." };
+  if (scope.ownerId !== scope.profile.id && scope.profile.role !== "admin") {
+    return { ok: false, error: "Only the person who logged an entry, or an admin, can remove it." };
+  }
+
+  const { error } = await scope.supabase.from("time_entries").delete().eq("id", scope.entryId);
+  if (error) return { ok: false, error: "That entry did not go. Nothing was lost — try again." };
+
+  revalidateTimePaths(scope.slug, scope.sprintNumber, scope.itemKey);
+  return { ok: true };
+}
+
+/**
+ * Everywhere a change to logged minutes is visible.
+ *
+ * `/app/earnings` is on the list because a corrected entry changes what a
+ * sprint pays, and a confirmed sprint whose minutes moved has to say so out
+ * loud rather than quietly recomputing. Wiring that here rather than later is
+ * the difference between two features that are individually correct and jointly
+ * wrong.
+ */
+function revalidateTimePaths(slug: string, sprintNumber: number, itemKey: string) {
+  const sprint = sprintPath(slug, sprintNumber);
+  revalidatePath(sprint);
+  revalidatePath(`${sprint}/items/${itemKey}`);
+  revalidatePath("/app/my-work");
+  revalidatePath("/app/people");
+  revalidatePath("/app/earnings");
+}
+
+/* -------------------------------------------------------------------------- */
+
 const setFieldInput = z.object({
   itemId: uuid,
+  // The item's own words. These had no path at all after creation until
+  // 2026-08-25 — `guard_work_item_columns` had always treated them as admin and
+  // lead columns, so the database was ready and only the action and the screen
+  // were missing. A title you cannot correct is not restraint, it is an
+  // unfinished CRUD.
+  title: z.string().trim().min(1, "An item needs a title.").max(200).optional(),
+  description: z.string().trim().max(4000).nullable().optional(),
+  highlight: z.string().trim().max(2000).nullable().optional(),
   deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   estimateMinutes: z.number().int().nonnegative().max(100_000).nullable().optional(),
   grouping: z.number().int().positive().max(999).nullable().optional(),
@@ -413,7 +595,9 @@ const setFieldInput = z.object({
 
 export async function setWorkItemFields(input: unknown): Promise<ActionResult> {
   const parsed = setFieldInput.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "That value is not one we can store." };
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "That value is not one we can store." };
+  }
 
   const scope = await resolveScope(parsed.data.itemId);
   if (!scope) return { ok: false, error: "You are not signed in, or that item no longer exists." };
@@ -422,8 +606,13 @@ export async function setWorkItemFields(input: unknown): Promise<ActionResult> {
     return { ok: false, error: "Only an admin or lead can change this field." };
   }
 
-  const { deadline, estimateMinutes, grouping, type } = parsed.data;
+  const { title, description, highlight, deadline, estimateMinutes, grouping, type } = parsed.data;
   const patch: TablesUpdate<"work_items"> = {};
+  if (title !== undefined) patch.title = title;
+  // An emptied field is null, not "". Every reader in this app asks "is there a
+  // description?" and an empty string answers yes.
+  if (description !== undefined) patch.description = description?.length ? description : null;
+  if (highlight !== undefined) patch.highlight = highlight?.length ? highlight : null;
   if (deadline !== undefined) patch.deadline = deadline;
   if (estimateMinutes !== undefined) patch.estimate_minutes = estimateMinutes;
   if (grouping !== undefined) patch.grouping = grouping;
@@ -434,6 +623,152 @@ export async function setWorkItemFields(input: unknown): Promise<ActionResult> {
   if (error) return { ok: false, error: "That change did not save. Nothing was lost — try again." };
 
   revalidatePath(sprintPath(scope.slug, scope.sprintNumber));
+  revalidatePath(`${sprintPath(scope.slug, scope.sprintNumber)}/items/${scope.itemKey}`);
+  revalidatePath("/app/my-work");
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+
+export interface DeleteItemResult extends ActionResult {
+  /** `COD-241`, so the caller can name what it just removed. */
+  key?: string;
+  /** The hours the deletion took out of the sprint. Shown before, not after. */
+  minutesLogged?: number;
+}
+
+const deleteInput = z.object({ itemId: uuid });
+
+/**
+ * Delete a work item — softly, and reversibly.
+ *
+ * §8.6 was answered: soft. The row keeps its criteria, its thread and its hours;
+ * the read policy makes it invisible to every query this app can write, which
+ * is why no list, export or total had to learn about it. Restoring brings all
+ * of it back.
+ *
+ * Not an UPDATE from here. The read policy hides the row from the person who
+ * would restore it, so both directions go through `set_work_item_deleted`,
+ * which is `security definer` and carries the admin/lead check in full.
+ */
+export async function deleteWorkItem(input: unknown): Promise<DeleteItemResult> {
+  const parsed = deleteInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That is not an item we recognise." };
+
+  const scope = await resolveScope(parsed.data.itemId);
+  if (!scope) return { ok: false, error: "You are not signed in, or that item no longer exists." };
+  if (scope.profile.role === "engineer") {
+    return { ok: false, error: "Only an admin or lead can delete an item." };
+  }
+
+  const { data, error } = await scope.supabase.rpc("set_work_item_deleted", {
+    p_item_id: scope.itemId,
+    p_deleted: true,
+  });
+
+  if (error || !data) {
+    if (error?.code === "42501") {
+      return { ok: false, error: "Only an admin or lead can delete an item." };
+    }
+    return { ok: false, error: "That item did not go. Nothing was lost — try again." };
+  }
+
+  const removed = data as { key: string; minutes_logged: number };
+  revalidatePath(sprintPath(scope.slug, scope.sprintNumber));
+  revalidatePath("/app/my-work");
+  return { ok: true, key: removed.key, minutesLogged: removed.minutes_logged ?? 0 };
+}
+
+export async function restoreWorkItem(input: unknown): Promise<DeleteItemResult> {
+  const parsed = deleteInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That is not an item we recognise." };
+
+  const profile = await getCurrentProfile();
+  if (!profile) return { ok: false, error: "You are not signed in." };
+  if (profile.role === "engineer") {
+    return { ok: false, error: "Only an admin or lead can restore an item." };
+  }
+
+  // No `resolveScope` here, deliberately: the item is invisible to a SELECT
+  // while it is deleted, which is the whole point of the read policy. The RPC
+  // reads it as its owner and hands back the path to revalidate.
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("set_work_item_deleted", {
+    p_item_id: parsed.data.itemId,
+    p_deleted: false,
+  });
+
+  if (error || !data) {
+    if (error?.code === "42501") {
+      return { ok: false, error: "Only an admin or lead can restore an item." };
+    }
+    return { ok: false, error: "That item did not come back. Try again." };
+  }
+
+  const restored = data as { key: string; project_slug: string; sprint_number: number };
+  revalidatePath(sprintPath(restored.project_slug, restored.sprint_number));
+  revalidatePath("/app/my-work");
+  return { ok: true, key: restored.key };
+}
+
+/* -------------------------------------------------------------------------- */
+
+const moveInput = z.object({ itemId: uuid, targetSprintId: uuid });
+
+/**
+ * Carry an item over to another sprint.
+ *
+ * "This slipped, move it to next week" is the most common thing anybody will
+ * ask of this app in its first fortnight, and there was no way to do it.
+ *
+ * **Invariant 1 twice over.** The current project is re-derived from the item's
+ * own sprint, the target project from the target sprint, and the move is
+ * refused unless they are the same — the database refuses it as well, in
+ * `guard_work_item_sprint_project`. A key already names its project, so an item
+ * that changed clients would be carrying a key that lies, and its component
+ * would point into a registry it can no longer see. That is why the answer to
+ * "refuse the move or clear the component" is refuse the move.
+ */
+export async function moveWorkItem(input: unknown): Promise<ActionResult> {
+  const parsed = moveInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That is not a sprint we can move it to." };
+
+  const scope = await resolveScope(parsed.data.itemId);
+  if (!scope) return { ok: false, error: "You are not signed in, or that item no longer exists." };
+  if (scope.profile.role === "engineer") {
+    return { ok: false, error: "Only an admin or lead can move an item." };
+  }
+
+  const { data: target } = await scope.supabase
+    .from("sprints")
+    .select("id, number, status, projects!inner ( slug )")
+    .eq("id", parsed.data.targetSprintId)
+    .maybeSingle();
+
+  if (!target) return { ok: false, error: "That sprint no longer exists." };
+  if (target.projects.slug !== scope.slug) {
+    return { ok: false, error: "An item cannot move to another project's sprint." };
+  }
+  if (target.number === scope.sprintNumber) return { ok: true };
+  if (target.status === "closed") {
+    return { ok: false, error: "That sprint is closed. Reopen it, or pick another one." };
+  }
+
+  const { error } = await scope.supabase
+    .from("work_items")
+    .update({ sprint_id: target.id })
+    .eq("id", scope.itemId);
+
+  if (error) {
+    if (error.code === CHECK_VIOLATION) {
+      return { ok: false, error: "An item cannot move to another project's sprint." };
+    }
+    return { ok: false, error: "That move did not save. Nothing was lost — try again." };
+  }
+
+  revalidatePath(sprintPath(scope.slug, scope.sprintNumber));
+  revalidatePath(sprintPath(scope.slug, target.number));
+  revalidatePath("/app/my-work");
   return { ok: true };
 }
 
@@ -553,14 +888,12 @@ export async function createWorkItem(input: unknown): Promise<CreateItemResult> 
 
   // Append. `order_index` is the sprint's manual order, and a new item joining
   // at position 0 would silently reshuffle a backlog somebody arranged by hand.
-  const { data: last } = await supabase
-    .from("work_items")
-    .select("order_index")
-    .eq("sprint_id", sprint.id)
-    .order("order_index", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
+  //
+  // It is omitted rather than computed. This used to read `max(order_index)`
+  // and add one, which is a read-modify-write with no lock in the middle:
+  // planning day is exactly when ten items get created in one sitting, and ten
+  // of those races all land on the same number. `assign_order_index` does it
+  // inside the insert, under a row lock on the sprint.
   const { data: created, error } = await supabase
     .from("work_items")
     .insert({
@@ -576,7 +909,6 @@ export async function createWorkItem(input: unknown): Promise<CreateItemResult> 
       estimate_minutes: parsed.data.estimateMinutes ?? null,
       grouping: parsed.data.grouping ?? null,
       component_id: parsed.data.componentId ?? null,
-      order_index: (last?.order_index ?? -1) + 1,
     })
     .select("id, key")
     .single();
@@ -598,6 +930,9 @@ export async function createWorkItem(input: unknown): Promise<CreateItemResult> 
       criteria.map((body, index) => ({
         work_item_id: created.id,
         body,
+        // Stated, because these arrive in the order somebody typed them and
+        // that order is the checklist. `assign_order_index` leaves a stated
+        // position alone.
         order_index: index,
       }))
     );

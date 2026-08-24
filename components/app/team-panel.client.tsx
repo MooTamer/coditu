@@ -1,14 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useState, useTransition } from "react";
 import { Check, Copy, KeyRound, RotateCcw, UserMinus } from "lucide-react";
 
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { ToneChip } from "@/components/coditu/status-chip";
-import { setProfileActive, setProfileRole, setTemporaryPassword } from "@/lib/actions/profiles";
+import { settle } from "@/lib/action-result";
+import {
+  setProfileActive,
+  setProfileRole,
+  setTemporaryPassword,
+  setWeeklyCapacity,
+} from "@/lib/actions/profiles";
 import type { TeamMember } from "@/lib/data/profiles";
 import { hours } from "@/lib/format";
 import { APP_ROLES, type AppRole } from "@/lib/work-items";
@@ -258,9 +264,24 @@ function PersonRow({
               <Mono size="meta" className="text-[var(--ink-faint)]">
                 logged / capacity
               </Mono>
+              {/* The capacity half is editable by an admin, in hours, writing
+                  minutes — invariant 2, and the reason it is a stepper rather
+                  than a free text box. It drove the bar below and every
+                  `v_person_load` row and was settable nowhere until
+                  2026-08-25; the column has been named in
+                  `guard_profile_privilege_columns` since the first migration,
+                  so only the control was missing. */}
               <Mono size="meta" className="text-[var(--ink)]">
                 {hours(person.load?.minutesLogged ?? 0)} /{" "}
-                {hours(person.weeklyCapacityMinutes)}
+                {isAdmin ? (
+                  <CapacityField
+                    profileId={person.id}
+                    fullName={person.fullName}
+                    minutes={person.weeklyCapacityMinutes}
+                  />
+                ) : (
+                  hours(person.weeklyCapacityMinutes)
+                )}
               </Mono>
             </span>
             <span
@@ -395,5 +416,75 @@ function PersonRow({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * What somebody's week holds, in hours, stored in minutes.
+ *
+ * Half-hour steps, and the same reason as everywhere else in this app:
+ * invariant 2 says the UI never holds a float, so the stepper moves by 30
+ * minutes and the division happens once, in `hours()`, at the render edge.
+ *
+ * It is deliberately not a free text field. "37.5" is a fraction of an hour
+ * somebody would have to type correctly, and a typo here silently reshapes
+ * every load bar on the page.
+ */
+function CapacityField({
+  profileId,
+  fullName,
+  minutes,
+}: {
+  profileId: string;
+  fullName: string;
+  minutes: number;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, startTransition] = useTransition();
+  const [shown, showOptimistic] = useOptimistic(minutes, (_current, next: number) => next);
+
+  function set(next: number) {
+    const clamped = Math.max(30, Math.min(10_080, next));
+    if (clamped === minutes) return;
+    startTransition(async () => {
+      showOptimistic(clamped);
+      const result = await settle(
+        () => setWeeklyCapacity({ profileId, weeklyCapacityMinutes: clamped }),
+        "That capacity did not save — check your connection."
+      );
+      if (result.ok) router.refresh();
+      else toast(result.error ?? "That capacity did not save.");
+    });
+  }
+
+  return (
+    <span className="inline-flex items-center gap-[2px] align-baseline">
+      <button
+        type="button"
+        onClick={() => set(shown - 30)}
+        disabled={pending || shown <= 30}
+        aria-label={`Half an hour less for ${fullName}`}
+        className="grid size-5 place-items-center rounded-[5px] text-[var(--ink-faint)] hover:bg-[var(--canvas)] hover:text-[var(--ink)] disabled:opacity-40 [@media(pointer:coarse)]:size-11"
+      >
+        &minus;
+      </button>
+      <output
+        aria-live="polite"
+        aria-label={`${fullName}'s weekly capacity`}
+        className="min-w-[34px] text-center tabular-nums"
+      >
+        {hours(shown)}
+      </output>
+      <button
+        type="button"
+        onClick={() => set(shown + 30)}
+        disabled={pending || shown >= 10_080}
+        aria-label={`Half an hour more for ${fullName}`}
+        className="grid size-5 place-items-center rounded-[5px] text-[var(--ink-faint)] hover:bg-[var(--canvas)] hover:text-[var(--ink)] disabled:opacity-40 [@media(pointer:coarse)]:size-11"
+      >
+        +
+      </button>
+    </span>
   );
 }
