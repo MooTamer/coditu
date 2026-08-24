@@ -713,3 +713,38 @@ ledger updated in the same commit as the work.
   `supabase/seeds/item-components.sql`. The two seed files are single idempotent statements that open
   no transaction, so the Supabase SQL editor can take them as they are — and `item-components.sql`
   matches on TITLE precisely because the hosted `COD-` numbers are not the local ones.
+- **2026-08-24 (later)** — **The story thread became writable everywhere.**
+
+  *The composer.* Bold/italic/code now work before there is anything to select (the toolbar was
+  stealing ProseMirror's stored marks); the link button is an in-editor popover instead of
+  `window.prompt`; a pasted screenshot renders as a thumbnail and opens in a `DialogShell` viewer,
+  portalled to the body and closing on Escape without taking the item dialog with it. The editing
+  surface gained `role="textbox"`, which is what makes its `aria-label` legitimate — axe only flags it
+  while the editor is empty, which is why the existing audit never caught it.
+
+  *Acceptance criteria.* `acceptance_criteria.body_json` added; `body` stays as the flattened
+  projection the CSV and Markdown exports read, with newlines collapsed so a `- [ ] …` line cannot
+  split. A criterion is now written with the same editor as a comment — paragraphs, code blocks,
+  links, and screenshots pasted straight in and nested under the item they belong to. Add, edit and
+  remove are admin/lead; ticking stays the assignee's and the reviewer's, and `guard_criteria_columns`
+  names `body_json` for the same reason `guard_work_item_columns` names `component_id`. The row is no
+  longer one big button: the tick is a `role="checkbox"`, because a criterion can hold a link and a
+  picture now.
+
+  *Shared memory.* `docs/07-FIELD-NOTES.md` is new — the traps that used to live only in one machine's
+  assistant memory, written down so a cloud session, a new developer and the next agent can all read
+  and append to them. `CLAUDE.md` points at it.
+
+  Verification: `npm run lint`, `npm run typecheck`, `npm run test` (**132**), `npm run db:test`
+  (**114** — 4 new criteria assertions, positive and negative for the column guard), and, per spec
+  file, `npx playwright test e2e/{editor,criteria,item-detail,comments,composer,a11y,mobile}.spec.ts`
+  → **21 new specs, all green**, including a real image pasted through storage into a criterion, axe
+  clean while editing one at 390px, and the two cases that only fail inside the modal.
+
+  **Where this stopped, for whoever picks it up.** The last full-suite run on this machine was
+  **390 passed / 1 environmental flake** *before* the criteria work; since then the affected spec files
+  were run individually and are green, but **a full `npx playwright test` has not been run against the
+  final tree**. Run it on a quiet machine (or `--workers=3`) and expect ~418 specs. Also still open:
+  the component and criteria migrations, `seeds/components.sql` and `seeds/item-components.sql` are
+  **local only** — production needs them pushed by hand, in that order, and `07-FIELD-NOTES.md` says
+  how.

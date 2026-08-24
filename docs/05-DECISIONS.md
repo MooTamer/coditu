@@ -1871,3 +1871,71 @@ while looking perfect locally. Titles are the same text in both.
 matched because somebody spelled it that way in Week 6; "Finder" maps to *EVIM Dokumentenbibliothek*
 because that is what the folder ships as. Anything it gets wrong is one click to fix in the component
 cell, and the fix survives every later run of this file.
+
+---
+
+## 2026-08-24 · An acceptance criterion holds a document, and `body` becomes its projection
+
+**Decision.** `acceptance_criteria.body_json jsonb`, alongside the existing `body text`, which becomes
+the flattened one-line reading of it. Criteria are written with the same TipTap editor the comment
+thread uses — same allowlist, same renderer, same sanitiser, same storage bucket for the pictures.
+Nothing migrates: a criterion written before today keeps its text and gains a document the first time
+somebody edits it.
+
+**Why.** A criterion is where "how will we know this is done" is written, and half the time the honest
+answer is a screenshot with an arrow on it or the four lines of SCSS that have to end up in the file.
+Those went into the thread instead, with the criterion saying "see comments".
+
+**Why `body` stays, rather than being derived at read time.** The CSV and Markdown exports render
+criteria as text and are a contract (`04-EXPORT-SPEC.md`). They keep reading one column and keep
+producing the same bytes for every criterion that is a sentence. Newlines are collapsed on the way in,
+because Markdown renders a criterion as one `- [ ] …` line and a stored newline would split it into a
+list item and a stray paragraph. A picture flattens to `[image: alt]` rather than disappearing.
+
+**Why the row stopped being one big button.** It was: the whole row toggled the tick. That cannot
+survive a criterion containing a link and a picture — a click on the screenshot would tick the box, and
+a button inside a button is `nested-interactive`. The tick is a `role="checkbox"` of its own now, the
+body is content, and Edit/Remove sit at the end of the row. `item-detail.spec.ts` was updated to the
+new contract rather than worked around.
+
+**Who may write one.** Admin and lead, exactly as before — `guard_criteria_columns` now names
+`body_json` as well as `body`, because that trigger is an allowlist written as a denylist and a new
+column is writable by an assignee until it is named there. Ticking a box is still the assignee's and
+the reviewer's.
+
+**Rejected.** A separate `criterion_attachments` table (the document already holds the image node, and
+two places to look is one too many). Replacing `body` with a read-time projection (it would change the
+export's bytes on every criterion, for nothing). Letting an engineer rewrite a criterion (what a
+criterion says is the definition of done; ticking it is a report against that definition).
+
+---
+
+## 2026-08-24 · The composer's toolbar, the link editor, and how big a pasted picture is
+
+**Three fixes, one theme: the editor behaved differently from the way it looked.**
+
+**Bold did nothing on an empty line.** Pressing a toolbar button moved focus out of the editor, and
+that drops ProseMirror's stored marks — the "what I type next is bold" state an empty document has
+instead of a range to mark. `focus()` in the command chain then restored the caret with the mark
+already gone. `onMouseDown` is now prevented on every toolbar button, so focus never leaves.
+
+**The link button opened `window.prompt`.** OS chrome in the middle of the screen, unstyled,
+untranslatable, blocking the tab, and on a phone a system sheet covering the very text being linked.
+It also could not show whether the selection was already a link, so "remove this link" had to be
+spelled "clear the box". It is a popover anchored under the toolbar now: it accepts `coditu.com` and
+stores `https://coditu.com`, turns a bare address into `mailto:`, inserts the URL as the link text when
+nothing is selected, and has a Remove button. Anchored rather than portalled — it belongs to this
+editor and the composer is not inside a scroll container that would clip it.
+
+**A pasted screenshot is a thumbnail.** Images used to render at their natural width, capped only by
+the column, so one 2400px screenshot pushed the conversation a full screen down. They are capped at
+`clamp(88px, 22vw, 132px)` tall with the width following the picture, and open in a viewer built on
+`DialogShell` — focus trap, scroll lock, focus return and the mobile sheet were all already solved
+there. Portalled to `<body>`, because the thread renders inside the item dialog's `overflow: hidden`
+panel and a `fixed` scrim rendered in place is clipped to the comment column. Escape is caught in the
+capture phase so it closes the picture and leaves the item open.
+
+**One accessibility fix rides along.** The editing surface now carries `role="textbox"` and
+`aria-multiline`. A `contenteditable` div is a generic element to axe and `aria-label` on a generic
+element is prohibited — the rule had never fired only because the existing audit types into the
+composer before it runs, and an empty editor is the common state.
