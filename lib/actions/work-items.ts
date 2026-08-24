@@ -288,6 +288,53 @@ export async function setWorkItemFields(input: unknown): Promise<ActionResult> {
 
 /* -------------------------------------------------------------------------- */
 
+/** `guard_work_item_component_project` raising. See the migration. */
+const CHECK_VIOLATION = "23514";
+
+const setComponentInput = z.object({
+  itemId: uuid,
+  componentId: uuid.nullable(),
+});
+
+/**
+ * Attribute an item to a component, or take the attribution away.
+ *
+ * Its own action rather than another field on `setWorkItemFields`, because it
+ * is the only one of them that can fail for a reason the reader needs a
+ * sentence for: a component from another project. The project is re-derived
+ * from the item's own sprint by `resolveScope`, the database re-checks the same
+ * thing in a trigger, and neither of them is given a project id by the caller.
+ */
+export async function setWorkItemComponent(input: unknown): Promise<ActionResult> {
+  const parsed = setComponentInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That is not a component we can store." };
+
+  const scope = await resolveScope(parsed.data.itemId);
+  if (!scope) return { ok: false, error: "You are not signed in, or that item no longer exists." };
+
+  if (scope.profile.role === "engineer") {
+    return { ok: false, error: "Only an admin or lead can change an item's component." };
+  }
+
+  const { error } = await scope.supabase
+    .from("work_items")
+    .update({ component_id: parsed.data.componentId })
+    .eq("id", scope.itemId);
+
+  if (error) {
+    if (error.code === CHECK_VIOLATION) {
+      return { ok: false, error: "That component belongs to another project." };
+    }
+    return { ok: false, error: "That change did not save. Nothing was lost — try again." };
+  }
+
+  revalidatePath(sprintPath(scope.slug, scope.sprintNumber));
+  revalidatePath(`/app/projects/${scope.slug}/components`);
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+
 const createInput = z.object({
   /** The sprint the item is created in. Everything else is derived FROM it. */
   sprintId: uuid,
@@ -301,6 +348,10 @@ const createInput = z.object({
   deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "That is not a calendar date.").nullable().optional(),
   estimateMinutes: z.number().int().nonnegative().max(100_000).nullable().optional(),
   grouping: z.number().int().positive().max(999).nullable().optional(),
+  /** The thing this item changes. Must belong to the sprint's project — the
+   *  database refuses the mismatch, so a crafted payload cannot borrow another
+   *  client's registry. */
+  componentId: uuid.nullable().optional(),
   criteria: z.array(z.string().trim().min(1).max(500)).max(50).optional(),
 });
 
@@ -373,12 +424,20 @@ export async function createWorkItem(input: unknown): Promise<CreateItemResult> 
       deadline: parsed.data.deadline ?? null,
       estimate_minutes: parsed.data.estimateMinutes ?? null,
       grouping: parsed.data.grouping ?? null,
+      component_id: parsed.data.componentId ?? null,
       order_index: (last?.order_index ?? -1) + 1,
     })
     .select("id, key")
     .single();
 
   if (error || !created) {
+    // 23514 is `guard_work_item_component_project` refusing a component from
+    // another project. It cannot happen from the dialog, which drops the
+    // choice when the sprint moves — but it is the one insert failure with a
+    // better sentence than "try again", and it is the invariant-1 boundary.
+    if (error?.code === CHECK_VIOLATION) {
+      return { ok: false, error: "That component belongs to another project." };
+    }
     return { ok: false, error: "That item did not save. Nothing was lost — try again." };
   }
 

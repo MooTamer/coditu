@@ -5,6 +5,7 @@ import { cache } from "react";
 import { cairoDate } from "@/lib/format";
 import { todayInCairo } from "@/lib/today";
 
+import type { ComponentRef } from "@/lib/data/components";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingColumn } from "@/lib/supabase/schema";
 import { statusRank, type WorkItemStatus, type WorkItemType } from "@/lib/work-items";
@@ -31,6 +32,8 @@ export interface WorkItemRow {
   minutesLogged: number;
   grouping: number | null;
   orderIndex: number;
+  /** The thing this item changes, or null while it is not attributed yet. */
+  component: ComponentRef | null;
   assignee: PersonRef | null;
   reviewer: PersonRef | null;
   criteriaDone: number;
@@ -73,6 +76,7 @@ const SPRINT_TAIL = `created_at,
      work_items (
        id, key, title, description, highlight, status, type, deadline,
        estimate_minutes, minutes_logged, grouping, order_index,
+       components ( id, name, slug, kind, is_archived, icon ),
        assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials, avatar_url ),
        reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials, avatar_url ),
        acceptance_criteria ( is_done )
@@ -134,6 +138,7 @@ export const getSprint = cache(
           minutesLogged: item.minutes_logged ?? 0,
           grouping: item.grouping,
           orderIndex: item.order_index,
+          component: toComponentRef(item.components),
           assignee: toPerson(item.assignee),
           reviewer: toPerson(item.reviewer),
           criteriaDone: criteria.filter((c) => c.is_done).length,
@@ -162,6 +167,36 @@ export const getSprint = cache(
     };
   }
 );
+
+/**
+ * The embedded component row, flattened.
+ *
+ * Its own function rather than an inline object so the table, the board, the
+ * cards and the item detail all read the same five fields — a component that
+ * renders with its icon in one place and without it in another looks like two
+ * different things.
+ */
+function toComponentRef(
+  row: {
+    id: string;
+    name: string;
+    slug: string;
+    kind: string;
+    is_archived: boolean;
+    icon: string | null;
+  } | null
+): ComponentRef | null {
+  return row
+    ? {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        kind: row.kind as ComponentRef["kind"],
+        isArchived: row.is_archived,
+        icon: row.icon,
+      }
+    : null;
+}
 
 function toPerson(
   row: { id: string; full_name: string; initials: string; avatar_url: string | null } | null
