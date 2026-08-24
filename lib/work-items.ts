@@ -11,10 +11,10 @@
 /** Declaration order of the `work_item_status` enum. NOT the display order. */
 export const WORK_ITEM_STATUSES = [
   "draft",
-  "todo",
-  "dev_started",
-  "ready_for_peer_review",
-  "in_review",
+  "ready",
+  "in_progress",
+  "in_peer_review",
+  "in_qa",
   "changes_requested",
   "done",
   "blocked",
@@ -28,11 +28,11 @@ export type WorkItemStatus = (typeof WORK_ITEM_STATUSES)[number];
  * "what needs attention", not "what happened".
  */
 export const STATUS_DISPLAY_ORDER = [
-  "dev_started",
-  "ready_for_peer_review",
-  "in_review",
+  "in_progress",
+  "in_peer_review",
+  "in_qa",
   "changes_requested",
-  "todo",
+  "ready",
   "draft",
   "blocked",
   "done",
@@ -42,28 +42,63 @@ export function statusRank(status: WorkItemStatus): number {
   return STATUS_DISPLAY_ORDER.indexOf(status);
 }
 
+/**
+ * Values retired by the 2026-08-21 rename, mapped forward.
+ *
+ * Filter state lives in the URL, so `?status=dev_started,todo` is in bookmarks,
+ * in Slack, and in anything anyone pasted before the rename. Validation drops
+ * values it does not recognise, and an empty filter means "show everything" —
+ * so without this map an old link does not error, it quietly returns the whole
+ * sprint. That is the failure mode worth spending twelve lines on.
+ *
+ * Safe to delete once no old link is plausibly still in circulation; nothing
+ * writes these values any more.
+ */
+const RETIRED_STATUSES: Record<string, WorkItemStatus> = {
+  todo: "ready",
+  dev_started: "in_progress",
+  ready_for_peer_review: "in_peer_review",
+  in_review: "in_qa",
+};
+
+/**
+ * Parse a `?status=a,b,c` filter into validated statuses, mapping any retired
+ * value forward. Unknown values are dropped, so a hand-edited query string
+ * still cannot smuggle in a status that does not exist.
+ */
+export function parseStatusFilter(value: string | null | undefined): WorkItemStatus[] {
+  const seen = new Set<WorkItemStatus>();
+  for (const raw of (value ?? "").split(",")) {
+    const token = raw.trim();
+    if (!token) continue;
+    const status = RETIRED_STATUSES[token] ?? (token as WorkItemStatus);
+    if (WORK_ITEM_STATUSES.includes(status)) seen.add(status);
+  }
+  return [...seen];
+}
+
 /** In-app chip labels. Not the enum value, and not what the client sees. */
 export const STATUS_LABEL: Record<WorkItemStatus, string> = {
   draft: "draft",
-  todo: "todo",
-  dev_started: "dev started",
-  ready_for_peer_review: "peer review",
-  in_review: "in review",
+  ready: "ready",
+  in_progress: "in progress",
+  in_peer_review: "peer review",
+  in_qa: "in qa",
   changes_requested: "changes req.",
   done: "done",
   blocked: "blocked",
 };
 
 /**
- * Client-facing labels for the PDF. A client should never read `dev_started`,
+ * Client-facing labels for the PDF. A client should never read an enum value,
  * and "Not scoped yet" is a truthful, unembarrassing way to say `draft`.
  */
 export const STATUS_LABEL_CLIENT: Record<WorkItemStatus, string> = {
   draft: "Not scoped yet",
-  todo: "Not started",
-  dev_started: "In progress",
-  ready_for_peer_review: "In peer review",
-  in_review: "In review",
+  ready: "Not started",
+  in_progress: "In progress",
+  in_peer_review: "In peer review",
+  in_qa: "In QA",
   changes_requested: "Changes requested",
   done: "Done",
   blocked: "Blocked",

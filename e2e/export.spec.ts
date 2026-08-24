@@ -110,8 +110,8 @@ test.describe("the client report", () => {
     // Client-facing means client-facing.
     const text = await body.innerText();
     expect(text).not.toContain("COD-");
-    expect(text).not.toContain("dev_started");
-    expect(text).not.toContain("ready_for_peer_review");
+    expect(text).not.toContain("in_progress");
+    expect(text).not.toContain("in_peer_review");
     // No reviewer names, and no per-person hours.
     expect(text).not.toContain("Abdelrahman Elkhateeb");
     // No internal comments.
@@ -145,7 +145,7 @@ test.describe("the client report", () => {
 
   test("charts carry aria-labels naming the real values", async ({ adminPage: page }) => {
     await page.goto(`${SPRINT}/report`);
-    await expect(page.getByRole("img", { name: new RegExp(`Status distribution: In progress ${SEED.devStartedCount}`) })).toBeVisible();
+    await expect(page.getByRole("img", { name: new RegExp(`Status distribution: In progress ${SEED.inProgressCount}`) })).toBeVisible();
     await expect(
       page.getByRole("img", { name: /Cumulative hours logged across the sprint/ })
     ).toBeVisible();

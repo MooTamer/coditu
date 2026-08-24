@@ -45,15 +45,15 @@ describe("CSV parsing", () => {
 
 describe("status and type mapping", () => {
   it("maps the labels the team actually writes", () => {
-    expect(mapStatus("Dev Started")).toBe("dev_started");
-    expect(mapStatus("Peer Review")).toBe("ready_for_peer_review");
-    expect(mapStatus("Not started")).toBe("todo");
+    expect(mapStatus("Dev Started")).toBe("in_progress");
+    expect(mapStatus("Peer Review")).toBe("in_peer_review");
+    expect(mapStatus("Not started")).toBe("ready");
     expect(mapType("CR: Change Request")).toBe("change_request");
     expect(mapType("Bug Fix")).toBe("bug_fix");
   });
 
   it("defaults an empty cell rather than failing the row", () => {
-    expect(mapStatus("")).toBe("todo");
+    expect(mapStatus("")).toBe("ready");
     expect(mapType("")).toBe("story");
   });
 
@@ -170,7 +170,7 @@ describe("preview", () => {
   it("converts the good rows' values correctly", () => {
     const preview = buildPreview(CSV, PEOPLE);
     const first = preview.rows[0];
-    expect(first.status).toBe("dev_started");
+    expect(first.status).toBe("in_progress");
     expect(first.minutesWorked).toBe(450);
     expect(first.deadline).toBe("2026-08-21");
     expect(first.assigneeName).toBe("Mohamed Tamer");

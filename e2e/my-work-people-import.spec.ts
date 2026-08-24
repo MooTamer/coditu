@@ -17,7 +17,7 @@ test.describe("my work", () => {
     const [review] = await query<{ n: string }>(
       `select count(*)::text as n from work_items w
        join profiles p on p.id = w.reviewer_id
-       where p.full_name = 'Mohamed Tamer' and w.status = 'ready_for_peer_review'`
+       where p.full_name = 'Mohamed Tamer' and w.status = 'in_peer_review'`
     );
 
     await page.goto("/app/my-work");
@@ -177,7 +177,7 @@ test.describe("notion import", () => {
     );
 
     expect(written.title).toBe("Imported clean row");
-    expect(written.status).toBe("dev_started");
+    expect(written.status).toBe("in_progress");
     expect(written.deadline).toBe("2026-08-23");
     expect(written.grouping).toBe("1");
     // 1.5 hours became 90 integer minutes at the boundary — and they are ON the

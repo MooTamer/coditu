@@ -6,23 +6,28 @@ import { useCallback } from "react";
 import { ComponentPicker } from "@/components/app/component-picker.client";
 import { Mono } from "@/components/coditu/mono";
 import type { ComponentRef } from "@/lib/data/components";
-import { STATUS_DISPLAY_ORDER, STATUS_LABEL, type WorkItemStatus } from "@/lib/work-items";
+import {
+  STATUS_DISPLAY_ORDER,
+  STATUS_LABEL,
+  parseStatusFilter,
+  type WorkItemStatus,
+} from "@/lib/work-items";
 import { cn } from "@/lib/utils";
 
 /**
  * View mode and status filters, held in the URL.
  *
- * `?status=dev_started,todo&view=board` — so a view is shareable, survives a
+ * `?status=in_progress,ready&view=board` — so a view is shareable, survives a
  * reload, and the back button does what it looks like it does. Local state
  * here would mean "send me the board filtered to review" is a sentence
  * somebody has to type instead of a link they can paste.
  */
 const DOT: Partial<Record<WorkItemStatus, string>> = {
-  dev_started: "#2B57FF",
-  ready_for_peer_review: "#FFB020",
-  in_review: "#21E2C6",
+  in_progress: "#2B57FF",
+  in_peer_review: "#FFB020",
+  in_qa: "#21E2C6",
   changes_requested: "#FF5F6D",
-  todo: "#6B7A90",
+  ready: "#6B7A90",
   draft: "rgba(107,122,144,0.45)",
   blocked: "#FF5F6D",
   done: "#23C97F",
@@ -45,7 +50,10 @@ export function FilterBar({
   const pathname = usePathname();
   const params = useSearchParams();
 
-  const active = (params.get("status") ?? "").split(",").filter(Boolean) as WorkItemStatus[];
+  // Through the same parser the server uses, so a link carrying retired values
+  // lights up the right chips instead of none. The first toggle rewrites the
+  // query string in the current vocabulary.
+  const active = parseStatusFilter(params.get("status"));
   const view = params.get("view") === "board" ? "board" : "table";
 
   const write = useCallback(

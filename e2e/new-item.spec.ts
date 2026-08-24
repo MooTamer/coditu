@@ -33,7 +33,7 @@ test.describe("new item", () => {
     await dialog.getByLabel("Discuss before implementing").fill("Check this first.");
     await dialog.getByLabel("Acceptance criteria — one per line").fill("First one\n- Second one\n\n");
     await dialog.getByLabel("Type").selectOption("bug_fix");
-    await dialog.getByLabel("Status").selectOption("dev_started");
+    await dialog.getByLabel("Status").selectOption("in_progress");
     await dialog.getByLabel("Assignee").selectOption({ label: "Ahmed Yehia" });
     await dialog.getByLabel("Deadline").fill("2026-08-23");
     await dialog.getByLabel("Estimate (hours)").fill("2.5");
@@ -75,7 +75,7 @@ test.describe("new item", () => {
 
     expect(row.slug, "invariant 1: it landed under the project that owns the sprint").toBe("meinevim");
     expect(row.sprint).toBe("17");
-    expect(row.status).toBe("dev_started");
+    expect(row.status).toBe("in_progress");
     expect(row.type).toBe("bug_fix");
     expect(row.deadline).toBe("2026-08-23");
     // 2.5 hours became 150 integer minutes at the boundary. Invariant 2.

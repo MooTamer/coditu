@@ -122,18 +122,31 @@ export function parseCsv(text: string): string[][] {
 /* Value mapping                                                               */
 /* -------------------------------------------------------------------------- */
 
-/** Notion's status labels, as the team actually writes them. */
+/**
+ * Notion's status labels, as the team actually writes them.
+ *
+ * This table is also where the RETIRED enum values keep working. A Notion board
+ * that still says "Todo" or "Dev Started" — and every CSV exported from one
+ * before the rename — has to keep importing, so the old spellings stay here as
+ * aliases pointing at the new values. They cost nothing and they are the only
+ * thing standing between an old export and a column of "not one we recognise".
+ */
 const STATUS_ALIASES: Record<string, WorkItemStatus> = {
   draft: "draft",
-  "not started": "todo",
-  todo: "todo",
-  "to do": "todo",
-  "dev started": "dev_started",
-  "in progress": "dev_started",
-  "peer review": "ready_for_peer_review",
-  "ready for peer review": "ready_for_peer_review",
-  "in review": "in_review",
-  review: "in_review",
+  "not started": "ready",
+  ready: "ready",
+  todo: "ready", // retired value
+  "to do": "ready",
+  "dev started": "in_progress", // retired value
+  "in progress": "in_progress",
+  building: "in_progress",
+  "peer review": "in_peer_review",
+  "ready for peer review": "in_peer_review", // retired value
+  "in peer review": "in_peer_review",
+  "in review": "in_qa", // retired value
+  review: "in_qa",
+  qa: "in_qa",
+  "in qa": "in_qa",
   "changes requested": "changes_requested",
   blocked: "blocked",
   done: "done",
@@ -159,7 +172,7 @@ function normalise(value: string): string {
 
 export function mapStatus(value: string): WorkItemStatus | null {
   const key = normalise(value);
-  if (!key) return "todo";
+  if (!key) return "ready";
   if (STATUS_ALIASES[key]) return STATUS_ALIASES[key];
   const direct = key.replace(/ /g, "_");
   return (WORK_ITEM_STATUSES as readonly string[]).includes(direct) ? (direct as WorkItemStatus) : null;
@@ -327,7 +340,7 @@ export function buildPreview(csv: string, knownPeople: string[] = []): ImportPre
       // +2: one for the header row, one because spreadsheets count from 1.
       line: i + 2,
       title,
-      status: status ?? "todo",
+      status: status ?? "ready",
       type: type ?? "story",
       assigneeName,
       reviewerName,

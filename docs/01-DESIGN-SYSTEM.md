@@ -77,16 +77,16 @@ A value tuned for paper drops to ~2.4:1 on the dark canvas. Every status carries
 | token | label | light fg | light bg | dark fg | dark bg |
 |---|---|---|---|---|---|
 | `draft` | draft | `#52607A` | `rgba(107,122,144,.14)` | `#9AA7BB` | `rgba(147,160,180,.16)` |
-| `todo` | todo | `#3F4C63` | `rgba(107,122,144,.16)` | `#AEBACD` | `rgba(147,160,180,.16)` |
-| `dev_started` | dev started | `#183FBF` | `rgba(43,87,255,.12)` | `#89A7FF` | `rgba(43,87,255,.22)` |
-| `ready_for_peer_review` | peer review | `#7A4F00` | `rgba(255,176,32,.18)` | `#FFC24D` | `rgba(255,176,32,.18)` |
-| `in_review` | in review | `#0B6B5C` | `rgba(33,226,198,.18)` | `#4FE9D2` | `rgba(33,226,198,.16)` |
+| `ready` | ready | `#3F4C63` | `rgba(107,122,144,.16)` | `#AEBACD` | `rgba(147,160,180,.16)` |
+| `in_progress` | in progress | `#183FBF` | `rgba(43,87,255,.12)` | `#89A7FF` | `rgba(43,87,255,.22)` |
+| `in_peer_review` | peer review | `#7A4F00` | `rgba(255,176,32,.18)` | `#FFC24D` | `rgba(255,176,32,.18)` |
+| `in_qa` | in qa | `#0B6B5C` | `rgba(33,226,198,.18)` | `#4FE9D2` | `rgba(33,226,198,.16)` |
 | `changes_requested` | changes req. | `#A81F2C` | `rgba(255,95,109,.14)` | `#FF9AA2` | `rgba(255,95,109,.18)` |
 | `done` | done | `#0E6B4B` | `rgba(35,201,127,.18)` | `#63E3A9` | `rgba(35,201,127,.16)` |
 | `blocked` | blocked | `#A81F2C` | `rgba(255,95,109,.20)` | `#FF9AA2` | `rgba(255,95,109,.22)` |
 
-The chip **label is not the enum value** — `dev_started` renders as `dev started`,
-`ready_for_peer_review` as `peer review`, `changes_requested` as `changes req.`. These are the in-app
+The chip **label is not the enum value** — `in_progress` renders as `in progress`,
+`in_peer_review` as `peer review`, `changes_requested` as `changes req.`. These are the in-app
 labels. The **client-facing PDF uses a different set entirely** — see `04-EXPORT-SPEC.md`.
 
 ### Tones

@@ -102,7 +102,7 @@ export function NewItemDialog({
 
   const [title, setTitle] = useState("");
   const [type, setType] = useState<WorkItemType>("story");
-  const [status, setStatus] = useState<WorkItemStatus>("todo");
+  const [status, setStatus] = useState<WorkItemStatus>("ready");
   const [assigneeId, setAssigneeId] = useState("");
   const [reviewerId, setReviewerId] = useState("");
   const [deadline, setDeadline] = useState("");

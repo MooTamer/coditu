@@ -91,7 +91,7 @@ export const SEED = {
   /** A Week 17 row in `draft`, so "drop drafts" removes it from an export. */
   draft: "COD-242",
   /** Week 17's status spread, as the sprint table and the report each phrase it. */
-  devStartedCount: 3,
+  inProgressCount: 3,
   peerReviewCount: 4,
 } as const;
 

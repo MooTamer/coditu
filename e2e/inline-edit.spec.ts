@@ -76,10 +76,10 @@ test.describe("editing from the table", () => {
 
   test("status changes from the row and reaches the database", async ({ adminPage: page }) => {
     await row(page).getByRole("button", { name: /^Status/ }).click();
-    await page.getByRole("option", { name: /dev started/ }).click();
+    await page.getByRole("option", { name: /in progress/ }).click();
 
-    await expect(row(page).getByRole("button", { name: /^Status: dev started/ })).toBeVisible();
-    await expect.poll(async () => (await readItem()).status, { timeout: 8000 }).toBe("dev_started");
+    await expect(row(page).getByRole("button", { name: /^Status: in progress/ })).toBeVisible();
+    await expect.poll(async () => (await readItem()).status, { timeout: 8000 }).toBe("in_progress");
   });
 
   test("assignee and reviewer change from their own columns", async ({ adminPage: page }) => {

@@ -193,6 +193,20 @@ export type Database = {
             foreignKeyName: "app_settings_payout_from_sprint_id_fkey"
             columns: ["payout_from_sprint_id"]
             isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["sprint_id"]
+          },
+          {
+            foreignKeyName: "app_settings_payout_from_sprint_id_fkey"
+            columns: ["payout_from_sprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_sprint_minutes"
+            referencedColumns: ["sprint_id"]
+          },
+          {
+            foreignKeyName: "app_settings_payout_from_sprint_id_fkey"
+            columns: ["payout_from_sprint_id"]
+            isOneToOne: false
             referencedRelation: "v_sprint_summary"
             referencedColumns: ["sprint_id"]
           },
@@ -580,7 +594,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_archived?: boolean
-          key_prefix?: string
+          key_prefix: string
           name: string
           next_key_number?: number
           scope?: string | null
@@ -747,11 +761,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sprint_payouts_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+          {
             foreignKeyName: "sprint_payouts_sprint_id_fkey"
             columns: ["sprint_id"]
             isOneToOne: false
             referencedRelation: "sprints"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sprint_payouts_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["sprint_id"]
+          },
+          {
+            foreignKeyName: "sprint_payouts_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_sprint_minutes"
+            referencedColumns: ["sprint_id"]
+          },
+          {
+            foreignKeyName: "sprint_payouts_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_sprint_summary"
+            referencedColumns: ["sprint_id"]
           },
           {
             foreignKeyName: "sprint_payouts_superseded_by_fkey"
@@ -890,8 +932,8 @@ export type Database = {
           closed_at: string | null
           component_id: string | null
           created_at: string
-          deleted_at: string | null
           deadline: string | null
+          deleted_at: string | null
           description: string | null
           estimate_minutes: number | null
           grouping: number | null
@@ -912,8 +954,8 @@ export type Database = {
           closed_at?: string | null
           component_id?: string | null
           created_at?: string
-          deleted_at?: string | null
           deadline?: string | null
+          deleted_at?: string | null
           description?: string | null
           estimate_minutes?: number | null
           grouping?: number | null
@@ -934,8 +976,8 @@ export type Database = {
           closed_at?: string | null
           component_id?: string | null
           created_at?: string
-          deleted_at?: string | null
           deadline?: string | null
+          deleted_at?: string | null
           description?: string | null
           estimate_minutes?: number | null
           grouping?: number | null
@@ -1005,6 +1047,13 @@ export type Database = {
             foreignKeyName: "work_items_sprint_id_fkey"
             columns: ["sprint_id"]
             isOneToOne: false
+            referencedRelation: "v_sprint_minutes"
+            referencedColumns: ["sprint_id"]
+          },
+          {
+            foreignKeyName: "work_items_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
             referencedRelation: "v_sprint_summary"
             referencedColumns: ["sprint_id"]
           },
@@ -1050,11 +1099,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "work_items_sprint_id_fkey"
-            columns: ["sprint_id"]
+            foreignKeyName: "time_entries_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
-            referencedRelation: "sprints"
-            referencedColumns: ["id"]
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
           },
         ]
       }
@@ -1063,22 +1112,22 @@ export type Database = {
           blocked_count: number | null
           changes_requested_count: number | null
           days_remaining: number | null
-          dev_started_count: number | null
           done_count: number | null
           draft_count: number | null
           ends_on: string | null
           estimate_minutes: number | null
-          in_review_count: number | null
+          in_peer_review_count: number | null
+          in_progress_count: number | null
+          in_qa_count: number | null
           item_count: number | null
           minutes_logged: number | null
           name: string | null
           number: number | null
           project_id: string | null
-          ready_for_peer_review_count: number | null
+          ready_count: number | null
           sprint_id: string | null
           starts_on: string | null
           status: Database["public"]["Enums"]["sprint_status"] | null
-          todo_count: number | null
         }
         Relationships: [
           {
@@ -1119,10 +1168,6 @@ export type Database = {
         }[]
       }
       rebalance_project_keys: { Args: never; Returns: undefined }
-      rewrite_attachment_srcs: {
-        Args: { depth?: number; doc: Json }
-        Returns: Json
-      }
       reorder_criteria: {
         Args: { p_criterion_id: string; p_ordered_ids: string[] }
         Returns: string
@@ -1130,6 +1175,10 @@ export type Database = {
       reorder_work_items: {
         Args: { p_item_id: string; p_ordered_ids: string[] }
         Returns: string
+      }
+      rewrite_attachment_srcs: {
+        Args: { depth?: number; doc: Json }
+        Returns: Json
       }
       set_work_item_deleted: {
         Args: { p_deleted: boolean; p_item_id: string }
@@ -1147,10 +1196,10 @@ export type Database = {
       sprint_status: "planned" | "active" | "closed"
       work_item_status:
         | "draft"
-        | "todo"
-        | "dev_started"
-        | "ready_for_peer_review"
-        | "in_review"
+        | "ready"
+        | "in_progress"
+        | "in_peer_review"
+        | "in_qa"
         | "changes_requested"
         | "done"
         | "blocked"
@@ -1287,10 +1336,10 @@ export const Constants = {
       sprint_status: ["planned", "active", "closed"],
       work_item_status: [
         "draft",
-        "todo",
-        "dev_started",
-        "ready_for_peer_review",
-        "in_review",
+        "ready",
+        "in_progress",
+        "in_peer_review",
+        "in_qa",
         "changes_requested",
         "done",
         "blocked",

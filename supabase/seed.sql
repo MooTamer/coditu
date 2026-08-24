@@ -770,7 +770,7 @@ Acceptance Criteria:
 • Video only plays on hover, no sound
 • Video roundness dynamic',
    null,
-   'todo', 'story',
+   'ready', 'story',
    'a0000000-0000-4000-8000-000000000002', null,
    null, null, null, 13),
 
@@ -1134,7 +1134,7 @@ o “Results”: shows results only, no UI for voting',
 • would it be possible to have several rows? he would like to decide which link goes in which row
 • make the shadow height less, because the the shadow is being cut by the webpart border',
    null,
-   'todo', 'bug_fix',
+   'ready', 'bug_fix',
    'a0000000-0000-4000-8000-000000000001', null,
    null, null, null, 10),
 
@@ -1143,7 +1143,7 @@ o “Results”: shows results only, no UI for voting',
    '• on smaller the banner is much more like a square, this is not the right implementation
 • try to make the image fit, or fill to make it optional on smaller screens to let the bg image visible on smaller screen',
    null,
-   'todo', 'change_request',
+   'ready', 'change_request',
    'a0000000-0000-4000-8000-000000000003', null,
    null, null, null, 11),
 
@@ -1151,7 +1151,7 @@ o “Results”: shows results only, no UI for voting',
    'CR: Instagram / LinkedIn Feed',
    'Removing autoplay for videos (NOT slideshow)',
    null,
-   'dev_started', 'change_request',
+   'in_progress', 'change_request',
    'a0000000-0000-4000-8000-000000000003', null,
    '2025-12-29', null, null, 0),
 
@@ -1356,7 +1356,7 @@ Some thoughts:',
    'Finder',
    null,
    null,
-   'dev_started', 'story',
+   'in_progress', 'story',
    'a0000000-0000-4000-8000-000000000001', null,
    null, null, null, 0),
 
@@ -1364,7 +1364,7 @@ Some thoughts:',
    'Calendar',
    null,
    null,
-   'dev_started', 'story',
+   'in_progress', 'story',
    'a0000000-0000-4000-8000-000000000001', null,
    null, null, null, 1),
 
@@ -1372,7 +1372,7 @@ Some thoughts:',
    'New webpart: EVIM Lists',
    null,
    null,
-   'dev_started', 'story',
+   'in_progress', 'story',
    'a0000000-0000-4000-8000-000000000001', null,
    null, null, null, 2),
 
@@ -1380,7 +1380,7 @@ Some thoughts:',
    'Links Carousel',
    null,
    null,
-   'dev_started', 'story',
+   'in_progress', 'story',
    'a0000000-0000-4000-8000-000000000001', null,
    null, null, null, 3),
 
@@ -1495,7 +1495,7 @@ All modes new features:
    'EVIM LinkedIn and Instagram Backend',
    null,
    null,
-   'todo', 'story',
+   'ready', 'story',
    'a0000000-0000-4000-8000-000000000002', null,
    null, null, null, 0),
 
@@ -1506,7 +1506,7 @@ All modes new features:
 • Make field labels in Quick Links editable via locale
 • Note: Check permissions',
    null,
-   'in_review', 'story',
+   'in_qa', 'story',
    'a0000000-0000-4000-8000-000000000003', null,
    null, null, null, 1),
 
@@ -1787,7 +1787,7 @@ Deployed at: https://evim-redaktion.vercel.app/',
 
 Acceptance Criteria:',
    null,
-   'in_review', 'story',
+   'in_qa', 'story',
    'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
    '2026-08-23', null, null, 0),
 
@@ -1795,7 +1795,7 @@ Acceptance Criteria:',
    'Tabs with Cards',
    'Change title font size to 22px',
    null,
-   'ready_for_peer_review', 'change_request',
+   'in_peer_review', 'change_request',
    'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
    '2026-08-23', null, null, 1),
 
@@ -1807,7 +1807,7 @@ When you add 4 cards and the 4th card does not have any description, it overflow
 
 Expected behavior:',
    null,
-   'ready_for_peer_review', 'bug_fix',
+   'in_peer_review', 'bug_fix',
    'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
    '2026-08-23', null, 1, 2),
 
@@ -1815,7 +1815,7 @@ Expected behavior:',
    'Link Kachel changes',
    '• Our goal is to avoid this space as much as possible:',
    null,
-   'ready_for_peer_review', 'change_request',
+   'in_peer_review', 'change_request',
    'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
    '2026-08-23', null, 1, 3),
 
@@ -1823,7 +1823,7 @@ Expected behavior:',
    'Newspart changes',
    null,
    null,
-   'dev_started', 'change_request',
+   'in_progress', 'change_request',
    'a0000000-0000-4000-8000-000000000001', null,
    '2026-08-23', null, 2, 4),
 
@@ -1839,7 +1839,7 @@ row 3: Title with biggest font size (do not change its current size)
 
 row 4: Teaser',
    null,
-   'dev_started', 'change_request',
+   'in_progress', 'change_request',
    'a0000000-0000-4000-8000-000000000001', null,
    '2026-08-23', null, 2, 5),
 
@@ -1851,7 +1851,7 @@ Link Kachel, Tabs with Cards, Newspart:
 
 In all 3 webparts I have cards which are shown in a grid (In Newspart the card takes up all the grid columns). I want unified responsiveness logic for all the 3 webparts IF AND ONLY IF there is more than 1 card defined.',
    null,
-   'ready_for_peer_review', 'story',
+   'in_peer_review', 'story',
    'a0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000001',
    '2026-08-23', null, null, 6),
 
@@ -1859,7 +1859,7 @@ In all 3 webparts I have cards which are shown in a grid (In Newspart the card t
    'Calendar',
    'We want to update EVIM Calendar webpart. Really important: We will be displaying the EVIM calendar in 1 column next to EVIM Newspart in 2 columns. Please make sure the UI and UX of both calendar and newspart are fitting. Follow Corporate Design from Figma',
    'Below the AC for EVIM Calendar new mode “Startseite”, please only make changes in this mode!!',
-   'dev_started', 'story',
+   'in_progress', 'story',
    'a0000000-0000-4000-8000-000000000003', null,
    '2026-08-23', null, null, 7),
 
@@ -1871,7 +1871,7 @@ Acceptance Criteria:
 
 Technical Requirement:',
    null,
-   'todo', 'story',
+   'ready', 'story',
    null, null,
    '2026-08-23', null, null, 8),
 
@@ -1879,7 +1879,7 @@ Technical Requirement:',
    'Banner Intranet Mode',
    'In Banner Intranet mode change the right part of the title back to Nachtblau from black.',
    null,
-   'todo', 'change_request',
+   'ready', 'change_request',
    null, null,
    '2026-08-23', null, null, 9),
 
@@ -1895,7 +1895,7 @@ Technical Requirement:',
    'Rollover Contact Cards',
    null,
    null,
-   'todo', 'change_request',
+   'ready', 'change_request',
    null, null,
    '2026-08-23', null, null, 11),
 
@@ -1907,7 +1907,7 @@ Expected behavior:
 
 After fixing this bug please contact me so that we can solve this for all webparts as this is a recurring issue!!!',
    null,
-   'todo', 'bug_fix',
+   'ready', 'bug_fix',
    null, null,
    '2026-08-23', null, null, 12),
 
@@ -1924,7 +1924,7 @@ After fixing this bug please contact me so that we can solve this for all webpar
    '• login: [redacted]
 • pass: [redacted] [redacted] PLEASE KEEP SECRET',
    null,
-   'todo', 'story',
+   'ready', 'story',
    null, null,
    '2025-03-02', null, null, 0);
 

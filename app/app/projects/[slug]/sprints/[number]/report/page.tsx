@@ -23,11 +23,11 @@ export async function generateMetadata({
 
 /** Bar colours. The client never sees a status label they would have to decode. */
 const BAR: Record<WorkItemStatus, string> = {
-  dev_started: "#2B57FF",
-  ready_for_peer_review: "#FFB020",
-  in_review: "#21E2C6",
+  in_progress: "#2B57FF",
+  in_peer_review: "#FFB020",
+  in_qa: "#21E2C6",
   changes_requested: "#FF5F6D",
-  todo: "#6B7A90",
+  ready: "#6B7A90",
   draft: "rgba(107,122,144,0.35)",
   blocked: "#FF5F6D",
   done: "#23C97F",
@@ -44,7 +44,7 @@ const BAR: Record<WorkItemStatus, string> = {
  * reviewer names, no per-person hours, and no `COD-` keys — the design bundle
  * shows the keys, but the brief is explicit that they do not belong here, and
  * on behaviour the brief wins. Statuses are humanised: a client reading
- * "ready_for_peer_review" in a document prepared for them is a mistake, not a
+ * "in_peer_review" in a document prepared for them is a mistake, not a
  * style choice.
  */
 export default async function ReportPage({

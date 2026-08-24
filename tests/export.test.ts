@@ -43,8 +43,8 @@ describe("CSV export", () => {
   it("matches the golden file", () => {
     expect(generateCsv(EXPORT_FIXTURE)).toMatchInlineSnapshot(`
       "﻿key,title,status,type,grouping,assignee,reviewer,deadline,estimate_hours,hours_logged,acceptance_criteria_done,acceptance_criteria_total,acceptance_criteria,comments,activity,time_entries
-      COD-140,"Add optional titles, and a ""Show Title"" toggle",dev_started,story,,Mohamed Tamer,Abdelrahman Elkhateeb,2026-08-21,8.00,7.50,1,2,"[x] Each webpart has a ""Show Title"" toggle | [ ] Spacing matches Link Kachel | at all breakpoints","Abdelrahman Elkhateeb (2026-08-19 14:02): Inline edit needs the same field ordering as the panel, otherwise editors lose the toggle.",MT changed status todo → dev_started · 2026-08-18 09:12,2026-08-18 3.0 h | 2026-08-19 4.5 h
-      COD-144,Newspart changes,todo,change_request,2,,,2026-08-23,3.00,0.00,0,0,,,,
+      COD-140,"Add optional titles, and a ""Show Title"" toggle",in_progress,story,,Mohamed Tamer,Abdelrahman Elkhateeb,2026-08-21,8.00,7.50,1,2,"[x] Each webpart has a ""Show Title"" toggle | [ ] Spacing matches Link Kachel | at all breakpoints","Abdelrahman Elkhateeb (2026-08-19 14:02): Inline edit needs the same field ordering as the panel, otherwise editors lose the toggle.",MT changed status ready → in_progress · 2026-08-18 09:12,2026-08-18 3.0 h | 2026-08-19 4.5 h
+      COD-144,Newspart changes,ready,change_request,2,,,2026-08-23,3.00,0.00,0,0,,,,
       "
     `);
   });
@@ -98,7 +98,7 @@ describe("Markdown export", () => {
       - window: 2026-08-17 → 2026-08-23 (3 days remaining as of 2026-08-20)
       - items in export: 2 of 12
       - hours: 7.5 logged / 11.0 estimated
-      - statuses used: draft, todo, dev_started, ready_for_peer_review, in_review, changes_requested, done, blocked
+      - statuses used: draft, ready, in_progress, in_peer_review, in_qa, changes_requested, done, blocked
       - convention: items sharing a \`grouping\` integer overlap in logic/UI and are taken by one developer
       - convention: a highlighted block means discuss before implementing
 
@@ -114,7 +114,7 @@ describe("Markdown export", () => {
 
       | field | value |
       | --- | --- |
-      | status | \`dev_started\` |
+      | status | \`in_progress\` |
       | type | \`story\` |
       | grouping | — |
       | assignee | Mohamed Tamer |
@@ -138,7 +138,7 @@ describe("Markdown export", () => {
 
       **Activity**
 
-      - MT changed status todo → dev_started · 2026-08-18 09:12
+      - MT changed status ready → in_progress · 2026-08-18 09:12
 
       **Time entries**
 
@@ -149,7 +149,7 @@ describe("Markdown export", () => {
 
       | field | value |
       | --- | --- |
-      | status | \`todo\` |
+      | status | \`ready\` |
       | type | \`change_request\` |
       | grouping | \`2\` |
       | assignee | unassigned |

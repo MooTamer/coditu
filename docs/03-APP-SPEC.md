@@ -35,10 +35,13 @@ else.** Not the rail, not the top bar. Those are visible on every screen that ge
 projector in a client meeting, a screenshot in a chat — and a link labelled "Earnings" beside "Sprint"
 advertises the one screen with money on it on all of them.
 
-Filter, sort, and view state live in the URL (`?status=dev_started,todo&assignee=…&component=evim-themen-kachel&view=board`)
+Filter, sort, and view state live in the URL (`?status=in_progress,ready&assignee=…&component=evim-themen-kachel&view=board`)
 so a view is shareable and survives reload. `component` is a **slug**, validated against the project's
 own registry — a hand-edited one that names another client's component resolves to nothing and the
-filter is simply not applied.
+filter is simply not applied. A `?status=` naming a **retired** value — `todo`, `dev_started`,
+`ready_for_peer_review`, `in_review` — is mapped forward rather than dropped, because an unrecognised
+value would quietly widen the filter to the whole sprint instead of erroring, and those links are in
+bookmarks.
 
 ---
 

@@ -289,7 +289,7 @@ test.describe("realtime", () => {
     // If the row appears, realtime delivered it.
     const [inserted] = await query<{ id: string }>(
       `insert into work_items (sprint_id, key, title, status, type, estimate_minutes, order_index)
-       select s.id, 'COD-901', 'Realtime probe', 'todo', 'story', 60, 999
+       select s.id, 'COD-901', 'Realtime probe', 'ready', 'story', 60, 999
        from sprints s join projects p on p.id = s.project_id
        where p.slug = 'meinevim' and s.number = 17
        returning id`

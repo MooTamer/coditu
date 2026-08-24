@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import type { TablesInsert } from "@/lib/supabase/database.types";
+
 import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 
@@ -201,8 +203,14 @@ export async function createProject(input: unknown): Promise<ProjectResult> {
       // Omitted rather than defaulted here: `assign_project_key_prefix` derives
       // one from the slug, uniquified against every prefix in use and every key
       // ever issued. A prefix invented in TypeScript could not check either.
+      //
+      // The cast is the price of that. `projects.key_prefix` is `not null` with
+      // no column DEFAULT — a BEFORE INSERT trigger supplies it — and the type
+      // generator reads defaults, not triggers, so it marks the column
+      // required. Narrow and deliberate: it says "a trigger fills this", which
+      // is true, rather than inventing a value to satisfy a type.
       ...(parsed.data.keyPrefix ? { key_prefix: parsed.data.keyPrefix } : {}),
-    })
+    } as TablesInsert<"projects">)
     .select("slug")
     .single();
 

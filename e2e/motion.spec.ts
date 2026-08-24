@@ -146,7 +146,7 @@ test.describe("motion", () => {
     );
     expect(new Set(rowTiers)).toEqual(new Set(["none"]));
 
-    await page.getByRole("button", { name: "dev started", exact: true }).click();
+    await page.getByRole("button", { name: "in progress", exact: true }).click();
     await page.waitForTimeout(150);
 
     const blurring = await page.evaluate(() =>

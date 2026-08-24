@@ -43,7 +43,7 @@ export function startOfWeek(today = todayInCairo()): string {
  *
  * "Assigned to me" excludes done: the question this page answers is what is
  * still on your plate, and a finished item is not. The review queue is
- * specifically `ready_for_peer_review` — an item in `changes_requested` is back
+ * specifically `in_peer_review` — an item in `changes_requested` is back
  * with its author, not waiting on you.
  */
 export const getMyWork = cache(async (): Promise<MyWork | null> => {
@@ -62,7 +62,7 @@ export const getMyWork = cache(async (): Promise<MyWork | null> => {
       .from("work_items")
       .select(select)
       .eq("reviewer_id", profile.id)
-      .eq("status", "ready_for_peer_review"),
+      .eq("status", "in_peer_review"),
     supabase
       .from("time_entries")
       .select("minutes")

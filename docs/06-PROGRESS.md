@@ -643,6 +643,7 @@ ledger updated in the same commit as the work.
 | **Circuit breaker** — Supabase auth off the marketing critical path, behind a deadline that fails closed; Chromium behind a bulkhead of two | `af6cc03` | `npm run degraded`; `npx vitest run tests/circuit-breaker.test.ts` — 14 specs |
 | **Optimistic writes** — log time and post a comment land on screen before the server answers, and every optimistic control now rolls back with a sentence when the action *throws* rather than returns | `02bcbfd` | `npx playwright test e2e/optimistic.spec.ts` — 4 specs, two of which fail the write on purpose |
 | **Prefetch** — `prefetch={false}` into `/app`'s dynamic routes. A sprint page view went from 28 speculative server renders and 178 database statements to 0 and 40, with navigation unchanged | `a09d48c` | `npm run budgets` — now also asserts `/` is still prerendered |
+| **Status vocabulary** — `todo → ready`, `dev_started → in_progress`, `ready_for_peer_review → in_peer_review`, `in_review → in_qa`. One grammatical shape; display order unchanged. `05-DECISIONS.md` records it, including `blocked` being deferred rather than rejected | pending | `npm run typecheck`, `npm run lint`, `npm run test` — 103. Migration applied to a clone of the local database: enum order preserved, `work_item_status_rank` executes, index predicate and column default followed the rename, `v_sprint_summary` aliases renamed, activity history backfilled with a `field <> 'status'` control row left untouched |
 | **Auth** — a sign-up can no longer choose its own role, and `/auth/callback` exists at last, so the email links the login page has always offered now lead somewhere | pending | `npm run db:test` — 72 assertions; `npx playwright test e2e/password.spec.ts` — 3 specs, the first driving the whole journey through a real mailbox |
 | **Profile pictures.** Everyone sets their own in Settings; it replaces the initials in the rail, the sprint header, the board, both person columns of the table, the mobile cards, the People list, the mention menu, every comment and every logged hour — falling back to initials wherever there is no picture. New **public** `avatars` bucket, `profiles.avatar_url` constrained to point only at one of our own objects, and the browser centre-crops to 256px WebP before uploading. Recorded in `05-DECISIONS.md` | pending | `npm run db:test` — **82 assertions**; `npm run test` — 109; `npx playwright test e2e/avatar.spec.ts` — 4 specs: the picture reaches the database, storage says it is a WebP smaller than the source, an unauthenticated request fetches it, it renders in three places, removing it deletes the object, PostgREST refuses a foreign URL by name and silently changes nothing when aimed at somebody else's row, axe clean. Full suite **162 pass** |
 | **`<Reveal>` was dropping every `aria-*` prop.** It has an explicit prop list and no rest spread, and TypeScript does not check JSX attributes whose names are not valid identifiers — so `aria-labelledby` on Settings and People compiled and reached the DOM as nothing, leaving those `<section>`s with no accessible name and no landmark role | pending | `npx playwright test e2e/avatar.spec.ts` — the picture section is located by `getByRole("region", { name: "Your picture" })`, which only resolves if the label lands |
@@ -1128,3 +1129,79 @@ The ten items left unattributed are the ambiguous ones the seed file names and r
 Verified in the browser on `https://coditu-phi.vercel.app`: the component picker lists all 41 with
 their toolbox icons, COD-243 reads **EVIM Themen Kachel**, and no money appears on the item, the table
 or the board.
+
+---
+
+## 2026-08-24 — the status rename landed, and it cannot be deployed the usual way
+
+`claude/ticket-status-naming-785e53` had been sitting as **uncommitted working-tree state** in
+`.claude/worktrees/` since 2026-08-21: thirty files, a migration, an ADR, tests and seed updates, none
+of it ever committed. Its branch tip was already an ancestor of `main`; only the changes on top were
+missing, so nothing in `git log` showed it and one `git worktree remove` would have taken it. It is
+committed and merged now.
+
+The migration was renumbered `20260821190000` → **`20260825100000`** so it sorts after everything
+already applied to the hosted database. Nothing referenced the old filename;
+`tests/status-order.test.ts` reads the directory and sorts, so it followed on its own.
+
+Four conflicts, resolved by the rule this repo already has: `05-DECISIONS.md` and `06-PROGRESS.md` are
+append-only, so **both** sides survive. `supabase/seed.sql` took `main`'s side — the branch's copy
+predated the Notion import and had the wrong sprint for every row — and the four status literals were
+renamed across it afterwards.
+
+Regenerating `lib/supabase/database.types.ts` (needed, because `alter view … rename column` moved four
+column names) also revealed that the committed types were **stale in another way**: `projects.key_prefix`
+is `not null` with no column default and is filled by a BEFORE INSERT trigger, which the generator
+cannot see, so it marks the column required. `createProject` had been omitting it against types that
+said it was optional. The runtime was always correct; the types were not. Now cast, narrowly, with the
+reason written down.
+
+### The deployment hazard, and why this one is different
+
+**An enum rename is not backward compatible in either direction.** Proven on a throwaway database
+rather than assumed:
+
+```sql
+alter type s rename value 'todo' to 'ready';
+select status from t;              -- 'ready'  — existing rows follow, automatically
+select * from t where status = 'todo';
+-- ERROR: invalid input value for enum s: "todo"
+```
+
+So the usual rule in this file — *apply the migration BEFORE the code that reads it* — does not save
+you here. It is the rule for an **added** column, which is invisible to the deployment already
+running. A renamed enum value is visible to it, and fatal:
+
+- migration first → the running deployment sends `'todo'` and every status filter, the board and the
+  table break;
+- code first → the new deployment sends `'ready'` against a database that has never heard of it, and
+  the same screens break.
+
+There is no ordering that avoids a window. **`main` pushing to `origin` auto-deploys to production**,
+so pushing this merge on its own would take the app down until somebody ran the migration by hand.
+
+**Therefore it is committed on `main` and deliberately NOT pushed.** The two steps have to happen
+together, in this order, by somebody who can do both:
+
+```bash
+# 1. apply the rename to the hosted database (needs the DB password; the
+#    service-role key reaches PostgREST, which cannot run DDL)
+supabase link --project-ref hayfsvsepgfescojesbd && supabase db push
+
+# 2. immediately after it reports success
+git push origin main
+```
+
+Between the two there is a window of seconds to a minute in which the deployed code and the schema
+disagree. With a four-person team that is a choice about *when*, not *whether* — pick a quiet moment.
+Verify afterwards:
+
+```sql
+select unnest(enum_range(null::work_item_status));
+-- draft ready in_progress in_peer_review in_qa changes_requested done blocked
+select status, count(*) from public.work_items group by 1 order by 1;
+```
+
+Locally the whole thing is applied and green: the enum reads in the new vocabulary, the four
+`v_sprint_summary` aliases followed, and the 104 imported items carry the renamed values with no row
+rewritten.
