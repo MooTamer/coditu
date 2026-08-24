@@ -337,6 +337,29 @@ export async function deleteSprint(input: unknown): Promise<SprintResult> {
     };
   }
 
+  // And the ones in the bin, which the count above cannot see.
+  //
+  // The read policy hides a soft-deleted item from every SELECT this app can
+  // make — that is the point of it — so a sprint holding nothing BUT deleted
+  // items counts zero here and would look empty. Deleting it cascades them
+  // away for real, and their time entries with them, which is hours somebody
+  // logged disappearing behind a control labelled "delete an empty sprint".
+  const { data: binned } = await scope.supabase.rpc("list_deleted_work_items", {
+    p_sprint_id: scope.sprint.id,
+  });
+
+  if ((binned ?? []).length > 0) {
+    const n = (binned ?? []).length;
+    const minutes = (binned ?? []).reduce((total, row) => total + (row.minutes_logged ?? 0), 0);
+    return {
+      ok: false,
+      error:
+        `${scope.sprint.name} still holds ${n} deleted ${n === 1 ? "item" : "items"}` +
+        (minutes > 0 ? ` carrying ${(minutes / 60).toFixed(1)} h` : "") +
+        ". Restore them, or move them, before deleting the sprint.",
+    };
+  }
+
   const { error } = await scope.supabase.from("sprints").delete().eq("id", scope.sprint.id);
   if (error) return { ok: false, error: "That sprint could not be deleted. Try again." };
 

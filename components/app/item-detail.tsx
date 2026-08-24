@@ -316,6 +316,7 @@ export function ItemDetailBody({
           itemKey={item.key}
           minutesLogged={item.minutesLogged}
           sprintId={item.sprint.id}
+          sprintPath={`/app/projects/${item.project.slug}/sprints/${item.sprint.number}`}
           sprints={sprints}
           canManage={canManage}
         />

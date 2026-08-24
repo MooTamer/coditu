@@ -920,3 +920,31 @@ into one of them:
 
 Each of those uses `SEED.threadPerProject[project.name]` where it seeds a comment, because three
 projects writing one row is the fixture race `playwright.config.ts` already records.
+
+### Four things an adversarial read of this brief's own diff found
+
+Written down because each of them passed lint, typecheck, the unit tests and the pgTAP suite, and
+three of them would have been reported as something else entirely.
+
+1. **`deleteSprint` could destroy hours through the bin.** It refuses to delete a sprint that still
+   holds items, by counting them — and the new read policy hides a soft-deleted item from every
+   select. A sprint holding *nothing but* deleted items counted zero, looked empty, and deleting it
+   would have cascaded them away for real, time entries included. It now asks
+   `list_deleted_work_items` as well and names the hours. **This is the shape of bug a policy-level
+   rule creates**: it made fifteen queries correct without being touched, and made one of them wrong.
+2. **`editComment` let an admin rewrite anybody's words** while its own error sentence said *"Only the
+   author can edit a comment."* Written that way from the start and never called, so nothing ever
+   disagreed with it. RLS permits an admin because it must for the soft delete; the action is
+   author-only now, which is what the sentence always claimed.
+3. **A stale optimistic drag order dropped a criterion off the list.** `ordered` preferred `dragOrder`
+   whenever it was set and nothing cleared it: after a reorder the ids matched and it looked right,
+   but adding a criterion afterwards rendered the new one **nowhere**. It is used only while it
+   describes exactly the current list, and released when the server agrees — which also fixes the
+   quieter half, that `canReorder` excluded it so a checklist could be dragged exactly once per mount.
+4. **Deleting an item from the modal landed on the not-found screen.** The URL it was on had just
+   stopped resolving. It pushes to the sprint now — `push` alone, no `refresh`, because a refresh
+   issued before a push has committed cancels the navigation, which is in the field notes.
+
+And two of my own regexes were the character-class bug now recorded in `07-FIELD-NOTES.md`:
+`/[\s -\\%?#]/` is a **range** from space to backslash, and `/[\s -]/` in `normaliseHref` would have
+refused every hyphenated domain. Both were caught by writing the tests, not by reading the code.

@@ -158,7 +158,12 @@ export async function editComment(input: unknown): Promise<CommentResult> {
     .maybeSingle();
 
   if (!existing) return { ok: false, error: "That comment no longer exists." };
-  if (existing.author_id !== profile.id && profile.role !== "admin") {
+  // The author, and **only** the author. RLS permits an admin here too, because
+  // it has to for the soft delete below, but nobody rewrites somebody else's
+  // words — an admin can strike a comment, not put different ones in its
+  // mouth. This function's own error message has always said so; until
+  // 2026-08-25 the check underneath it did not, and nothing called either.
+  if (existing.author_id !== profile.id) {
     return { ok: false, error: "Only the author can edit a comment." };
   }
 

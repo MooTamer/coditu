@@ -347,19 +347,19 @@ export function ItemActions({
   itemKey,
   minutesLogged,
   sprintId,
+  sprintPath,
   sprints,
   canManage,
-  onDeleted,
 }: {
   itemId: string;
   itemKey: string;
   minutesLogged: number;
   sprintId: string;
+  /** Where to land after a delete. The item's own URL stops resolving. */
+  sprintPath: string;
   /** Every sprint on THIS project. Invariant 1: there is no cross-project move. */
   sprints: MoveTarget[];
   canManage: boolean;
-  /** The modal closes itself when the item it is showing stops existing. */
-  onDeleted?: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -422,8 +422,17 @@ export function ItemActions({
           });
         },
       });
-      onDeleted?.();
-      router.refresh();
+
+      // Leave, rather than refresh. This control renders inside the intercepted
+      // modal as well as on the full page, and in both cases the URL it is on
+      // has just stopped resolving — the read policy hides a deleted item from
+      // every select, so a refresh would land on the not-found screen with the
+      // undo toast still on top of it.
+      //
+      // `push` alone, with no `refresh` after it: `revalidatePath` has already
+      // run in the action, and a `refresh()` issued before a `push` has
+      // committed CANCELS the navigation. That one is in the field notes.
+      router.push(sprintPath);
     });
   }
 

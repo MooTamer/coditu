@@ -158,11 +158,40 @@ export function CriteriaList({
    */
   const ordered = useMemo(() => {
     const byId = new Map(items.map((c) => [c.id, c]));
-    const manual = dragOrder
-      ? dragOrder.map((id) => byId.get(id)).filter((c): c is Criterion => Boolean(c))
+    // The optimistic order is used only while it still describes exactly this
+    // list. The moment a criterion is added or removed it does not — and
+    // preferring it anyway would render the new one nowhere at all, which
+    // reads as the add having failed. The server's own order takes over as
+    // soon as that happens, which is also what releases the drag handle.
+    const usable =
+      dragOrder !== null &&
+      dragOrder.length === items.length &&
+      dragOrder.every((id) => byId.has(id));
+
+    const manual = usable
+      ? dragOrder.map((id) => byId.get(id)!)
       : [...items].sort((a, b) => a.orderIndex - b.orderIndex);
     return [...manual].sort((a, b) => Number(a.isDone) - Number(b.isDone));
   }, [items, dragOrder]);
+
+  /**
+   * Let go of the optimistic order once the server agrees with it.
+   *
+   * Adjusted during render rather than in an effect. Without this the handle
+   * stayed disabled after one drag — `canReorder` excluded it — so a checklist
+   * could be reordered exactly once per mount, which is the kind of bug that
+   * gets reported as "drag is flaky".
+   */
+  const serverOrder = items
+    .slice()
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .map((c) => c.id)
+    .join(",");
+  const [lastServerOrder, setLastServerOrder] = useState(serverOrder);
+  if (serverOrder !== lastServerOrder) {
+    setLastServerOrder(serverOrder);
+    if (dragOrder && dragOrder.join(",") === serverOrder) setDragOrder(null);
+  }
 
   /**
    * The sensors, copied exactly from `sprint-table.client.tsx`.
