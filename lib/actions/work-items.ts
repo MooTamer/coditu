@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { documentSchema, flattenToText, isEmptyDocument } from "@/lib/comments/schema";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { WORK_ITEM_STATUSES, WORK_ITEM_TYPES } from "@/lib/work-items";
@@ -213,6 +214,156 @@ export async function setCriterionDone(input: unknown): Promise<ActionResult> {
 
   const item = criterion.work_items;
   revalidatePath(sprintPath(item.sprints.projects.slug, item.sprints.number));
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Resolve a criterion's item and project from the criterion itself.
+ *
+ * Invariant 1 again: the revalidation path is read back out of the database,
+ * never taken from the caller.
+ */
+async function resolveCriterionScope(criterionId: string) {
+  const profile = await getCurrentProfile();
+  if (!profile) return null;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("acceptance_criteria")
+    .select("id, work_item_id, work_items!inner ( key, sprints!inner ( number, projects!inner ( slug ) ) )")
+    .eq("id", criterionId)
+    .maybeSingle();
+
+  if (!data) return null;
+  return {
+    profile,
+    supabase,
+    criterionId: data.id,
+    itemId: data.work_item_id,
+    slug: data.work_items.sprints.projects.slug,
+    sprintNumber: data.work_items.sprints.number,
+  };
+}
+
+/**
+ * A criterion's text, from its document.
+ *
+ * Newlines are collapsed rather than kept. `body` is what the CSV and the
+ * Markdown export read, and Markdown renders a criterion as one `- [ ] …` line
+ * — a stored newline would split it into a list item and a stray paragraph.
+ * The document keeps its shape; this is the one-line reading of it.
+ */
+function criterionText(doc: unknown): string {
+  return flattenToText(doc).replace(/\s*\n+\s*/g, " ").trim();
+}
+
+/** Long enough for a paragraph and a picture, short of a document dump. */
+const MAX_CRITERION_TEXT = 2000;
+
+const criterionBody = z.object({
+  doc: documentSchema,
+});
+
+const addCriterionInput = z.object({ itemId: uuid, doc: documentSchema });
+
+/**
+ * Add an acceptance criterion.
+ *
+ * The document is validated shallowly and flattened here, on the server, from
+ * the same parsed value that gets stored — a client-supplied text projection
+ * would be a second opinion about what the document says, and the exports read
+ * the projection.
+ */
+export async function addCriterion(input: unknown): Promise<ActionResult> {
+  const parsed = addCriterionInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That criterion is not one we can store." };
+
+  const scope = await resolveScope(parsed.data.itemId);
+  if (!scope) return { ok: false, error: "You are not signed in, or that item no longer exists." };
+  if (scope.profile.role === "engineer") {
+    return { ok: false, error: "Only an admin or lead can add a criterion." };
+  }
+
+  if (isEmptyDocument(parsed.data.doc)) {
+    return { ok: false, error: "A criterion needs something in it." };
+  }
+
+  const body = criterionText(parsed.data.doc).slice(0, MAX_CRITERION_TEXT);
+
+  // Appended, never inserted at the top: the order is somebody's checklist.
+  const { data: last } = await scope.supabase
+    .from("acceptance_criteria")
+    .select("order_index")
+    .eq("work_item_id", scope.itemId)
+    .order("order_index", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await scope.supabase.from("acceptance_criteria").insert({
+    work_item_id: scope.itemId,
+    body,
+    body_json: parsed.data.doc as never,
+    order_index: (last?.order_index ?? -1) + 1,
+  });
+
+  if (error) return { ok: false, error: "That criterion did not save. Nothing was lost — try again." };
+
+  revalidatePath(sprintPath(scope.slug, scope.sprintNumber));
+  return { ok: true };
+}
+
+const editCriterionInput = criterionBody.extend({ criterionId: uuid });
+
+export async function editCriterion(input: unknown): Promise<ActionResult> {
+  const parsed = editCriterionInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That criterion is not one we can store." };
+
+  const scope = await resolveCriterionScope(parsed.data.criterionId);
+  if (!scope) return { ok: false, error: "You are not signed in, or that criterion no longer exists." };
+  if (scope.profile.role === "engineer") {
+    // The database says the same thing in `guard_criteria_columns`; this is so
+    // the answer is a sentence rather than a permission error.
+    return { ok: false, error: "Only an admin or lead can rewrite a criterion." };
+  }
+
+  if (isEmptyDocument(parsed.data.doc)) {
+    return { ok: false, error: "A criterion needs something in it." };
+  }
+
+  const { error } = await scope.supabase
+    .from("acceptance_criteria")
+    .update({
+      body: criterionText(parsed.data.doc).slice(0, MAX_CRITERION_TEXT),
+      body_json: parsed.data.doc as never,
+    })
+    .eq("id", scope.criterionId);
+
+  if (error) return { ok: false, error: "That change did not save. Nothing was lost — try again." };
+
+  revalidatePath(sprintPath(scope.slug, scope.sprintNumber));
+  return { ok: true };
+}
+
+export async function removeCriterion(input: unknown): Promise<ActionResult> {
+  const parsed = z.object({ criterionId: uuid }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That criterion is not one we recognise." };
+
+  const scope = await resolveCriterionScope(parsed.data.criterionId);
+  if (!scope) return { ok: false, error: "You are not signed in, or that criterion no longer exists." };
+  if (scope.profile.role === "engineer") {
+    return { ok: false, error: "Only an admin or lead can remove a criterion." };
+  }
+
+  const { error } = await scope.supabase
+    .from("acceptance_criteria")
+    .delete()
+    .eq("id", scope.criterionId);
+
+  if (error) return { ok: false, error: "That criterion did not go. Nothing was lost — try again." };
+
+  revalidatePath(sprintPath(scope.slug, scope.sprintNumber));
   return { ok: true };
 }
 

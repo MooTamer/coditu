@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(84);
+select plan(88);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -944,6 +944,53 @@ select throws_ok(
   null,
   'negative: an engineer cannot retag even their own item'
 );
+select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- acceptance_criteria — a criterion can hold a document now.
+--
+-- The rule did not change: an engineer who owns or reviews the item may tick a
+-- box, and rewriting what the box SAYS is a lead's call. What changed is that
+-- there are two columns saying it, and `guard_criteria_columns` is another
+-- allowlist written as a denylist — `body_json` is writable by an assignee
+-- until it is named there.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select lives_ok(
+  $$update public.acceptance_criteria
+    set body = 'Toggle sits at the top of settings, with a screenshot',
+        body_json = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"with a screenshot"}]}]}'::jsonb
+    where id = '70000000-0000-0000-0000-000000000001'$$,
+  'positive: a lead rewrites a criterion as a document'
+);
+
+-- Eve is the assignee of the item this criterion belongs to, so the POLICY lets
+-- her at the row. The trigger is what stops her at the column.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select lives_ok(
+  $$update public.acceptance_criteria set is_done = true
+    where id = '70000000-0000-0000-0000-000000000001'$$,
+  'positive: the assignee ticks the box'
+);
+
+select throws_ok(
+  $$update public.acceptance_criteria
+    set body_json = '{"type":"doc","content":[]}'::jsonb
+    where id = '70000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: the assignee cannot rewrite the document behind it'
+);
+
+select throws_ok(
+  $$update public.acceptance_criteria set body = 'something else'
+    where id = '70000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: nor the text the exports read'
+);
+
 select pg_temp.act_as_owner();
 
 select * from finish();

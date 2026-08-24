@@ -12,6 +12,7 @@ export type Database = {
       acceptance_criteria: {
         Row: {
           body: string
+          body_json: Json | null
           created_at: string
           id: string
           is_done: boolean
@@ -20,6 +21,7 @@ export type Database = {
         }
         Insert: {
           body: string
+          body_json?: Json | null
           created_at?: string
           id?: string
           is_done?: boolean
@@ -28,6 +30,7 @@ export type Database = {
         }
         Update: {
           body?: string
+          body_json?: Json | null
           created_at?: string
           id?: string
           is_done?: boolean

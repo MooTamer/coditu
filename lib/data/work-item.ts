@@ -9,7 +9,11 @@ import type { WorkItemStatus, WorkItemType } from "@/lib/work-items";
 
 export interface Criterion {
   id: string;
+  /** The flattened text. What the exports read, and the fallback for a
+   *  criterion written before they could hold a document. */
   body: string;
+  /** The ProseMirror document, or null for the 232 imported ones. */
+  bodyJson: unknown | null;
   isDone: boolean;
   orderIndex: number;
 }
@@ -85,7 +89,7 @@ export const getWorkItem = cache(
          components ( id, name, slug, kind, is_archived, icon ),
          assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials, avatar_url ),
          reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials, avatar_url ),
-         acceptance_criteria ( id, body, is_done, order_index ),
+         acceptance_criteria ( id, body, body_json, is_done, order_index ),
          comments ( id, body_json, body_text, created_at, edited_at, deleted_at,
                     author:profiles!comments_author_id_fkey ( id, full_name, initials, avatar_url ) ),
          activity ( id, verb, field, from_value, to_value, created_at,
@@ -135,7 +139,13 @@ export const getWorkItem = cache(
       assignee: person(data.assignee),
       reviewer: person(data.reviewer),
       criteria: (data.acceptance_criteria ?? [])
-        .map((c) => ({ id: c.id, body: c.body, isDone: c.is_done, orderIndex: c.order_index }))
+        .map((c) => ({
+          id: c.id,
+          body: c.body,
+          bodyJson: c.body_json ?? null,
+          isDone: c.is_done,
+          orderIndex: c.order_index,
+        }))
         .sort((a, b) => a.orderIndex - b.orderIndex),
       comments: (data.comments ?? [])
         // Soft-deleted comments stay in the table but never render.
