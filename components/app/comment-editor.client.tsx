@@ -69,6 +69,8 @@ export function CommentEditor({
   autoFocus: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkDraft, setLinkDraft] = useState("");
   const submitRef = useRef(onSubmit);
   submitRef.current = onSubmit;
   const escapeRef = useRef(onEscape);
@@ -193,7 +195,7 @@ export function CommentEditor({
 
   return (
     <div className="rounded-control border border-[var(--hairline-strong)] bg-[var(--raised)]">
-      <div className="flex flex-wrap items-center gap-1 border-b border-[var(--hairline)] px-2 py-[6px]">
+      <div className="relative flex flex-wrap items-center gap-1 border-b border-[var(--hairline)] px-2 py-[6px]">
         <ToolbarButton label="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
           <Bold size={14} strokeWidth={2.2} aria-hidden />
         </ToolbarButton>
@@ -210,11 +212,8 @@ export function CommentEditor({
           label="Link"
           active={editor.isActive("link")}
           onClick={() => {
-            const previous = editor.getAttributes("link").href as string | undefined;
-            const href = window.prompt("Link URL", previous ?? "https://");
-            if (href === null) return;
-            if (href === "") editor.chain().focus().unsetLink().run();
-            else editor.chain().focus().setLink({ href }).run();
+            setLinkDraft((editor.getAttributes("link").href as string | undefined) ?? "");
+            setLinkOpen((was) => !was);
           }}
         >
           <Link2 size={14} strokeWidth={2.2} aria-hidden />
@@ -256,6 +255,42 @@ export function CommentEditor({
             and out of the tab order so it is not a second stop for the same
             action. `aria-hidden` is not an option — hiding a focusable element
             is its own violation. */}
+        {linkOpen ? (
+          <LinkPopover
+            value={linkDraft}
+            canRemove={editor.isActive("link")}
+            onChange={setLinkDraft}
+            onCancel={() => {
+              setLinkOpen(false);
+              editor.chain().focus().run();
+            }}
+            onRemove={() => {
+              setLinkOpen(false);
+              editor.chain().focus().unsetLink().run();
+            }}
+            onApply={() => {
+              const href = normaliseHref(linkDraft);
+              setLinkOpen(false);
+              if (!href) {
+                editor.chain().focus().unsetLink().run();
+                return;
+              }
+              // An empty selection would set a mark over nothing, so the URL
+              // becomes the link text — which is what everybody means when they
+              // press Link with no words selected.
+              if (editor.state.selection.empty) {
+                editor
+                  .chain()
+                  .focus()
+                  .insertContent({ type: "text", text: href, marks: [{ type: "link", attrs: { href } }] })
+                  .run();
+              } else {
+                editor.chain().focus().setLink({ href }).run();
+              }
+            }}
+          />
+        ) : null}
+
         <input
           ref={fileInputRef}
           type="file"
@@ -278,6 +313,121 @@ export function CommentEditor({
   );
 }
 
+/**
+ * What somebody types into a link box, turned into something that can be one.
+ *
+ * "coditu.com" is what a person types and "https://coditu.com" is what a link
+ * needs; a bare word is neither, and returning null for it means the editor
+ * unsets the mark instead of storing a href that goes nowhere. `mailto:` and
+ * the two http schemes are the only ones the renderer will draw anyway — see
+ * `isSafeHref` — so anything else is left to be refused there rather than
+ * quietly rewritten here.
+ */
+function normaliseHref(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return null;
+  if (/^(https?:|mailto:)/i.test(value)) return value;
+  if (/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(value)) return `mailto:${value}`;
+  // A single word with no dot is not a domain — it is somebody still typing.
+  if (!/^[^\s/]+\.[^\s/]+/.test(value)) return null;
+  return `https://${value}`;
+}
+
+/**
+ * The link editor.
+ *
+ * It replaces `window.prompt`, which was doing the job and doing it badly: an
+ * OS-chrome dialog in the middle of the screen, unstyled, untranslatable,
+ * blocking the whole tab, and on a phone a full-screen system sheet that hides
+ * the text you were linking. It also cannot show whether the selection already
+ * has a link, so "remove this link" had to be spelled "clear the box".
+ *
+ * Anchored under the toolbar rather than portalled: it belongs to this editor,
+ * it is small, and the composer is not inside a scroll container that would
+ * clip it — the reason `CellPopover` needs a portal does not apply here.
+ */
+function LinkPopover({
+  value,
+  canRemove,
+  onChange,
+  onApply,
+  onRemove,
+  onCancel,
+}: {
+  value: string;
+  canRemove: boolean;
+  onChange: (next: string) => void;
+  onApply: () => void;
+  onRemove: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      // Full width on a phone, where 320px of popover on a 360px screen leaves
+      // no margin; capped and left-aligned to the toolbar above that.
+      className="absolute left-2 right-2 top-[calc(100%+4px)] z-[70] flex flex-col gap-2 rounded-inner border border-[var(--hairline-strong)] bg-[var(--overlay)] p-2 sm:right-auto sm:w-[320px]"
+      style={{ boxShadow: "var(--shadow-overlay)" }}
+      data-reveal="surface"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          // The composer's own Escape blurs the editor; this one is only about
+          // the popover, so it must not travel any further.
+          event.preventDefault();
+          event.stopPropagation();
+          onCancel();
+        }
+      }}
+    >
+      <label className="flex flex-col gap-[6px]">
+        <Mono size="eyebrow" className="text-[var(--ink-faint)]">
+          Link
+        </Mono>
+        <input
+          autoFocus
+          type="url"
+          inputMode="url"
+          value={value}
+          placeholder="coditu.com"
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onApply();
+            }
+          }}
+          className="h-[34px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-[10px] text-[13.5px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]"
+        />
+      </label>
+
+      <div className="flex items-center gap-2">
+        {canRemove ? (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="h-[30px] rounded-control border border-[var(--hairline)] px-3 text-[12.5px] text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
+          >
+            Remove
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onCancel}
+          className="ml-auto h-[30px] rounded-control border border-[var(--hairline)] px-3 text-[12.5px] text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onApply}
+          className="signal-gradient h-[30px] rounded-control px-4 text-[12.5px] font-semibold text-[#07090E]"
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ToolbarButton({
   label,
   active,
@@ -292,12 +442,23 @@ function ToolbarButton({
   return (
     <button
       type="button"
+      // The whole reason Bold worked on a selection and did nothing on an empty
+      // line. Pressing a button moves focus out of the editor, which drops
+      // ProseMirror's STORED MARKS — the "the next thing I type is bold" state
+      // that an empty document has instead of a range to mark. `focus()` in the
+      // command chain then put the caret back, with the stored mark already
+      // gone, so the button looked dead until there were words to select.
+      // Refusing the mousedown means focus never leaves.
+      onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
       aria-label={label}
       aria-pressed={active}
       title={label}
       className={cn(
         "flex size-7 items-center justify-center rounded-chip text-[var(--ink-muted)] hover:bg-[var(--canvas)]",
+        // 28px is under WCAG 2.5.8's 24px minimum only in appearance: the row
+        // is 34px tall and the buttons sit flush, so the target is the button
+        // plus the padding around it. Kept as is, and asserted in a11y.spec.
         active && "bg-[var(--canvas)] text-[var(--ink)]"
       )}
     >
