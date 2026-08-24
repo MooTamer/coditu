@@ -71,6 +71,7 @@ export default async function ItemPage({
           item={item}
           today={todayInCairo()}
           canToggleCriteria={canToggle}
+          canEditCriteria={profile.role === "admin" || profile.role === "lead"}
           people={people}
           me={{
             id: profile.id,

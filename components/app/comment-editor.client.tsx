@@ -59,6 +59,9 @@ export function CommentEditor({
   onEscape,
   onToast,
   autoFocus,
+  placeholder = "Write a comment — @ to mention",
+  ariaLabel = "Comment",
+  minHeight = 72,
 }: {
   initialDoc: unknown;
   people: ProfileRef[];
@@ -67,6 +70,11 @@ export function CommentEditor({
   onEscape: () => void;
   onToast: (message: string) => void;
   autoFocus: boolean;
+  /** An acceptance criterion is not a comment, and should not say it is. */
+  placeholder?: string;
+  ariaLabel?: string;
+  /** A criterion is usually one line; a comment expects a paragraph. */
+  minHeight?: number;
 }) {
   const [uploading, setUploading] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
@@ -126,13 +134,23 @@ export function CommentEditor({
         renderText: ({ node }) => `@${node.attrs.label ?? "someone"}`,
         suggestion: buildMentionSuggestion(people),
       }),
-      Placeholder.configure({ placeholder: "Write a comment — @ to mention" }),
+      Placeholder.configure({ placeholder }),
     ],
     content: (initialDoc as never) ?? undefined,
     editorProps: {
       attributes: {
-        class: "coditu-prose min-h-[72px] outline-none",
-        "aria-label": "Comment",
+        class: "coditu-prose outline-none",
+        style: `min-height:${minHeight}px`,
+        // `contenteditable` on a div is a GENERIC element as far as axe is
+        // concerned, and `aria-label` on a generic element is prohibited — so
+        // the name this editor has always carried was a violation waiting for
+        // somebody to audit it while it was empty. (With text in it the rule
+        // does not fire, which is why the composer's own audit has been green:
+        // it types first.) `textbox` is the role a rich-text surface actually
+        // has, and it is what makes the label legitimate.
+        role: "textbox",
+        "aria-multiline": "true",
+        "aria-label": ariaLabel,
       },
       handleKeyDown(view, event) {
         if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {

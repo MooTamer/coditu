@@ -26,12 +26,16 @@ export function ItemDetailBody({
   item,
   today,
   canToggleCriteria,
+  canEditCriteria,
   people,
   me,
 }: {
   item: WorkItemDetail;
   today: string;
   canToggleCriteria: boolean;
+  /** Admin or lead. What a criterion SAYS is theirs to write; ticking it is
+   *  the assignee's and the reviewer's. */
+  canEditCriteria: boolean;
   /** Active profiles, for the mention list. */
   people: ProfileRef[];
   /**
@@ -95,7 +99,24 @@ export function ItemDetailBody({
           ) : null}
         </div>
 
-        <CriteriaList criteria={item.criteria} canToggle={canToggleCriteria} />
+        {/* The criterion documents are rendered HERE, on the server, and handed
+            to the client list as a map — the same arrangement the thread uses.
+            `CommentBody` walks stored JSON and pulls in lowlight; rendering a
+            checklist client-side would put all of that on a route that has no
+            budget for it. */}
+        <CriteriaList
+          itemId={item.id}
+          criteria={item.criteria}
+          bodies={Object.fromEntries(
+            item.criteria.map((criterion) => [
+              criterion.id,
+              criterion.bodyJson ? <CommentBody doc={criterion.bodyJson} /> : null,
+            ])
+          )}
+          canToggle={canToggleCriteria}
+          canEdit={canEditCriteria}
+          people={people}
+        />
 
         <section aria-labelledby={`comments-${item.id}`}>
           <Mono
