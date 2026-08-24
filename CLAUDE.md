@@ -55,6 +55,7 @@ These are not guidelines. Any change that breaks one of them is a bug, regardles
 | `docs/03-APP-SPEC.md` | Every screen and every behaviour the design bundle could only gesture at. |
 | `docs/04-EXPORT-SPEC.md` | The CSV, Markdown, and PDF contracts, exactly. |
 | `docs/05-DECISIONS.md` | Append-only ADR log. Every call the brief did not make for us, with the reason and what was rejected. |
+| `docs/07-FIELD-NOTES.md` | **The shared memory.** Traps this repo has already paid for — the build that points at production, the proxy that caches after a reset, the guard that is an allowlist written as a denylist. Read it before debugging anything environmental, and append what the next person will need. |
 | `docs/coditu-implementation-prompt.md` | The original contract. Superseded only by `05-DECISIONS.md`. |
 | `docs/coditu-revamp-prompt.md` | The earlier brief the designs were built from. Source for voice, positioning, and company facts. |
 | `design/` | The approved Claude Design bundle, committed verbatim. Five artboards. Prototypes, not code. |
