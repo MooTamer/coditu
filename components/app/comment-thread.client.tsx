@@ -48,11 +48,14 @@ export function CommentThread({
   people,
   me,
   isEmpty,
+  maxBatch,
   children,
 }: {
   itemId: string;
   itemKey: string;
   people: ProfileRef[];
+  /** How many images one paste may carry — from `app_settings`. */
+  maxBatch?: number;
   /** The signed-in reader, so their own comment can carry their name. */
   me: { fullName: string; initials: string; avatarUrl: string | null };
   /** Whether the server-rendered thread is empty — it cannot be read from `children`. */
@@ -101,6 +104,7 @@ export function CommentThread({
           itemId={itemId}
           itemKey={itemKey}
           people={people}
+          maxBatch={maxBatch}
           onPending={(doc) => {
             // Called from inside the composer's transition, which is what scopes
             // the optimistic entry to that action's lifetime.

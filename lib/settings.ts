@@ -40,6 +40,7 @@ export interface AppSettings {
   usdEgpFetchedAt: string | null;
   usdEgpSource: "live" | "manual" | null;
   maxImageBytes: number;
+  maxImageBatch: number;
   defaultWeeklyCapacityMinutes: number;
   /**
    * False when the row could not be read at all — an un-migrated database, or a
@@ -59,6 +60,7 @@ export const SETTING_DEFAULTS: Omit<AppSettings, "configured"> = {
   usdEgpFetchedAt: null,
   usdEgpSource: null,
   maxImageBytes: 8 * 1024 * 1024,
+  maxImageBatch: 6,
   defaultWeeklyCapacityMinutes: 2400,
 };
 
@@ -72,7 +74,7 @@ export const getAppSettings = cache(async (): Promise<AppSettings> => {
   const { data } = await supabase
     .from("app_settings")
     .select(
-      "hourly_rate_cents, payout_share_threshold_pct, payout_from_sprint_id, usd_egp_rate_micros, usd_egp_fetched_at, usd_egp_source, max_image_bytes, default_weekly_capacity_minutes"
+      "hourly_rate_cents, payout_share_threshold_pct, payout_from_sprint_id, usd_egp_rate_micros, usd_egp_fetched_at, usd_egp_source, max_image_bytes, max_image_batch, default_weekly_capacity_minutes"
     )
     .eq("id", 1)
     .maybeSingle();
@@ -88,6 +90,7 @@ export const getAppSettings = cache(async (): Promise<AppSettings> => {
     usdEgpFetchedAt: data.usd_egp_fetched_at ?? null,
     usdEgpSource: (data.usd_egp_source as "live" | "manual" | null) ?? null,
     maxImageBytes: data.max_image_bytes ?? SETTING_DEFAULTS.maxImageBytes,
+    maxImageBatch: data.max_image_batch ?? SETTING_DEFAULTS.maxImageBatch,
     defaultWeeklyCapacityMinutes:
       data.default_weekly_capacity_minutes ?? SETTING_DEFAULTS.defaultWeeklyCapacityMinutes,
     configured: true,

@@ -1,9 +1,16 @@
 import Link from "next/link";
 
 import { PersonAvatar } from "@/components/app/person-avatar";
+import { CommentActions } from "@/components/app/comment-actions.client";
 import { CommentBody } from "@/components/app/comment-body";
 import { CommentThread } from "@/components/app/comment-thread.client";
 import { CriteriaList } from "@/components/app/criteria-list.client";
+import {
+  EditableProse,
+  EditableTitle,
+  ItemActions,
+  type MoveTarget,
+} from "@/components/app/item-fields.client";
 import { LogTime } from "@/components/app/log-time.client";
 import { ComponentTag } from "@/components/coditu/component-icon";
 import { StatusChipDot } from "@/components/coditu/status-chip";
@@ -26,16 +33,24 @@ export function ItemDetailBody({
   item,
   today,
   canToggleCriteria,
-  canEditCriteria,
+  canEditCriteriaBody,
+  canManage,
+  sprints,
   people,
   me,
+  maxImageBatch,
 }: {
   item: WorkItemDetail;
   today: string;
   canToggleCriteria: boolean;
-  /** Admin or lead. What a criterion SAYS is theirs to write; ticking it is
-   *  the assignee's and the reviewer's. */
-  canEditCriteria: boolean;
+  /** Assignee, reviewer, admin or lead — the set that may say what a criterion
+   *  says, widened on 2026-08-25 at the team's request. */
+  canEditCriteriaBody: boolean;
+  /** Admin or lead. The item's own words, its scope, where it lives. */
+  canManage: boolean;
+  /** Every sprint on THIS project, for the move control. Invariant 1: there is
+   *  no cross-project move, so there is no cross-project list. */
+  sprints: MoveTarget[];
   /** Active profiles, for the mention list. */
   people: ProfileRef[];
   /**
@@ -43,7 +58,15 @@ export function ItemDetailBody({
    * their name and initials, so what appears the instant they act is what the
    * server will send back rather than a placeholder that shifts.
    */
-  me: { id: string; fullName: string; initials: string; avatarUrl: string | null };
+  me: {
+    id: string;
+    fullName: string;
+    initials: string;
+    avatarUrl: string | null;
+    role: "admin" | "lead" | "engineer";
+  };
+  /** How many images one paste may carry — from `app_settings`. */
+  maxImageBatch?: number;
 }) {
   const properties: Array<{ label: string; value: string; color?: string }> = [
     { label: "type", value: TYPE_LABEL[item.type] },
@@ -71,8 +94,13 @@ export function ItemDetailBody({
       {/* Comments arriving on this item, coalesced through a 120ms buffer.
           Renders nothing — it only subscribes. */}
       <ThreadRealtime workItemId={item.id} />
-      <div className="flex min-w-0 flex-col gap-6 p-6">
-        <h1 className="text-[22px] font-bold leading-[1.25] tracking-[-0.02em]">{item.title}</h1>
+
+      {/* `data-image-scope` is what makes the viewer's arrows traverse THIS
+          item and nothing else — criteria screenshots and thread screenshots
+          are one gallery, in document order, and a second item open in another
+          tab is not part of it. See `comment-image.client.tsx`. */}
+      <div data-image-scope className="flex min-w-0 flex-col gap-6 p-6">
+        <EditableTitle itemId={item.id} title={item.title} canEdit={canManage} />
 
         {/* `whitespace-pre-line` on both: a description written as a list of
             requirements is a list of requirements, and collapsing its newlines
@@ -80,23 +108,26 @@ export function ItemDetailBody({
             paragraph. Only line breaks are preserved — runs of spaces still
             collapse, so nothing else about the type changes. */}
         <div className="flex flex-col gap-3">
-          {item.description ? (
-            <p className="whitespace-pre-line text-[14.5px] leading-[1.6] text-[var(--ink-muted)]">
-              {item.description}
-            </p>
-          ) : null}
+          <EditableProse
+            itemId={item.id}
+            field="description"
+            value={item.description}
+            canEdit={canManage}
+            label="Description"
+            placeholder="Add a description"
+          />
 
           {/* The highlight is a first-class column, and it renders as a rule
               rather than a callout box — "discuss this first", not an alert. */}
-          {item.highlight ? (
-            <p
-              className="whitespace-pre-line border-l-2 pl-[14px] text-[14.5px] leading-[1.6] text-[var(--ink)]"
-              style={{ borderColor: "var(--amber)" }}
-            >
-              <span className="sr-only">Discuss before implementing: </span>
-              {item.highlight}
-            </p>
-          ) : null}
+          <EditableProse
+            itemId={item.id}
+            field="highlight"
+            value={item.highlight}
+            canEdit={canManage}
+            label="Highlight"
+            placeholder="Add something to discuss before implementing"
+            accent="var(--amber)"
+          />
         </div>
 
         {/* The criterion documents are rendered HERE, on the server, and handed
@@ -114,8 +145,10 @@ export function ItemDetailBody({
             ])
           )}
           canToggle={canToggleCriteria}
-          canEdit={canEditCriteria}
+          canEditBody={canEditCriteriaBody}
+          canManage={canManage}
           people={people}
+          maxBatch={maxImageBatch}
         />
 
         <section aria-labelledby={`comments-${item.id}`}>
@@ -139,6 +172,7 @@ export function ItemDetailBody({
             people={people}
             me={me}
             isEmpty={item.comments.length === 0}
+            maxBatch={maxImageBatch}
           >
             {item.comments.map((comment) => (
               // `micro`: 200ms, and NO blur. A per-message blur in a live
@@ -147,7 +181,7 @@ export function ItemDetailBody({
               // moves when the server tree refreshes.
               <article key={comment.id} data-reveal="micro" className="flex gap-3">
                 <PersonAvatar person={comment.author} size={28} fontSize={10} />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
                     <span className="text-[13.5px] font-semibold">{comment.author.fullName}</span>
                     <Mono size="eyebrow" className="normal-case tracking-normal text-[var(--ink-faint)]">
@@ -158,12 +192,37 @@ export function ItemDetailBody({
                         edited
                       </Mono>
                     ) : null}
+                    {comment.deletedAt ? (
+                      <Mono size="eyebrow" className="normal-case tracking-normal text-[var(--ink-faint)]">
+                        withdrawn
+                      </Mono>
+                    ) : null}
                   </div>
-                  {/* Rendered by walking the stored JSON server-side. Never
-                      injected as HTML — see components/app/comment-body.tsx. */}
-                  <div className="mt-1">
-                    <CommentBody doc={comment.bodyJson} />
-                  </div>
+
+                  {/* A withdrawn comment is struck through, not removed. The
+                      schema comment on `comments.deleted_at` is explicit that
+                      this is the rule: an argument that vanishes leaves every
+                      reply underneath it making no sense. */}
+                  {comment.deletedAt ? (
+                    <p className="mt-1 text-[13.5px] italic text-[var(--ink-faint)] line-through">
+                      This comment was withdrawn.
+                    </p>
+                  ) : (
+                    <CommentActions
+                      commentId={comment.id}
+                      authorName={comment.author.fullName}
+                      bodyJson={comment.bodyJson}
+                      people={people}
+                      canEdit={comment.author.id === me.id}
+                      canRemove={comment.author.id === me.id || me.role === "admin"}
+                    >
+                      {/* Rendered by walking the stored JSON server-side. Never
+                          injected as HTML — see components/app/comment-body.tsx. */}
+                      <div className="mt-1">
+                        <CommentBody doc={comment.bodyJson} />
+                      </div>
+                    </CommentActions>
+                  )}
                 </div>
               </article>
             ))}
@@ -249,6 +308,16 @@ export function ItemDetailBody({
           entries={item.entries}
           totalMinutes={item.minutesLogged}
           me={me}
+          isAdmin={me.role === "admin"}
+        />
+
+        <ItemActions
+          itemId={item.id}
+          itemKey={item.key}
+          minutesLogged={item.minutesLogged}
+          sprintId={item.sprint.id}
+          sprints={sprints}
+          canManage={canManage}
         />
       </div>
     </div>

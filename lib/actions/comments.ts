@@ -5,7 +5,6 @@ import { after } from "next/server";
 import { z } from "zod";
 
 import { documentSchema, flattenToText, isEmptyDocument } from "@/lib/comments/schema";
-import { extensionFor, isAllowedImageType, looksLikeImage } from "@/lib/images";
 import { mentionPayload } from "@/lib/push/payload";
 import { notifyMentioned } from "@/lib/push/notify";
 import type { Json } from "@/lib/supabase/database.types";
@@ -221,56 +220,23 @@ export async function deleteComment(input: unknown): Promise<CommentResult> {
 
 /* -------------------------------------------------------------------------- */
 
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-
-export interface UploadResult {
-  ok: boolean;
-  src?: string;
-  error?: string;
-}
-
 /**
- * Uploads a pasted or dropped image to the private `comment-images` bucket and
- * returns a signed URL.
+ * **`uploadCommentImage` used to live here, and it was the bug.**
  *
- * MIME and size are checked against the FILE, not against a field the client
- * sent — a `type` in the form data is a claim, and a claim is not a check. SVG
- * is deliberately not on the list: it is a document format that can carry
- * script, and it would be rendered by an `<img>` we control.
+ * It uploaded to the private `comment-images` bucket and returned a signed URL
+ * with a one-hour expiry, which the editor then stored verbatim inside
+ * `body_json`. An hour later the picture was gone, permanently, because the
+ * document held the expired string — and nothing said so; the `<img>` simply
+ * failed.
+ *
+ * Uploading is now `POST /api/uploads`, which stores a stable
+ * `/api/attachments/<key>` path instead, registers the object in
+ * `public.attachments`, and reads the image's intrinsic size out of its own
+ * header. It is a route handler rather than a Server Action for one reason:
+ * `XMLHttpRequest` reports upload progress and `fetch` does not, and an 8MB
+ * screenshot on a bad connection needs a bar rather than a word.
+ *
+ * This note stands where the function did because the shape of the old bug is
+ * not obvious from the new code, and somebody will otherwise re-add a
+ * convenient "just return a signed URL" helper.
  */
-export async function uploadCommentImage(formData: FormData): Promise<UploadResult> {
-  const profile = await getCurrentProfile();
-  if (!profile) return { ok: false, error: "You are not signed in." };
-
-  const file = formData.get("file");
-  if (!(file instanceof File)) return { ok: false, error: "No file was received." };
-
-  if (!isAllowedImageType(file.type)) {
-    return { ok: false, error: "Images only — PNG, JPEG, WebP, GIF or AVIF." };
-  }
-  if (file.size > MAX_IMAGE_BYTES) {
-    return { ok: false, error: "That image is over 8MB." };
-  }
-
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  if (!looksLikeImage(bytes, file.type)) {
-    return { ok: false, error: "That file is not the image type it claims to be." };
-  }
-
-  const supabase = await createClient();
-  const path = `${profile.id}/${crypto.randomUUID()}.${extensionFor(file.type)}`;
-
-  const { error } = await supabase.storage.from("comment-images").upload(path, bytes, {
-    contentType: file.type,
-    upsert: false,
-  });
-  if (error) return { ok: false, error: "That upload failed. Try again." };
-
-  const { data: signed } = await supabase.storage
-    .from("comment-images")
-    .createSignedUrl(path, 60 * 60);
-
-  if (!signed?.signedUrl) return { ok: false, error: "The image uploaded but could not be linked." };
-  return { ok: true, src: signed.signedUrl };
-}
-

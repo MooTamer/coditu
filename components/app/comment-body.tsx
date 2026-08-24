@@ -241,11 +241,38 @@ function renderHast(node: HastNode, key: string): ReactNode {
   return (node.children ?? []).map((child, index) => renderHast(child, `${key}.${index}`));
 }
 
+/**
+ * An image in a document.
+ *
+ * `width` and `height` are the file's own, read from its header when it was
+ * uploaded, and they are passed through so the thumbnail can reserve its box
+ * before the bytes arrive — a thread that reflows while somebody is reading it
+ * is the worst version of this feature. **Both are optional**: every image
+ * posted before 2026-08-25 has neither, and an image that arrived through a
+ * format the parser does not read has neither either.
+ *
+ * A number is taken only when it is a positive, finite one. A `width` of 0, of
+ * NaN, or of `"800px"` would produce an aspect ratio that collapses the box to
+ * nothing, and these attrs are stored user-supplied JSON like everything else
+ * in this file.
+ */
 function ImageNode({ node }: { node: ProseMirrorNode }) {
   const src = node.attrs?.src;
   const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt : "";
   if (!isSafeImageSrc(src)) return null;
-  return <CommentImage src={src} alt={alt} />;
+  return (
+    <CommentImage
+      src={src}
+      alt={alt}
+      width={positiveInteger(node.attrs?.width)}
+      height={positiveInteger(node.attrs?.height)}
+    />
+  );
+}
+
+function positiveInteger(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
 }
 
 /**

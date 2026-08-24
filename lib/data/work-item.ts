@@ -148,13 +148,18 @@ export const getWorkItem = cache(
         }))
         .sort((a, b) => a.orderIndex - b.orderIndex),
       comments: (data.comments ?? [])
-        // Soft-deleted comments stay in the table but never render.
-        .filter((c) => c.deleted_at === null)
         .map((c) => ({
           id: c.id,
           author: person(c.author)!,
-          bodyJson: c.body_json,
-          bodyText: c.body_text,
+          // A withdrawn comment keeps its place, its author and its timestamp,
+          // and loses its words HERE — before they leave the server. The schema
+          // comment on `comments.deleted_at` is explicit that a comment is
+          // struck through rather than removed: an argument that vanishes
+          // leaves every reply underneath it making no sense. Nulling the body
+          // in the read model rather than in the renderer means the withdrawn
+          // text never reaches a browser at all, however it is rendered later.
+          bodyJson: c.deleted_at ? null : c.body_json,
+          bodyText: c.deleted_at ? "" : c.body_text,
           createdAt: c.created_at,
           editedAt: c.edited_at,
           deletedAt: c.deleted_at,

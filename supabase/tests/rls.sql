@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(107);
+select plan(122);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -417,7 +417,13 @@ update public.work_items set order_index = 0 where id = '60000000-0000-0000-0000
 update public.work_items set order_index = 1 where id = '60000000-0000-0000-0000-000000000002';
 
 -- =========================================================================
--- acceptance_criteria — tick yes, rewrite no
+-- acceptance_criteria — the assignee ticks it AND says what it says
+--
+-- Widened on 2026-08-25 at the team's request: "everything important should be
+-- editable, we are developers, don't lock anything as hardcoded." The set that
+-- may already tick a box may now rewrite what the box says. Adding and removing
+-- criteria stays with admin/lead, because that is the shape of the scope rather
+-- than the wording of one line.
 -- =========================================================================
 
 select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
@@ -425,12 +431,25 @@ select lives_ok(
   $$update public.acceptance_criteria set is_done = true where id = '70000000-0000-0000-0000-000000000001'$$,
   'positive: an assignee may tick an acceptance criterion'
 );
-select throws_ok(
+select lives_ok(
   $$update public.acceptance_criteria set body = 'rewritten' where id = '70000000-0000-0000-0000-000000000001'$$,
+  'positive: an assignee may rewrite what the criterion says'
+);
+select throws_ok(
+  $$update public.acceptance_criteria set order_index = 9 where id = '70000000-0000-0000-0000-000000000001'$$,
   '42501',
   null,
-  'negative: an engineer cannot rewrite an acceptance criterion'
+  'negative: an assignee cannot reorder the checklist'
 );
+select throws_ok(
+  $$update public.acceptance_criteria set work_item_id = '60000000-0000-0000-0000-000000000002'
+    where id = '70000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: an assignee cannot move a criterion to another item'
+);
+update public.acceptance_criteria set body = 'Toggle sits at the top of settings'
+where id = '70000000-0000-0000-0000-000000000001';
 select pg_temp.act_as_owner();
 
 -- =========================================================================
@@ -974,21 +993,23 @@ select lives_ok(
   'positive: the assignee ticks the box'
 );
 
-select throws_ok(
+select lives_ok(
   $$update public.acceptance_criteria
-    set body_json = '{"type":"doc","content":[]}'::jsonb
+    set body_json = '{"type":"doc","content":[]}'::jsonb,
+        body = 'something else'
     where id = '70000000-0000-0000-0000-000000000001'$$,
-  '42501',
-  null,
-  'negative: the assignee cannot rewrite the document behind it'
+  'positive: the assignee rewrites the document and the text the exports read, together'
 );
 
-select throws_ok(
-  $$update public.acceptance_criteria set body = 'something else'
-    where id = '70000000-0000-0000-0000-000000000001'$$,
-  '42501',
-  null,
-  'negative: nor the text the exports read'
+-- Otto is on neither end of this item. The POLICY is what stops him, and it
+-- stops him by matching no row rather than by raising — so assert the value.
+select pg_temp.act_as('44444444-4444-4444-4444-444444444444');
+update public.acceptance_criteria set body = 'Otto was here'
+where id = '70000000-0000-0000-0000-000000000001';
+select isnt(
+  (select body from public.acceptance_criteria where id = '70000000-0000-0000-0000-000000000001'),
+  'Otto was here',
+  'negative: an engineer who neither owns nor reviews the item cannot rewrite its criteria'
 );
 
 select pg_temp.act_as_owner();
@@ -1178,6 +1199,117 @@ select is(
   1,
   'positive: a criterion created without a position lands after the one already there'
 );
+
+
+-- =========================================================================
+-- A work item is deleted softly, and the read policy is what makes that true
+--
+-- The rule lives in one place on purpose. Fifteen queries read work items;
+-- a filter in each of them is fifteen chances to forget one, and the one you
+-- forget is the export.
+-- =========================================================================
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+
+select isnt_empty(
+  $$select public.set_work_item_deleted('60000000-0000-0000-0000-000000000002', true)$$,
+  'positive: a lead deletes a work item'
+);
+
+select is_empty(
+  $$select 1 from public.work_items where id = '60000000-0000-0000-0000-000000000002'$$,
+  'positive: a deleted item is invisible even to the lead who deleted it'
+);
+
+select is(
+  (select count(*)::int from public.work_items w
+   where w.sprint_id = '50000000-0000-0000-0000-000000000001'),
+  (select count(*)::int from public.work_items w
+   where w.sprint_id = '50000000-0000-0000-0000-000000000001' and w.deleted_at is null),
+  'positive: every count over the sprint already excludes it, with no filter written anywhere'
+);
+
+select is(
+  (select count(*)::int from public.list_deleted_work_items('50000000-0000-0000-0000-000000000001')),
+  1,
+  'positive: the bin has it, so "reversible" outlasts the toast'
+);
+
+select isnt_empty(
+  $$select public.set_work_item_deleted('60000000-0000-0000-0000-000000000002', false)$$,
+  'positive: restoring brings it back'
+);
+
+select isnt_empty(
+  $$select 1 from public.work_items where id = '60000000-0000-0000-0000-000000000002'$$,
+  'positive: and it is readable again'
+);
+
+-- No delete policy exists at all now, so a hard delete matches no rows rather
+-- than raising. Assert the row, never the count.
+delete from public.work_items where id = '60000000-0000-0000-0000-000000000002';
+select isnt_empty(
+  $$select 1 from public.work_items where id = '60000000-0000-0000-0000-000000000002'$$,
+  'negative: not even a lead hard-deletes a work item'
+);
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+
+select throws_ok(
+  $$select public.set_work_item_deleted('60000000-0000-0000-0000-000000000001', true)$$,
+  '42501',
+  null,
+  'negative: an engineer cannot delete a work item'
+);
+
+select throws_ok(
+  $$select public.list_deleted_work_items('50000000-0000-0000-0000-000000000001')$$,
+  '42501',
+  null,
+  'negative: an engineer cannot look in the bin'
+);
+
+select throws_ok(
+  $$update public.work_items set deleted_at = now()
+    where id = '60000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: nor reach the column directly — the guard names it'
+);
+
+-- =========================================================================
+-- Moving an item between sprints, and the project boundary it must not cross
+-- =========================================================================
+
+select pg_temp.act_as_owner();
+insert into public.sprints (id, project_id, number, name, status) values
+  ('50000000-0000-0000-0000-000000000009', '40000000-0000-0000-0000-000000000001', 99, 'Sprint — Week 99', 'planned');
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+
+select lives_ok(
+  $$update public.work_items set sprint_id = '50000000-0000-0000-0000-000000000009'
+    where id = '60000000-0000-0000-0000-000000000002'$$,
+  'positive: a lead carries an item over to the next sprint'
+);
+
+select is(
+  (select order_index from public.work_items where id = '60000000-0000-0000-0000-000000000002'),
+  0,
+  'positive: it lands at the end of its new sprint rather than keeping a position that meant something elsewhere'
+);
+
+select throws_ok(
+  $$update public.work_items set sprint_id = '50000000-0000-0000-0000-000000000002'
+    where id = '60000000-0000-0000-0000-000000000002'$$,
+  '23514',
+  null,
+  'negative: an item cannot move to another project''s sprint — its key would name a client it left'
+);
+
+select pg_temp.act_as_owner();
+update public.work_items set sprint_id = '50000000-0000-0000-0000-000000000001', order_index = 1
+where id = '60000000-0000-0000-0000-000000000002';
 
 
 select * from finish();

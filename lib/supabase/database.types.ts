@@ -143,6 +143,7 @@ export type Database = {
           default_weekly_capacity_minutes: number
           hourly_rate_cents: number
           id: number
+          max_image_batch: number
           max_image_bytes: number
           payout_from_sprint_id: string | null
           payout_share_threshold_pct: number
@@ -156,6 +157,7 @@ export type Database = {
           default_weekly_capacity_minutes?: number
           hourly_rate_cents?: number
           id?: number
+          max_image_batch?: number
           max_image_bytes?: number
           payout_from_sprint_id?: string | null
           payout_share_threshold_pct?: number
@@ -169,6 +171,7 @@ export type Database = {
           default_weekly_capacity_minutes?: number
           hourly_rate_cents?: number
           id?: number
+          max_image_batch?: number
           max_image_bytes?: number
           payout_from_sprint_id?: string | null
           payout_share_threshold_pct?: number
@@ -777,6 +780,7 @@ export type Database = {
           closed_at: string | null
           component_id: string | null
           created_at: string
+          deleted_at: string | null
           deadline: string | null
           description: string | null
           estimate_minutes: number | null
@@ -798,6 +802,7 @@ export type Database = {
           closed_at?: string | null
           component_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           deadline?: string | null
           description?: string | null
           estimate_minutes?: number | null
@@ -819,6 +824,7 @@ export type Database = {
           closed_at?: string | null
           component_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           deadline?: string | null
           description?: string | null
           estimate_minutes?: number | null
@@ -969,10 +975,32 @@ export type Database = {
       }
       is_active_member: { Args: never; Returns: boolean }
       is_admin_or_lead: { Args: never; Returns: boolean }
+      list_deleted_work_items: {
+        Args: { p_sprint_id: string }
+        Returns: {
+          deleted_at: string
+          id: string
+          key: string
+          minutes_logged: number
+          title: string
+        }[]
+      }
       rebalance_project_keys: { Args: never; Returns: undefined }
+      rewrite_attachment_srcs: {
+        Args: { depth?: number; doc: Json }
+        Returns: Json
+      }
+      reorder_criteria: {
+        Args: { p_criterion_id: string; p_ordered_ids: string[] }
+        Returns: string
+      }
       reorder_work_items: {
         Args: { p_item_id: string; p_ordered_ids: string[] }
         Returns: string
+      }
+      set_work_item_deleted: {
+        Args: { p_deleted: boolean; p_item_id: string }
+        Returns: Json
       }
       work_item_project_id: { Args: { item_id: string }; Returns: string }
       work_item_status_rank: {
