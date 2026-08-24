@@ -74,9 +74,10 @@ enabled = true
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 # `seed.sql` is generated from the Notion export; `seeds/components.sql` is the
-# component registry read out of the delivery repository. Order matters — the
-# registry attaches itself to a project the first file creates.
-sql_paths = ["./seed.sql", "./seeds/components.sql"]
+# component registry read out of the delivery repository; `seeds/item-components.sql`
+# attributes the imported work to it by title. Order matters — each file attaches
+# itself to what the one before it created.
+sql_paths = ["./seed.sql", "./seeds/components.sql", "./seeds/item-components.sql"]
 
 [db.network_restrictions]
 # Enable management of network restrictions.
