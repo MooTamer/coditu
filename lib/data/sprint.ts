@@ -65,6 +65,13 @@ export interface SprintDetail {
   endsOn: string | null;
   goal: string | null;
   notes: string | null;
+  /**
+   * The notes as a block document, or null for a note written before the editor
+   * existed — and for one written against a database still waiting for the
+   * column. `notes` is the flattened projection either way, so the panel always
+   * has something to render.
+   */
+  notesDoc: unknown;
   notesAuthor: PersonRef | null;
   notesWrittenOn: string | null;
   items: WorkItemRow[];
@@ -92,8 +99,20 @@ const SPRINT_TAIL = `created_at,
 
 const SPRINT_HEAD = "id, number, name, status, starts_on, ends_on, goal, notes, " as const;
 
+/**
+ * The columns a lagging database may not have yet, asked for together.
+ *
+ * `notes_written_at` and `notes_json` were added at different times, but both
+ * are "newer than the oldest deployment this might hit" — and a select that
+ * probes for each one separately is four query shapes to keep in step for a
+ * fallback that has fired once in the project's life. One rich shape, one plain
+ * one, and the plain one renders exactly what the panel rendered before either
+ * column existed.
+ */
+const SPRINT_NEW_COLUMNS = "notes_written_at, notes_json, " as const;
+
 const SPRINT_SELECT = `${SPRINT_HEAD}${SPRINT_TAIL}` as const;
-const SPRINT_SELECT_WITH_WRITTEN_AT = `${SPRINT_HEAD}notes_written_at, ${SPRINT_TAIL}` as const;
+const SPRINT_SELECT_RICH = `${SPRINT_HEAD}${SPRINT_NEW_COLUMNS}${SPRINT_TAIL}` as const;
 
 export const getSprint = cache(
   async (projectId: string, number: number): Promise<SprintDetail | null> => {
@@ -105,7 +124,7 @@ export const getSprint = cache(
     // column existed. See `isMissingColumn`.
     const rich = await supabase
       .from("sprints")
-      .select(SPRINT_SELECT_WITH_WRITTEN_AT)
+      .select(SPRINT_SELECT_RICH)
       .eq("project_id", projectId)
       .eq("number", number)
       .maybeSingle();
@@ -113,7 +132,11 @@ export const getSprint = cache(
     if (rich.error && !isMissingColumn(rich.error.code)) throw rich.error;
 
     let notesWrittenAt: string | null = rich.data?.notes_written_at ?? null;
-    let data = rich.data as Omit<NonNullable<typeof rich.data>, "notes_written_at"> | null;
+    let notesDoc: unknown = rich.data?.notes_json ?? null;
+    let data = rich.data as Omit<
+      NonNullable<typeof rich.data>,
+      "notes_written_at" | "notes_json"
+    > | null;
 
     if (rich.error) {
       const plain = await supabase
@@ -126,6 +149,7 @@ export const getSprint = cache(
       if (plain.error) throw plain.error;
       data = plain.data;
       notesWrittenAt = null;
+      notesDoc = null;
     }
 
     if (!data) return null;
@@ -164,6 +188,7 @@ export const getSprint = cache(
       endsOn: data.ends_on,
       goal: data.goal,
       notes: data.notes,
+      notesDoc,
       notesAuthor: toPerson(data.notes_author),
       // `notes_written_at` follows the text; `starts_on` is the fallback for
       // rows written before notes could be edited, which is what the panel has

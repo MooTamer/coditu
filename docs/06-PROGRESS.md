@@ -1536,7 +1536,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W0 | **Baseline and characterisation** — branch, real gate numbers, two stale docs corrected, the read boundary pinned by shape | `done` | `6ff7cb8` | `lint` + `typecheck` clean · `npm run test` **237** · `npm run db:test` **283** (was 263) · `npm run budgets` **FAILS 116.5/110, pre-existing** · `npx playwright test` **466 passed**, 4 skipped, 4 contention failures each of which passes alone |
 | W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | pending | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
 | W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `done` | `4df9a48` | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. `test` **245** · `db:test` **303** · components 12/12 incl. axe with the panel open · sprint-table, new-item, inline-edit 33/33 · rendered at 320/375/390/430/1280 |
-| W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `wip` | | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. `/` menu, editor 16/16 incl. axe with the menu open, `budgets` **OK 69.2/110**. **Open: 3c** sprint notes, **3d** story body |
+| W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `wip` | | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. `/` menu, editor 16/16 incl. axe with the menu open, `budgets` **OK 69.2/110**. sprint notes on the editor, 7/7 incl. axe while editing. **Open: 3d** story body and highlight |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `todo` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `todo` | | one `aria-current` · zero overflow at 8 widths + 200% · axe · budgets |
@@ -1896,6 +1896,59 @@ user. `someProp` is view-props-then-plugins; the DOM is capture-then-bubble; and
 this repository already had `⌘K` resolved by a capture listener on the editor's
 own wrapper for the same reason. A handler that is "obviously innermost" is not
 necessarily first.
+
+## W3c — sprint notes stop being a textarea
+
+The panel keeps its shape — prose at 15px/1.65, no border box, no label, the
+whole block is the edit affordance — and the textarea underneath it is the
+universal editor now. `⌘⏎` publishes, Escape abandons, and the editor is loaded
+only when somebody intends to write: almost everybody only ever reads these.
+
+**`notes` is derived on the server, never sent.** `notes_json` is the document
+and `notes` is its flattened projection, written in the same statement. Accepting
+a client-supplied projection would let the sprint report and the Markdown export
+say something the panel does not — the same reason `comments.body_text` has
+always been derived.
+
+**Legacy notes are converted on read, not rewritten.** Fifteen sprints of imported
+text stay exactly as they were written; `documentFromText` turns them into a
+document at the render edge, and turns the old `**wrapped**` convention into the
+callout it always meant. That convention was drawn by hand as an amber left rule
+before; it is a real block now, and the same one a comment can hold.
+
+The read state goes through `CommentBody` — the same server-side walker the
+thread and the criteria use. One renderer means a callout written in a comment
+and a callout written in the notes are the same thing on screen, and the
+allowlist is enforced in one place rather than three.
+
+### Three things the specs found
+
+**The seed does not use the `**` convention.** The design bundle's sample notes
+do; the real Notion import uses `•` bullet lines. A spec asserting a callout in
+the seeded notes was asserting the design's fiction. It writes the legacy shape
+itself now, rather than assuming it.
+
+**The server renderer was not emitting `data-callout`.** The editor's node does,
+so a callout had one shape when freshly typed and another when read back. Now
+both emit `data-callout` and `data-tone` — one thing to select, in a stylesheet
+or a spec.
+
+**The teardown had stopped restoring.** `afterEach` put back `notes`, the author
+and the timestamp — it was written when notes were one text column — so a stale
+`notes_json` survived and OVERRODE the text it had just restored, because the
+panel reads the document first. It under-restored rather than failing. Same shape
+as the components cleanup two phases ago: **a teardown written against the old
+single column now under-cleans**, and that is the quiet kind of wrong.
+
+### The payload shrinks rather than failing
+
+Production migrations are hand-pushed and the app deploys separately, so a write
+can reach a database with `notes` but not `notes_json`. Each attempt drops the
+newest columns and retries, widest first — because losing somebody's paragraph
+to a missing column is the worse half of that bug. `isMissingColumn`, not a bare
+`42703`: a refused WRITE answers `PGRST204` from PostgREST's schema cache and
+never reaches Postgres, which is why the first version of that fallback did
+nothing at all.
 
 ## W1 — the shell gets under its own gate, and the reason it was over is one import
 

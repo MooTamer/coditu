@@ -218,6 +218,12 @@ function renderNode(node: ProseMirrorNode, key: string, depth: number): ReactNod
       return (
         <div
           key={key}
+          // `data-callout` and `data-tone` mirror what the editor's own node
+          // emits, so a callout has one shape whether it was written a second
+          // ago or read back from the database a year later — and one thing to
+          // select in a stylesheet or a spec.
+          data-callout=""
+          data-tone={tone}
           className="flex flex-col gap-1 rounded-panel border-l-2 px-3 py-2"
           style={{
             borderColor: `var(--tone-${tone}-fg)`,

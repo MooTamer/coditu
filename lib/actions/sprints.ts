@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { DOC_VERSION, documentSchema, flattenToText, isEmptyDocument } from "@/lib/blocks/schema";
+import type { Json } from "@/lib/supabase/database.types";
+
 import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { isMissingColumn } from "@/lib/supabase/schema";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
@@ -71,7 +74,8 @@ async function resolveWritableSprint(sprintId: string) {
 
 const notesInput = z.object({
   sprintId: uuid,
-  notes: z.string().max(8000, "That is longer than a sprint note should be."),
+  /** The block document. `notes` is derived from it, never accepted from the client. */
+  doc: documentSchema,
 });
 
 /**
@@ -80,6 +84,25 @@ const notesInput = z.object({
  * The author and the timestamp move with the text. Leaving the author on
  * whoever wrote the first version, while the words are someone else's, is the
  * kind of small lie that makes a team stop trusting the panel.
+ *
+ * ## `notes` is derived here, not sent
+ *
+ * `notes_json` is the document; `notes` is its flattened projection, written in
+ * the same statement. Accepting a client-supplied `notes` would mean the sprint
+ * report and the Markdown export could say something the panel does not — the
+ * same reason `comments.body_text` has always been derived on the server.
+ *
+ * ## The payload shrinks rather than failing
+ *
+ * Production migrations are pushed by hand and the app deploys separately, so a
+ * write can reach a database that has `notes` but not `notes_json`, or `notes`
+ * but not `notes_written_at`. Losing somebody's paragraph because a column is
+ * missing is the worse half of that bug, so each attempt drops the newest
+ * columns and tries again.
+ *
+ * `isMissingColumn` and not a bare `42703` check: a refused **write** answers
+ * `PGRST204` from PostgREST's schema cache and never reaches Postgres, which is
+ * why the first version of this fallback did nothing at all.
  */
 export async function setSprintNotes(input: unknown): Promise<SprintResult> {
   const parsed = notesInput.safeParse(input);
@@ -90,29 +113,39 @@ export async function setSprintNotes(input: unknown): Promise<SprintResult> {
   const scope = await resolveWritableSprint(parsed.data.sprintId);
   if ("error" in scope) return { ok: false, error: scope.error };
 
-  const notes = parsed.data.notes.trim();
+  const empty = isEmptyDocument(parsed.data.doc);
+  const text = flattenToText(parsed.data.doc).trim();
 
-  const written = {
-    notes: notes.length ? notes : null,
-    notes_author_id: notes.length ? scope.profile.id : null,
+  if (text.length > 8000) {
+    return { ok: false, error: "That is longer than a sprint note should be." };
+  }
+
+  const base = {
+    notes: empty ? null : text,
+    notes_author_id: empty ? null : scope.profile.id,
+  };
+  const writtenAt = { notes_written_at: empty ? null : new Date().toISOString() };
+  const document = {
+    notes_json: empty ? null : (parsed.data.doc as unknown as Json),
+    notes_version: DOC_VERSION,
   };
 
-  // The timestamp is written when the column is there, and skipped when it is
-  // not. A database still waiting for the migration keeps the notes — losing
-  // somebody's paragraph because a column is missing would be the worse half of
-  // the same bug. See `isMissingColumn`: a refused WRITE says PGRST204, not
-  // 42703, and checking only for the latter is why this fallback did nothing
-  // the first time.
-  let { error } = await scope.supabase
-    .from("sprints")
-    .update({ ...written, notes_written_at: notes.length ? new Date().toISOString() : null })
-    .eq("id", scope.sprint.id);
+  // Widest first. Each fallback drops the columns a lagging database will not
+  // have, in the order they were added.
+  const attempts = [
+    { ...base, ...writtenAt, ...document },
+    { ...base, ...writtenAt },
+    base,
+  ];
 
-  if (isMissingColumn(error?.code)) {
+  let error: { code?: string } | null = null;
+  for (const payload of attempts) {
     ({ error } = await scope.supabase
       .from("sprints")
-      .update(written)
+      .update(payload)
       .eq("id", scope.sprint.id));
+    if (!error) break;
+    if (!isMissingColumn(error.code)) break;
   }
 
   if (error) return { ok: false, error: "Those notes did not save. Nothing was lost — try again." };

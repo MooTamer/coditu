@@ -1,13 +1,69 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ChevronRight, Pencil } from "lucide-react";
 
+import { CommentBody } from "@/components/app/comment-body";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { setSprintNotes } from "@/lib/actions/sprints";
+import { settle } from "@/lib/action-result";
+import { isEmptyDocument } from "@/lib/blocks/schema";
+import type { ProfileRef } from "@/lib/data/profiles";
 import { calendarDate } from "@/lib/format";
+
+/**
+ * The same editor the thread and the criteria use, loaded the same way: only
+ * when somebody intends to write. Reading a sprint's notes — which is what
+ * almost everybody does, on almost every page load — must not pay for TipTap.
+ */
+const RichTextEditor = dynamic(
+  () => import("./rich-text-editor.client").then((module) => module.RichTextEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-[120px] rounded-inner border border-[var(--hairline)] bg-[var(--raised)] p-4">
+        <Mono size="meta" className="text-[var(--ink-faint)]">
+          loading the editor…
+        </Mono>
+      </div>
+    ),
+  }
+);
+
+/** What an empty note is, so "nothing written yet" is one shape and not three. */
+const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
+
+/**
+ * A legacy note, as a document.
+ *
+ * Notes written before the editor existed are plain text with a `**wrapped**`
+ * paragraph meaning "discuss this first". Converting them on read rather than
+ * rewriting the rows keeps 15 sprints of history exactly as it was written, and
+ * turns the old convention into the callout it always meant — which is the same
+ * thing the amber left rule was drawing by hand.
+ */
+function documentFromText(text: string): unknown {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  return {
+    type: "doc",
+    content: paragraphs.map((paragraph) => {
+      // [\s\S] rather than the `s` flag: tsconfig targets ES2017.
+      const highlighted = /^\*\*([\s\S]+)\*\*$/.exec(paragraph);
+      const body = {
+        type: "paragraph",
+        content: [{ type: "text", text: highlighted ? highlighted[1] : paragraph }],
+      };
+      return highlighted ? { type: "callout", attrs: { tone: "amber" }, content: [body] } : body;
+    }),
+  };
+}
 
 /**
  * The sprint notes panel.
@@ -28,57 +84,57 @@ import { calendarDate } from "@/lib/format";
 export function SprintNotes({
   sprintId,
   notes,
+  notesDoc,
   author,
   writtenOn,
   canEdit,
+  people,
+  maxImageBatch,
 }: {
   sprintId: string;
+  /** The flattened projection. Still what the export and the report read. */
   notes: string;
+  /** The block document, or null for a note written before the editor existed. */
+  notesDoc: unknown;
   author: string | null;
   writtenOn: string | null;
   /** Admin or lead. RLS refuses everyone else's update. */
   canEdit: boolean;
+  /** For the `@` list. Notes are written TO the team, so mentions belong here. */
+  people: ProfileRef[];
+  maxImageBatch: number;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(notes);
   const [saving, setSaving] = useState(false);
-  const areaRef = useRef<HTMLTextAreaElement>(null);
 
-  const paragraphs = notes.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  // A note written before the editor existed renders as the document it always
+  // meant — including the `**paragraph**` convention as a real callout.
+  const stored = notesDoc ?? (notes.trim() ? documentFromText(notes) : null);
+  const empty = stored === null || isEmptyDocument(stored);
 
-  // Put the caret at the END of the text, not the start. Selecting all of it —
-  // which is what focus() alone effectively invites — means the first keystroke
-  // of someone who meant to append destroys the note.
-  useEffect(() => {
-    if (!editing) return;
-    const area = areaRef.current;
-    if (!area) return;
-    area.focus();
-    area.setSelectionRange(area.value.length, area.value.length);
-  }, [editing]);
+  const [draft, setDraft] = useState<unknown>(stored ?? EMPTY_DOC);
 
   function begin() {
     if (!canEdit) return;
-    setDraft(notes);
+    setDraft(stored ?? EMPTY_DOC);
     setOpen(true);
     setEditing(true);
   }
 
   function cancel() {
     setEditing(false);
-    setDraft(notes);
+    setDraft(stored ?? EMPTY_DOC);
   }
 
-  async function save() {
-    if (draft.trim() === notes.trim()) {
-      setEditing(false);
-      return;
-    }
+  async function save(doc: unknown) {
     setSaving(true);
-    const result = await setSprintNotes({ sprintId, notes: draft });
+    const result = await settle(
+      () => setSprintNotes({ sprintId, doc }),
+      "Those notes did not save — check your connection."
+    );
     setSaving(false);
 
     if (result.ok) {
@@ -86,8 +142,8 @@ export function SprintNotes({
       router.refresh();
       return;
     }
-    // Invariant 4: the draft is kept, so nothing typed is lost, and the failure
-    // is visible rather than a panel that quietly snaps back.
+    // Invariant 4: the draft stays in the editor, so nothing typed is lost, and
+    // the failure is said out loud rather than the panel quietly snapping back.
     toast(result.error ?? "Those notes did not save.");
   }
 
@@ -135,37 +191,29 @@ export function SprintNotes({
         <div className="max-w-[78ch] pb-6 pl-[50px] pr-6">
           {editing ? (
             <div className="flex flex-col gap-3">
-              <textarea
-                ref={areaRef}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    // Stop here: the item modal listens for Escape on the
-                    // document, and leaving this to bubble closes the whole
-                    // dialog behind an editor the reader was still in.
-                    event.stopPropagation();
-                    cancel();
-                  } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                    event.preventDefault();
-                    void save();
-                  }
-                }}
-                rows={Math.min(Math.max(draft.split("\n").length + 2, 5), 18)}
-                aria-label="Sprint notes"
-                className="w-full resize-y rounded-inner border border-[var(--hairline-strong)] bg-[var(--raised)] p-4 text-[15px] leading-[1.65] text-[var(--ink)]"
-                placeholder="What the team should know before starting this sprint."
+              <RichTextEditor
+                initialDoc={draft}
+                onChange={setDraft}
+                onSubmit={() => void save(draft)}
+                onEscape={cancel}
+                onToast={toast}
+                autoFocus
+                placeholder="What the team should know before starting this sprint — / for blocks, @ to mention"
+                ariaLabel="Sprint notes"
+                people={people}
+                images
+                minHeight={140}
+                maxBatch={maxImageBatch}
               />
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => void save()}
+                  onClick={() => void save(draft)}
                   disabled={saving}
                   aria-busy={saving}
                   className="signal-gradient h-[34px] rounded-control px-4 text-[13px] font-semibold text-[#07090E] disabled:opacity-60"
                 >
-                  {saving ? "Saving…" : "Save notes"}
+                  {saving ? "Publishing…" : "Publish to the team"}
                 </button>
                 <button
                   type="button"
@@ -176,20 +224,12 @@ export function SprintNotes({
                   Cancel
                 </button>
                 <Mono size="meta" className="text-[var(--ink-faint)]">
-                  ⌘⏎ to save · esc to cancel · wrap a paragraph in ** to flag it amber
+                  ⌘⏎ to publish · esc to cancel
                 </Mono>
               </div>
             </div>
           ) : (
-            // The whole prose block is the edit affordance, which is why it is
-            // a button rather than a div with a click handler: it has to be
-            // reachable and announced. For anyone who cannot edit it renders as
-            // plain prose, with no dead control to tab through.
-            <ProseBody
-              paragraphs={paragraphs}
-              onEdit={canEdit ? begin : null}
-              empty={notes.trim().length === 0}
-            />
+            <NotesBody doc={stored} onEdit={canEdit ? begin : null} empty={empty} />
           )}
         </div>
       ) : null}
@@ -197,12 +237,25 @@ export function SprintNotes({
   );
 }
 
-function ProseBody({
-  paragraphs,
+/**
+ * The read state.
+ *
+ * The whole prose block is the edit affordance, which is why it is a button
+ * rather than a div with a click handler: it has to be reachable and announced.
+ * For anyone who cannot edit it renders as plain prose, with no dead control to
+ * tab through.
+ *
+ * The body goes through `CommentBody` — the same server-side walker the thread
+ * and the criteria use. One renderer means a callout written in a comment and a
+ * callout written in the notes are the same thing on screen, and the allowlist
+ * is enforced in one place rather than three.
+ */
+function NotesBody({
+  doc,
   onEdit,
   empty,
 }: {
-  paragraphs: string[];
+  doc: unknown;
   onEdit: (() => void) | null;
   empty: boolean;
 }) {
@@ -211,30 +264,9 @@ function ProseBody({
       {onEdit ? "No notes yet — click to write them." : "No notes for this sprint."}
     </p>
   ) : (
-    <>
-      {paragraphs.map((paragraph, index) => {
-        // A whole paragraph wrapped in ** is the highlight convention: it
-        // means "discuss this before implementing".
-        // [\s\S] rather than the `s` flag: tsconfig targets ES2017, which predates it.
-        const highlight = /^\*\*([\s\S]+)\*\*$/.exec(paragraph);
-        if (highlight) {
-          return (
-            <p
-              key={index}
-              className="mt-[14px] border-l-2 pl-4 text-[15px] leading-[1.65] text-[var(--ink)] first:mt-0"
-              style={{ borderColor: "var(--amber)" }}
-            >
-              {highlight[1]}
-            </p>
-          );
-        }
-        return (
-          <p key={index} className="mt-[14px] text-[15px] leading-[1.65] text-[var(--ink)] first:mt-0">
-            {paragraph}
-          </p>
-        );
-      })}
-    </>
+    <div className="coditu-notes text-[15px] leading-[1.65]">
+      <CommentBody doc={doc} />
+    </div>
   );
 
   if (!onEdit) return body;

@@ -1,6 +1,7 @@
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { ClientMark } from "@/components/app/client-mark";
 import { SprintNotes } from "@/components/app/sprint-notes.client";
+import type { ProfileRef } from "@/lib/data/profiles";
 import { Mono } from "@/components/coditu/mono";
 import { ToneChip } from "@/components/coditu/status-chip";
 import { statusDistribution, type BurnPoint, type SprintDetail } from "@/lib/data/sprint";
@@ -35,6 +36,8 @@ export function SprintHeader({
   daysLeft,
   members,
   canEdit,
+  people,
+  maxImageBatch,
 }: {
   project: ProjectSummary;
   sprint: SprintDetail;
@@ -43,6 +46,10 @@ export function SprintHeader({
   members: Array<{ initials: string; fullName: string; avatarUrl: string | null; minutes: number }>;
   /** Admin or lead. Sprints are theirs to change. */
   canEdit: boolean;
+  /** Active profiles, for the notes editor's `@` list. */
+  people: ProfileRef[];
+  /** From `app_settings` — never a constant. */
+  maxImageBatch: number;
 }) {
   const slices = statusDistribution(sprint.items);
   const logged = sprint.items.reduce((total, item) => total + item.minutesLogged, 0);
@@ -227,9 +234,12 @@ export function SprintHeader({
         <SprintNotes
           sprintId={sprint.id}
           notes={sprint.notes ?? ""}
+          notesDoc={sprint.notesDoc}
           author={sprint.notesAuthor?.fullName.split(" ")[0] ?? null}
           writtenOn={sprint.notesWrittenOn}
           canEdit={canEdit}
+          people={people}
+          maxImageBatch={maxImageBatch}
         />
       ) : null}
     </section>

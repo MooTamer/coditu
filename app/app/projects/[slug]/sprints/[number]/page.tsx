@@ -23,6 +23,7 @@ import {
   getSprintMembers,
   todayInCairo,
 } from "@/lib/data/sprint";
+import { getAppSettings } from "@/lib/settings";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { parseStatusFilter } from "@/lib/work-items";
 
@@ -61,7 +62,7 @@ export default async function SprintPage({
   const profile = await getCurrentProfile();
   if (!profile) notFound();
 
-  const [burn, members, people, components] = await Promise.all([
+  const [burn, members, people, components, settings] = await Promise.all([
     getBurnUp(sprint.id, sprint.startsOn, sprint.endsOn),
     getSprintMembers(sprint.id),
     // The assignee and reviewer menus. Request-cached, so the shell's copy and
@@ -71,6 +72,9 @@ export default async function SprintPage({
     // for the project the URL resolved to, so a row can only ever be attributed
     // to something belonging to the client whose sprint this is.
     listComponents(project.id),
+    // The image cap the notes editor enforces. From `app_settings`, because a
+    // number in a `const` is a change request that needs a deploy.
+    getAppSettings(),
   ]);
 
   // Filters are read from the URL and validated against the enum, so a
@@ -133,6 +137,8 @@ export default async function SprintPage({
         daysLeft={daysRemaining(sprint.endsOn)}
         members={members}
         canEdit={canAssign}
+        people={people}
+        maxImageBatch={settings.maxImageBatch}
       />
 
       <Reveal tier="section" delay={0.06}>
