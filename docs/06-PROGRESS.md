@@ -1535,7 +1535,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 |---|---|---|---|---|
 | W0 | **Baseline and characterisation** — branch, real gate numbers, two stale docs corrected, the read boundary pinned by shape | `done` | `6ff7cb8` | `lint` + `typecheck` clean · `npm run test` **237** · `npm run db:test` **283** (was 263) · `npm run budgets` **FAILS 116.5/110, pre-existing** · `npx playwright test` **466 passed**, 4 skipped, 4 contention failures each of which passes alone |
 | W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | pending | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
-| W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `wip` | | **2a schema done:** `npm run db:test` **297** (was 283, 14 new) · backfill 93 rows, 0 mismatches · both sync directions probed on real rows. 2b read model + actions, 2c UI and client RPCs still open |
+| W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `wip` | | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **Still open: 2c** — the searchable multi-select, `Match any`/`Match all` in the URL, the two client RPCs, and the component column in CSV/Markdown exports |
 | W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `todo` | | hostile-JSON vitest per node type · `e2e editor + composer + mobile` |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `todo` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
@@ -1611,6 +1611,63 @@ alone. That is the shared-database and loaded-machine pattern already recorded, 
 anything under test. `export.spec.ts`'s "its numbers match the database" is the tell: it is the
 assertion that coordinates through the `sprintTotals` advisory lock, which only orders specs inside
 one run.
+
+## W2a/W2b — the join table, and the read model on top of it
+
+**Schema (2a).** `work_item_components` is the truth; `work_items.component_id`
+survives as a **bidirectional** mirror of the first tag. Bidirectional rather
+than one-way because migrations here are hand-pushed while the app deploys
+separately — the gap is days — so old code must keep both reading *and* writing
+correctly. Writing the column promotes the choice to the front and keeps the
+rest, so a single-select control in a stale browser cannot destroy a
+multi-component attribution. Backfill: 93 rows, 0 mismatches. Both directions
+probed on real seeded rows, not only in fixtures.
+
+Every pre-existing component assertion passed **unchanged**, which is the signal
+the mirror is genuinely transparent rather than approximately so.
+
+**Read model (2b).** `WorkItemRow.component` and `WorkItemDetail.component` are
+now `components: ComponentRef[]`. The sprint, board, cards, story properties and
+the component dossier all read through the join. `ComponentTags` renders two
+names plus `+N`, with the rest in a `title` — a `+2` nobody can read is a number,
+not information.
+
+### Three things the tests found that reading could not
+
+**1. A `select *` guard needs the order rule in two places.** `primary_component_of()`
+decides which tag the mirror holds; `orderComponentTags()` decides which chip is
+drawn first. If they disagree the first chip is not the primary component, and
+nobody would notice. `tests/components.test.ts` reads the migration and compares
+the sort keys, the same way the status vocabulary is kept honest. The order also
+has to be **total** — `position` is neither unique nor dense, so `created_at` and
+the id break ties; without them the same item renders its chips in a different
+sequence on alternate reloads.
+
+**2. `server-only` is a bundler rule, and it bit again from the other side.**
+The ordering helpers went into `lib/data/components.ts`, which begins
+`import "server-only"` — so the unit test could not import them, while `lint` and
+`typecheck` both passed. `ComponentRef`, `toComponent` and the tag helpers moved
+to `lib/components.ts`, which has none, and the loader re-exports them. Types
+were never the problem; they are erased. It is a runtime value that drags the
+module across.
+
+**3. Deleting a work item became impossible, and it presented as a teardown
+failure.** The AFTER DELETE trigger recording an untag fired during the cascade,
+with the parent already gone, and `activity_work_item_id_fkey` refused the
+insert — aborting the whole DELETE. Fixed in `20260825120100`, asserted in the
+suite, and written up in `07-FIELD-NOTES.md` because the shape is general.
+
+### And one the browser found that the schema could not
+
+The sprint filter matches **any** tag, but the table cell still named only the
+primary — so a row could sit in a filtered table while the cell showed a
+different component, which reads as the filter being broken. `components.spec.ts`
+caught it as `toContainText("EVIM Themen Kachel")` against a row that was
+correctly matched and misleadingly labelled. The picker's trigger now names every
+tag. The spec's own SQL was counting through the mirror column and had to move to
+the join table too: a story may carry a component as its *second* tag, where the
+mirror still names the first, so the two counts diverge the moment anything adds
+one — and the page is the one that is right.
 
 ## W1 — the shell gets under its own gate, and the reason it was over is one import
 

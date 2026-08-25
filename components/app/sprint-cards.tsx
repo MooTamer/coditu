@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { PersonAvatar } from "@/components/app/person-avatar";
-import { ComponentTag } from "@/components/coditu/component-icon";
+import { ComponentTags } from "@/components/coditu/component-icon";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
 import { ProgressRing } from "@/components/coditu/progress-ring";
@@ -70,11 +70,11 @@ export function SprintCards({
                 four things wide, and this is the one that names what the item
                 is about. `--ink-muted`, never `--ink-faint` — see the note at
                 the top of this file. */}
-            {row.component ? (
-              <ComponentTag
-                component={row.component}
+            {row.components.length > 0 ? (
+              <ComponentTags
+                components={row.components}
                 size={13}
-                className="text-[12.5px] text-[var(--ink-muted)]"
+                itemClassName="text-[12.5px] text-[var(--ink-muted)]"
               />
             ) : null}
 

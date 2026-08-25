@@ -78,3 +78,138 @@ export function componentSlug(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
+
+/* -------------------------------------------------------------------------- */
+/**
+ * Everything below is here rather than in `lib/data/components.ts` for one
+ * reason: that module begins `import "server-only"`, which is a BUNDLER rule,
+ * so importing it from a unit test fails at runtime while `typecheck` and
+ * `lint` both pass. The ordering rule below is pure arithmetic over three
+ * fields and is exactly the kind of thing that must be unit-tested, so it
+ * lives in a module with no such import and the loaders re-export it.
+ *
+ * Types were never the problem — they are erased, so `import type` across
+ * that boundary is always fine. It is a runtime value that drags the whole
+ * module across.
+ */
+
+/**
+ * The component read models.
+ *
+ * Invariant 1 again, and by the same method the sprint read model uses: nothing
+ * in here can be asked for "all components" or "all items". Every function
+ * takes a project id and filters by it, and the dossier reaches items only
+ * through `components.project_id`, which the database itself guarantees agrees
+ * with the item's sprint — see `guard_work_item_component_project`.
+ */
+
+export interface ComponentRef {
+  id: string;
+  name: string;
+  slug: string;
+  kind: ComponentKind;
+  isArchived: boolean;
+  /**
+   * The SPFx manifest's `officeFabricIconFontName`, verbatim, or null. Resolved
+   * to a drawable glyph by `components/coditu/component-icon.tsx` — this layer
+   * stays a faithful copy of what the delivery repository says.
+   */
+  icon: string | null;
+}
+/**
+ * One row of `work_item_components`, as it comes back embedded.
+ *
+ * The component itself is nullable in the type only: the join column is
+ * `not null` and the foreign key is enforced, so a null here means the embed
+ * returned nothing — which is what happens if the select string is ever changed
+ * without changing this mapper.
+ */
+export interface ComponentTag {
+  position: number;
+  createdAt: string;
+  componentId: string;
+  component: ComponentRef | null;
+}
+
+/**
+ * The total order a work item's components render in.
+ *
+ * **This is the same order `primary_component_of()` applies in SQL**, and the
+ * two are defined separately because neither side can import the other.
+ * `tests/components.test.ts` reads the migration and asserts the key list
+ * matches, the same way the status vocabulary is kept honest.
+ *
+ * It has to be total. `position` is deliberately neither unique nor dense — a
+ * dense sequence would mean re-packing every sibling on each delete — so
+ * `created_at` and then the id break the ties. Without the tiebreakers the same
+ * item renders its chips in a different sequence on different reloads, which
+ * reads as the data changing when nothing has.
+ */
+export const COMPONENT_TAG_ORDER = ["position", "created_at", "component_id"] as const;
+
+export function orderComponentTags(tags: ComponentTag[]): ComponentTag[] {
+  return [...tags].sort(
+    (a, b) =>
+      a.position - b.position ||
+      a.createdAt.localeCompare(b.createdAt) ||
+      a.componentId.localeCompare(b.componentId)
+  );
+}
+
+/** The components of one item, in order, with the embed's nulls dropped. */
+export function componentsFromTags(tags: ComponentTag[] | null | undefined): ComponentRef[] {
+  return orderComponentTags(tags ?? [])
+    .map((tag) => tag.component)
+    .filter((component): component is ComponentRef => component !== null);
+}
+
+/** The select fragment every caller embeds, so the shape cannot drift between them. */
+export const COMPONENT_TAGS_SELECT =
+  "work_item_components ( position, created_at, component_id, components ( id, name, slug, kind, is_archived, icon ) )" as const;
+
+/** Map an embedded `work_item_components` array onto `ComponentRef[]`. */
+export function toComponentTags(
+  rows:
+    | Array<{
+        position: number;
+        created_at: string;
+        component_id: string;
+        components: {
+          id: string;
+          name: string;
+          slug: string;
+          kind: string;
+          is_archived: boolean;
+          icon: string | null;
+        } | null;
+      }>
+    | null
+    | undefined
+): ComponentRef[] {
+  return componentsFromTags(
+    (rows ?? []).map((row) => ({
+      position: row.position,
+      createdAt: row.created_at,
+      componentId: row.component_id,
+      component: row.components ? toComponent(row.components) : null,
+    }))
+  );
+}
+
+export function toComponent(row: {
+  id: string;
+  name: string;
+  slug: string;
+  kind: string;
+  is_archived: boolean;
+  icon: string | null;
+}): ComponentRef {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    kind: row.kind as ComponentKind,
+    isArchived: row.is_archived,
+    icon: row.icon,
+  };
+}

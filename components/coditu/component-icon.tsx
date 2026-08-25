@@ -150,6 +150,74 @@ export function ComponentTag({
   );
 }
 
+/**
+ * Every component an item is about, with the tail collapsed.
+ *
+ * A story that touches the Link Kachel, Tabs with Cards and the Newspart says
+ * so — but a table row cannot spend three columns saying it, so two are shown
+ * and the rest become `+N`. The overflow carries the missing names in its
+ * `title`, because a `+2` that cannot be read is a number, not information.
+ *
+ * **"not attributed" is a real state and is written as one.** 232 items came
+ * across from Notion before the registry existed and eleven of them still match
+ * two components equally well; a blank cell reads as a bug, and an em dash reads
+ * as an apology. Neither is true — nobody has said yet.
+ *
+ * A Server Component on purpose: it renders in the table, the cards, the board
+ * and the story properties, and none of those needs a byte of JavaScript to
+ * show a list of names.
+ */
+export function ComponentTags({
+  components,
+  max = 2,
+  size = 13,
+  className,
+  itemClassName,
+  emptyLabel = "not attributed",
+}: {
+  components: readonly {
+    id: string;
+    name: string;
+    kind: ComponentKind;
+    icon: string | null;
+    isArchived?: boolean;
+  }[];
+  /** How many to name before collapsing. Two is the design's figure. */
+  max?: number;
+  size?: number;
+  className?: string;
+  itemClassName?: string;
+  emptyLabel?: string;
+}) {
+  if (components.length === 0) {
+    return <span className={cn("truncate text-[var(--ink-faint)]", className)}>{emptyLabel}</span>;
+  }
+
+  const shown = components.slice(0, max);
+  const hidden = components.slice(max);
+
+  return (
+    <span className={cn("flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1", className)}>
+      {shown.map((component) => (
+        <ComponentTag
+          key={component.id}
+          component={component}
+          size={size}
+          className={itemClassName}
+        />
+      ))}
+      {hidden.length > 0 ? (
+        <span
+          className="shrink-0 font-mono text-[10.5px] text-[var(--ink-faint)]"
+          title={hidden.map((component) => component.name).join(", ")}
+        >
+          +{hidden.length}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 /** Announced form, for a picker trigger's `aria-label`. */
 export function componentAriaLabel(
   component: { name: string; kind: ComponentKind } | null

@@ -2,33 +2,22 @@ import "server-only";
 
 import { cache } from "react";
 
-import type { ComponentKind } from "@/lib/components";
+import { toComponent, type ComponentRef } from "@/lib/components";
+
+// Re-exported so the ten callers that already import these from here keep
+// working, and so there is still one obvious place to look for them.
+export {
+  COMPONENT_TAGS_SELECT,
+  COMPONENT_TAG_ORDER,
+  componentsFromTags,
+  orderComponentTags,
+  toComponentTags,
+} from "@/lib/components";
+export type { ComponentRef, ComponentTag } from "@/lib/components";
 import { createClient } from "@/lib/supabase/server";
 import { statusRank, type WorkItemStatus, type WorkItemType } from "@/lib/work-items";
 
-/**
- * The component read models.
- *
- * Invariant 1 again, and by the same method the sprint read model uses: nothing
- * in here can be asked for "all components" or "all items". Every function
- * takes a project id and filters by it, and the dossier reaches items only
- * through `components.project_id`, which the database itself guarantees agrees
- * with the item's sprint — see `guard_work_item_component_project`.
- */
 
-export interface ComponentRef {
-  id: string;
-  name: string;
-  slug: string;
-  kind: ComponentKind;
-  isArchived: boolean;
-  /**
-   * The SPFx manifest's `officeFabricIconFontName`, verbatim, or null. Resolved
-   * to a drawable glyph by `components/coditu/component-icon.tsx` — this layer
-   * stays a faithful copy of what the delivery repository says.
-   */
-  icon: string | null;
-}
 
 /**
  * The registry for one project, name-ordered.
@@ -85,24 +74,6 @@ export function offerable(components: ComponentRef[], keep: string | null = null
   return components.filter((component) => !component.isArchived || component.id === keep);
 }
 
-function toComponent(row: {
-  id: string;
-  name: string;
-  slug: string;
-  kind: string;
-  is_archived: boolean;
-  icon: string | null;
-}): ComponentRef {
-  return {
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    kind: row.kind as ComponentKind,
-    isArchived: row.is_archived,
-    icon: row.icon,
-  };
-}
-
 /* -------------------------------------------------------------------------- */
 
 export interface ComponentSummary extends ComponentRef {
@@ -125,11 +96,14 @@ export const listComponentSummaries = cache(
   async (projectId: string): Promise<ComponentSummary[]> => {
     const supabase = await createClient();
 
+    // Through the join table, not through `work_items.component_id`: an item
+    // that names three components has to appear in all three summaries, and the
+    // mirror column can only ever put it in one.
     const { data, error } = await supabase
       .from("components")
       .select(
         `id, name, slug, kind, is_archived, icon,
-         work_items ( status, minutes_logged, estimate_minutes, sprints!inner ( number ) )`
+         work_item_components ( work_items!inner ( status, minutes_logged, estimate_minutes, sprints!inner ( number ) ) )`
       )
       .eq("project_id", projectId)
       .order("name");
@@ -137,7 +111,9 @@ export const listComponentSummaries = cache(
     if (error) throw error;
 
     return (data ?? []).map((row) => {
-      const items = row.work_items ?? [];
+      const items = (row.work_item_components ?? [])
+        .map((tag) => tag.work_items)
+        .filter((item): item is NonNullable<typeof item> => item !== null);
       return {
         ...toComponent(row),
         itemCount: items.length,
@@ -202,9 +178,10 @@ export const getComponentDossier = cache(
       .from("components")
       .select(
         `id, name, slug, kind, is_archived, icon, client_summary, published_at,
-         work_items ( id, key, title, status, type, minutes_logged, estimate_minutes, closed_at,
-                      client_title, client_published_at,
-                      sprints!inner ( number, name ) )`
+         work_item_components (
+           work_items!inner ( id, key, title, status, type, minutes_logged, estimate_minutes, closed_at,
+                              client_title, client_published_at,
+                              sprints!inner ( number, name ) ) )`
       )
       .eq("project_id", projectId)
       .eq("slug", slug)
@@ -213,7 +190,9 @@ export const getComponentDossier = cache(
     if (error) throw error;
     if (!data) return null;
 
-    const rows = data.work_items ?? [];
+    const rows = (data.work_item_components ?? [])
+      .map((tag) => tag.work_items)
+      .filter((item): item is NonNullable<typeof item> => item !== null);
 
     const items: ComponentItem[] = rows
       .map((item) => ({

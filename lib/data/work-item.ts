@@ -4,7 +4,11 @@ import { cache } from "react";
 
 import { pruneToDepth } from "@/lib/comments/schema";
 import { createClient } from "@/lib/supabase/server";
-import type { ComponentRef } from "@/lib/data/components";
+import {
+  COMPONENT_TAGS_SELECT,
+  toComponentTags,
+  type ComponentRef,
+} from "@/lib/data/components";
 import type { PersonRef } from "@/lib/data/sprint";
 import type { WorkItemStatus, WorkItemType } from "@/lib/work-items";
 
@@ -59,7 +63,8 @@ export interface WorkItemDetail {
   estimateMinutes: number;
   minutesLogged: number;
   grouping: number | null;
-  component: ComponentRef | null;
+  /** In `primary_component_of()` order. Empty means not attributed yet. */
+  components: ComponentRef[];
   assignee: PersonRef | null;
   reviewer: PersonRef | null;
   criteria: Criterion[];
@@ -87,7 +92,7 @@ export const getWorkItem = cache(
       .select(
         `id, key, title, description, highlight, status, type, deadline,
          estimate_minutes, minutes_logged, grouping,
-         components ( id, name, slug, kind, is_archived, icon ),
+         ${COMPONENT_TAGS_SELECT},
          assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials, avatar_url ),
          reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials, avatar_url ),
          acceptance_criteria ( id, body, body_json, is_done, order_index ),
@@ -127,16 +132,7 @@ export const getWorkItem = cache(
       estimateMinutes: data.estimate_minutes ?? 0,
       minutesLogged: data.minutes_logged ?? 0,
       grouping: data.grouping,
-      component: data.components
-        ? {
-            id: data.components.id,
-            name: data.components.name,
-            slug: data.components.slug,
-            kind: data.components.kind as ComponentRef["kind"],
-            isArchived: data.components.is_archived,
-            icon: data.components.icon,
-          }
-        : null,
+      components: toComponentTags(data.work_item_components),
       assignee: person(data.assignee),
       reviewer: person(data.reviewer),
       criteria: (data.acceptance_criteria ?? [])

@@ -209,6 +209,38 @@ uniqueness, so move only what will not collide.
 there.** `component_id` and `body_json` were each added for that reason and not because anybody asked.
 Check both guards whenever you add a column to `work_items` or `acceptance_criteria`.
 
+### An AFTER DELETE trigger that writes a row about its parent breaks the cascade
+
+`record_component_tag_activity` logs an untag into `activity`. Deleting a work
+item cascades to `work_item_components`, so the trigger fired with the parent
+already gone:
+
+```
+insert or update on table "activity" violates foreign key constraint
+DETAIL:  Key (work_item_id)=(d22501ae…) is not present in table "work_items".
+```
+
+The whole DELETE aborts, so for an hour **nothing could delete a work item** —
+not the Server Action, not psql, not the e2e cleanup. It surfaced as a spec
+failing in `afterEach`, which is to say as a spec about components failing for a
+reason that had nothing to do with components.
+
+The guard is one line — skip the write when the parent is gone:
+
+```sql
+if not exists (select 1 from public.work_items w where w.id = old.work_item_id) then
+  return null;
+end if;
+```
+
+**The shape is general: any AFTER DELETE trigger that INSERTs a row referencing
+the deleted row's parent has this bug**, and it is invisible until something
+deletes a parent. Note which triggers do NOT have it and why —
+`refresh_component_mirror` runs on the same table and the same event, and is fine
+only because it issues an UPDATE that matches zero rows, and an UPDATE matching
+nothing is not an error. That is luck, not design, so it is worth checking
+rather than assuming.
+
 ### Renaming an enum value does not reach SQL functions
 `alter type … rename value` is metadata-only; column defaults, index predicates, view predicates and
 check constraints follow it. Two things do not: an old-style `language sql` function stores its body as

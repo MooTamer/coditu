@@ -78,7 +78,8 @@ export default async function SprintPage({
   const visible = sprint.items.filter(
     (item) =>
       (requested.length === 0 || requested.includes(item.status)) &&
-      (activeComponent === null || item.component?.id === activeComponent.id)
+      (activeComponent === null ||
+        item.components.some((component) => component.id === activeComponent.id))
   );
 
   // Only what this sprint actually touches, plus whatever is being filtered on
@@ -86,7 +87,9 @@ export default async function SprintPage({
   const sprintComponents = components.filter(
     (component) =>
       component.id === activeComponent?.id ||
-      sprint.items.some((item) => item.component?.id === component.id)
+      sprint.items.some((item) =>
+        item.components.some((tagged) => tagged.id === component.id)
+      )
   );
 
   const isBoard = query.view === "board";

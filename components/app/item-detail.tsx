@@ -273,14 +273,21 @@ export function ItemDetailBody({
           <Mono size="meta" className="shrink-0 uppercase tracking-[0.04em] text-[var(--ink-faint)]">
             component
           </Mono>
-          {item.component ? (
-            <Link
-              href={`/app/projects/${item.project.slug}/components/${item.component.slug}`}
-              prefetch={false}
-              className="min-w-0 text-[13.5px] font-medium hover:text-[var(--accent)]"
-            >
-              <ComponentTag component={item.component} />
-            </Link>
+          {item.components.length > 0 ? (
+            <span className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1">
+              {/* Each one goes somewhere. An item that touches three web parts
+                  is three ways into three histories, not one. */}
+              {item.components.map((component) => (
+                <Link
+                  key={component.id}
+                  href={`/app/projects/${item.project.slug}/components/${component.slug}`}
+                  prefetch={false}
+                  className="min-w-0 text-[13.5px] font-medium hover:text-[var(--accent)]"
+                >
+                  <ComponentTag component={component} />
+                </Link>
+              ))}
+            </span>
           ) : (
             <span className="text-[13.5px] font-medium text-[var(--ink-faint)]">
               not attributed yet

@@ -231,6 +231,7 @@ function PersonFace({
 export function ComponentCell({
   itemId,
   component,
+  alsoTagged,
   components,
   projectSlug,
   editable,
@@ -238,6 +239,8 @@ export function ComponentCell({
 }: {
   itemId: string;
   component: ComponentRef | null;
+  /** The item's other tags. Displayed, not edited — see `ComponentPicker`. */
+  alsoTagged?: readonly ComponentRef[];
   /** The project's registry. Archived entries included — see `offerable`. */
   components: ComponentRef[];
   projectSlug: string;
@@ -265,6 +268,7 @@ export function ComponentCell({
     <ComponentPicker
       components={components}
       value={shown}
+      alsoTagged={alsoTagged}
       projectSlug={projectSlug}
       canEdit={editable}
       onChange={choose}

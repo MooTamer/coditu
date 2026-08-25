@@ -145,11 +145,17 @@ test.describe("components", () => {
   });
 
   test("the sprint reads one component at a time", async ({ adminPage: page }) => {
+    // Counted through `work_item_components`, which is what the page filters
+    // on. The old query joined `work_items.component_id` — the mirror — and a
+    // story is allowed to carry a component as its SECOND tag now, where the
+    // mirror still names the first. The two counts diverge the moment any test
+    // adds a tag, and the page is the one that is right.
     const [{ count }] = await query<{ count: string }>(
       `select count(*)::text from work_items w
        join sprints s on s.id = w.sprint_id
        join projects p on p.id = s.project_id
-       join components c on c.id = w.component_id
+       join work_item_components wc on wc.work_item_id = w.id
+       join components c on c.id = wc.component_id
        where p.slug = 'meinevim' and s.number = 17 and c.slug = 'evim-themen-kachel'`
     );
     expect(Number(count)).toBeGreaterThan(0);

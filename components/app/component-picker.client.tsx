@@ -5,7 +5,11 @@ import { useMemo, useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 
 import { CellPopover, optionListKeyDown } from "@/components/app/cell-popover.client";
-import { ComponentIcon, ComponentTag, componentAriaLabel } from "@/components/coditu/component-icon";
+import {
+  ComponentIcon,
+  ComponentTags,
+  componentAriaLabel,
+} from "@/components/coditu/component-icon";
 import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
 import { createComponent } from "@/lib/actions/components";
@@ -44,6 +48,7 @@ import { cn } from "@/lib/utils";
 export function ComponentPicker({
   components,
   value,
+  alsoTagged = [],
   projectSlug,
   canEdit,
   onChange,
@@ -59,6 +64,16 @@ export function ComponentPicker({
   /** Every component in the project, archived ones included. */
   components: ComponentRef[];
   value: ComponentRef | null;
+  /**
+   * The item's OTHER components, shown on the trigger but not edited by it.
+   *
+   * Choosing here writes `work_items.component_id`, which the schema promotes
+   * to first while keeping the rest — so an item can be tagged with a component
+   * this control is not naming. That matters because the sprint filter matches
+   * ANY tag: without these, a row can be in a filtered table while the cell
+   * shows a different component, which reads as the filter being broken.
+   */
+  alsoTagged?: readonly ComponentRef[];
   /** Where a newly created component belongs. Resolved server-side. */
   projectSlug: string;
   /** Admin or lead. An engineer sees the value and cannot change it. */
@@ -106,7 +121,11 @@ export function ComponentPicker({
       className={className}
       value={
         value ? (
-          <ComponentTag component={value} className="text-[13.5px]" />
+          <ComponentTags
+            components={[value, ...alsoTagged]}
+            itemClassName="text-[13.5px]"
+            className="text-[13.5px]"
+          />
         ) : (
           <span className="truncate text-[13.5px] text-[var(--ink-faint)]">{emptyLabel}</span>
         )

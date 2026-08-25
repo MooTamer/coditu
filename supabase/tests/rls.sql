@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(251);
+select plan(252);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -1112,6 +1112,22 @@ select is(
       and to_value = 'EVIM Banner'),
   1,
   'positive: adding a component is recorded in the item''s activity, by name'
+);
+
+-- Deleting an item takes its tags with it, and the untag trigger must not try to
+-- record activity against the item that has just gone. It did, the FK refused,
+-- and for an hour nothing could delete a work item at all — found by a spec's
+-- teardown, not by anything that looked like it was about components.
+select pg_temp.act_as_owner();
+insert into public.work_items (id, sprint_id, title, status, type, component_id)
+values ('60000000-0000-0000-0000-0000000000ff',
+        (select sprint_id from public.work_items where id = '60000000-0000-0000-0000-000000000001'),
+        'Throwaway, for the cascade', 'draft', 'story',
+        'cc000000-0000-0000-0000-000000000003');
+
+select lives_ok(
+  $$delete from public.work_items where id = '60000000-0000-0000-0000-0000000000ff'$$,
+  'positive: a tagged item can still be deleted — the cascade does not trip the activity foreign key'
 );
 
 -- Reading follows the same rule as the registry itself.

@@ -8,9 +8,14 @@ import {
   COMPONENT_KIND_HINT,
   COMPONENT_KIND_LABEL,
   COMPONENT_KIND_TONE,
+  COMPONENT_TAG_ORDER,
   componentSlug,
+  componentsFromTags,
+  orderComponentTags,
   type ComponentKind,
+  type ComponentTag,
 } from "@/lib/components";
+
 
 /**
  * The component vocabulary is defined twice — once in Postgres, once in
@@ -110,5 +115,84 @@ describe("the generated registry", () => {
   it("has no duplicate slugs — the table's unique constraint, checked early", () => {
     const seen = new Set(rows.map((row) => row.slug));
     expect(seen.size).toBe(rows.length);
+  });
+});
+
+/**
+ * A story is about more than one component, and the order its chips render in
+ * is defined twice: `primary_component_of()` in SQL decides which one the mirror
+ * column holds, and `orderComponentTags()` in TypeScript decides which one is
+ * drawn first. If those two disagree the table's first chip is not the primary
+ * component, which is a lie nobody would notice.
+ *
+ * Read from the migration text, like every other drift guard here, so it fails
+ * on a machine with no Postgres.
+ */
+describe("component tag ordering", () => {
+  const JOIN_MIGRATION = join(
+    process.cwd(),
+    "supabase",
+    "migrations",
+    "20260825120000_work_item_components.sql"
+  );
+
+  it("SQL and TypeScript agree on the sort key", () => {
+    const sql = readFileSync(JOIN_MIGRATION, "utf8");
+    const body = sql.slice(
+      sql.indexOf("create or replace function public.primary_component_of"),
+      sql.indexOf("comment on function public.primary_component_of")
+    );
+
+    const clause = /order\s+by\s+([^\n]+)/i.exec(body);
+    expect(clause, "primary_component_of must have an explicit order by").not.toBeNull();
+
+    const keys = clause![1]
+      .split(",")
+      .map((key) => key.trim().replace(/^wc\./, ""))
+      .filter(Boolean);
+
+    expect(keys).toEqual([...COMPONENT_TAG_ORDER]);
+  });
+
+  it("is total, so the same tags always render in the same sequence", () => {
+    // Same position AND same timestamp — the case position alone cannot order,
+    // and the one a non-total comparator gets wrong on alternate reloads.
+    const tie = (componentId: string): ComponentTag => ({
+      position: 0,
+      createdAt: "2026-08-25T09:00:00Z",
+      componentId,
+      component: null,
+    });
+
+    const forwards = orderComponentTags([tie("b"), tie("a"), tie("c")]);
+    const backwards = orderComponentTags([tie("c"), tie("b"), tie("a")]);
+
+    expect(forwards.map((tag) => tag.componentId)).toEqual(["a", "b", "c"]);
+    expect(backwards.map((tag) => tag.componentId)).toEqual(["a", "b", "c"]);
+  });
+
+  it("sorts by position first, then by when the tag was added", () => {
+    const tags: ComponentTag[] = [
+      { position: 0, createdAt: "2026-08-25T10:00:00Z", componentId: "second", component: null },
+      { position: -1, createdAt: "2026-08-25T11:00:00Z", componentId: "promoted", component: null },
+      { position: 0, createdAt: "2026-08-25T09:00:00Z", componentId: "first", component: null },
+    ];
+
+    // `promoted` sorts ahead despite being newest: that is what a write to the
+    // old scalar column does — `min(position) - 1` — and the read model has to
+    // agree with it or the mirror and the first chip name different components.
+    expect(orderComponentTags(tags).map((tag) => tag.componentId)).toEqual([
+      "promoted",
+      "first",
+      "second",
+    ]);
+  });
+
+  it("drops embeds that came back null rather than rendering a hole", () => {
+    const tags: ComponentTag[] = [
+      { position: 0, createdAt: "2026-08-25T09:00:00Z", componentId: "a", component: null },
+    ];
+    expect(componentsFromTags(tags)).toEqual([]);
+    expect(componentsFromTags(null)).toEqual([]);
   });
 });
