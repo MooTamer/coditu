@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(136);
+select plan(160);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -1449,6 +1449,82 @@ select isnt_empty(
 
 select pg_temp.act_as_owner();
 
+-- ---------------------------------------------------------------------------
+-- Account kind — the client portal's first boundary.
+--
+-- A client contact is NOT a fourth `app_role`. It is an orthogonal column, and
+-- the reason is the shape of every authorization check already in this
+-- repository: twenty-two call sites in `lib/actions/**` reject `role ===
+-- "engineer"` and treat everything else as privileged. A fourth enum value
+-- would make a client "not an engineer" and fall straight through all of them.
+--
+-- `account_kind` cannot fall through anything, because nothing reads it as a
+-- negative.
+-- ---------------------------------------------------------------------------
+
+select has_type('public', 'account_kind', 'account_kind is an enum in its own right, not a role');
+select has_column('public', 'profiles', 'account_kind', 'every profile declares which side of the wall it is on');
+select col_not_null('public', 'profiles', 'account_kind', 'and it is never null — an unknown side is the dangerous side');
+
+-- Cara is a client contact. She is created exactly like everybody else — the
+-- app_role she carries is deliberately `engineer`, the same value
+-- `handle_new_user` hands every new account, because the point is that her ROLE
+-- is not what holds her back. `account_kind` is.
+select pg_temp.make_user('66666666-6666-6666-6666-666666666666', 'client@rls.test', 'Cara Client', 'engineer');
+update public.profiles set account_kind = 'client' where id = '66666666-6666-6666-6666-666666666666';
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+
+-- The three helpers every policy in this schema is built out of. If these are
+-- right, the eleven read policies are right without being edited.
+select is(public.is_active_member(), false, 'a client is not an active MEMBER — the word means internal now');
+select is(public.auth_role()::text,  null,  'a client has no app_role at all, so no role comparison can favour her');
+select is(public.is_admin_or_lead(), false, 'and she is therefore neither admin nor lead');
+
+-- The whole internal surface, one table at a time. `is_empty` rather than a
+-- count, because the failure this guards against is "one row leaked", not
+-- "the number changed".
+select is_empty($$select 1 from public.work_items$$,          'a client reads no work items');
+select is_empty($$select 1 from public.comments$$,            'a client reads no internal comments');
+select is_empty($$select 1 from public.acceptance_criteria$$, 'a client reads no acceptance criteria');
+select is_empty($$select 1 from public.time_entries$$,        'a client reads no time entries — hours are internal');
+select is_empty($$select 1 from public.activity$$,            'a client reads no activity log');
+select is_empty($$select 1 from public.components$$,          'a client reads no components through the base table');
+select is_empty($$select 1 from public.projects$$,            'a client reads no projects through the base table');
+select is_empty($$select 1 from public.clients$$,             'a client reads no client companies — not even her own');
+select is_empty($$select 1 from public.sprints$$,             'a client reads no sprints through the base table');
+select is_empty($$select 1 from public.attachments$$,         'a client reads no attachments');
+select is_empty($$select 1 from public.sprint_payouts$$,      'a client reads no payouts — money is never client-visible');
+select is_empty($$select 1 from public.app_settings$$,        'a client reads no settings, including the hourly rate');
+
+-- Her own row, and only her own. `getClientContact()` has to be able to read
+-- her name, so "reads nothing at all" would be wrong — but every OTHER profile
+-- is somebody she must not be able to enumerate.
+select is(
+  (select count(*) from public.profiles)::int, 1,
+  'a client reads exactly one profile: her own'
+);
+select is(
+  (select id from public.profiles), '66666666-6666-6666-6666-666666666666'::uuid,
+  'and it is hers — the team is not enumerable from a client session'
+);
+
+-- The escalation this whole design exists to prevent.
+select throws_ok(
+  $$update public.profiles set account_kind = 'internal'
+    where id = '66666666-6666-6666-6666-666666666666'$$,
+  '42501',
+  null,
+  'negative: a client cannot promote herself to an internal account'
+);
+
+-- Regression: nothing above changed what an internal engineer can do.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select isnt_empty($$select 1 from public.work_items$$, 'positive: an internal engineer still reads the whole board');
+select isnt_empty($$select 1 from public.comments$$,   'positive: and the whole thread — full transparency is unchanged');
+select is(public.is_active_member(), true, 'positive: an internal account is still an active member');
+
+select pg_temp.act_as_owner();
 
 select * from finish();
 rollback;

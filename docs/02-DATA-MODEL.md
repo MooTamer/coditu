@@ -63,6 +63,16 @@ matched on `full_name` because production and local do not share email addresses
 `weekly_capacity_minutes` became editable on 2026-08-25 — it had driven the load bars on People and
 every `v_person_load` row since the first migration and was settable nowhere.
 
+`account_kind` (`internal` | `client`, default `internal`) is **the client-portal boundary**, and it
+is the sixth column `guard_profile_privilege_columns` names. It is deliberately **not** a fourth
+`app_role`, and the reason is the shape of every authorization check already in this codebase:
+twenty-two call sites across `lib/actions/**` reject `role === "engineer"` and treat everything else
+as privileged. A fourth enum value is "not an engineer", so it would fall through all twenty-two —
+the same allowlist-written-as-a-denylist trap `guard_work_item_columns` has already sprung three
+times. Nothing anywhere reads `account_kind` as a negative; every check asks for `'internal'` by
+name. The default has to stay `internal`: default it `client` and every existing account loses the
+application at once, exactly as with `must_set_password`.
+
 `full_name` and `avatar_url` are deliberately absent from that trigger's list. How a person presents
 themselves is not a privilege; both are set by their owner on `/app/settings`, and `initials` is
 re-derived from `full_name` by the same rule `handle_new_user` uses.
@@ -324,7 +334,8 @@ role is never trusted.
 
 | Table | Policy |
 |---|---|
-| all | **Read**: any authenticated profile with `is_active = true` reads all rows. Small team, full transparency. |
+| all | **Read**: any authenticated profile with `is_active = true` **and `account_kind = 'internal'`** reads all rows. Small team, full transparency — among the team. |
+| `profiles` | plus `"own profile read"`: **you can always read yourself**, by primary key. The only row a client contact sees, so the team is not enumerable from a client session. |
 | `clients`, `projects`, `sprints` | insert / update / delete: `admin` and `lead` only. |
 | `work_items` | insert / delete: `admin` and `lead`. Update: `admin` and `lead` on any column. An `engineer` may change **only** `status` and `order_index`, and **only** where they are the `assignee_id` or `reviewer_id` (enforced by the protected-column trigger). |
 | `acceptance_criteria` | `is_done` togglable by assignee, reviewer, admin, lead. Body edits: admin and lead. |
@@ -417,3 +428,19 @@ done item with a null `closed_at` makes every cycle-time figure wrong.
 **The rollup recomputes, it does not increment.** `refresh_minutes_logged` re-sums the entries for the
 affected item. An increment that misses one event drifts silently and permanently, and this is the
 number the client sees. It also fixes both sides when an entry moves between items.
+
+**The three authorization helpers are the whole access model, so they are the whole blast radius.**
+`is_active_member()`, `auth_role()` and `is_admin_or_lead()` are called by every policy in the schema.
+Adding `and p.account_kind = 'internal'` to the first two changed the meaning of **eleven read
+policies across six migrations without editing one of them** — which is the point: the failure mode of
+editing each policy is the twelfth policy, written later by somebody following the pattern of the
+eleven, open to clients and indistinguishable from its neighbours.
+
+**A security helper must never return null.** `is_admin_or_lead()` was
+`select public.auth_role() in ('admin','lead')`. That was total while `auth_role()` was — but a client
+contact makes it null, and `null in ('admin','lead')` is **null**, not false. RLS fails closed on null
+in both `using` and `with check`, so nothing was ever exposed; plpgsql does not. `if not
+public.is_admin_or_lead() then raise` would have evaluated `not null` → null → the `if` never fires →
+the guard silently permits. There was no such caller, which is exactly why it was worth fixing before
+somebody wrote the obvious next guard. It is `coalesce(…, false)` now. Found by the pgTAP suite, not
+by reading the code.

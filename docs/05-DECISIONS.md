@@ -2427,3 +2427,61 @@ defines one. It fails on an unknown rename rather than skipping it.
 
 *(Written 2026-08-21 on the branch that carried the rename; landed 2026-08-24 with the
 merge — see the status-vocabulary row in `06-PROGRESS.md`.)*
+
+---
+
+## 2026-08-25 · A client contact is a kind of account, not a fourth role
+
+**Decision.** `profiles.account_kind` is a new enum, `('internal','client')`, defaulting to
+`internal`. `'client'` is **not** added to `app_role`. `is_active_member()` and `auth_role()` gain
+`and p.account_kind = 'internal'`, which is what actually closes the boundary.
+
+**Why not a fourth role — the count, not the feeling.** Twenty-two call sites are written as a
+denylist:
+
+```
+lib/actions/work-items.ts   13    lib/actions/components.ts     2
+lib/actions/sprints.ts       2    lib/actions/projects.ts       1
+lib/actions/import.ts        1    items/[key] + its @modal      2   (role !== "engineer" || involved)
+```
+
+Every one asks "is this person an engineer?" and treats every other answer as privileged. A fourth
+enum value is *not an engineer*, so a client contact would have fallen through all twenty-two and
+been able to reassign work items, create sprints and commit a Notion import. That is the same shape
+as `guard_work_item_columns`, an allowlist written as a denylist, which this repository has had to
+retrofit three times — `component_id`, `body_json`, `deleted_at`. The lesson from those was never
+"remember to update the denylist". It was "stop adding values a denylist has to learn about".
+
+`account_kind` is orthogonal and is never read as a negative. It is also the sixth column
+`guard_profile_privilege_columns` names, because a contact who can set her own kind to `internal` is
+the whole feature undone in one PATCH through PostgREST with the anon key.
+
+**Why two function bodies instead of eleven policy edits.** There are eleven
+`using (public.is_active_member())` read policies spread over six migrations. Editing each would work
+today and rot tomorrow: the failure mode is the *twelfth* policy, written next month by somebody
+following the pattern of the eleven, open to clients and indistinguishable from its neighbours. One
+definition changed means every policy that exists — and every policy written afterwards — inherits
+the right meaning without its author needing to know client accounts exist.
+
+**Measured, not asserted.** With the client fixture in place and before the second migration,
+`supabase/tests/rls.sql` reported **fifteen failures**: a client account read every work item, every
+internal comment, every time entry, every activity row, every confirmed payout, the hourly rate, and
+all six profiles. After it, 186 assertions pass. The suite is the evidence.
+
+**One real bug fell out of writing the test first.** `is_admin_or_lead()` was
+`select public.auth_role() in ('admin','lead')` — total while `auth_role()` was, and three-valued the
+moment a client made it null. `null in (…)` is null, not false. RLS fails closed on null in both
+`using` and `with check`, so nothing was exposed; plpgsql does not, and `if not
+public.is_admin_or_lead() then raise` would have evaluated `not null` → null → never fired. No caller
+was written that way yet. It is `coalesce(…, false)` now, because a function whose entire job is to
+answer a security question should not be able to answer "maybe".
+
+**One row given back deliberately.** Tightening `is_active_member()` took a client's own profile away
+along with everyone else's, and `getClientContact()` has to render her name. `"own profile read"` is
+a second permissive `select` policy scoped by primary key, so it can never return a second row.
+Internal members keep reading the whole team through the existing policy.
+
+**Rejected.** Adding `'client'` to `app_role` — the count above. A `client_users` table with no
+`profiles` row — it would need a parallel identity, and `auth.users` already cascades to `profiles`.
+Putting the kind in `app_metadata` for the middleware to read — a claim goes stale, and revocation
+has to bite an already-open session; every check reads the database.

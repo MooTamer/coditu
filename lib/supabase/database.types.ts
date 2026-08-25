@@ -508,6 +508,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_kind: Database["public"]["Enums"]["account_kind"]
           avatar_url: string | null
           created_at: string
           full_name: string
@@ -521,6 +522,7 @@ export type Database = {
           weekly_capacity_minutes: number
         }
         Insert: {
+          account_kind?: Database["public"]["Enums"]["account_kind"]
           avatar_url?: string | null
           created_at?: string
           full_name: string
@@ -534,6 +536,7 @@ export type Database = {
           weekly_capacity_minutes?: number
         }
         Update: {
+          account_kind?: Database["public"]["Enums"]["account_kind"]
           avatar_url?: string | null
           created_at?: string
           full_name?: string
@@ -1191,6 +1194,7 @@ export type Database = {
       }
     }
     Enums: {
+      account_kind: "internal" | "client"
       app_role: "admin" | "lead" | "engineer"
       component_kind: "react" | "spfx"
       sprint_status: "planned" | "active" | "closed"
@@ -1331,6 +1335,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      account_kind: ["internal", "client"],
       app_role: ["admin", "lead", "engineer"],
       component_kind: ["react", "spfx"],
       sprint_status: ["planned", "active", "closed"],

@@ -1251,3 +1251,62 @@ comment actions, item fields, the uploading-image node — land in the shell wit
 introduced, and doing it half-way in the same breath as an enum rename that cannot be deployed
 normally would be the wrong trade. It is written down here with the measurement so the next person
 starts from a number instead of a suspicion.
+
+---
+
+## The client portal and access management
+
+A client contact — a named person at a client company — gets an authenticated, strictly-bounded view
+of the projects shared with her, and a place to answer Coditu's questions. Internal administrators
+manage invitations, membership, capabilities, publication and revocation.
+
+Worked in slices, each with its failing test observed before the code. Newest at the bottom.
+
+| # | Slice | Status | Commit | Verification |
+|---|---|---|---|---|
+| C1 | **The account boundary** — `profiles.account_kind`, `is_active_member()`/`auth_role()` mean *internal*, `is_admin_or_lead()` stops being three-valued, `"own profile read"` | `done` | pending | `npm run db:test` — **186** assertions (was 162). 24 new, 15 of which were observed failing first |
+
+### C1 — what the test found before the code existed
+
+The fifteen failures are the record of what a client account could read on the previous commit, with
+nothing but an `is_active = true` profile row:
+
+```
+# Failed test 143: "a client reads no work items"
+# Failed test 144: "a client reads no internal comments"
+# Failed test 146: "a client reads no time entries — hours are internal"
+# Failed test 147: "a client reads no activity log"
+# Failed test 153: "a client reads no payouts — money is never client-visible"
+# Failed test 154: "a client reads no settings, including the hourly rate"
+# Failed test 155: "a client reads exactly one profile: her own"
+```
+
+That is not a hypothetical about a feature not yet built. It is what the schema does today for any
+account that exists — the portal simply had no way to create one. The eleven
+`using (public.is_active_member())` read policies are the right rule for four people who work
+together and the wrong one the moment a sixth kind of person has a password.
+
+**Two migrations, deliberately split.** `20260825110000_client_accounts.sql` introduces the concept
+and nothing else; `20260825110100_internal_only_reads.sql` changes the meaning of eleven existing
+policies by editing two function bodies. The second is a diff worth reading on its own, and pairing
+it with the column definition would have buried it.
+
+**`is_admin_or_lead()` was three-valued and nobody knew.** `select public.auth_role() in
+('admin','lead')` returns **null**, not false, once `auth_role()` can be null. Every current caller is
+an RLS clause, and RLS fails closed on null in both `using` and `with check` — so this was never
+exposed and is not a vulnerability report. It is a trap primed for the next person who writes
+`if not public.is_admin_or_lead() then raise …`, where `not null` is null, the `if` does not fire, and
+the guard silently permits. Fixed with `coalesce(…, false)` in the same migration. Found by writing
+the assertion first; invisible to reading the function.
+
+**The one row handed back.** A client must read her own `profiles` row or the portal cannot render
+her name, and tightening `is_active_member()` took it away with everybody else's. `"own profile read"`
+is a second permissive policy scoped by primary key — it cannot return a second row, and the
+assertion checks both halves: exactly one row, and it is hers.
+
+### Still to come in this brief
+
+C2 the TypeScript boundary (`getCurrentProfile()` returns null for a client; `/app` routes her to
+`/client`), C3 access tables and grants, C4 capabilities and presets, C5 publication, C6 the
+client-safe read model, C7–C8 the portal, C9 questions, C10 the internal access manager, C11
+attachments, C12 notifications.
