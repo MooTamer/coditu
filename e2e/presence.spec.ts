@@ -1,6 +1,7 @@
 import { SEED_ADMIN, SEED_LEAD, expect, signIn, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
+const ITEM = `${SPRINT}/items/COD-241`;
 
 /**
  * Who else is here — and, more importantly, what leaves the browser to say so.
@@ -118,12 +119,74 @@ test.describe("presence", () => {
       await page.waitForTimeout(1500);
     }
 
+    // And now the higher-risk surface: the story, where opening an editor
+    // announces WHICH editor. That announcement is a `track` carrying a name,
+    // and the mistake it invites is including the content alongside it.
+    await page.goto(ITEM);
+    await expect
+      .poll(() => sent.some((frame) => frame.includes("coditu:presence:item:")), {
+        timeout: 15000,
+      })
+      .toBe(true);
+
+    await page.getByRole("button", { name: /^Edit criterion:/ }).first().click();
+    const criterion = page.locator(".coditu-prose").first();
+    await expect(criterion).toBeVisible();
+    await criterion.click();
+    await page.keyboard.type(secret);
+    await page.waitForTimeout(1500);
+
     const leaked = sent.filter((frame) => frame.includes("ZZQX"));
     expect(leaked, `these frames carried typed text:\n${leaked.join("\n")}`).toHaveLength(0);
 
-    // And prove the check could have failed: the frames are non-empty and this
-    // test really was watching them.
+    // Prove the check could have failed: frames were captured, presence really
+    // announced, and the surface name really did cross the wire — so if the
+    // content had gone with it, this would have caught it.
     expect(sent.length).toBeGreaterThan(0);
+    expect(sent.some((frame) => frame.includes("criteria"))).toBe(true);
+  });
+
+  test("a story says who is on it, including you, and what they are doing", async ({
+    browser,
+  }) => {
+    const first = await browser.newContext();
+    const second = await browser.newContext();
+    const admin = await first.newPage();
+    const lead = await second.newPage();
+
+    try {
+      await signIn(admin, SEED_ADMIN);
+      await signIn(lead, SEED_LEAD);
+      await admin.goto(ITEM);
+      await lead.goto(ITEM);
+
+      const stack = admin.getByLabel("On this story");
+      await expect(stack).toBeAttached({ timeout: 15000 });
+
+      // You ARE in the story stack — unlike the sprint header. On one story the
+      // question is "is anybody in here with me", and your own face is what
+      // makes the others countable.
+      await expect(stack.getByText("Mohamed Tamer (you)", { exact: false })).toBeAttached();
+      await expect(stack.getByText("Adam Nafie", { exact: false })).toBeAttached();
+
+      await expect(admin.getByText("2 viewing")).toBeVisible({ timeout: 15000 });
+
+      // Now the lead opens a criterion. The admin should be told WHICH surface,
+      // and never what is in it.
+      const editButton = lead.getByRole("button", { name: /^Edit criterion:/ }).first();
+      await editButton.click();
+      await expect(lead.locator(".coditu-prose").first()).toBeVisible();
+
+      await expect(admin.getByText(/Adam editing criteria/)).toBeVisible({ timeout: 15000 });
+
+      // And it goes away again when the editor closes, rather than sticking
+      // until the socket drops.
+      await lead.keyboard.press("Escape");
+      await expect(admin.getByText(/editing criteria/)).toHaveCount(0, { timeout: 15000 });
+    } finally {
+      await first.close();
+      await second.close();
+    }
   });
 
   test("the channel is private, so the join is authorized in SQL", async ({ adminPage: page }) => {

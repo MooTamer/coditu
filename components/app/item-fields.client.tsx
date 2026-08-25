@@ -10,6 +10,7 @@ import dynamic from "next/dynamic";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
+import { useAnnounceSurface } from "@/components/app/presence-surface.client";
 import { documentFromText, isEmptyDocument } from "@/lib/blocks/schema";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { deleteWorkItem, moveWorkItem, restoreWorkItem, setWorkItemFields } from "@/lib/actions/work-items";
@@ -70,6 +71,9 @@ export function EditableTitle({
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
+  // The title is a document surface like any other as far as the stack is
+  // concerned: a name, never the words.
+  useAnnounceSurface(editing ? "title" : null);
   const [draft, setDraft] = useState(title);
   const [shown, showOptimistic] = useOptimistic(title, (_current, next: string) => next);
 
@@ -257,6 +261,9 @@ export function EditableProse({
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
+  // `description` or `highlight` — the field's own name, so the stack can
+  // say which one. Never its contents.
+  useAnnounceSurface(editing ? field : null);
 
   // A story written before the editor existed reads as the document it always
   // meant. `starsAreCallouts` is off: a description never used that convention —

@@ -16,6 +16,8 @@ import { LogTime } from "@/components/app/log-time.client";
 import { ComponentTag } from "@/components/coditu/component-icon";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
+import { ItemPresence } from "@/components/app/item-presence.client";
+import { PresenceSurfaceProvider } from "@/components/app/presence-surface.client";
 import { ThreadRealtime } from "@/components/app/realtime.client";
 import { RevisionHistory } from "@/components/app/revision-history";
 import { calendarDate, hours, timestamp } from "@/lib/format";
@@ -102,6 +104,10 @@ export function ItemDetailBody({
   ];
 
   return (
+    // Wraps the whole body so an editor anywhere inside — a criterion, the
+    // description, the composer — can say it is open without five layers of
+    // props threading a callback down to it.
+    <PresenceSurfaceProvider>
     <div className="grid [grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))]">
       {/* Comments arriving on this item, coalesced through a 120ms buffer.
           Renders nothing — it only subscribes. */}
@@ -112,6 +118,11 @@ export function ItemDetailBody({
           are one gallery, in document order, and a second item open in another
           tab is not part of it. See `comment-image.client.tsx`. */}
       <div data-image-scope className="flex min-w-0 flex-col gap-6 p-6">
+        {/* Above the title, where somebody about to rewrite this story sees it
+            before they start rather than after. Renders nothing when they are
+            alone and nothing is being edited, which is nearly always. */}
+        <ItemPresence workItemId={item.id} me={me} people={people} />
+
         <EditableTitle itemId={item.id} title={item.title} canEdit={canManage} />
 
         {/* Both are block documents now, read through the same server-side
@@ -378,6 +389,7 @@ export function ItemDetailBody({
         />
       </div>
     </div>
+    </PresenceSurfaceProvider>
   );
 }
 

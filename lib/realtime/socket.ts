@@ -218,8 +218,14 @@ export interface PresenceSubscription {
  * without a Server Action having looked at it.
  */
 export interface PresenceHandle {
-  /** Announce a new state for yourself — a fresh `track` replaces your entry. */
-  setState: (state: "online" | "idle") => void;
+  /**
+   * Announce a change to your own entry — a fresh `track` replaces it.
+   *
+   * Takes a patch rather than a whole member so the two things that change
+   * independently can. `state` moves on the idle timer; `surface` moves when
+   * somebody opens an editor, and neither should clobber the other.
+   */
+  announce: (patch: { state?: "online" | "idle"; surface?: string }) => void;
   /** Untrack, then leave. Call on unmount and on navigation. */
   stop: () => void;
 }
@@ -239,7 +245,7 @@ export async function joinPresence({
   const realtime = socket();
 
   const token = await realtimeToken();
-  if (!token) return { setState: () => {}, stop: () => {} };
+  if (!token) return { announce: () => {}, stop: () => {} };
   // Before `subscribe`, always. The same race the table subscription documents
   // at length: a channel that joins before the JWT lands is evaluated as anon,
   // and anon is not an active member, so the policy refuses it. Local timing
@@ -283,12 +289,18 @@ export async function joinPresence({
       }
     });
 
+  // The member as last announced. Kept here rather than reassembled by every
+  // caller: `announce({ state: "idle" })` must not silently reset the surface
+  // to whatever it was when the channel was joined.
+  let current: PresenceMember = me;
+
   return {
     // `track` again with the same presence key, which REPLACES this member's
-    // entry rather than adding a second one. That is what makes going idle a
-    // one-line operation instead of a leave and a rejoin.
-    setState: (state) => {
-      void channel.track({ ...me, state });
+    // entry rather than adding a second one. That is what makes going idle, or
+    // opening an editor, a one-line operation instead of a leave and a rejoin.
+    announce: (patch) => {
+      current = { ...current, ...patch };
+      void channel.track(current);
     },
     stop: () => {
       // `untrack` before `removeChannel`, so the people still on the channel

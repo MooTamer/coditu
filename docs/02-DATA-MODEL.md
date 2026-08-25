@@ -461,6 +461,12 @@ insert, update or delete policy. Rows arrive only through the `security definer`
 `record_document_revision()`, which fires on the five surfaces whenever a document column actually
 changes. Nothing — not an admin, not the app — can alter or remove one.
 
+`entity_id` addresses five different tables, so it carries no foreign key. `work_item_id` and
+`sprint_id` do, and cascade — which is why purging a story removes its whole history. **A comment has
+no such path**, so `purge_deleted` deletes a comment's revisions explicitly, and
+`lib/data/revisions.ts` shows a comment's revisions only while that comment is present and standing.
+A withdrawn comment's words reach nobody, and that has to include history.
+
 A restore therefore **adds** a version. `restore_document_revision()` is `security invoker` on
 purpose: who may restore a document is who may write it, and the surfaces' own policies plus
 `guard_work_item_columns` already say so. Restoring v2 over v5 writes v6 with `restored_from = 2`

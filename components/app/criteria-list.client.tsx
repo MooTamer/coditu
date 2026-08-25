@@ -36,6 +36,7 @@ import { hasPendingUpload } from "@/components/app/uploading-image.client";
 import { Mono } from "@/components/coditu/mono";
 import { ProgressRing } from "@/components/coditu/progress-ring";
 import { settle } from "@/lib/action-result";
+import { useAnnounceSurface } from "@/components/app/presence-surface.client";
 import {
   addCriterion,
   editCriterion,
@@ -134,6 +135,9 @@ export function CriteriaList({
 
   /** `null` = nothing open, `"new"` = the add form, otherwise a criterion id. */
   const [editing, setEditing] = useState<string | null>(null);
+  // Tells the story's presence stack that criteria are being edited, for as
+  // long as one is open. A name, never what is being typed.
+  useAnnounceSurface(editing ? "criteria" : null);
   /** Text of a criterion whose edit has been sent but whose server tree has not
    *  come back yet. Without it the row shows the OLD wording for a beat, which
    *  reads as a failed save. */
@@ -357,7 +361,11 @@ export function CriteriaList({
   );
 
   const list = (
-    <ul className="mt-[14px] flex flex-col">
+    // Named, because a list of checkboxes with no accessible name is announced
+    // as "list" and nothing more. It also gives a test somewhere to scope to:
+    // since W4c the version history panel puts this story's criteria on the
+    // page a second time, as diff lines inside its own <li>s.
+    <ul aria-label="Acceptance criteria" className="mt-[14px] flex flex-col">
       {ordered.map((criterion) => (
         <CriterionRow
           key={criterion.id}

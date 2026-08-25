@@ -125,7 +125,52 @@ export const getWorkItemRevisions = cache(
       throw error;
     }
 
-    const rows = (data ?? []) as unknown as RevisionRow[];
+    let rows = (data ?? []) as unknown as RevisionRow[];
+
+    /**
+     * A withdrawn comment's words do not come back through history.
+     *
+     * This was a real leak, introduced the moment history started rendering
+     * `plain_text` for the `comment` surface and caught by
+     * `e2e/editable.spec.ts` → *"withdrawn, not vanished — and its words never
+     * reach the browser"*. Withdrawing a comment hides its words from every
+     * reader including its author; a version panel that showed them anyway
+     * would have redefined "withdraw" as "moved further down the page", which
+     * is the same mistake the trash screen was careful not to make.
+     *
+     * The whole revision is dropped rather than blanked. A row saying "there
+     * was a comment here and you may not see it" tells a reader nothing they
+     * can act on, and the fact that the comment exists is already in the thread
+     * as a tombstone and in the bin with its location.
+     *
+     * A second query rather than a join: `document_revisions.entity_id` is a
+     * plain uuid with no foreign key — it addresses five different tables — so
+     * there is nothing for PostgREST to embed. It is one indexed read on a
+     * column the page has already loaded.
+     *
+     * **Written as an allowlist, deliberately.** The first version asked which
+     * comments were withdrawn and dropped those, which is a denylist and missed
+     * the case that actually leaked: a comment that no longer EXISTS. Nothing
+     * cascades `document_revisions` when a comment is hard-deleted — `entity_id`
+     * has no foreign key to cascade along — so a purged comment's words
+     * survived in history, permanently, behind a confirmation that had promised
+     * to remove them. `purge_deleted` now takes the revisions with it, and this
+     * reads forward-only: a comment revision is shown when its comment is
+     * present and standing, and in no other case.
+     */
+    const commentIds = [
+      ...new Set(rows.filter((row) => row.surface === "comment").map((row) => row.entity_id)),
+    ];
+    if (commentIds.length > 0) {
+      const { data: standing } = await supabase
+        .from("comments")
+        .select("id")
+        .in("id", commentIds)
+        .is("deleted_at", null);
+
+      const visible = new Set((standing ?? []).map((row) => row.id));
+      rows = rows.filter((row) => row.surface !== "comment" || visible.has(row.entity_id));
+    }
 
     // The version before each entry, on the same document. One backwards pass:
     // the rows are newest first, so walking from the oldest and remembering the

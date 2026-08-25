@@ -202,6 +202,77 @@ Concretely, for realtime: assert the policies exist, that they name
 plus a browser assertion that the client really sends `"private":true`. Neither
 half is sufficient alone.
 
+### Adding a panel to a page changes every test that reads text from it
+
+W4c put a version history panel on the item page. It renders each revision's
+text as diff lines, so the story's writing is now on that page **twice** — once
+live, once as history. Four specs that had nothing to do with version history
+broke on strict mode:
+
+```
+getByText("WITHDRAWNSENTINEL") resolved to 3 elements:
+  1) <p …>WITHDRAWNSENTINEL</p>
+  2) <div …>+ added: WITHDRAWNSENTINEL</div>
+  3) <div …>+ added: WITHDRAWNSENTINEL</div>
+```
+
+They were not run in W4c — the specs run then were the new one plus a11y and
+navigation — so the breakage was found two phases later, along with a real leak
+underneath it (below). **After adding anything that renders existing content in
+a new place, run the specs for that PAGE, not just for the feature.** For the
+item page that is `item-detail`, `criteria`, `composer` and `editable`.
+
+The fix in each is `.first()` on the live copy, with a comment saying why there
+is more than one.
+
+### `document_revisions` cascades for stories and not for comments
+
+`entity_id` is a plain uuid addressing five different tables, so it can carry a
+foreign key to none of them. `work_item_id` and `sprint_id` DO have one, which is
+why purging a story already removed its whole history — and why nobody noticed
+that purging a **comment** did not.
+
+A withdrawn comment's words are supposed to reach no one, including its author.
+They stayed in `document_revisions` and the history panel went on rendering
+them, on a story any internal member could open, permanently, behind a
+confirmation that had just said "removes the comment permanently".
+
+Both sides are fixed and both are needed. `purge_deleted` deletes the comment's
+revisions explicitly, **before** the comment, so a half-failure leaves a comment
+in the bin rather than a vanished comment with readable words.
+`lib/data/revisions.ts` shows a comment's revisions only while that comment is
+present and standing — written as an ALLOWLIST, because the first attempt asked
+"which are withdrawn" and missed the case that actually leaked: a comment that no
+longer exists at all.
+
+Criteria are deliberately not treated this way: a removed criterion's history is
+a legitimate record of what the work asked for. Withdrawing a comment is
+specifically the act of taking words back.
+
+### A context provider above `useOptimistic` can strand the optimistic state
+
+W5b added `PresenceSurfaceProvider` around the whole item body so an editor
+anywhere inside could announce which surface it was on. It held the surface in
+`useState`, so opening the composer re-rendered everything under the provider —
+including the thread, which owns the `useOptimistic` comment.
+
+`e2e/optimistic.spec.ts` → *"a failed post gives the draft back rather than
+losing it"* then failed with the optimistic entry stuck on `sending…` for ever.
+The composer's rollback runs inside a transition, and a re-render arriving from
+a provider above it left the optimistic entry in place instead of reverting.
+
+**A provider that wraps a subtree containing optimistic state must not hold
+frequently-changing state.** `useSyncExternalStore` is the fix and is better
+anyway: claims live in a ref, and only the one component that reads the value
+re-renders. Nothing else in the tree is touched, so nothing else can be
+disturbed.
+
+The tell is an optimistic placeholder that never resolves while the write itself
+plainly finished — the error toast appeared, the draft came back, and only
+`sending…` was wrong. Confirmed as caused-by-this-change with `git stash`: the
+test passed on the parent, failed with the change, and passed again with a
+single `useAnnounceSurface` call neutralised.
+
 ### A loaded machine fails the suite as timeouts
 The suite is ~6 minutes at 12 workers on an idle machine. Under load (a browser, a VM, another build)
 the same run takes 30+ and fails 20 tests, all of them `Test timeout of 30000ms exceeded` — including

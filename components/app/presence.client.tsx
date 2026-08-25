@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { Mono } from "@/components/coditu/mono";
+import { usePresence } from "@/lib/hooks/use-presence";
 import type { ProfileRef } from "@/lib/data/profiles";
 
 /**
@@ -17,17 +16,13 @@ import type { ProfileRef } from "@/lib/data/profiles";
  * anywhere on the team would re-render the whole sprint — for a 24px circle.
  * Only `postgres_changes` refreshes, and that lives in `realtime.client.tsx`.
  *
- * ## Idle, and why 60 seconds
+ * ## What is here and what is in the hook
  *
- * A tab left open on a second monitor is not somebody working on the sprint,
- * and showing them as present makes the whole indicator untrustworthy — if it
- * is wrong about the person you can see across the desk, it is wrong about
- * everyone. Sixty seconds without a key, a pointer move or a scroll is long
- * enough not to flicker while somebody reads, and short enough that a forgotten
- * tab fades within a minute.
- *
- * `visibilitychange` is separate and immediate: switching tabs is unambiguous,
- * so there is nothing to wait for.
+ * This file is the sprint header's PRESENTATION. Joining the channel, the idle
+ * timer and the teardown live in `lib/hooks/use-presence.ts`, shared with the
+ * story's viewer stack — which differs from this one in ways that are entirely
+ * about presentation (it includes you, and it says what people are doing) and
+ * not at all about subscribing.
  *
  * ## State is a dot, not a faded avatar
  *
@@ -46,8 +41,6 @@ import type { ProfileRef } from "@/lib/data/profiles";
  * of W1 undoing.
  */
 
-const IDLE_AFTER_MS = 60_000;
-
 export function Presence({
   channelName,
   me,
@@ -62,73 +55,7 @@ export function Presence({
   /** Everyone internal, so an id can be drawn as a face without another fetch. */
   people: ProfileRef[];
 }) {
-  const [members, setMembers] = useState<{ profileId: string; state: string }[]>([]);
-
-  useEffect(() => {
-    let teardown: (() => void) | null = null;
-    let cancelled = false;
-    let idleTimer: ReturnType<typeof setTimeout> | null = null;
-    let retrack: ((state: "online" | "idle") => void) | null = null;
-    let current: "online" | "idle" = "online";
-
-    const goIdle = () => {
-      if (current === "idle") return;
-      current = "idle";
-      retrack?.("idle");
-    };
-
-    const goActive = () => {
-      if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(goIdle, IDLE_AFTER_MS);
-      if (current === "online") return;
-      current = "online";
-      retrack?.("online");
-    };
-
-    const onVisibility = () => {
-      // Switching away is unambiguous — no 60 second wait for that one.
-      if (document.visibilityState === "hidden") goIdle();
-      else goActive();
-    };
-
-    void (async () => {
-      const { joinPresence } = await import("@/lib/realtime/socket");
-      // The route may have changed while the chunk was in flight.
-      if (cancelled) return;
-
-      const handle = await joinPresence({
-        channelName,
-        me: { profileId: me.id, surface, state: "online" },
-        onSync: (next) =>
-          setMembers(next.map((m) => ({ profileId: m.profileId, state: m.state }))),
-      });
-
-      if (cancelled) {
-        handle.stop();
-        return;
-      }
-      teardown = handle.stop;
-      // Announcing a new state is a fresh `track` with the same presence key,
-      // which replaces this member's entry rather than adding one.
-      retrack = handle.setState;
-
-      idleTimer = setTimeout(goIdle, IDLE_AFTER_MS);
-      window.addEventListener("keydown", goActive, { passive: true });
-      window.addEventListener("pointermove", goActive, { passive: true });
-      window.addEventListener("scroll", goActive, { passive: true });
-      document.addEventListener("visibilitychange", onVisibility);
-    })();
-
-    return () => {
-      cancelled = true;
-      if (idleTimer) clearTimeout(idleTimer);
-      window.removeEventListener("keydown", goActive);
-      window.removeEventListener("pointermove", goActive);
-      window.removeEventListener("scroll", goActive);
-      document.removeEventListener("visibilitychange", onVisibility);
-      teardown?.();
-    };
-  }, [channelName, me.id, surface]);
+  const members = usePresence({ channelName, profileId: me.id, surface });
 
   // Yourself excluded: you know you are here, and a stack that includes you is
   // one avatar of noise on every screen.
@@ -138,7 +65,9 @@ export function Presence({
       person: people.find((p) => p.id === member.profileId),
       state: member.state,
     }))
-    .filter((entry): entry is { person: ProfileRef; state: string } => Boolean(entry.person));
+    .filter((entry): entry is { person: ProfileRef; state: "online" | "idle" } =>
+      Boolean(entry.person)
+    );
 
   if (others.length === 0) return null;
 

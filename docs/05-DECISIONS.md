@@ -3114,3 +3114,58 @@ well with `private: false`, which bypasses these policies entirely. So no end-to
 the policy is enforced. `rls.sql` pins the policies' shape instead — they exist, they require
 `is_active_member()`, they are confined to the prefix — and `e2e/presence.spec.ts` asserts the client
 really does ask for `private: true` on a prefixed topic. Two halves, neither sufficient alone.
+
+## "Editing the criteria" is a presence field, not a broadcast channel
+
+**Decided 2026-08-25, W5b.** §8 of the plan gives typing its own channel —
+`typing:{entityType}:{entityId}`, broadcast, throttled to one event every 3 seconds and expiring
+after 5 seconds of silence. Presence already carries a `surface` field, so the indicator is a second
+`track` on the channel that is already open.
+
+Broadcast plus a throttle plus an expiry is the right shape for a **per-keystroke** typing indicator,
+where events arrive faster than anybody can read them and a stale one has to time out. That is not
+what this is. "Is editing the criteria" changes when an editor opens or closes — a handful of times in
+a session — and it expires correctly on its own, because presence state dies with the socket. Adding
+a channel, a throttle and a 5-second timer to carry that would be three moving parts, each with a
+failure mode, for a fact presence already transmits.
+
+`useAnnounceSurface` claims a surface for as long as an editor is mounted. Claims are a **stack**
+rather than a value, because two editors can be open at once — start a comment, then click into a
+criterion — and with a single value, closing the first would clear the indicator while the second was
+still open.
+
+*Per-keystroke typing is deliberately not built.* If it ever is, broadcast and a throttle are what it
+needs, and this decision does not stand in its way.
+
+*What crosses the wire is a name* — `criteria`, `description`, `comment` — never content.
+`e2e/presence.spec.ts` types into a criterion with the frames captured and asserts the text is in
+none of them, while also asserting that `criteria` **is** there, so the check is known to be capable
+of failing.
+
+## The presence surface is an external store, not provider state
+
+**Decided 2026-08-25, W5b.** `PresenceSurfaceProvider` wraps the whole item body so any editor inside
+can announce itself without five layers of prop threading. It holds its claims in a **ref with a
+subscription**, read through `useSyncExternalStore`, rather than in `useState`.
+
+Provider state re-renders the entire subtree, which here is the thread, the criteria, the fields and
+the composer — to change one word in a caption. That is wasteful, and it broke something concrete:
+the thread owns the `useOptimistic` comment, and a re-render arriving from above during the
+composer's rollback transition left the optimistic entry stuck on `sending…`. `e2e/optimistic.spec.ts`
+caught it.
+
+With a store, only the presence stack re-renders. The rest of the story is untouched, so nothing else
+can be disturbed by somebody opening an editor.
+
+*Rejected:* passing a callback down through the tree — five props on components that know nothing
+about realtime. *Rejected:* provider state — see above.
+
+## The story's viewer stack includes you; the sprint's does not
+
+**Decided 2026-08-25, W5b.** The design's viewer list marks the reader `Mohamed Tamer (you) —
+viewing`, and its sprint header does not show you at all. Both are right, and for different reasons.
+
+On the sprint, you know you are there, and a face of your own on every screen is one avatar of
+permanent noise. On one story the stack answers a different question — *is anybody in here with me,
+before I rewrite this description?* — and your own face is what makes the others countable at a
+glance.

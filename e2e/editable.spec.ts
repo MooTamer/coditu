@@ -115,8 +115,11 @@ test.describe("an item's own words", () => {
       await adminPage.goto(ITEM);
 
       // Converted on read, not rewritten: the row is still plain text.
-      await expect(adminPage.getByText("First requirement")).toBeVisible();
-      await expect(adminPage.getByText("Second requirement")).toBeVisible();
+      // `.first()` is the live description. Since W4c the page also carries it
+      // as diff lines under Version history — and this test rewrites the
+      // description, so both the old and the new text are there too.
+      await expect(adminPage.getByText("First requirement").first()).toBeVisible();
+      await expect(adminPage.getByText("Second requirement").first()).toBeVisible();
 
       await adminPage.getByRole("button", { name: "Edit the description" }).click();
       const field = adminPage.getByRole("textbox", { name: "Description" });
@@ -187,7 +190,11 @@ test.describe("a comment can be withdrawn, and it stays in the thread", () => {
     try {
       const path = `${SEED.sprint}/items/${SEED.hostileThread}`;
       await adminPage.goto(path);
-      await expect(adminPage.getByText("WITHDRAWNSENTINEL")).toBeVisible();
+      // `.first()` is the thread's copy. Since W4c the version history panel
+      // renders diff lines too, so a bare text locator matches more than one.
+      // The assertion that matters is further down and unchanged: after the
+      // withdrawal, the words are absent from the WHOLE page source.
+      await expect(adminPage.getByText("WITHDRAWNSENTINEL").first()).toBeVisible();
 
       await adminPage.getByRole("button", { name: "Withdraw this comment" }).first().click();
       await expect(adminPage.getByText("This comment was withdrawn.")).toBeVisible();

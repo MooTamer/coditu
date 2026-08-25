@@ -73,7 +73,10 @@ test.describe("acceptance criteria", () => {
     await page.keyboard.type("E2E the pill keeps its arrow at 320px");
     await page.getByRole("button", { name: "Save", exact: true }).click();
 
-    await expect(page.getByText("E2E the pill keeps its arrow at 320px")).toBeVisible();
+    // `.first()` is the criterion itself. Since W4c the page also carries it
+    // as a diff line under Version history, so a page-wide text locator
+    // matches twice and trips strict mode.
+    await expect(page.getByText("E2E the pill keeps its arrow at 320px").first()).toBeVisible();
 
     await expect
       .poll(async () => (await criteriaOf(ITEM_KEY)).length)
@@ -161,7 +164,9 @@ test.describe("acceptance criteria", () => {
     await page.locator(".coditu-prose").click();
     await page.keyboard.type("E2E temporary");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(page.getByText("E2E temporary")).toBeVisible();
+    // `.first()` is the criterion; Version history carries the same words as a
+    // diff line since W4c.
+    await expect(page.getByText("E2E temporary").first()).toBeVisible();
 
     await page.getByRole("button", { name: "Remove criterion: E2E temporary" }).click();
     // Scoped to the checklist. A page-wide `getByText` also matches the undo
@@ -169,7 +174,11 @@ test.describe("acceptance criteria", () => {
     // if the toast did not appear, which is to say only if the feature were
     // broken. Removal is reversible by design here rather than confirmed up
     // front, so the toast is asserted rather than avoided.
-    await expect(page.getByRole("listitem").filter({ hasText: "E2E temporary" })).toHaveCount(0);
+    await expect(
+      page.getByRole("list", { name: "Acceptance criteria" })
+        .getByRole("listitem")
+        .filter({ hasText: "E2E temporary" })
+    ).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
     await expect.poll(async () => (await criteriaOf(ITEM_KEY)).some((c) => c.body === "E2E temporary")).toBe(false);
   });

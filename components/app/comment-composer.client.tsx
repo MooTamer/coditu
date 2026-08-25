@@ -10,6 +10,7 @@ import { useToast } from "@/components/app/toast.client";
 import { hasPendingUpload } from "@/components/app/uploading-image.client";
 import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
+import { useAnnounceSurface } from "@/components/app/presence-surface.client";
 import { postComment } from "@/lib/actions/comments";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { isEmptyDocument } from "@/lib/blocks/schema";
@@ -97,6 +98,8 @@ export function CommentComposer({
   onPending?: (doc: unknown) => void;
 }) {
   const [opened, setOpened] = useState(false);
+  // Somebody is writing a comment. The stack says so; it never says what.
+  useAnnounceSurface(opened ? "comment" : null);
   // null until the editor reports; a restored draft is not empty by definition.
   const [reportedEmpty, setReportedEmpty] = useState<boolean | null>(null);
   const [draftVersion, setDraftVersion] = useState(0);

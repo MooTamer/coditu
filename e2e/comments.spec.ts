@@ -320,7 +320,9 @@ test.describe("comment rendering is inert against hostile JSON", () => {
 
     await page.goto(ITEM);
 
-    await expect(page.getByText("@Adam Nafie")).toBeVisible();
+    // `.first()` is the chip in the thread; the version history panel carries
+    // the same mention as a diff line since W4c.
+    await expect(page.getByText("@Adam Nafie").first()).toBeVisible();
     // A mention is a chip, not a link.
     expect(await page.locator(`a:has-text("Adam Nafie")`).count()).toBe(0);
   });

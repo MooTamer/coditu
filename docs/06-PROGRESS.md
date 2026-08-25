@@ -2227,6 +2227,81 @@ typechecked.
 `db:test` **336** · 4 presence e2e incl. the frame assertion · 29 sprint e2e ·
 `budgets` **OK 74.6/110**.
 
+## W5b — what people are doing, and a leak found two phases late
+
+The story's own presence line, the design's wording verbatim: `2 viewing · Adam
+editing criteria`, above the title. **You are in this stack**, marked `(you)`,
+unlike the sprint header's — on one story the question is whether anybody is in
+here with you, and your own face is what makes the others countable. It renders
+nothing when you are alone and nothing is being edited, which is nearly always.
+
+### The editing indicator is a presence field, not a channel
+
+§8 gives typing its own broadcast channel, throttled to one event per 3s and
+expiring after 5s of silence. That is the right shape for a **per-keystroke**
+indicator. This is not one: "is editing the criteria" changes when an editor
+opens or closes, a handful of times a session, and it expires correctly on its
+own because presence dies with the socket. Three moving parts saved, each with a
+failure mode. Recorded in `05-DECISIONS.md`; per-keystroke typing is still not
+built, and broadcast is still what it would need.
+
+`useAnnounceSurface` claims a surface while an editor is mounted. Claims are a
+**stack**, not a value: two editors can be open at once — start a comment, click
+into a criterion — and with a single value, closing the first would clear the
+indicator while the second was still open.
+
+The subscription moved into `lib/hooks/use-presence.ts`, shared by both stacks.
+`budgets` went **down**, 74.6 → 73.8 KB, because the duplicate effect went with
+it.
+
+### The provider held state, and stranded an optimistic comment
+
+The first version of `PresenceSurfaceProvider` kept the surface in `useState`,
+so opening the composer re-rendered everything under it — the thread included,
+which owns the `useOptimistic` comment. *"A failed post gives the draft back
+rather than losing it"* then failed with the entry stuck on `sending…` for ever:
+the rollback runs inside a transition, and a re-render from above left the
+optimistic entry in place.
+
+`git stash` proved it was mine rather than reasoned about — passed on the
+parent, failed with the change, passed again with one `useAnnounceSurface` call
+neutralised. It is `useSyncExternalStore` now: claims in a ref, and only the
+presence stack re-renders. Better regardless, since re-rendering an entire story
+to change one word in a caption was never the intent.
+
+### Running the item's own specs found a real leak from W4c
+
+Four specs broke on strict mode — the version history panel renders a story's
+writing a second time, so page-wide text locators now match twice. They were not
+run in W4c, where the specs run were the new one plus a11y and navigation. The
+lesson is in `07-FIELD-NOTES.md`: **after adding anything that renders existing
+content in a new place, run the specs for that PAGE, not for the feature.**
+
+Underneath the strict-mode noise was an actual leak.
+`e2e/editable.spec.ts` → *"withdrawn, not vanished — and its words never reach
+the browser"* reloads the page and greps the source, and it was failing for the
+right reason: **a withdrawn comment's words were still in the history panel.**
+
+Worse on inspection. `document_revisions.entity_id` addresses five tables so it
+carries no foreign key; `work_item_id` does and cascades, which is why purging a
+STORY already took its history. A comment had nothing — so purging one left its
+words readable for ever, behind a confirmation that had just said "removes the
+comment permanently".
+
+Both sides fixed, and both are needed: `purge_deleted` deletes the comment's
+revisions explicitly and **before** the comment, so a half-failure leaves a
+comment in the bin rather than a vanished comment with readable words; and the
+reader shows a comment's revisions only while that comment is present and
+standing. Written as an **allowlist** — my first attempt asked "which are
+withdrawn", which is a denylist and missed the case that actually leaked: a
+comment that no longer exists at all.
+
+Criteria are deliberately untouched by this. A removed criterion's history is a
+legitimate record of what the work asked for; withdrawing a comment is
+specifically the act of taking words back.
+
+`db:test` **338** · `test` **264** · `budgets` **OK 73.8/110**.
+
 ## W3d — the story's own words, and two imports that cost 60KB each
 
 `work_items.description` and `highlight` are block documents, edited with the

@@ -179,7 +179,9 @@ test.describe("posting a comment is optimistic", () => {
 
       // Then the real one replaces it — same text, no longer "sending".
       await expect(page.getByText("sending…")).toBeHidden({ timeout: 15_000 });
-      await expect(page.getByText(body, { exact: false })).toBeVisible();
+      // `.first()` is the comment in the thread; version history renders the
+      // same words as a diff line since W4c.
+      await expect(page.getByText(body, { exact: false }).first()).toBeVisible();
 
       const [row] = await query<{ id: string }>(
         `select c.id from comments c

@@ -189,7 +189,9 @@ test.describe("item detail", () => {
     await page.goto(`${SPRINT}/items/${SEED.highlighted}`);
     // The amber rule is invisible to a screen reader, so the meaning is in text.
     await expect(page.getByText("Discuss before implementing:")).toBeAttached();
-    await expect(page.getByText(new RegExp(SEED.highlightText))).toBeVisible();
+    // `.first()` is the highlight itself; Version history renders the same
+    // words as a diff line since W4c.
+    await expect(page.getByText(new RegExp(SEED.highlightText)).first()).toBeVisible();
   });
 
   test.describe("logging time", () => {

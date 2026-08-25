@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(272);
+select plan(274);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -2634,6 +2634,43 @@ select alike(
     where schemaname = 'realtime' and tablename = 'messages' and cmd = 'INSERT'),
   '%is_active_member%',
   'sending on one carries the same requirement as joining'
+);
+
+-- ---------------------------------------------------------------------------
+-- Purging takes the document history with it.
+--
+-- `document_revisions.entity_id` is a plain uuid addressing five tables, so it
+-- can carry a foreign key to none of them. Stories cascade through
+-- `work_item_id`; comments had nothing, so a purged comment left its words in
+-- history for ever — behind a confirmation that had just promised to remove
+-- them permanently.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_owner();
+
+-- A comment, withdrawn, with a revision the capture trigger wrote for it.
+insert into public.comments (id, work_item_id, author_id, body_json, body_text, deleted_at)
+values ('cccccccc-0000-4000-8000-0000000000cc',
+        '60000000-0000-4000-8000-000000000231',
+        'a0000000-0000-4000-8000-000000000001',
+        '{"type":"doc","content":[]}'::jsonb, 'PURGE ME', now());
+
+select is(
+  (select count(*)::int from public.document_revisions
+    where surface = 'comment' and entity_id = 'cccccccc-0000-4000-8000-0000000000cc'),
+  1,
+  'the capture trigger recorded the comment, so there is history to lose'
+);
+
+select pg_temp.act_as('a0000000-0000-4000-8000-000000000001');
+select public.purge_deleted('comment', 'cccccccc-0000-4000-8000-0000000000cc'::uuid);
+
+select pg_temp.act_as_owner();
+select is(
+  (select count(*)::int from public.document_revisions
+    where surface = 'comment' and entity_id = 'cccccccc-0000-4000-8000-0000000000cc'),
+  0,
+  'and purging took the words with it, not only the row'
 );
 
 select * from finish();

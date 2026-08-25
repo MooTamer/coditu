@@ -259,6 +259,23 @@ An avatar arriving never re-renders the server tree; only `postgres_changes` doe
 **What crosses the wire is a profile id, a surface name and a state.** Never text anybody has typed.
 `e2e/presence.spec.ts` reads the socket frames and asserts it.
 
+### On a story
+
+Above the title, a second stack with a different job: `2 viewing · Adam editing criteria`, the
+design's own line.
+
+**You are in this one**, marked `(you)` — on one story the question is whether anybody is in here
+with you, and your own face makes the others countable. Renders nothing when you are alone and
+nothing is being edited, which is nearly always.
+
+The editing half is presence, not a separate typing channel: opening an editor re-announces this
+member with the surface's name — `criteria`, `description`, `highlight`, `comment`, `title` — and
+closing it announces `viewing` again. **A name only, never what is being typed.** Per-keystroke
+typing is deliberately not built; see `05-DECISIONS.md`.
+
+The line is `aria-live="polite"`, because somebody starting to edit under you is worth hearing
+without going to look — and polite, so it never cuts across what a screen reader is already saying.
+
 ## Trash
 
 `/app/trash`, reached from the account menu and the phone's "More" sheet — not the rail. A bin on
