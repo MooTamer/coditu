@@ -3250,3 +3250,67 @@ than a gap, and nothing at all outside `/app`. Mounting is one line.
 
 *Also settled in W6c:* ⌘K needed no work. The palette and its `Meta+K`/`Control+K` binding already
 existed in `topbar.client.tsx`, with `aria-keyshortcuts` on the trigger.
+
+## Project spaces are the sidebar's tree, and closed sprints are not in it
+
+**Decided 2026-08-25, W6d.** The design's sidebar has a `Project spaces` section: every project as a
+disclosure, its sprints and its component registry beneath. That is what lets the topbar stop
+carrying a switcher, so it is a prerequisite for breadcrumbs rather than decoration on the way to
+them.
+
+Three things the prototype could not decide for us, because it had four toy projects and three toy
+sprints:
+
+- **Closed sprints are not in the tree.** MEINEvim has fifteen sprints and fourteen of them are
+  closed. Listing them all would put a year of finished weeks in a 268px column, permanently, above
+  the thing you came for. The tree lists sprints that are still `planned` or `active` — normally one
+  — and the project's own row links to the page that has every one of them. `MAX_SPRINTS = 5` is the
+  pathological case, and when it bites the tree says `All sprints · N` rather than truncating
+  quietly.
+- **The state chip is a state, not a sprint name.** Both alternatives were tried in a browser first.
+  Naming the active sprint reads well for MEINEvim — `Week 17` — and then Converso's sprint is called
+  *Converso review*, which crushes the project's name to `Converso das…`. Naming only the *active*
+  one made the chip read `no sprint` directly above a row listing the sprint Converso has. So the
+  chip is `active` / `planned` / `no sprint`, derived from the sprints this schema already has —
+  never from the `status` column the prototype implies and `projects` does not have. It hides
+  entirely while the space is open, where the rows beneath say it better and the name needs the 48px.
+- **There is no Notes row**, though the design draws one. Sprint notes are a panel *inside* a sprint
+  page with no address of their own; a row pointing at the sprint and calling itself Notes is a
+  second name for the link directly above it.
+
+*Two smaller calls, both about not lying to a screen reader.* The tree is `display: none` below
+`--rail-wide` and while collapsed, rather than the `opacity: 0` the nav labels use — a label fades
+because its icon survives and still needs a name, and a tree at 64px has no icon representation at
+all. And `aria-current="page"` stays exactly one, which is a spec here: the nav owns it, and a space
+row that *is* the open page gets `aria-current="true"` — the current item in this set, which is what
+a tree row means and does not make the sidebar claim to be in two places.
+
+*The disclosure's default is the URL, not a preference:* the project you are looking at is open and
+the rest are shut, which is right on the server's first render with no storage at all. A space
+somebody actually toggles is remembered per project from then on, under `coditu.space.<slug>`.
+
+## Favourites and recents are deferred to W7, and not invented here
+
+**Decided 2026-08-25, W6d.** The design's sidebar has three sections. This ships one of them. The
+other two are deferred deliberately, and the reason is not effort.
+
+**Favourites cannot be built correctly yet, because one of its three kinds does not exist.** The
+prototype favourites are `Week 17 · peer review`, `COD-140` and `EVIM components` — a saved filter
+view, a work item and a component registry. **Saved views are W7.** Building the table now means
+either a schema that can hold two of the three kinds and needs migrating the moment W7 lands, or
+inventing what a saved view is from a chip in a prototype. Both are worse than waiting one phase.
+
+**Recents cannot be derived from anything this database records.** Every table here records a
+*write* — a comment, a time entry, a revision. "Recently visited" is a read, and this application
+deliberately stores no reads: `access_events` is the only table that would, and it is itself deferred
+to W9 where People & Access gives it both a writer and a reader. Deriving recents from writes would
+produce *recently edited*, which is a different list — it would never contain the payout page or a
+component registry, which is half of what the design's recents are for.
+
+So neither is faked with the prototype's sample data, and neither section is rendered empty. An empty
+`Favourites` header is furniture that promises a feature; no header promises nothing.
+
+*Order when they land:* favourites with W7's saved views, since that is what unblocks the schema —
+one table keyed by `(profile_id, kind, target_id)`, with the star control on each favouritable
+surface. Recents alongside W9's `access_events`, reading the same stream rather than opening a second
+one. *This is a scheduling decision, not a scope cut.* Both remain in the plan.

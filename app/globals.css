@@ -1099,6 +1099,25 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Project spaces exist only where the sidebar has labels.
+
+   `display: none`, not the `opacity: 0` the labels above use, and the
+   difference is the point. A nav label fades because its ICON survives and
+   still needs a name at 64px. A tree has no icon representation at all — so
+   leaving it in the accessibility tree at 64px would hand a screen reader a
+   dozen rows that nobody sighted can see and nobody can reach.
+   --------------------------------------------------------------------------- */
+
+aside[data-app-chrome] [data-rail-spaces] {
+  display: none;
+}
+@media (min-width: 1180px) {
+  aside[data-app-chrome]:not([data-collapsed]) [data-rail-spaces] {
+    display: block;
+  }
+}
+
 /* The collapse control only exists where collapsing changes anything: below
    `--rail-wide` the sidebar is icons at every setting, and a button that
    appears to change that and does not is worse than no button. */

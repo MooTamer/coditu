@@ -1539,7 +1539,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `done` | `d1c3f98` | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. `/` menu, editor 16/16 incl. axe with the menu open, `budgets` **OK 69.2/110**. **W3 done.** `test` **252** · `db:test` **306** · 49 document specs · `budgets` **OK 72.7/110** after finding two 60KB client-bundle regressions |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, revisions, version history, `/app/trash` | `done` | `72853ed` | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `done` | `34b7d7e` | two browser contexts · socket frames carry no text · channel gone on unmount |
-| W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `wip` | | one `aria-current` · zero overflow at 8 widths + 200% · axe · budgets |
+| W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `wip` | | **W6a–W6d done.** one `aria-current` · zero overflow at 13 widths + 200% · axe · `budgets` **OK 74.9/110** · `test` **293** · rail 12/12, home 8/8, navigation 10/10. **W6e outstanding:** the switcher leaves the topbar, the trail mounts |
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `todo` | | comparator vitest · e2e desktop + mobile sheets |
 | W8 | **Projects and project home** | `todo` | | e2e search/filter/archived · axe |
 | W9 | **People & Access** — six sections, safety states, the per-project client grant editor | `todo` | | pgTAP self-demote / self-deactivate / last-admin · e2e disabled-and-explained |
@@ -2518,3 +2518,73 @@ The item-detail code sharing the sprint page's chunk group is real and was measu
 both the sprint table's strings and `log-time.client.tsx`'s — but it is 8.7 KB against the 48.2 KB
 this bought, so it stays on the list rather than in this commit. The technique for finding it is in
 `07-FIELD-NOTES.md`.
+
+## W6d — project spaces, and two sections that are deferred rather than faked
+
+The sidebar's tree, from the design's `Coditu Workspace.dc.html`: every project a
+disclosure, its open sprints and its component registry beneath. This is the
+thing the topbar's switcher was standing in for, so it is what unblocks W6e.
+
+`lib/project-spaces.ts` is pure — the same shape as `lib/breadcrumbs.ts` and for
+the same reason: a navigation tree is quietly wrong for the project nobody
+opened, so the rules are asserted rather than glanced at. Twelve new tests.
+
+### Three things the prototype had four toy projects to hide
+
+**Fourteen of MEINEvim's fifteen sprints are closed.** The design lists a
+project's sprints and it had three of them. Listing all fifteen here would put a
+year of finished weeks in a 268px column above the thing you came for. The tree
+lists sprints that are still `planned` or `active` — normally one — and the
+project's own row goes to the page that has every one of them. The `MAX_SPRINTS`
+cap is the pathological case and it says `All sprints · N` rather than
+truncating quietly.
+
+**The state chip is a state, and both alternatives were tried in a browser
+first.** Naming the active sprint reads perfectly for MEINEvim — `Week 17` — and
+then Converso's sprint is called *Converso review* and the project's own name
+becomes `Converso das…`. Naming only the *active* sprint made the chip say
+`no sprint` about Converso directly above a row listing the sprint it has. So it
+is `active` / `planned` / `no sprint`, and it hides entirely while the space is
+open, where the rows beneath say it better and the name needs the 48px.
+
+**There is no Notes row.** Sprint notes are a panel inside a sprint page with no
+address of their own.
+
+### Favourites and recents are deferred, and the reason is not effort
+
+Favourites cannot be built correctly yet: one of the design's three favourites is
+a **saved filter view**, and saved views are W7. The table would either hold two
+of its three kinds or invent the third.
+
+Recents cannot be derived from anything this database records. Every table here
+records a *write*; "recently visited" is a read, and the only table that would
+store one is `access_events`, itself deferred to W9. Deriving them from writes
+gives *recently edited*, which would never contain the payout page or a
+registry — half of what the design's recents are for.
+
+Neither is rendered as an empty section. An empty `Favourites` header is
+furniture that promises a feature. Both are recorded in `05-DECISIONS.md` with
+the phase they land in.
+
+### What the browser showed and the green gate could not
+
+The two contradictions above — `Converso das…` and a `no sprint` chip over a
+sprint row — were both found by opening the page, not by a test. Neither is
+visible to anything that does not measure a rendered 268px column.
+
+Verified at 1400 expanded, 1400 collapsed, 1400×560 (the sidebar scrolls, the
+header and the footer stay put), 900 and 390, with zero console errors and zero
+horizontally overflowing elements at every one.
+
+`aria-current="page"` is still exactly one — the nav owns it, and a tree row that
+is the open page carries `aria-current="true"`, the current item in this set.
+The tree is `display: none` below `--rail-wide` and while collapsed rather than
+faded, because a tree has no 64px icon to keep a name for.
+
+`test` **293** (12 new) · `lint`, `typecheck` clean · `db:test` **338** ·
+`budgets` **OK 74.9 / 110** (was 74.0) · rail **12/12** incl. the four new
+spaces specs · a11y **15/15** incl. thirteen widths and 200% zoom · navigation
+**10/10** · home **8/8**.
+
+**Next:** W6e — the switcher leaves the topbar and the breadcrumb trail mounts
+into the room that makes.

@@ -73,6 +73,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     listComponentsByProject(),
   ]);
 
+  /**
+   * The sidebar's registry row is a live count, and an archived component is
+   * not in it — the registry page it links to does not list them either, so a
+   * number that included them would be a promise the destination breaks.
+   */
+  const componentCounts = Object.fromEntries(
+    Object.entries(componentsByProject).map(([projectId, components]) => [
+      projectId,
+      components.filter((component) => !component.isArchived).length,
+    ])
+  );
+
   return (
     <ToastProvider>
       <div className="flex min-h-dvh bg-[var(--canvas)] text-[var(--ink)]">
@@ -84,6 +96,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           }}
           role={profile.role}
           unreadCount={unreadCount}
+          projects={projects}
+          componentCounts={componentCounts}
         />
         <div
           // Below `md` the bottom tab bar is FIXED, so it overlaps the content

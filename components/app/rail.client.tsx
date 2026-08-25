@@ -6,8 +6,10 @@ import { PanelLeft } from "lucide-react";
 import { navFor } from "@/components/app/nav-items";
 import { NavIcon, NavLink } from "@/components/app/nav-link.client";
 import { PersonAvatar, type AvatarPerson } from "@/components/app/person-avatar";
+import { ProjectSpaces } from "@/components/app/project-spaces.client";
 import { CoditusMark } from "@/components/coditu/coditus-mark";
 import { usePersistentFlag } from "@/lib/hooks/use-client-state";
+import type { SpaceProject } from "@/lib/project-spaces";
 import { cn } from "@/lib/utils";
 
 /**
@@ -98,11 +100,18 @@ export function Rail({
   me,
   role,
   unreadCount,
+  projects,
+  componentCounts,
 }: {
   me: AvatarPerson;
   role: string;
   /** Unread notifications. Surfaces as a dot on My work. */
   unreadCount: number;
+  /** Every unarchived project, for the spaces tree. Already fetched by the
+   *  shell for the topbar, so this is the same array and not a second read. */
+  projects: SpaceProject[];
+  /** Live component count per project id, for the registry row. */
+  componentCounts: Record<string, number>;
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = usePersistentFlag(COLLAPSED_KEY);
@@ -147,52 +156,60 @@ export function Rail({
         </button>
       </div>
 
-      <nav className="flex flex-col gap-1">
-        {navFor(role).map(({ id, label, href, Icon, isActive }) => {
-          const active = isActive(pathname);
-          return (
-            <NavLink
-              key={id}
-              href={href}
-              label={label}
-              active={active}
-              className={cn(
-                "flex h-11 items-center gap-[14px] overflow-hidden whitespace-nowrap rounded-control px-3 transition-colors",
-                active ? "bg-[var(--canvas)] text-[var(--ink)]" : "text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
-              )}
-              // The tapped item takes the active surface immediately. That is
-              // the half of the pending state that survives reduced motion,
-              // where the mark below stops rotating.
-              pendingClassName="bg-[var(--canvas)] text-[var(--ink)]"
-            >
-              {(pending) => (
-                <>
-                  <span className="relative flex size-[18px] shrink-0 items-center justify-center">
-                    <NavIcon Icon={Icon} pending={pending} />
-                    {/* The dot is decorative; the count is announced in the label
-                        below so it is not colour-only information. */}
-                    {id === "my-work" && unreadCount > 0 ? (
-                      <span
-                        aria-hidden
-                        className="absolute -right-1 -top-1 size-[7px] rounded-pill"
-                        style={{ background: "var(--accent)" }}
-                      />
-                    ) : null}
-                  </span>
-                  <span data-rail-label className={cn(LABEL, "text-[14.5px] font-medium")}>
-                    {label}
-                    {id === "my-work" && unreadCount > 0 ? (
-                      <span className="sr-only">{` — ${unreadCount} unread`}</span>
-                    ) : null}
-                  </span>
-                </>
-              )}
-            </NavLink>
-          );
-        })}
-      </nav>
+      {/* The scroll container, and the reason there is one: project spaces made
+          the sidebar taller than the shortest laptop. The header and the
+          footer stay put — losing your own face and the collapse control off
+          the bottom of a scroll is worse than scrolling the middle. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
+        <nav className="flex flex-col gap-1">
+          {navFor(role).map(({ id, label, href, Icon, isActive }) => {
+            const active = isActive(pathname);
+            return (
+              <NavLink
+                key={id}
+                href={href}
+                label={label}
+                active={active}
+                className={cn(
+                  "flex h-11 items-center gap-[14px] overflow-hidden whitespace-nowrap rounded-control px-3 transition-colors",
+                  active ? "bg-[var(--canvas)] text-[var(--ink)]" : "text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
+                )}
+                // The tapped item takes the active surface immediately. That is
+                // the half of the pending state that survives reduced motion,
+                // where the mark below stops rotating.
+                pendingClassName="bg-[var(--canvas)] text-[var(--ink)]"
+              >
+                {(pending) => (
+                  <>
+                    <span className="relative flex size-[18px] shrink-0 items-center justify-center">
+                      <NavIcon Icon={Icon} pending={pending} />
+                      {/* The dot is decorative; the count is announced in the label
+                          below so it is not colour-only information. */}
+                      {id === "my-work" && unreadCount > 0 ? (
+                        <span
+                          aria-hidden
+                          className="absolute -right-1 -top-1 size-[7px] rounded-pill"
+                          style={{ background: "var(--accent)" }}
+                        />
+                      ) : null}
+                    </span>
+                    <span data-rail-label className={cn(LABEL, "text-[14.5px] font-medium")}>
+                      {label}
+                      {id === "my-work" && unreadCount > 0 ? (
+                        <span className="sr-only">{` — ${unreadCount} unread`}</span>
+                      ) : null}
+                    </span>
+                  </>
+                )}
+              </NavLink>
+            );
+          })}
+        </nav>
 
-      <div className="mt-auto flex h-11 items-center gap-3 border-t border-[var(--hairline)] px-3">
+        <ProjectSpaces projects={projects} componentCounts={componentCounts} />
+      </div>
+
+      <div className="flex h-11 shrink-0 items-center gap-3 border-t border-[var(--hairline)] px-3">
         {/* Initials came from splitting the display name here, which is a
             second answer to a question `profiles.initials` already answers.
             It reads the column now, like every other face in the app. */}
