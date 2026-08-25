@@ -1430,8 +1430,8 @@ auto`. Without JS they render at opacity 0 — **which `/app/projects` does too*
 authenticated app has always required JS. Not introduced here, and not changed here either: fixing it
 would change every internal screen.
 
-| C9 | **The invitation** — `handle_new_user` reads a server-side invitation, `enforce_email_allowlist` accepts one | `done` | pending | `npm run db:test` — **246** assertions (was 237) |
-| C10 | **The access manager** — `/app/clients`, `lib/actions/client-access.ts`, `lib/data/client-access.ts`, role-aware nav | `done` | pending | 5 admin specs incl. the full round trip |
+| C9 | **The invitation** — `handle_new_user` reads a server-side invitation, `enforce_email_allowlist` accepts one | `done` | `3855a1f` | `npm run db:test` — **246** assertions (was 237) |
+| C10 | **The access manager** — `/app/clients`, `lib/actions/client-access.ts`, `lib/data/client-access.ts`, role-aware nav | `done` | `3855a1f` | 5 admin specs incl. the full round trip |
 
 ### C9/C10 — the round trip, driven rather than described
 
@@ -1461,6 +1461,30 @@ reasoning that put `isActive` in `nav-items.ts` in the first place.
 `"use server"`, so every export from it must be an async Server Action and a plain function cannot be
 shared out of it. The algorithm is unchanged and `setTemporaryPassword` now imports it.
 
+| C11 | **Questions** — `client_threads`/`client_messages`/`client_thread_reads`, the thread RPCs, `/client/questions`, the composer | `done` | pending | `npm run db:test` — **263** assertions (was 246); 10 question specs |
+
+### C11 — the bug the browser found and the database could not
+
+`client_threads` and `client_messages` have no internal-only columns, so reading them with ordinary
+`.from()` selects and letting RLS pick the rows was right. The first version returned an **empty
+list** to a client who had a question waiting.
+
+The list also needs what a thread is *about* — `components!inner ( name, slug )`,
+`projects!inner ( slug )`, and the author's profile — and a client contact cannot read any of those
+three. `!inner` on a join that returns nothing drops the parent row, so the query came back `[]`. No
+error, no 403, no permission message. The screen said "Nothing to answer right now" while the
+database was perfectly willing to say there was one.
+
+**The pgTAP suite was green the whole time**, because the SQL was never wrong. Only the browser found
+it. Both loaders go through `client_thread_list` and `client_thread_messages` now, and the rule is in
+`07-FIELD-NOTES.md`: *a client-safe table is not a client-safe query*.
+
+**And a second invisible one.** The portal header clipped "Sign out" at 320px — no scrollbar, no
+overflow, just a control that could not be read or hit, because `html` carries `overflow-x-clip`.
+That is the same failure the topbar shipped in step 7. The fix is an icon below `sm`; the guard
+asserts element geometry rather than document width, for every header control at 320/360/390.
+
 ### Still to come in this brief
 
-C11 client question threads, C12 client-safe attachments, C13 notifications.
+C12 client-safe attachments, C13 notifications, and internal thread-composition UI on the component
+page (a client can read and answer today; opening a question is a Server Action with no screen yet).

@@ -449,6 +449,61 @@ export type Database = {
           },
         ]
       }
+      client_messages: {
+        Row: {
+          author_id: string
+          body_json: Json
+          body_text: string
+          created_at: string
+          deleted_at: string | null
+          edited_at: string | null
+          id: string
+          thread_id: string
+        }
+        Insert: {
+          author_id: string
+          body_json: Json
+          body_text: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          thread_id: string
+        }
+        Update: {
+          author_id?: string
+          body_json?: Json
+          body_text?: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "client_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "client_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_project_grants: {
         Row: {
           capabilities: Database["public"]["Enums"]["client_capability"][]
@@ -501,6 +556,118 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_thread_reads: {
+        Row: {
+          last_read_at: string
+          profile_id: string
+          thread_id: string
+        }
+        Insert: {
+          last_read_at?: string
+          profile_id: string
+          thread_id: string
+        }
+        Update: {
+          last_read_at?: string
+          profile_id?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_thread_reads_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_thread_reads_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "client_thread_reads_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "client_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_threads: {
+        Row: {
+          component_id: string
+          created_at: string
+          id: string
+          opened_by: string
+          project_id: string
+          resolved_at: string | null
+          state: Database["public"]["Enums"]["client_thread_state"]
+          title: string
+          work_item_id: string | null
+        }
+        Insert: {
+          component_id: string
+          created_at?: string
+          id?: string
+          opened_by: string
+          project_id: string
+          resolved_at?: string | null
+          state?: Database["public"]["Enums"]["client_thread_state"]
+          title: string
+          work_item_id?: string | null
+        }
+        Update: {
+          component_id?: string
+          created_at?: string
+          id?: string
+          opened_by?: string
+          project_id?: string
+          resolved_at?: string | null
+          state?: Database["public"]["Enums"]["client_thread_state"]
+          title?: string
+          work_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_threads_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_threads_opened_by_fkey"
+            columns: ["opened_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_threads_opened_by_fkey"
+            columns: ["opened_by"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "client_threads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_threads_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
             referencedColumns: ["id"]
           },
         ]
@@ -1393,6 +1560,14 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      can_read_client_thread: {
+        Args: { p_thread_id: string }
+        Returns: boolean
+      }
+      can_write_client_thread: {
+        Args: { p_thread_id: string }
+        Returns: boolean
+      }
       client_component_work: {
         Args: { p_component_id: string; p_project_id: string }
         Returns: {
@@ -1445,6 +1620,41 @@ export type Database = {
           name: string
           project_id: string
           slug: string
+        }[]
+      }
+      client_thread_can_reply: {
+        Args: { p_thread_id: string }
+        Returns: boolean
+      }
+      client_thread_list: {
+        Args: { p_project_id?: string }
+        Returns: {
+          component_id: string
+          component_name: string
+          component_slug: string
+          created_at: string
+          last_message_at: string
+          last_read_at: string
+          message_count: number
+          project_id: string
+          project_slug: string
+          state: string
+          thread_id: string
+          title: string
+        }[]
+      }
+      client_thread_messages: {
+        Args: { p_thread_id: string }
+        Returns: {
+          author_id: string
+          author_initials: string
+          author_name: string
+          body_json: Json
+          body_text: string
+          created_at: string
+          edited_at: string
+          is_from_coditu: boolean
+          message_id: string
         }[]
       }
       derive_key_prefix: {
@@ -1502,6 +1712,7 @@ export type Database = {
         | "start_questions"
         | "view_attachments"
       client_contact_status: "invited" | "active" | "revoked"
+      client_thread_state: "waiting_client" | "waiting_coditu" | "resolved"
       component_kind: "react" | "spfx"
       sprint_status: "planned" | "active" | "closed"
       work_item_status:
@@ -1657,6 +1868,7 @@ export const Constants = {
         "view_attachments",
       ],
       client_contact_status: ["invited", "active", "revoked"],
+      client_thread_state: ["waiting_client", "waiting_coditu", "resolved"],
       component_kind: ["react", "spfx"],
       sprint_status: ["planned", "active", "closed"],
       work_item_status: [

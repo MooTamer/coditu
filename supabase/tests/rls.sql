@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(220);
+select plan(237);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -2046,6 +2046,153 @@ values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '00000000-0000-0000-0000-0000000
 select is_empty(
   $$select 1 from public.client_contacts where profile_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'$$,
   'negative: an EXPIRED invitation creates no contact — it fails toward no access, not toward some'
+);
+
+select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- Client question threads.
+--
+-- A separate domain from `comments`, not a filter over it. The existing thread
+-- is where engineers argue about implementation, and the client report already
+-- goes to some trouble to keep it out; a `is_client_visible` column on
+-- `comments` would put one boolean between fifteen sprints of internal
+-- discussion and a client's screen, and every future query would have to
+-- remember it.
+--
+-- These are different tables. There is nothing to remember.
+-- ---------------------------------------------------------------------------
+
+select has_table('public', 'client_threads',      'a question thread hangs off a component');
+select has_table('public', 'client_messages',     'and holds messages');
+select has_table('public', 'client_thread_reads', 'with a per-person read mark for the unread count');
+
+-- Cara is granted the EVIM project with read + reply; the component and its
+-- item are published. Everything below is scoped to that.
+select pg_temp.act_as_owner();
+update public.client_project_grants
+   set capabilities = '{view_project,view_components,view_work,read_questions,reply_questions}'::public.client_capability[]
+ where contact_profile_id = '66666666-6666-6666-6666-666666666666';
+
+insert into public.client_threads (id, component_id, project_id, work_item_id, title, opened_by)
+values ('f0000000-0000-0000-0000-000000000001',
+        'e0000000-0000-0000-0000-000000000010',
+        -- Deliberately WRONG, and deliberately the other company's. The trigger
+        -- must overwrite it from the component rather than trust it.
+        '40000000-0000-0000-0000-000000000002',
+        '60000000-0000-0000-0000-000000000001',
+        'Which of these two should the banner do?',
+        '22222222-2222-2222-2222-222222222222');
+
+select is(
+  (select project_id from public.client_threads where id = 'f0000000-0000-0000-0000-000000000001'),
+  '40000000-0000-0000-0000-000000000001'::uuid,
+  'a thread derives its project from its COMPONENT — a supplied project_id is overwritten, not trusted'
+);
+
+-- A thread on an unpublished component, to prove publication gates the thread
+-- and not merely the component card.
+insert into public.client_threads (id, component_id, title, opened_by)
+values ('f0000000-0000-0000-0000-000000000002',
+        'e0000000-0000-0000-0000-000000000011',
+        'A question about something she cannot see',
+        '22222222-2222-2222-2222-222222222222');
+
+insert into public.client_messages (id, thread_id, author_id, body_json, body_text)
+values ('f1000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0000-000000000001',
+        '22222222-2222-2222-2222-222222222222',
+        '{"type":"doc","content":[]}'::jsonb, 'Either is fine by us — which do you prefer?');
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+
+select is(
+  (select count(*) from public.client_threads)::int, 1,
+  'positive: she sees the thread on the published component, and only that one'
+);
+select is(
+  (select count(*) from public.client_messages)::int, 1,
+  'positive: and the message on it'
+);
+
+-- The reply, with the author taken from the session and not from the row.
+select lives_ok(
+  $$insert into public.client_messages (thread_id, author_id, body_json, body_text)
+    values ('f0000000-0000-0000-0000-000000000001', '66666666-6666-6666-6666-666666666666',
+            '{"type":"doc","content":[]}'::jsonb, 'The second one, please.')$$,
+  'positive: with reply_questions she can answer'
+);
+
+select throws_ok(
+  $$insert into public.client_messages (thread_id, author_id, body_json, body_text)
+    values ('f0000000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222',
+            '{"type":"doc","content":[]}'::jsonb, 'Signed by somebody else entirely')$$,
+  '42501',
+  null,
+  'negative: she cannot post a message signed as one of ours'
+);
+
+select throws_ok(
+  $$insert into public.client_messages (thread_id, author_id, body_json, body_text)
+    values ('f0000000-0000-0000-0000-000000000002', '66666666-6666-6666-6666-666666666666',
+            '{"type":"doc","content":[]}'::jsonb, 'A reply to a thread I cannot see')$$,
+  '42501',
+  null,
+  'negative: nor into a thread on a component that was never published to her'
+);
+
+-- Editing and withdrawing: her own words only, and never a hard delete.
+select lives_ok(
+  $$update public.client_messages set body_text = 'The second one, please — thank you.', edited_at = now()
+     where author_id = '66666666-6666-6666-6666-666666666666'$$,
+  'positive: she may edit what she wrote'
+);
+select throws_ok(
+  $$delete from public.client_messages where id = 'f1000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: nobody hard-deletes a message — the absence of a policy AND of a grant is the rule'
+);
+
+-- Without the capability, the same session sees and does nothing.
+select pg_temp.act_as_owner();
+update public.client_project_grants
+   set capabilities = '{view_project,view_components}'::public.client_capability[]
+ where contact_profile_id = '66666666-6666-6666-6666-666666666666';
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+select is_empty($$select 1 from public.client_threads$$,
+  'negative: without read_questions the threads are not there at all');
+select is_empty($$select 1 from public.client_messages$$,
+  'negative: and neither are the messages');
+
+select pg_temp.act_as_owner();
+update public.client_project_grants
+   set capabilities = '{view_project,view_components,read_questions}'::public.client_capability[]
+ where contact_profile_id = '66666666-6666-6666-6666-666666666666';
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+select isnt_empty($$select 1 from public.client_threads$$,
+  'positive: read_questions alone is enough to read');
+select throws_ok(
+  $$insert into public.client_messages (thread_id, author_id, body_json, body_text)
+    values ('f0000000-0000-0000-0000-000000000001', '66666666-6666-6666-6666-666666666666',
+            '{"type":"doc","content":[]}'::jsonb, 'But not to answer')$$,
+  '42501',
+  null,
+  'negative: and reading is not replying — the two capabilities are separate on purpose'
+);
+
+-- The other company's contact, on a thread that is not hers.
+select pg_temp.act_as('77777777-7777-7777-7777-777777777777');
+select is_empty($$select 1 from public.client_threads$$,
+  'negative: the other contact sees none of it');
+
+-- Internal staff see every thread, including the one on the unpublished
+-- component — it is their question, and they wrote it.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select is(
+  (select count(*) from public.client_threads)::int, 2,
+  'positive: an engineer sees both threads, published or not — they are ours'
 );
 
 select pg_temp.act_as_owner();

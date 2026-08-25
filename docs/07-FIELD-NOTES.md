@@ -649,3 +649,52 @@ while another's tests are still reading it — and every one of them fails as "n
 the *correct* rendering of the state it was just put into. `e2e/earnings.spec.ts` is
 `test.describe.configure({ mode: "serial" })` for that reason: unlike the `composer.spec.ts` fixture
 race, there is no per-project row to hand out, because there is only ever one row.
+
+### A client-safe TABLE is not a client-safe QUERY
+
+`client_threads` and `client_messages` carry no internal-only columns, so reading them with an
+ordinary `.from()` select and letting RLS pick the rows is correct. The first version of
+`lib/data/client-threads.ts` did exactly that — and returned an **empty list** to a client who had a
+question waiting.
+
+The list also needs what a thread is *about*:
+
+```ts
+components!inner ( name, slug ),
+projects!inner   ( slug ),
+profiles!client_messages_author_id_fkey ( full_name, initials )
+```
+
+A client contact cannot read any of those three. That is the boundary working as designed —
+`is_active_member()` is false for her. But `!inner` on a join that returns nothing **drops the parent
+row**, so the query came back `[]`: no error, no permission message, no 403. The screen said "Nothing
+to answer right now" while the database was perfectly willing to say there was one.
+
+The pgTAP suite was green throughout, because the SQL was never wrong. Only the browser found it.
+
+**The rule:** the moment a query joins outward from a client-readable table it inherits the strictest
+policy it touches, and `!inner` makes that silent. Anything a client reads that needs a name from
+`components`, `projects` or `profiles` goes through a `security definer` RPC that selects those
+columns by name — `client_thread_list` and `client_thread_messages` exist for exactly this.
+
+The tell, if this happens again: a `.from()` select that returns `[]` for a client and the right rows
+for `postgres`, with RLS assertions passing on both.
+
+### Clipping is not overflow, and no overflow assertion will catch it
+
+`html` carries `overflow-x-clip`. A control pushed past the right edge therefore creates **no
+scrollbar** and does not change `scrollWidth` — `document.documentElement.scrollWidth >
+clientWidth` stays false while the control is unreadable and unhittable.
+
+The topbar shipped this in step 7 ("pushed off-screen and *clipped* — no scrollbar, just unreachable
+buttons"). The client portal header shipped it again at 320px in the client-portal brief, one fix
+after the label had been made to wrap instead. Two different screens, same invisible failure.
+
+Assert element geometry, not document width:
+
+```ts
+const rect = el.getBoundingClientRect();
+if (rect.right > viewportWidth || rect.left < 0) // escaped
+```
+
+`e2e/client-questions.spec.ts` does this for every header control at 320/360/390.

@@ -2756,3 +2756,58 @@ which is honest. Deleting the contact would take her name off her own messages, 
 Withdrawing an **unclaimed invitation** is the one real delete in the feature: nothing happened,
 nobody signed in, there is no message with a name on it, and leaving it would show an address that
 can still open an account as though it cannot.
+
+---
+
+## 2026-08-25 · Client questions are their own tables, and their own read model
+
+**Decision.** `client_threads`, `client_messages`, `client_thread_reads`. Not a flag on `comments`.
+Existing comments are untouched and unmigrated.
+
+**Why not a flag.** An `is_client_visible boolean` on `comments` would put one column between fifteen
+sprints of implementation argument and a client's screen, and every query written afterwards would
+have to remember the filter. The failure mode is not dramatic — it is a `select` in a feature
+eighteen months from now that forgets, and nobody notices because the page looks right to the
+internal person testing it. Separate tables leave nothing to remember, and a query here that forgets
+a filter returns client messages to a client, which is what it is for.
+
+Existing comments were also written under an expectation of privacy. Nothing here changes that
+retrospectively.
+
+**The document is the same document.** `body_json` is the ProseMirror shape `comments` already uses,
+validated by `lib/comments/schema.ts` and rendered by `comment-body.tsx` — the walker with ten
+hostile-document specs against it. Writing a second renderer would have been writing a second thing
+to attack. `body_text` is derived on the server from the same parsed document, exactly as
+`postComment` does it.
+
+**The composer is a textarea, not TipTap.** A client answering "the second one, please" does not need
+a formatting toolbar, and ProseMirror would take the portal from **0 KB of its own JavaScript** to
+well over a hundred. The message is still stored as a proper document, built from plain paragraphs,
+so upgrading later is a component swap rather than a migration.
+
+**State follows the reply.** A client answering makes it `waiting_coditu`; one of us answering makes
+it `waiting_client`. **Resolving stays manual and stays with Coditu** — whether an answer was
+sufficient is a judgement, not an event — and a reply to a resolved thread reopens it, because
+somebody had more to say. This is the one thing in this brief the repository could not decide for
+itself; it is recorded here as reversible.
+
+**Read and reply are separate capabilities**, and the screen honours the split with a sentence rather
+than a box that fails on submit: "You can follow this conversation but not reply to it."
+
+**The read model had to become RPCs, and the reason is worth keeping.** These tables have no
+internal-only columns, so ordinary `.from()` selects with RLS were right — and the first version
+returned an **empty list** to a client with a question waiting. The list also needs the component and
+project a thread is about, and a client cannot read those base tables at all; `!inner` on a join that
+returns nothing drops the parent row. No error, no 403, just nothing. The pgTAP suite stayed green
+because the SQL was never wrong. **A client-safe table is not a client-safe query** — the moment a
+query joins outward it inherits the strictest policy it touches, and `!inner` makes that silent. In
+`07-FIELD-NOTES.md`.
+
+**`can_write_client_thread` is asked once.** The page takes `canReply` from the same predicate the
+INSERT policy uses rather than re-deriving it from her capability array. Two answers to one question
+eventually disagree, and the disagreement is either a composer drawn for somebody the database then
+refuses, or one hidden from somebody it would have allowed.
+
+**Marking a thread read is an action, not a render side effect.** A GET that writes is a GET a
+prefetch, a crawler or a link preview can fire, and this repository has already measured a prefetch
+rendering twenty-eight dynamic routes nobody visited.

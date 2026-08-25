@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
+import { LogOut } from "lucide-react";
 
-import { CoditusLockup } from "@/components/coditu/coditus-mark";
+import { ClientNav } from "@/components/client/client-nav.client";
+import { CoditusLockup, CoditusMark } from "@/components/coditu/coditus-mark";
 import { signOut } from "@/lib/actions/auth";
+import { listClientThreads } from "@/lib/data/client-threads";
 import { getClientContact, getCurrentProfile } from "@/lib/supabase/server";
 
 export const metadata = {
@@ -44,24 +47,53 @@ export default async function ClientLayout({ children }: { children: React.React
     redirect("/login?next=/client");
   }
 
+  /**
+   * The one number the shell fetches, and it earns its place: how many
+   * questions are waiting on her. It is the reason to come back, so it belongs
+   * where she can see it without navigating.
+   *
+   * Still one query, and still scoped by `can_read_client_thread()` — this is
+   * not the internal shell's four eager reads arriving by another name.
+   */
+  const threads = await listClientThreads();
+  const waiting = threads.filter((thread) => thread.state === "waiting_client").length;
+
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--canvas)] text-[var(--ink)]">
       <header className="sticky top-0 z-10 flex h-[var(--topbar-h)] items-center gap-3 border-b border-[var(--hairline)] bg-[var(--canvas)]/92 px-[var(--app-gutter)] backdrop-blur-sm">
-        <CoditusLockup markSize={22} />
+        {/* The wordmark yields first. At 390px the row is the lockup, two nav
+            items and Sign out, and something has to give — "Sign out" wrapping
+            onto two lines is the worst candidate, because it is the only
+            control here that a person actually needs to find. The mark alone
+            still says whose product this is. */}
+        <CoditusLockup markSize={22} className="hidden sm:inline-flex" />
+        <CoditusMark size={22} className="sm:hidden" />
 
-        <div className="ml-auto flex min-w-0 items-center gap-3">
-          <span className="hidden min-w-0 truncate text-[13.5px] text-[var(--ink-muted)] sm:inline">
+        <ClientNav waiting={waiting} />
+
+        <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-3">
+          <span className="hidden min-w-0 truncate text-[13.5px] text-[var(--ink-muted)] lg:inline">
             {contact.full_name}
           </span>
 
           {/* A form, not a link: signing out is a mutation, and it must not be
               something a prefetch or a link-preview can trigger. */}
           <form action={signOut}>
+            {/* Icon-only below `sm`, and this is the second attempt.
+                Hiding the wordmark alone was not enough at 320px: the label
+                was CLIPPED rather than wrapped — no scrollbar, no scroll, just
+                a control that could not be read or reliably hit. That is the
+                same failure the topbar hit in step 7 and it is worth naming,
+                because `overflow-x` reports nothing when `overflow-x-clip` is
+                doing the hiding. The accessible name stays "Sign out" at every
+                width, and the target stays 44px. */}
             <button
               type="submit"
-              className="inline-flex h-11 min-w-11 items-center justify-center rounded-control px-3 text-[13.5px] font-medium text-[var(--ink-muted)] hover:bg-[var(--ui-hover)] hover:text-[var(--ink)]"
+              aria-label="Sign out"
+              className="inline-flex h-11 min-w-11 items-center justify-center gap-2 whitespace-nowrap rounded-control px-3 text-[13.5px] font-medium text-[var(--ink-muted)] hover:bg-[var(--ui-hover)] hover:text-[var(--ink)]"
             >
-              Sign out
+              <LogOut size={16} strokeWidth={2} aria-hidden className="sm:hidden" />
+              <span className="hidden sm:inline">Sign out</span>
             </button>
           </form>
         </div>
