@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { ItemDetailBody } from "@/components/app/item-detail";
+import { getWorkItemRevisions } from "@/lib/data/revisions";
 import { Mono } from "@/components/coditu/mono";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Reveal } from "@/components/motion/reveal";
@@ -55,6 +56,8 @@ export default async function ItemPage({
   const project = await getProjectBySlug(slug);
   const sprints = project ? await listSprintsForProject(project.id) : [];
 
+  const revisions = await getWorkItemRevisions(item.id);
+
   return (
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
       <Reveal tier="section" as="header" className="flex flex-wrap items-center gap-3">
@@ -92,6 +95,7 @@ export default async function ItemPage({
             status: sprint.status,
           }))}
           people={people}
+          revisions={revisions}
           maxImageBatch={settings.maxImageBatch}
           me={{
             id: profile.id,

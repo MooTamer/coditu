@@ -2059,6 +2059,58 @@ the assertion that the file ran to the end. In `07-FIELD-NOTES.md`.
 72.7/110** · 74 e2e across composer, comments, item detail, inline edit and the
 new spec.
 
+## W4c — the history panel, and a diff that does not ship to the browser
+
+Version history on a story: the timeline, a line diff per entry, and a restore.
+One timeline per story rather than one per column, because the design's own list
+reads *"v4 added the code block, v3 rewrote the highlight, v2 added criteria 4
+and 5"* — a version is something that happened to the **story**, and asking a
+reader to pick a column first asks them to already know the answer.
+
+Reading is per story; **restoring stays per surface**. "Restore the story to the
+19th" would have to decide what to do about the four documents that did not
+change that day, and every answer surprises somebody.
+
+### The client cost is one button
+
+The diffs are computed on the server and arrive as markup; expanding is a
+`<details>` element, which is keyboard-operable and announced without anybody
+writing `aria-expanded`. `lib/diff.ts` never reaches the browser. `budgets`
+unchanged at **72.7 KB**, for a panel with a diff viewer in it — the W3d lesson
+applied before it cost anything rather than after.
+
+Fifty lines rather than `jsdiff`, and it diffs the flattened `plain_text` rather
+than two ProseMirror trees. A block-tree diff has to decide whether a paragraph
+that moved and gained a word is a move plus an edit or a delete plus an insert,
+and every answer is wrong for some document. The consequence is stated rather
+than hidden: a formatting-only change shows **"formatting only"** instead of an
+empty box that reads like a bug.
+
+### Two things the screenshot caught that the tests could not
+
+A null actor rendered as **"the importer"**. It is also the seed, a migration,
+and a fix applied by hand in the SQL editor — three of the four cases, named
+wrongly with total confidence. It reads "written outside the app" now.
+
+And the diff needed `+` and `−` marks, not two hues.
+`01-DESIGN-SYSTEM.md` forbids colour as the sole carrier of meaning, and a diff
+is the clearest case there is.
+
+### The spec inherited its own history
+
+`e2e/version-history.spec.ts` asserted `toHaveLength(3)` and got 8 — the earlier
+tests' revisions, because the table is append-only and cleanup was in
+`afterAll`. Reset moved to `beforeEach`. Exactly the trap `revisions.sql` was
+built to avoid, met a second time in a different file on the same afternoon.
+
+A sixth test was written and deleted: it asserted
+`refused === null || refused === 404`, which cannot fail. `revisions.sql` already
+calls the RPC as an engineer and asserts `42501` with the column guard's own
+message.
+
+`db:test` **326** · `test` **264** (12 new diff tests) · 5 e2e incl. axe with a
+version expanded · `budgets` **OK 72.7/110**.
+
 ## W3d — the story's own words, and two imports that cost 60KB each
 
 `work_items.description` and `highlight` are block documents, edited with the

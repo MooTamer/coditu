@@ -206,6 +206,31 @@ determinate bar over it. On failure the placeholder is removed entirely and the 
 loud; the composer refuses to send while one is in flight rather than storing a `blob:` URL that dies
 with the tab. The author can edit the alt text from the toolbar; the filename is the default.
 
+### Version history
+
+Below Activity, and the pairing is the point: `activity` says a property changed, this says what the
+writing used to be, and reading them in that order is how somebody reconstructs a day.
+
+**One timeline per story**, not per column — every version of the description, the highlight, each
+criterion and each comment, newest first, labelled `Description · v4`. Each entry names who wrote it
+(or *written outside the app*, for the seed, the importer, a migration, or a hand-applied fix), when,
+in `Africa/Cairo`, and what changed: `2 lines added, 1 line removed`, or `formatting only` when the
+flattened text is untouched, or `restored from v2`.
+
+Expanding an entry shows a line diff against the previous version. **Added and removed are marked
+with `+` and `−` as well as by hue** — a diff carried by colour alone is unreadable to a good part of
+the team, and `01-DESIGN-SYSTEM.md` forbids it. Long unchanged stretches collapse with two lines of
+context and the panel says how many it hid; an elision nobody is told about is indistinguishable from
+a diff that missed something.
+
+**Restore adds a version.** The control says so before it acts — *"a restore never overwrites history
+— it writes a new current version, and records the restore itself"* — because "restore" implies a
+rewind to most people. It is offered only where the reader could edit the document by hand; the
+database refuses the rest, and it is the database that decides.
+
+Expansion is a `<details>` element and the diffs are server-rendered, so the only client JavaScript on
+this panel is the restore button.
+
 ## Components
 
 Two screens, both under the project rather than the sprint, because a component

@@ -17,8 +17,10 @@ import { ComponentTag } from "@/components/coditu/component-icon";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
 import { ThreadRealtime } from "@/components/app/realtime.client";
+import { RevisionHistory } from "@/components/app/revision-history";
 import { calendarDate, hours, timestamp } from "@/lib/format";
 import type { ProfileRef } from "@/lib/data/profiles";
+import type { RevisionEntry } from "@/lib/data/revisions";
 import type { WorkItemDetail } from "@/lib/data/work-item";
 import { groupingHue, TYPE_LABEL } from "@/lib/work-items";
 
@@ -40,6 +42,7 @@ export function ItemDetailBody({
   people,
   me,
   maxImageBatch,
+  revisions,
 }: {
   item: WorkItemDetail;
   today: string;
@@ -54,6 +57,14 @@ export function ItemDetailBody({
   sprints: MoveTarget[];
   /** Active profiles, for the mention list. */
   people: ProfileRef[];
+  /**
+   * Every version of every document on this story, newest first.
+   *
+   * Empty on a database that has not had the revisions migration yet — the read
+   * answers `[]` rather than throwing, because migrations reach production by
+   * hand and a story page that 500s is worse than one with no history panel.
+   */
+  revisions: RevisionEntry[];
   /**
    * The signed-in reader. Their own optimistic comment and time entry carry
    * their name and initials, so what appears the instant they act is what the
@@ -281,6 +292,18 @@ export function ItemDetailBody({
             ) : null}
           </ul>
         </section>
+
+        {/* Below Activity rather than beside it: `activity` says a property
+            changed, this says what the writing used to be, and reading them in
+            that order is how somebody reconstructs a day. */}
+        <RevisionHistory
+          entries={revisions}
+          itemId={item.id}
+          itemKey={item.key}
+          projectSlug={item.project.slug}
+          sprintNumber={item.sprint.number}
+          canRestore={canManage}
+        />
       </div>
 
       <div className="flex min-w-0 flex-col gap-5 border-l border-[var(--hairline)] bg-[var(--raised)] p-6">

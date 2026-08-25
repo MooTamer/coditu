@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { ItemDetailBody } from "@/components/app/item-detail";
+import { getWorkItemRevisions } from "@/lib/data/revisions";
 import { ItemModal } from "@/components/app/item-modal.client";
 import { todayInCairo } from "@/lib/data/sprint";
 import { listActiveProfiles } from "@/lib/data/profiles";
@@ -39,6 +40,8 @@ export default async function InterceptedItemPage({
   const project = await getProjectBySlug(slug);
   const sprints = project ? await listSprintsForProject(project.id) : [];
 
+  const revisions = await getWorkItemRevisions(item.id);
+
   return (
     <ItemModal itemKey={item.key}>
       <ItemDetailBody
@@ -54,6 +57,7 @@ export default async function InterceptedItemPage({
             status: sprint.status,
           }))}
           people={people}
+          revisions={revisions}
           maxImageBatch={settings.maxImageBatch}
           me={{
             id: profile.id,

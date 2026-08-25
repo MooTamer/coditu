@@ -3026,3 +3026,30 @@ brief:* the state machine in §7 and the rule that a draft is never cleared on f
 
 Revisit this if a future write needs idempotency across more than one statement, or needs to replay a
 non-trivial result. Neither is true of anything shipped.
+
+## Version history is one timeline per story, and a diff of the flattened text
+
+**Decided 2026-08-25, W4c.**
+
+The design's version list reads *"v4 added the code block, v3 rewrote the highlight, v2 added
+criteria 4 and 5, v1 created from the Notion import"* — so a version is something that happened **to
+the story**, not to `work_items.description`. Somebody asking what changed on the 19th does not know
+which column held it, and making them pick a column first asks them to already know the answer.
+`document_revisions.work_item_id` is written by the capture trigger for exactly this, so the timeline
+is one indexed read rather than a five-way union.
+
+**Reading is per story; restoring stays per surface.** "Restore the story to the 19th" would have to
+decide what to do about the four documents that did not change that day, and every answer surprises
+somebody. Each entry restores its own document — the operation the database offers, and the only one
+with an unambiguous meaning.
+
+**The diff is over `plain_text`, not the two documents.** A block-tree diff has to decide whether a
+paragraph that moved and gained a word is a move plus an edit or a delete plus an insert, and every
+answer is wrong for some document. The consequence is stated rather than hidden: a change that only
+alters formatting produces no diff lines, and the entry says "formatting only" instead of rendering
+an empty box that reads like a bug. The version is real either way — the trigger compares the
+document, not the text.
+
+*Rejected:* installing `jsdiff` — fifty lines here, against a shell budget that took all of W1 to get
+under. *Rejected:* word-level diffing inside a changed line — a real improvement nobody has asked for,
+and adding it later changes nothing outside `lib/diff.ts`.
