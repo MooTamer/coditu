@@ -2592,3 +2592,57 @@ elsewhere. Asserting a failure mode Postgres does not have would have been a tes
 wrong reason. It now asserts that the stored capabilities did not move, checked from the owner's
 session, which is the stronger claim anyway. The INSERT case genuinely does raise, because a
 `with check` violation is an error rather than a filter, and it is still asserted that way.
+
+---
+
+## 2026-08-25 · The client read boundary is four functions, because RLS filters rows and not columns
+
+**Decision.** Client-facing reads go through `client_projects()`, `client_components()`,
+`client_component_work()` and `client_current_sprint()`. The base tables stay closed to clients
+entirely.
+
+**Why not a policy on `work_items`.** RLS filters ROWS. `work_items` carries `description`,
+`highlight`, `assignee_id`, `reviewer_id`, `minutes_logged`, `grouping` and `key` in the same row as
+the title. A policy permissive enough to show a client the title shows her every one of those, and
+the only way back is a narrow `select` list that somebody has to remember on every query — a rule,
+not a boundary. `highlight` in particular is the discuss-before-implementing note: written by
+engineers, for engineers, about what is uncertain.
+
+**No `select *`, ever, in any of them.** `select *` is how a column added next year becomes a leak
+nobody wrote. Every column is named.
+
+**Aggregates are computed inside the function, over client-visible rows only.** The failure this
+prevents is the one a filter-at-the-render-edge design produces: the hidden row is gone from the list
+and still counted in the total beside it. A client reading "3 pieces of work" against a list of one
+has been told the other two exist. There is a pgTAP assertion whose whole job is that number.
+
+**Hours are null, not zero, without `view_effort`.** Zero is a lie the UI would render as a fact. An
+absent column would give the row two shapes and force every caller to know which one it got. Null
+means "not shown", and the type stays one thing.
+
+**Progress is items, not hours.** Sprint progress is published-items-done over published-items-total.
+A percentage derived from hours would hand `view_effort` to anybody who can see a progress bar, which
+is precisely the capability that was deliberately left out of both presets.
+
+**Status is humanised in SQL.** The `case w.status when 'in_qa' then 'In QA'` lives in the function,
+so the enum value never crosses the wire. `STATUS_LABEL_CLIENT` in `lib/work-items.ts` says the same
+words for the PDF; the duplication is deliberate and small, and the alternative — shipping the raw
+enum and mapping it in the browser — puts `in_peer_review` in a payload a client can read.
+
+**A supplied project id is a request, not a claim.** The functions take `p_project_id` and re-derive
+whether this session may read it. Another company's id returns an **empty set**, not an error:
+distinguishing "not yours" from "does not exist" is a way to enumerate what exists.
+
+**Publication is a column, not a convention**, and it is curated at the component and reused at the
+item. Requiring a hand-written summary for every work item is fourteen pieces of writing a sprint,
+and a feature that costs that much on a four-person team stops being used in week three — an unused
+publication model publishes nothing, which is safe and useless. Reusing internal text wholesale is
+cheap and wrong. So a component pays the cost once, enforced by a check constraint rather than by the
+form, and an item falls back to its own title.
+
+**One test taught the harness something.** The assertion "an engineer cannot publish their own item"
+passed against a guard that never fired: pgTAP runs the file in one transaction, `now()` is the
+transaction timestamp, and the engineer's `client_published_at = now()` wrote the identical value the
+lead had written a statement earlier — so `is distinct from` was false and the guard correctly did
+nothing. It asserts unpublishing now, which is both genuinely distinct and the sharper attack: it is
+how a late piece of work disappears from a report a client is already reading.

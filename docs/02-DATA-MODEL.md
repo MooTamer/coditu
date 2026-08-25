@@ -293,6 +293,71 @@ The capability vocabulary is `client_capability`, mirrored by `lib/client-access
 can carry anything, and a client who can open threads turns the portal into a support inbox nobody
 agreed to staff.
 
+### Publication — what a client has been shown on purpose
+
+`components.client_summary text`, `components.published_at timestamptz`.
+`work_items.client_published_at timestamptz`, `work_items.client_title text`,
+`work_items.client_summary text`.
+
+Granting a project does **not** make its contents client-visible. Being inside a project a client can
+reach is not the same as having been shown to them deliberately, and the difference is a column
+rather than a convention — a convention is a thing somebody forgets on the Friday of a release.
+
+**Curated at the component, reused at the item.** A component needs a written `client_summary` before
+it can be published; `components_published_needs_summary` is a **check constraint**, not form
+validation, because a Server Action, a psql session and a future importer all reach this table and
+only one of them has the form. A work item defaults to its own `title`, with `client_title` as an
+optional rewrite. Requiring a hand-written summary per item would be fourteen pieces of writing per
+sprint and the feature would stop being used in week three; reusing internal text wholesale is cheap
+and wrong, because titles are written by engineers for engineers.
+
+**`description` and `highlight` are exposed by nothing, ever.** `highlight` is the
+discuss-before-implementing note — the single most internal sentence on a work item, sitting in a
+column immediately next to the ones above.
+
+All three work-item columns are **named in `guard_work_item_columns`** in the same migration that
+creates them. That guard is an allowlist written as a denylist, so a new column is writable by any
+assignee until it is named; `component_id`, `body_json` and `deleted_at` each had to be retrofitted
+after the fact. Naming them at creation is the only moment it is free.
+`guard_component_publication` is the same rule for the two component columns — `components` had no
+column guard at all before, because until now every column on it was equally internal.
+
+### The client read boundary — `client_*` functions
+
+**RLS filters rows, not columns.** `work_items` carries `description`, `highlight`, `assignee_id`,
+`minutes_logged` and `key` in the same row as the title, so no policy on that table can be a client's
+read path: one permissive enough to show her the title shows her all of it. The base tables therefore
+stay closed to clients — asserted, zero rows from every one — and the **entire** client-facing
+surface of this database is four functions:
+
+| Function | Returns |
+|---|---|
+| `client_projects()` | granted, unarchived projects: id, name, slug, client name, accent. Not `scope`, not `key_prefix`. |
+| `client_components(project_id)` | published components, their curated summary, and counts over published work only |
+| `client_component_work(project_id, component_id)` | published items: `client_title` or `title`, summary, **humanised status**, deadline |
+| `client_current_sprint(project_id)` | the active sprint's name, goal, window and progress. Never `notes` — those are written to the team. |
+
+Each is `security definer` with `search_path = ''`, checks `client_has_capability()` **inside its own
+body**, and is revoked from `public` and `anon` — a definer function in `public` is granted EXECUTE
+to PUBLIC by default. **There is no `select *` in any of them and there must never be**: `select *`
+is how a column added next year becomes a leak nobody wrote.
+
+`p_project_id` is caller-supplied and that is safe, for one reason: the function re-derives whether
+*this session* may read *that project*. A supplied id is a request, not a claim. Another company's id
+returns an empty set rather than an error, because an error distinguishing "not yours" from "does not
+exist" is a way to enumerate what exists.
+
+**Aggregates are computed inside the function, over client-visible rows only**, in the same query
+that returns the list. That is the difference between "the hidden row is filtered out of the list"
+and "the hidden row does not exist" — a client reading *3 pieces of work* beside a list of one has
+been told the other two are there. There is an assertion for exactly this.
+
+**Hours come back NULL without `view_effort`**, not `0` and not an absent column. Zero is a lie the
+UI renders as a fact; an absent column gives the row two shapes and makes every caller know which one
+it got. The status is humanised **in SQL**, so the enum value never crosses the wire at all. Sprint
+progress is published-items-done over published-items-total, never hours over estimate — a percentage
+derived from hours would hand `view_effort` to anyone who can see a progress bar.
+
 ### `time_entries`
 `id`, `work_item_id fk`, `profile_id fk`,
 `minutes int not null check (minutes > 0 and minutes <= 1440)`,

@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(184);
+select plan(211);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -1679,6 +1679,246 @@ select throws_ok(
 );
 select is(public.client_has_capability('40000000-0000-0000-0000-000000000001', 'view_project'), false,
   'negative: and an internal account has no client capabilities — it reads through its own policies, not these'
+);
+
+select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- Publication.
+--
+-- A granted project does NOT mean everything in it is client-visible. Being
+-- inside a project a client can reach is not the same as having been shown to
+-- them on purpose, and the difference is a column rather than a convention.
+--
+-- Curated at the component, reused at the item: a component needs a written
+-- client summary before it can be published, and a work item defaults to its
+-- own title with an optional rewrite. `description` and `highlight` are never
+-- exposed by anything — `highlight` in particular is the
+-- discuss-before-implementing note, written by engineers for engineers.
+-- ---------------------------------------------------------------------------
+
+select has_column('public', 'components',  'client_summary',      'a component carries the summary written for the client');
+select has_column('public', 'components',  'published_at',        'and the moment it was deliberately shown to them');
+select has_column('public', 'work_items',  'client_published_at', 'a work item is published on purpose, not by belonging to a project');
+select has_column('public', 'work_items',  'client_title',        'with an optional client-safe rewrite of its title');
+select has_column('public', 'work_items',  'client_summary',      'and an optional summary — never the internal description');
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+
+insert into public.components (id, project_id, name, slug, kind) values
+  ('e0000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', 'Publishable part', 'publishable-part', 'spfx');
+
+select throws_ok(
+  $$update public.components set published_at = now()
+     where id = 'e0000000-0000-0000-0000-000000000001'$$,
+  '23514',
+  null,
+  'negative: a component cannot be published without a summary written for the client'
+);
+
+select throws_ok(
+  $$update public.components set published_at = now(), client_summary = '   '
+     where id = 'e0000000-0000-0000-0000-000000000001'$$,
+  '23514',
+  null,
+  'negative: and whitespace is not a summary'
+);
+
+select lives_ok(
+  $$update public.components
+       set client_summary = 'The part of the intranet that lists news.', published_at = now()
+     where id = 'e0000000-0000-0000-0000-000000000001'$$,
+  'positive: with a real summary, a lead may publish it'
+);
+
+select lives_ok(
+  $$update public.work_items set client_published_at = now()
+     where id = '60000000-0000-0000-0000-000000000001'$$,
+  'positive: a lead may publish a work item, which needs no summary of its own'
+);
+
+-- The column guard is an allowlist written as a denylist, so each of these
+-- three is writable by an assignee until it is NAMED. `component_id`,
+-- `body_json` and `deleted_at` each had to be added after the fact; these are
+-- being added at the same time as the columns, which is the only moment it is
+-- cheap.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+
+-- Unpublishing, not publishing, and the reason is a property of the test
+-- harness worth writing down: pgTAP runs inside one transaction, and `now()` is
+-- the TRANSACTION timestamp. An engineer setting `client_published_at = now()`
+-- one statement after the lead did writes the identical value, `is distinct
+-- from` is false, and the guard correctly does not fire — so the assertion
+-- would have passed only by never reaching the code it was written to test.
+--
+-- Hiding an item from the client is the sharper attack anyway: it is how a late
+-- piece of work disappears from a report the client is reading.
+select throws_ok(
+  $$update public.work_items set client_published_at = null
+     where id = '60000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: an engineer cannot decide whether a client sees their item'
+);
+select throws_ok(
+  $$update public.work_items set client_title = 'Something friendlier'
+     where id = '60000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: nor rewrite what the client would read'
+);
+select throws_ok(
+  $$update public.work_items set client_summary = 'Anything at all'
+     where id = '60000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: nor write the summary'
+);
+
+-- And the thing an engineer IS still allowed to do, so the guard has not been
+-- tightened past what the team agreed.
+select lives_ok(
+  $$update public.work_items set status = 'in_qa'
+     where id = '60000000-0000-0000-0000-000000000001'$$,
+  'positive: an engineer still moves the status of an item they are assigned'
+);
+
+select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- The client read boundary.
+--
+-- RLS filters ROWS, not COLUMNS. `work_items` carries `description`,
+-- `highlight`, `assignee_id`, `minutes_logged` and `key` in the same row as the
+-- title, so no policy on that table can be the client's read path — a policy
+-- that let her see the row would let her see all of it.
+--
+-- So the base tables stay closed (proved earlier: a client reads zero rows from
+-- every one of them) and the client's reads go through `security definer`
+-- functions that SELECT only client-safe columns and check the capability
+-- inside their own body. That is the `allowlist_claimed()` pattern, and these
+-- functions are the entire client-facing surface of the database.
+--
+-- The assertions below are therefore the ones that matter most in this file.
+-- ---------------------------------------------------------------------------
+
+-- Fixture: one published component with one published item, and one of each
+-- left unpublished — so "hidden things do not leak" has something to leak.
+--
+-- The publication section above published `Publishable part` into this same
+-- project, and pgTAP runs the whole file in ONE transaction, so it is still
+-- there. Unpublished here rather than worked around, because the counts below
+-- are the assertions — a test that says "1" while meaning "1 of the 2 I know
+-- about" is a test that stops being readable the moment somebody adds a third.
+update public.components set published_at = null
+ where id = 'e0000000-0000-0000-0000-000000000001';
+
+insert into public.components (id, project_id, name, slug, kind, client_summary, published_at) values
+  ('e0000000-0000-0000-0000-000000000010', '40000000-0000-0000-0000-000000000001',
+   'News Web Part', 'news-web-part', 'spfx', 'Where the intranet lists news.', now()),
+  ('e0000000-0000-0000-0000-000000000011', '40000000-0000-0000-0000-000000000001',
+   'Secret Spike', 'secret-spike', 'react', null, null);
+
+update public.work_items
+   set component_id = 'e0000000-0000-0000-0000-000000000010',
+       client_published_at = now()
+ where id = '60000000-0000-0000-0000-000000000001';
+
+update public.work_items
+   set component_id = 'e0000000-0000-0000-0000-000000000010'
+ where id = '60000000-0000-0000-0000-000000000002';
+
+select has_function('public', 'client_projects',   'the projects a contact may see');
+select has_function('public', 'client_components', 'the published components of one of them');
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+
+select is(
+  (select count(*) from public.client_projects())::int, 1,
+  'positive: a contact sees the one project she was granted'
+);
+select is(
+  (select slug from public.client_projects()), 'rls-meinevim',
+  'and it is the right one'
+);
+
+select is(
+  (select count(*) from public.client_components('40000000-0000-0000-0000-000000000001'))::int, 1,
+  'positive: only the PUBLISHED component — the unpublished one is not in the list'
+);
+select is(
+  (select name from public.client_components('40000000-0000-0000-0000-000000000001')), 'News Web Part',
+  'and it is the published one, by name'
+);
+
+-- The leak that a filter-at-the-render-edge design produces: the hidden row is
+-- gone from the list and still counted in the total beside it. A client who can
+-- read "3 pieces of work" against a list of one has been told the other two
+-- exist.
+select is(
+  (select item_count from public.client_components('40000000-0000-0000-0000-000000000001'))::int, 1,
+  'negative: the item count counts only PUBLISHED work — an unpublished item does not raise the total'
+);
+
+-- Cross-company and cross-project, from a real session rather than in theory.
+select is_empty(
+  $$select 1 from public.client_components('40000000-0000-0000-0000-000000000002')$$,
+  'negative: asking for another company''s project by id returns nothing, not an error that confirms it exists'
+);
+
+-- The capability, not merely the grant. Cara has view_components; she does not
+-- have view_effort, and the effort column must be null rather than absent —
+-- absent would mean two shapes of row and a caller that has to know which.
+select is(
+  (select minutes_logged from public.client_components('40000000-0000-0000-0000-000000000001')), null,
+  'negative: without view_effort the hours come back null, not zero and not a number'
+);
+
+select pg_temp.act_as_owner();
+update public.client_project_grants
+   set capabilities = capabilities || '{view_effort}'::public.client_capability[]
+ where contact_profile_id = '66666666-6666-6666-6666-666666666666';
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+select isnt(
+  (select minutes_logged from public.client_components('40000000-0000-0000-0000-000000000001')), null,
+  'positive: granted view_effort, the same call now carries the aggregate'
+);
+
+-- Revocation, through the RPC rather than through the helper.
+select pg_temp.act_as_owner();
+update public.client_contacts set status = 'revoked'
+ where profile_id = '66666666-6666-6666-6666-666666666666';
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+select is_empty($$select 1 from public.client_projects()$$,
+  'negative: a revoked contact''s next call returns nothing — the session she already had is not a way back in');
+
+select pg_temp.act_as_owner();
+update public.client_contacts set status = 'active'
+ where profile_id = '66666666-6666-6666-6666-666666666666';
+
+-- Dana, whose company owns neither of those components.
+select pg_temp.act_as('77777777-7777-7777-7777-777777777777');
+select is_empty(
+  $$select 1 from public.client_components('40000000-0000-0000-0000-000000000001')$$,
+  'negative: the other contact gets nothing from the first company''s project'
+);
+
+-- An internal account calling the client RPCs. Not an attack — a mistake, of
+-- the kind that happens when somebody reuses a loader on the wrong page. It
+-- must return nothing rather than quietly work, or an internal screen could
+-- start rendering the client projection and nobody would notice.
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+select is_empty($$select 1 from public.client_projects()$$,
+  'negative: an admin gets nothing from the client RPCs — they answer for client sessions only');
+
+select pg_temp.act_as_anon();
+select throws_ok(
+  $$select 1 from public.client_projects()$$,
+  '42501',
+  null,
+  'negative: and anonymous is refused by the grant, one layer below the function'
 );
 
 select pg_temp.act_as_owner();

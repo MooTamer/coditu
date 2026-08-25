@@ -629,6 +629,7 @@ export type Database = {
       }
       components: {
         Row: {
+          client_summary: string | null
           created_at: string
           icon: string | null
           id: string
@@ -636,10 +637,12 @@ export type Database = {
           kind: Database["public"]["Enums"]["component_kind"]
           name: string
           project_id: string
+          published_at: string | null
           slug: string
           updated_at: string
         }
         Insert: {
+          client_summary?: string | null
           created_at?: string
           icon?: string | null
           id?: string
@@ -647,10 +650,12 @@ export type Database = {
           kind: Database["public"]["Enums"]["component_kind"]
           name: string
           project_id: string
+          published_at?: string | null
           slug: string
           updated_at?: string
         }
         Update: {
+          client_summary?: string | null
           created_at?: string
           icon?: string | null
           id?: string
@@ -658,6 +663,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["component_kind"]
           name?: string
           project_id?: string
+          published_at?: string | null
           slug?: string
           updated_at?: string
         }
@@ -1156,6 +1162,9 @@ export type Database = {
       work_items: {
         Row: {
           assignee_id: string | null
+          client_published_at: string | null
+          client_summary: string | null
+          client_title: string | null
           closed_at: string | null
           component_id: string | null
           created_at: string
@@ -1178,6 +1187,9 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
+          client_published_at?: string | null
+          client_summary?: string | null
+          client_title?: string | null
           closed_at?: string | null
           component_id?: string | null
           created_at?: string
@@ -1200,6 +1212,9 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
+          client_published_at?: string | null
+          client_summary?: string | null
+          client_title?: string | null
           closed_at?: string | null
           component_id?: string | null
           created_at?: string
@@ -1378,12 +1393,59 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      client_component_work: {
+        Args: { p_component_id: string; p_project_id: string }
+        Returns: {
+          deadline: string
+          is_done: boolean
+          published_at: string
+          status_label: string
+          summary: string
+          title: string
+          work_item_id: string
+        }[]
+      }
+      client_components: {
+        Args: { p_project_id: string }
+        Returns: {
+          component_id: string
+          done_count: number
+          item_count: number
+          last_activity: string
+          minutes_logged: number
+          name: string
+          slug: string
+          summary: string
+        }[]
+      }
+      client_current_sprint: {
+        Args: { p_project_id: string }
+        Returns: {
+          done_items: number
+          ends_on: string
+          goal: string
+          minutes_logged: number
+          name: string
+          starts_on: string
+          total_items: number
+        }[]
+      }
       client_has_capability: {
         Args: {
           p_capability: Database["public"]["Enums"]["client_capability"]
           p_project_id: string
         }
         Returns: boolean
+      }
+      client_projects: {
+        Args: never
+        Returns: {
+          accent_hex: string
+          client_name: string
+          name: string
+          project_id: string
+          slug: string
+        }[]
       }
       derive_key_prefix: {
         Args: { p_exclude?: string; p_slug: string }

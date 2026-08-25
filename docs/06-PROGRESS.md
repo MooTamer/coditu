@@ -1343,8 +1343,8 @@ overflow at any of them, and the returned HTML contains none of `COD-`, `Log tim
 verification out of git unless asked. `e2e/client-*.spec.ts` and `e2e/client-fixtures.local.ts` are
 gitignored. They run, they gate the work, and they are not committed — say the word and they go in.
 
-| C3 | **Access** — `client_contacts`, `client_invitations` (+ projects), `client_project_grants`, `guard_client_grant_company`, `client_has_capability()` | `done` | pending | `npm run db:test` — **210** assertions (was 186) |
-| C4 | **Capabilities** — `lib/client-access.ts`: the enum mirror, Observer/Collaborator/Custom, resolution, the "this reveals…" sentences | `done` | pending | `npm run test` — **237** (was 220) |
+| C3 | **Access** — `client_contacts`, `client_invitations` (+ projects), `client_project_grants`, `guard_client_grant_company`, `client_has_capability()` | `done` | `b686931` | `npm run db:test` — **210** assertions (was 186) |
+| C4 | **Capabilities** — `lib/client-access.ts`: the enum mirror, Observer/Collaborator/Custom, resolution, the "this reveals…" sentences | `done` | `b686931` | `npm run test` — **237** (was 220) |
 
 ### C3/C4 — three revocations, each sufficient on its own
 
@@ -1372,7 +1372,35 @@ uploads images against the same local database. A `db:reset` cleared both. This 
 note in `07-FIELD-NOTES.md` arriving in a new place: **`db:test` after `e2e` is not a clean run**, and
 the two failures name the seed, not the change under test.
 
+| C5 | **Publication** — `components.client_summary`/`published_at` with a check constraint, `work_items.client_published_at`/`client_title`/`client_summary`, both column guards | `done` | pending | `npm run db:test` — **223** assertions (was 210) |
+| C6 | **The read boundary** — `client_projects()`, `client_components()`, `client_component_work()`, `client_current_sprint()` | `done` | pending | `npm run db:test` — **237** assertions (was 223) |
+
+### C5/C6 — the two assertions worth reading
+
+**The aggregate leak.** A design that filters hidden rows at the render edge produces a specific
+failure: the row is gone from the list and still counted in the total beside it. A client reading
+*3 pieces of work* against a list of one has been told the other two are there. Every count and sum
+is computed inside the RPC, over published rows only, in the same query that returns the list — and
+there is an assertion whose entire job is that number.
+
+**Hours are null, not zero.** Without `view_effort` the effort column comes back NULL rather than 0
+or absent. Zero is a lie the UI renders as a fact; an absent column gives the row two shapes and
+makes every caller know which one it got. Asserted both ways: null without the capability, non-null
+one statement after it is granted, same call.
+
+**`now()` is the transaction timestamp, and it hid a guard.** The assertion "an engineer cannot
+publish their own item" passed against a guard that never fired. pgTAP runs the whole file in one
+transaction, so the engineer's `client_published_at = now()` wrote the byte-identical value the lead
+had written a statement earlier; `is distinct from` was false and the guard correctly did nothing.
+It asserts **unpublishing** now — genuinely distinct, and the sharper attack anyway, since it is how
+a late piece of work disappears from a report a client is already reading.
+
+**Fixture bleed, in the same transaction.** `client_components()` returned two rows where the test
+expected one, because the publication section three hundred lines earlier had published a component
+into the same project and nothing rolls back until the end. The read-boundary section now unpublishes
+it explicitly rather than asserting "1" while meaning "1 of the 2 I happen to know about".
+
 ### Still to come in this brief
 
-C5 publication, C6 the client-safe read model, C7–C8 the portal itself, C9 questions, C10 the
-internal access manager, C11 attachments, C12 notifications.
+C7–C8 the portal itself, C9 questions, C10 the internal access manager, C11 attachments,
+C12 notifications.
