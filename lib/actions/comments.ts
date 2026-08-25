@@ -9,6 +9,7 @@ import { documentSchema } from "@/lib/blocks/validate";
 import { mentionPayload } from "@/lib/push/payload";
 import { notifyMentioned } from "@/lib/push/notify";
 import type { Json } from "@/lib/supabase/database.types";
+import { isDuplicateRetry } from "@/lib/supabase/schema";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 
 /**
@@ -62,6 +63,21 @@ function revalidateItem(slug: string, sprintNumber: number, key: string) {
 const postInput = z.object({
   itemId: uuid,
   doc: documentSchema,
+  /**
+   * A retry token, stable across retries of ONE submission.
+   *
+   * The composer disables its own button while a send is in flight, so this is
+   * not about double-clicking. It is about everything under the button: the
+   * request that arrived and whose response was lost, the Server Action that
+   * rejects when the network goes away (which skips the client's rollback
+   * altogether), the second tab, and the reader who presses Send again because
+   * the first attempt appeared to do nothing. Each of those posts the same
+   * comment twice, into the record of a conversation.
+   *
+   * Optional, and old callers stay correct without it — a null key collides
+   * with nothing, because the unique index is partial.
+   */
+  idempotencyKey: z.string().min(8).max(200).optional(),
 });
 
 export async function postComment(input: unknown): Promise<CommentResult> {
@@ -93,9 +109,25 @@ export async function postComment(input: unknown): Promise<CommentResult> {
       // document satisfies it in shape but not by nominal type.
       body_json: parsed.data.doc as unknown as Json,
       body_text: bodyText,
+      idempotency_key: parsed.data.idempotencyKey ?? null,
     })
     .select("id")
     .single();
+
+  /**
+   * The same submission, arriving twice.
+   *
+   * The comment is already in the thread — written by the attempt whose
+   * response never came back — so this is a SUCCESS, and reporting an error
+   * would be a lie that makes the reader post a third time. The path stops
+   * here rather than continuing: the notification for this comment was already
+   * sent by the attempt that won, and sending it again would buzz somebody's
+   * phone twice for one remark.
+   */
+  if (isDuplicateRetry(error, "comments_idempotency_key")) {
+    revalidateItem(scope.slug, scope.sprintNumber, scope.itemKey);
+    return { ok: true };
+  }
 
   if (error || !created) {
     return { ok: false, error: "That comment did not save. Nothing was lost — try again." };

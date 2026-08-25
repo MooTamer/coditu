@@ -2000,6 +2000,65 @@ document e2e specs pass with the trigger live. `seed.sql` 16–17 failed first
 time round and were the documented e2e drift, green again after `db:reset` —
 the fourth time that has cost somebody the same ten minutes.
 
+## W4b — a submission that arrives twice happens once
+
+`comments` and `time_entries` take a nullable `idempotency_key` with a partial
+unique index scoped to the writer. The composer and the time form mint one token
+per **submission** and hold it until a send succeeds, so the retry after a
+failure carries the token of the attempt that failed. If that attempt reached
+the database and only its answer was lost, the retry collides with itself and
+the action reports success rather than writing a second time.
+
+This is not about double-clicking — both surfaces already disable their button
+while a send is in flight. It is about the layer underneath: the lost response,
+the Server Action that rejects when the network goes away (which skips the
+client's rollback entirely), the second tab, and the reader who presses Send
+again because nothing appeared to happen.
+
+### A column, not the claims table the brief specified
+
+§5.4 asked for `write_idempotency (key, profile_id, action, result)`. Three round
+trips instead of one on a composer that is explicitly tuned; a claim written
+before a write that then fails leaves "in flight" for ever, so the honest retry
+is refused until a TTL sweep runs — a new thing that can be down; and `result`
+exists to replay an answer that is `{ ok: true }` either way. A unique index has
+none of those: the key and the row are written by one statement, so either both
+exist or neither does. Recorded in `05-DECISIONS.md` with what was rejected.
+
+Unique **per writer**, not globally. The keys come from the browser, and a global
+index would let one account reserve a key that another account's later write then
+collides with — and that write would be told "already done" and silently dropped.
+
+### The test sends the real request twice
+
+`e2e/reliable-writes.spec.ts` intercepts the Server Action POST and dispatches it
+to the server a second time, byte for byte. Nothing is simulated. Proved it
+detects what it claims by removing the key from the insert: **2 comments**. With
+it: **1**.
+
+Two mistakes in that spec worth keeping:
+
+*The counter incremented only after both requests returned, and the first draft
+asserted the row count immediately.* It read green while `replayed` was still 0 —
+a count of one that meant only that the first request had landed. Every
+assertion now polls the replay first.
+
+*It expected 60 minutes.* The default step on that item is 1.5 h, so the amount
+is read off the button now. A test that hardcodes a product number fails for a
+reason unrelated to what it checks.
+
+### `supabase test db` said `Failed: 0` for a file that had errored
+
+`select like(...)` — pgTAP's LIKE assertion is `alike()`. The statement raised,
+psql aborted the transaction, the error went to stderr where pg_prove does not
+look, and the file reported **ok, Tests: 260, Failed: 0**. The only tell was
+`Bad plan. You planned 262 but ran 260`. The plan count is not bookkeeping; it is
+the assertion that the file ran to the end. In `07-FIELD-NOTES.md`.
+
+`db:test` **326** · `test` **252** · `lint`, `typecheck` clean · `budgets` **OK
+72.7/110** · 74 e2e across composer, comments, item detail, inline edit and the
+new spec.
+
 ## W3d — the story's own words, and two imports that cost 60KB each
 
 `work_items.description` and `highlight` are block documents, edited with the

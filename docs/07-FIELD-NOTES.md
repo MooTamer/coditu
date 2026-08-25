@@ -151,6 +151,37 @@ The first draft of that file did use COD-231 and passed — purely because the
 suite happens to edit a different story's description. That is luck, not a
 design.
 
+### `supabase test db` reports `Failed: 0` for a file that errored
+
+A SQL error in a pgTAP file does not fail the run in the way you expect. This:
+
+```
+supabase/tests/rls.sql ... ok      <- it says ok
+Tests: 260 Failed: 0               <- and no failures
+Parse errors: Bad plan.  You planned 262 tests but ran 260.
+```
+
+was `select like(...)` — pgTAP's LIKE assertion is **`alike()`**; `like()` does
+not exist. The statement raised, psql aborted the rest of the transaction, and
+the error went to stderr where pg_prove does not read it. Every assertion that
+had already run still emitted its `ok` line, so the counts look healthy.
+
+**The plan count is the only thing that catches it.** `select plan(N)` at the top
+of each file is not bookkeeping — it is the assertion that the file ran to the
+end. Never adjust the number to match what ran; find out why the missing ones
+did not.
+
+The tell is `Bad plan` or `Non-zero exit status: 3` next to `Failed: 0`. When you
+see it, run the file straight through psql to get the real error:
+
+```bash
+docker exec -i supabase_db_coditu psql -U postgres -d postgres -f - < supabase/tests/rls.sql
+```
+
+(pgtap lives in `extensions` and each test file creates it, so running a snippet
+in a bare psql session gets `function plan(integer) does not exist` — that is the
+session, not the database.)
+
 ### A loaded machine fails the suite as timeouts
 The suite is ~6 minutes at 12 workers on an idle machine. Under load (a browser, a VM, another build)
 the same run takes 30+ and fails 20 tests, all of them `Test timeout of 30000ms exceeded` — including

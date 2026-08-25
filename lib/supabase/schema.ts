@@ -36,3 +36,30 @@ export const UNKNOWN_COLUMN_IN_CACHE = "PGRST204";
 export function isMissingColumn(code: string | undefined): boolean {
   return code === UNDEFINED_COLUMN || code === UNKNOWN_COLUMN_IN_CACHE;
 }
+
+/* -------------------------------------------------------------------------- */
+
+/** Postgres `unique_violation`. */
+export const UNIQUE_VIOLATION = "23505";
+
+/**
+ * Was this write refused because the row is already there under the same
+ * retry token?
+ *
+ * A bare `code === "23505"` is not good enough. Every table here has other
+ * unique constraints — a work item key, a project slug, a sprint number — and
+ * treating any of them as "you already did this, carry on" would report success
+ * for a write that genuinely failed. So the index name has to match too.
+ *
+ * PostgREST puts the constraint name in `details` (`Key (author_id,
+ * idempotency_key)=(…) already exists.`) and in `message`; both are checked
+ * because which one carries it has moved between versions, and being wrong here
+ * fails in the silent direction.
+ */
+export function isDuplicateRetry(
+  error: { code?: string; message?: string; details?: string } | null,
+  indexName: string
+): boolean {
+  if (!error || error.code !== UNIQUE_VIOLATION) return false;
+  return (error.message ?? "").includes(indexName) || (error.details ?? "").includes(indexName);
+}

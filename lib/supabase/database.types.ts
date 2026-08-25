@@ -755,6 +755,7 @@ export type Database = {
           deleted_at: string | null
           edited_at: string | null
           id: string
+          idempotency_key: string | null
           work_item_id: string
         }
         Insert: {
@@ -766,6 +767,7 @@ export type Database = {
           deleted_at?: string | null
           edited_at?: string | null
           id?: string
+          idempotency_key?: string | null
           work_item_id: string
         }
         Update: {
@@ -777,6 +779,7 @@ export type Database = {
           deleted_at?: string | null
           edited_at?: string | null
           id?: string
+          idempotency_key?: string | null
           work_item_id?: string
         }
         Relationships: [
@@ -849,6 +852,101 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_revisions: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          doc: Json | null
+          doc_version: number
+          entity_id: string
+          id: string
+          plain_text: string | null
+          restored_from: number | null
+          revision_no: number
+          sprint_id: string | null
+          surface: Database["public"]["Enums"]["revision_surface"]
+          work_item_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          doc?: Json | null
+          doc_version?: number
+          entity_id: string
+          id?: string
+          plain_text?: string | null
+          restored_from?: number | null
+          revision_no: number
+          sprint_id?: string | null
+          surface: Database["public"]["Enums"]["revision_surface"]
+          work_item_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          doc?: Json | null
+          doc_version?: number
+          entity_id?: string
+          id?: string
+          plain_text?: string | null
+          restored_from?: number | null
+          revision_no?: number
+          sprint_id?: string | null
+          surface?: Database["public"]["Enums"]["revision_surface"]
+          work_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_revisions_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_revisions_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "document_revisions_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "sprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_revisions_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["sprint_id"]
+          },
+          {
+            foreignKeyName: "document_revisions_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_sprint_minutes"
+            referencedColumns: ["sprint_id"]
+          },
+          {
+            foreignKeyName: "document_revisions_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "v_sprint_summary"
+            referencedColumns: ["sprint_id"]
+          },
+          {
+            foreignKeyName: "document_revisions_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
             referencedColumns: ["id"]
           },
         ]
@@ -1293,6 +1391,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          idempotency_key: string | null
           minutes: number
           note: string | null
           profile_id: string
@@ -1302,6 +1401,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           minutes: number
           note?: string | null
           profile_id: string
@@ -1311,6 +1411,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           minutes?: number
           note?: string | null
           profile_id?: string
@@ -1746,6 +1847,18 @@ export type Database = {
         Args: { p_item_id: string; p_ordered_ids: string[] }
         Returns: string
       }
+      restore_document_revision: {
+        Args: {
+          p_entity_id: string
+          p_revision_no: number
+          p_surface: Database["public"]["Enums"]["revision_surface"]
+        }
+        Returns: {
+          revision_no: number
+          sprint_id: string
+          work_item_id: string
+        }[]
+      }
       rewrite_attachment_srcs: {
         Args: { depth?: number; doc: Json }
         Returns: Json
@@ -1778,6 +1891,12 @@ export type Database = {
       client_contact_status: "invited" | "active" | "revoked"
       client_thread_state: "waiting_client" | "waiting_coditu" | "resolved"
       component_kind: "react" | "spfx"
+      revision_surface:
+        | "work_item_description"
+        | "work_item_highlight"
+        | "sprint_notes"
+        | "acceptance_criterion"
+        | "comment"
       sprint_status: "planned" | "active" | "closed"
       work_item_status:
         | "draft"
@@ -1934,6 +2053,13 @@ export const Constants = {
       client_contact_status: ["invited", "active", "revoked"],
       client_thread_state: ["waiting_client", "waiting_coditu", "resolved"],
       component_kind: ["react", "spfx"],
+      revision_surface: [
+        "work_item_description",
+        "work_item_highlight",
+        "sprint_notes",
+        "acceptance_criterion",
+        "comment",
+      ],
       sprint_status: ["planned", "active", "closed"],
       work_item_status: [
         "draft",

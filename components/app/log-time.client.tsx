@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useState, useTransition } from "react";
+import { useOptimistic, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2, X } from "lucide-react";
 
@@ -38,6 +38,8 @@ export function LogTime({
 }) {
   const [minutes, setMinutes] = useState(90);
   const [pending, startTransition] = useTransition();
+  // Null between submissions; a uuid from the first attempt until one succeeds.
+  const retryToken = useRef<string | null>(null);
   const toast = useToast();
   const router = useRouter();
 
@@ -74,16 +76,26 @@ export function LogTime({
 
   function submit() {
     const logged = minutes;
+    // One token per submission, held until a send succeeds, so a retry after a
+    // failure carries the token of the attempt that failed. If that attempt
+    // reached the database and only its answer was lost, the retry collides
+    // with itself rather than logging the half hour a second time. See
+    // `postComment` for the full argument.
+    retryToken.current ??= crypto.randomUUID();
+    const token = retryToken.current;
+
     startTransition(async () => {
       // Inside the transition — that is what scopes the optimistic entry to
       // this action's lifetime.
       addOptimistic(logged);
       const result = await settle(
-        () => logTime({ itemId, minutes: logged, workedOn: today }),
+        () => logTime({ itemId, minutes: logged, workedOn: today, idempotencyKey: token }),
         "That time did not save — check your connection."
       );
-      if (result.ok) router.refresh();
-      else toast(result.error ?? "That time did not save.");
+      if (result.ok) {
+        retryToken.current = null;
+        router.refresh();
+      } else toast(result.error ?? "That time did not save.");
     });
   }
 

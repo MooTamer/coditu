@@ -2998,3 +2998,31 @@ than from anything restated here.
 *The catch, recorded because it is not obvious:* RLS refuses a write by matching no rows rather than
 by raising, so the function checks `row_count` and raises `42501` itself. Without that a denied
 restore reports success.
+
+## Idempotency is a column with a unique index, not a claims table
+
+**Decided 2026-08-25, W4b.** This departs from `coditu-implementation-prompt.md` §5.4, which
+specified a general `write_idempotency (key, profile_id, action, result)` table: claim the key, do
+the write, record the result.
+
+That shape is right when the write is not a single insert. Here it is, and the table costs three
+things:
+
+**Three round trips where there is one** — claim, insert, complete — against a composer whose own
+source says it is already tuned, and that a comment appearing half a second later is a regression
+paid for by the person writing.
+
+**A state that a unique index does not have.** A claim written and a write that then fails leaves a
+row saying "in flight" for ever, so the honest retry is refused until a sweep clears it. That means a
+TTL job, which means a thing that can be down, which means a failure mode where nobody can post. The
+key and the row are written by one statement here, so either both exist or neither does.
+
+**An answer to a question nobody asked.** `result jsonb` exists to replay what the first attempt
+returned. Both writes involved return `{ ok: true }`.
+
+*Rejected:* the claims table, for the reasons above. *Rejected:* a globally unique key — see
+`02-DATA-MODEL.md`; scoping it to the writer costs nothing and removes the question. *Kept from the
+brief:* the state machine in §7 and the rule that a draft is never cleared on failure.
+
+Revisit this if a future write needs idempotency across more than one statement, or needs to replay a
+non-trivial result. Neither is true of anything shipped.

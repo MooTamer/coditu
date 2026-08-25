@@ -6,7 +6,7 @@ import { z } from "zod";
 import { DOC_VERSION, flattenToText, isEmptyDocument } from "@/lib/blocks/schema";
 import { documentSchema } from "@/lib/blocks/validate";
 import type { Json, TablesUpdate } from "@/lib/supabase/database.types";
-import { isMissingColumn } from "@/lib/supabase/schema";
+import { isDuplicateRetry, isMissingColumn } from "@/lib/supabase/schema";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { WORK_ITEM_STATUSES, WORK_ITEM_TYPES } from "@/lib/work-items";
 
@@ -442,6 +442,14 @@ const logTimeInput = z.object({
   minutes: z.number().int().positive().max(1440),
   workedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "That is not a calendar date."),
   note: z.string().max(500).optional(),
+  /**
+   * A retry token, stable across retries of one submission. See `postComment`
+   * for the argument; the consequence here is arithmetic rather than social.
+   * Two identical entries are indistinguishable from somebody genuinely
+   * logging the same half hour twice, so nothing downstream can undo it, and
+   * `minutes_logged` is a trigger-maintained rollup that a client sees.
+   */
+  idempotencyKey: z.string().min(8).max(200).optional(),
 });
 
 export async function logTime(input: unknown): Promise<ActionResult> {
@@ -461,7 +469,15 @@ export async function logTime(input: unknown): Promise<ActionResult> {
     minutes: parsed.data.minutes,
     worked_on: parsed.data.workedOn,
     note: parsed.data.note ?? null,
+    idempotency_key: parsed.data.idempotencyKey ?? null,
   });
+
+  // Already logged, by the attempt whose response was lost. The hours are in
+  // the rollup; saying otherwise invites a second, real entry.
+  if (isDuplicateRetry(error, "time_entries_idempotency_key")) {
+    revalidateTimePaths(scope.slug, scope.sprintNumber, scope.itemKey);
+    return { ok: true };
+  }
 
   if (error) return { ok: false, error: "That time did not save. Nothing was lost — try again." };
 

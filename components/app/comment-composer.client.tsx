@@ -101,6 +101,8 @@ export function CommentComposer({
   const [reportedEmpty, setReportedEmpty] = useState<boolean | null>(null);
   const [draftVersion, setDraftVersion] = useState(0);
   const [pending, startTransition] = useTransition();
+  // Null between submissions; a uuid from the first attempt until one succeeds.
+  const retryToken = useRef<string | null>(null);
   const toast = useToast();
   const router = useRouter();
   const docRef = useRef<unknown>(EMPTY_DOC);
@@ -192,6 +194,22 @@ export function CommentComposer({
     // exactly that.
     clear();
 
+    /**
+     * One retry token per submission, not per attempt.
+     *
+     * It is minted when a send starts and kept until one succeeds, so the
+     * retry a reader makes after a failure carries the SAME token as the
+     * attempt that failed. That is the whole mechanism: if the first attempt
+     * actually reached the database and only its response was lost, the retry
+     * collides with itself and the server reports success instead of writing
+     * the comment twice.
+     *
+     * Cleared on success, so the next comment is a new submission. Kept on
+     * failure, which is the case that matters.
+     */
+    retryToken.current ??= crypto.randomUUID();
+    const token = retryToken.current;
+
     startTransition(async () => {
       // The comment appears in the thread before the write is awaited. On a
       // hosted database that round trip is most of a second of a thread that
@@ -200,10 +218,11 @@ export function CommentComposer({
       onPending?.(current);
 
       const result = await settle(
-        () => postComment({ itemId, doc: current }),
+        () => postComment({ itemId, doc: current, idempotencyKey: token }),
         "That comment did not save — check your connection."
       );
       if (result.ok) {
+        retryToken.current = null;
         router.refresh();
       } else {
         // Invariant 4: a rollback with a visible reason. React drops the

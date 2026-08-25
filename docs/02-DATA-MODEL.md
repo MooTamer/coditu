@@ -404,6 +404,20 @@ it got. The status is humanised **in SQL**, so the enum value never crosses the 
 progress is published-items-done over published-items-total, never hours over estimate — a percentage
 derived from hours would hand `view_effort` to anyone who can see a progress bar.
 
+### Retry tokens — `comments.idempotency_key`, `time_entries.idempotency_key`
+Nullable `text`, with a **partial** unique index scoped to the writer:
+`unique (author_id, idempotency_key) where idempotency_key is not null` on `comments`, and the same
+on `time_entries` keyed by `profile_id`. Length-checked, 8–200.
+
+The client mints one token per *submission* and keeps it across retries of that submission, so a
+retry that follows a lost response collides with itself and the action reports success instead of
+writing twice. Null collides with nothing, so the seed, the importer, and any caller without a token
+are unaffected.
+
+Scoped to the writer rather than globally unique on purpose: the keys come from the browser, and a
+global index would let one account reserve a key that another account's later write then collides
+with — that write would be told "already done" and dropped.
+
 ### `time_entries`
 `id`, `work_item_id fk`, `profile_id fk`,
 `minutes int not null check (minutes > 0 and minutes <= 1440)`,
