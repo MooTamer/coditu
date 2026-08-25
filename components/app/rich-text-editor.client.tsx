@@ -7,6 +7,10 @@ import Image from "@tiptap/extension-image";
 import Mention from "@tiptap/extension-mention";
 import Placeholder from "@tiptap/extension-placeholder";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
+import { TableKit } from "@tiptap/extension-table";
 import { common, createLowlight } from "lowlight";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bold, Code, Italic, ImagePlus, Link2, List, SquareCode, Type } from "lucide-react";
@@ -17,6 +21,8 @@ import { uploadImage } from "@/lib/upload-image";
 import { IMAGE_ACCEPT } from "@/lib/images";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { CODE_LANGUAGES } from "@/lib/blocks/schema";
+import { Callout } from "@/lib/blocks/callout";
+import { MoveBlock } from "@/lib/blocks/move-block";
 import { normaliseHref } from "@/lib/links";
 import { cn } from "@/lib/utils";
 
@@ -279,6 +285,16 @@ export function RichTextEditor({
     [maxBatch, startUpload]
   );
 
+  /**
+   * What `Alt+↑/↓` just did, for a screen reader.
+   *
+   * A block move is invisible to anyone not watching the document — the
+   * keystroke lands, the order changes, and nothing says so. The sprint table's
+   * drag reorder has the same requirement and dnd-kit supplies the live region
+   * there; inside the editor there is no library to supply it.
+   */
+  const [announcement, setAnnouncement] = useState("");
+
   const editor = useEditor({
     // Rendering on the server would produce markup React then has to reconcile
     // against ProseMirror's own DOM, which it does not own.
@@ -322,6 +338,40 @@ export function RichTextEditor({
         suggestion: buildMentionSuggestion(people),
       }),
       Placeholder.configure({ placeholder }),
+
+      /* ── The design's remaining block types ──────────────────────────────
+         Every one of these has a matching case in `comment-body.tsx` and a name
+         in the allowlist. That ordering matters: the renderer is fail-closed, so
+         an extension the renderer has not learned yet would let somebody write a
+         block that silently flattens to its text on the next page load. */
+
+      // `nested: true` because a checklist inside a checklist is what people
+      // actually write — sub-tasks under a task.
+      TaskList,
+      TaskItem.configure({ nested: true }),
+
+      // Toggles. `persist: false` — whether a toggle is open is a reading
+      // position, not a fact about the document, and storing it would mean one
+      // person's collapse travels to everybody else's screen.
+      Details.configure({ persist: false }),
+      DetailsSummary,
+      DetailsContent,
+
+      Callout,
+
+      // `resizable: false`: a stored column width is an array attribute, and
+      // `pruneToDepth` reduces attributes to primitives on the way out of the
+      // server — so a width somebody dragged would be dropped and the drag would
+      // read as broken. Offering no handle is honest; offering one that forgets
+      // is not.
+      TableKit.configure({ table: { resizable: false } }),
+
+      // Alt+↑/↓, and the same commands a drag handle will call — one
+      // implementation of "move a block", announced so the move is verifiable
+      // without watching it happen.
+      MoveBlock.configure({
+        onMoved: (position, total) => setAnnouncement(`Block moved to position ${position} of ${total}`),
+      }),
     ],
     content: (initialDoc as never) ?? undefined,
     editorProps: {
@@ -528,6 +578,11 @@ export function RichTextEditor({
       ref={wrapperRef}
       className="rounded-control border border-[var(--hairline-strong)] bg-[var(--raised)]"
     >
+      {/* Announced, not shown. `polite` rather than `assertive`: a reorder is
+          worth hearing at the next pause, not worth interrupting a word. */}
+      <span aria-live="polite" className="sr-only">
+        {announcement}
+      </span>
       {/* The toolbar scrolls sideways rather than wrapping to a second row: at
           320px a wrapped toolbar is two rows of buttons above a two-line
           composer, and the thing being written disappears under the keyboard.

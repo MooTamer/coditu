@@ -218,4 +218,108 @@ test.describe("the comment editor", () => {
     );
     expect(overflow).toBe(false);
   });
+
+  /**
+   * The block types the design added, and the keyboard that moves them.
+   *
+   * These are the half a screenshot cannot check: a checklist that looks right
+   * and stores as three paragraphs is a checklist that vanishes on reload, and a
+   * block move that redraws correctly but writes the old order is worse than one
+   * that does nothing.
+   */
+  test("Alt+ArrowUp moves a block, says so, and the new order is what is stored", async ({
+    adminPage: page,
+  }) => {
+    const editor = await openComposer(page);
+
+    await page.keyboard.type("first");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("second");
+
+    await expect(editor.locator("p").first()).toHaveText("first");
+
+    // The cursor is in "second". Alt+ArrowUp should put it above "first".
+    await page.keyboard.press("Alt+ArrowUp");
+    await expect(editor.locator("p").first()).toHaveText("second");
+
+    // A move nobody can hear is a move a screen-reader user cannot verify.
+    //
+    // Matched by its TEXT rather than by `[aria-live=polite]`: this page carries
+    // five live regions — the criteria count, the thread, the hours stepper, the
+    // toast rail and this one — and asserting on the attribute is asserting that
+    // no other part of the screen has anything to say.
+    await expect(page.getByText(/Block moved to position 1 of 2/)).toBeAttached();
+
+    await page.keyboard.press("ControlOrMeta+Enter");
+
+    // What was DRAWN is not what matters — what was stored is. A move that only
+    // updates the view writes the old order and loses on the next reload.
+    await expect
+      .poll(async () => {
+        const [row] = await query<{ body_text: string }>(
+          `select body_text from comments
+            where work_item_id = (select id from work_items where key = $1)
+            order by created_at desc limit 1`,
+          [ITEM_KEY]
+        );
+        return row?.body_text?.trim() ?? null;
+      })
+      .toBe("second\nfirst");
+  });
+
+  test("Alt+ArrowUp on the first block does nothing rather than something", async ({
+    adminPage: page,
+  }) => {
+    const editor = await openComposer(page);
+    await page.keyboard.type("only");
+
+    await page.keyboard.press("Alt+ArrowUp");
+    await page.keyboard.press("Alt+ArrowDown");
+
+    // Not a crash, not a duplicate, not an empty paragraph appearing above it.
+    await expect(editor.locator("p")).toHaveCount(1);
+    await expect(editor.locator("p")).toHaveText("only");
+  });
+
+  test("a checklist stores as a checklist, with its ticks", async ({ adminPage: page }) => {
+    const editor = await openComposer(page);
+
+    // The input rule, which is how anybody actually makes one.
+    await page.keyboard.type("[ ] ship it");
+    await expect(editor.locator("input[type=checkbox]")).toHaveCount(1);
+
+    await editor.locator("input[type=checkbox]").check();
+    await page.keyboard.press("ControlOrMeta+Enter");
+
+    await expect
+      .poll(async () => {
+        const [row] = await query<{ body_json: unknown }>(
+          `select body_json from comments
+            where work_item_id = (select id from work_items where key = $1)
+            order by created_at desc limit 1`,
+          [ITEM_KEY]
+        );
+        return JSON.stringify(row?.body_json ?? null);
+      })
+      // `taskItem` with `checked: true`, not a paragraph that happens to start
+      // with a bracket. If the extension were missing, the input rule would not
+      // fire and this would store as text.
+      .toMatch(/"type":"taskItem".*"checked":true/);
+  });
+
+  test("the stored checklist renders as a checklist, disabled", async ({ adminPage: page }) => {
+    const editor = await openComposer(page);
+    await page.keyboard.type("[ ] read it back");
+    await page.keyboard.press("ControlOrMeta+Enter");
+
+    // Out of the composer and into the thread — the SERVER renderer, which is a
+    // different walker from the editor's schema and has to have learned the same
+    // node.
+    const thread = page.locator("article").last();
+    await expect(thread.locator("input[type=checkbox]")).toBeVisible();
+    // Rendered, not interactive: there is no write path behind a tick in a
+    // stored comment, and a box that moves but saves nothing is a lie.
+    await expect(thread.locator("input[type=checkbox]")).toBeDisabled();
+  });
+
 });

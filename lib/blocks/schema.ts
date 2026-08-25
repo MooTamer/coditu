@@ -80,6 +80,22 @@ export const ALLOWED_NODES = [
 ] as const;
 export type AllowedNode = (typeof ALLOWED_NODES)[number];
 
+/**
+ * Callout tones.
+ *
+ * An allowlist, because the value reaches a `style` attribute at the render edge
+ * and `var(--anything)` would otherwise be an author's choice. Three, not the
+ * five the prototype drew: `01-DESIGN-SYSTEM.md` §2 defines tone pairs for amber,
+ * jade and slate, and those are the `--tone-*-fg` / `--tone-*-bg` variables that
+ * exist. A fourth would resolve to an undefined variable, which is not an error —
+ * the declaration is simply dropped and the callout renders with no edge at all.
+ *
+ * Defined here rather than in the renderer so the editor cannot offer a tone the
+ * renderer will not draw.
+ */
+export const CALLOUT_TONES = ["amber", "jade", "slate"] as const;
+export type CalloutTone = (typeof CALLOUT_TONES)[number];
+
 /** Languages the code block will highlight. Anything else renders unhighlighted. */
 export const CODE_LANGUAGES = [
   "ts",

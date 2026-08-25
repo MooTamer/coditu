@@ -4,11 +4,13 @@ import { common, createLowlight } from "lowlight";
 import { CommentImage } from "@/components/app/comment-image.client";
 import {
   ALLOWED_MARKS,
+  CALLOUT_TONES,
   CODE_LANGUAGES,
   MAX_DEPTH,
   isSafeHref,
   isSafeImageSrc,
   parseNode,
+  type CalloutTone,
   type ProseMirrorNode,
 } from "@/lib/blocks/schema";
 import { cn } from "@/lib/utils";
@@ -28,19 +30,7 @@ import { cn } from "@/lib/utils";
 
 const lowlight = createLowlight(common);
 
-/**
- * Callout tones, as an allowlist — the value reaches a `style` attribute, and
- * `var(--anything)` would otherwise be an author's choice.
- *
- * Three, not the prototype's five. `01-DESIGN-SYSTEM.md` §2 defines tone pairs
- * for amber, jade and slate only, and those are the `--tone-*-fg` / `--tone-*-bg`
- * variables that exist. A `rose` callout would have resolved to
- * `var(--tone-rose-fg)`, which is not defined, which is not an error — the
- * declaration is simply dropped and the callout renders with no edge at all.
- * Checked against `app/globals.css` rather than against the prototype.
- */
-const CALLOUT_TONES = ["amber", "jade", "slate"] as const;
-type CalloutTone = (typeof CALLOUT_TONES)[number];
+
 
 /**
  * A table span, or undefined.

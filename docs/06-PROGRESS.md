@@ -1536,7 +1536,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W0 | **Baseline and characterisation** — branch, real gate numbers, two stale docs corrected, the read boundary pinned by shape | `done` | `6ff7cb8` | `lint` + `typecheck` clean · `npm run test` **237** · `npm run db:test` **283** (was 263) · `npm run budgets` **FAILS 116.5/110, pre-existing** · `npx playwright test` **466 passed**, 4 skipped, 4 contention failures each of which passes alone |
 | W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | pending | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
 | W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `done` | `4df9a48` | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. `test` **245** · `db:test` **303** · components 12/12 incl. axe with the panel open · sprint-table, new-item, inline-edit 33/33 · rendered at 320/375/390/430/1280 |
-| W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `wip` | | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **Open: 3b** editor produces them, **3c** sprint notes, **3d** story body |
+| W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `wip` | | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. **Open: 3b-ii** the slash menu, **3c** sprint notes, **3d** story body |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `todo` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `todo` | | one `aria-current` · zero overflow at 8 widths + 200% · axe · budgets |
@@ -1812,6 +1812,56 @@ does not have to re-derive it.
 The new work-item columns ARE named in `guard_work_item_columns`, in the
 migration that creates them, with assertions that an engineer is refused rather
 than merely that the name appears.
+
+## W3b — the editor can write what the renderer can read
+
+Checklists, toggles, callouts and tables, plus `Alt+↑/↓` to move a block.
+
+**The order mattered.** The renderer learned these node types in W3a, before the
+editor could produce them. Backwards, somebody could have written a callout that
+silently flattened to its text on the next page load — the fail-closed renderer
+turns a missing case into quiet data loss rather than a visible error, which is
+exactly why it is safe and exactly why it must be taught first.
+
+**Version pinning, not `^3`.** `npm install @tiptap/extension-table@^3` resolved
+to 3.0.0 and failed: this project is on 3.30.2 and every TipTap package
+peer-depends on `@tiptap/core` at an EXACT version. Installed at 3.30.2 and
+checked `package-lock.json` for a single `@tiptap/core` — two copies of a
+ProseMirror schema in one bundle would not have failed loudly.
+
+**Three configuration choices that are decisions rather than defaults.**
+`Details` is `persist: false`, because whether a toggle is open is a reading
+position and storing it would send one person's collapse to everybody else's
+screen. `TableKit` is `resizable: false`, because a column width is an ARRAY
+attribute and `pruneToDepth` reduces attributes to primitives on the way out of
+the server — a width somebody dragged would be dropped, and a handle that
+forgets is worse than no handle. `Callout` is hand-rolled: about twenty lines,
+block content and one enumerated attribute, and its tone list now lives in
+`lib/blocks/schema.ts` so the editor cannot offer a tone the renderer will not
+draw.
+
+**The block move is written out because that is where it goes wrong.** Delete
+then insert, with the sibling's size read BEFORE the delete: moving up inserts
+at `from - sibling.nodeSize` (the deletion is entirely after the sibling, so its
+positions do not move) and moving down at `from + sibling.nodeSize` (the sibling
+has slid back). Mapping old positions through `tr.mapping` afterwards would also
+work and is one more thing to get subtly wrong.
+
+It announces into a live region, because a block move is invisible to anyone not
+watching the document — the sprint table's drag reorder has the same requirement
+and dnd-kit supplies it there.
+
+**What the specs prove that a screenshot cannot.** A checklist stores as
+`taskItem` with `checked: true` rather than as a paragraph beginning with a
+bracket; the moved block's ORDER is what reaches `comments.body_text`, not just
+what was drawn; `Alt+↑` on the first block does nothing rather than something;
+and the stored checklist renders through the SERVER walker — a different
+implementation from the editor's schema, which had to learn the same node.
+
+The first draft of the announcement assertion used `[aria-live='polite']` and
+matched five elements: the criteria count, the thread, the hours stepper, the
+toast rail and the new one. Asserting on that attribute is asserting that no
+other part of the screen has anything to say.
 
 ## W1 — the shell gets under its own gate, and the reason it was over is one import
 
