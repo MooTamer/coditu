@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(211);
+select plan(220);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -1919,6 +1919,133 @@ select throws_ok(
   '42501',
   null,
   'negative: and anonymous is refused by the grant, one layer below the function'
+);
+
+select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- The invitation decides the account kind. The sign-up request never does.
+--
+-- `20260821180000_role_is_not_client_supplied.sql` is the precedent and the
+-- warning: `handle_new_user` used to read `role` out of `raw_user_meta_data`,
+-- which is `options.data` on a PUBLIC endpoint that takes the anon key, so
+-- anybody on the allowlist could POST themselves the admin role. It was
+-- reproduced against a real stack before being fixed.
+--
+-- `account_kind` has the same exposure and a larger blast radius in the other
+-- direction: an account that talks its way into `internal` reads every row of
+-- every table. So the trigger reads a SERVER-SIDE invitation row and nothing
+-- else, and these assertions are about what it ignores.
+-- ---------------------------------------------------------------------------
+
+insert into public.client_invitations (email, client_id, capabilities, created_by)
+values ('invited@rls.test', 'c1000000-0000-0000-0000-000000000001',
+        '{view_project}'::public.client_capability[], '11111111-1111-1111-1111-111111111111');
+
+-- An invited address, signing up with NO metadata at all.
+insert into public.allowed_emails (email) values ('invited@rls.test');
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at,
+                        raw_app_meta_data, raw_user_meta_data,
+                        confirmation_token, recovery_token, email_change_token_new, email_change,
+                        email_change_token_current, phone_change, phone_change_token, reauthentication_token)
+values ('88888888-8888-8888-8888-888888888888', '00000000-0000-0000-0000-000000000000',
+        'authenticated', 'authenticated', 'invited@rls.test', crypt('password', gen_salt('bf')),
+        now(), now(), now(), '{}'::jsonb, '{"full_name":"Ingrid Invited"}'::jsonb,
+        '', '', '', '', '', '', '', '');
+
+select is(
+  (select account_kind::text from public.profiles where id = '88888888-8888-8888-8888-888888888888'),
+  'client',
+  'positive: a pending invitation makes the new account a client one'
+);
+select is(
+  (select role::text from public.profiles where id = '88888888-8888-8888-8888-888888888888'),
+  'engineer',
+  'and its app_role is still the hardcoded engineer — meaningless for a client, and not a back door'
+);
+select is(
+  (select status from public.client_invitations where lower(email) = 'invited@rls.test'),
+  'accepted',
+  'the invitation is marked accepted, so it cannot be claimed a second time'
+);
+select is(
+  (select client_id from public.client_contacts where profile_id = '88888888-8888-8888-8888-888888888888'),
+  'c1000000-0000-0000-0000-000000000001'::uuid,
+  'and the contact row names the company the INVITATION named, not anything the request said'
+);
+
+-- The escalation attempt. An address with NO invitation, sending the fields a
+-- crafted sign-up would send.
+insert into public.allowed_emails (email) values ('sneaky@rls.test');
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at,
+                        raw_app_meta_data, raw_user_meta_data,
+                        confirmation_token, recovery_token, email_change_token_new, email_change,
+                        email_change_token_current, phone_change, phone_change_token, reauthentication_token)
+values ('cccccccc-cccc-cccc-cccc-cccccccccccc', '00000000-0000-0000-0000-000000000000',
+        'authenticated', 'authenticated', 'sneaky@rls.test', crypt('password', gen_salt('bf')),
+        now(), now(), now(), '{}'::jsonb,
+        '{"full_name":"Sam Sneaky","role":"admin","account_kind":"internal","client_id":"c1000000-0000-0000-0000-000000000001"}'::jsonb,
+        '', '', '', '', '', '', '', '');
+
+select is(
+  (select role::text from public.profiles where id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'),
+  'engineer',
+  'negative: `"role":"admin"` in the sign-up request is ignored, exactly as it has been since 2026-08-21'
+);
+select is(
+  (select account_kind::text from public.profiles where id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'),
+  'internal',
+  'and with no invitation the account is internal by default — the request did not decide that either'
+);
+select is_empty(
+  $$select 1 from public.client_contacts where profile_id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'$$,
+  'negative: and no contact row was created from a client_id the request supplied'
+);
+
+-- The sharper version: an address that IS invited, trying to talk its way into
+-- being internal. The invitation wins, and it wins toward LESS access.
+insert into public.client_invitations (email, client_id, capabilities, created_by)
+values ('sly@rls.test', 'c1000000-0000-0000-0000-000000000001',
+        '{view_project}'::public.client_capability[], '11111111-1111-1111-1111-111111111111');
+insert into public.allowed_emails (email) values ('sly@rls.test');
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at,
+                        raw_app_meta_data, raw_user_meta_data,
+                        confirmation_token, recovery_token, email_change_token_new, email_change,
+                        email_change_token_current, phone_change, phone_change_token, reauthentication_token)
+values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000000',
+        'authenticated', 'authenticated', 'sly@rls.test', crypt('password', gen_salt('bf')),
+        now(), now(), now(), '{}'::jsonb,
+        '{"full_name":"Sly One","account_kind":"internal"}'::jsonb,
+        '', '', '', '', '', '', '', '');
+
+select is(
+  (select account_kind::text from public.profiles where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'client',
+  'negative: an invited address claiming `"account_kind":"internal"` is still a client — the invitation is the only source'
+);
+
+-- An expired invitation is not an invitation.
+insert into public.client_invitations (email, client_id, capabilities, created_by, expires_at)
+values ('stale@rls.test', 'c1000000-0000-0000-0000-000000000001',
+        '{view_project}'::public.client_capability[], '11111111-1111-1111-1111-111111111111',
+        now() - interval '1 day');
+insert into public.allowed_emails (email) values ('stale@rls.test');
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at,
+                        raw_app_meta_data, raw_user_meta_data,
+                        confirmation_token, recovery_token, email_change_token_new, email_change,
+                        email_change_token_current, phone_change, phone_change_token, reauthentication_token)
+values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '00000000-0000-0000-0000-000000000000',
+        'authenticated', 'authenticated', 'stale@rls.test', crypt('password', gen_salt('bf')),
+        now(), now(), now(), '{}'::jsonb, '{"full_name":"Stale Invite"}'::jsonb,
+        '', '', '', '', '', '', '', '');
+
+select is_empty(
+  $$select 1 from public.client_contacts where profile_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'$$,
+  'negative: an EXPIRED invitation creates no contact — it fails toward no access, not toward some'
 );
 
 select pg_temp.act_as_owner();

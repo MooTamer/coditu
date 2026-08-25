@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 
-import { OVERFLOW, TABS } from "@/components/app/nav-items";
+import { TABS, overflowFor } from "@/components/app/nav-items";
 import { NavIcon, NavLink } from "@/components/app/nav-link.client";
 import { DialogShell } from "@/components/app/dialog-shell.client";
 import { cn } from "@/lib/utils";
@@ -33,8 +33,12 @@ import { cn } from "@/lib/utils";
  * `nav-items.ts`, shared verbatim with the rail, and More is current whenever
  * any of the destinations behind it is.
  */
-export function TabBar({ unreadCount }: { unreadCount: number }) {
+export function TabBar({ unreadCount, role }: { unreadCount: number; role: string }) {
   const pathname = usePathname();
+
+  // The sheet has to agree with the rail about what exists. Both read the same
+  // predicate rather than each filtering for itself.
+  const overflow = overflowFor(role);
   const [moreOpen, setMoreOpen] = useState(false);
 
   /**
@@ -53,7 +57,7 @@ export function TabBar({ unreadCount }: { unreadCount: number }) {
     setMoreOpen(false);
   }
 
-  const overflowActive = OVERFLOW.some((item) => item.isActive(pathname));
+  const overflowActive = overflow.some((item) => item.isActive(pathname));
 
   return (
     <>
@@ -160,7 +164,7 @@ export function TabBar({ unreadCount }: { unreadCount: number }) {
           header={<span className="text-[15px] font-semibold">More</span>}
         >
           <nav aria-label="More sections" className="flex flex-col p-2">
-            {OVERFLOW.map(({ id, label, href, Icon, isActive }) => {
+            {overflow.map(({ id, label, href, Icon, isActive }) => {
               const active = isActive(pathname);
               return (
                 <Link

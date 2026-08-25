@@ -2699,3 +2699,60 @@ would let anyone with one project's URL discover the shape of another's.
 shell before the page body runs, so `notFound()` here returns 200. The portal specs assert the
 security property and the `<meta name="next-error">` marker instead of the status — the remedy that
 decision already named.
+
+---
+
+## 2026-08-25 · The invitation is a row, and it exists so the trigger has something trustworthy to read
+
+**Decision.** `inviteClientContact` writes `client_invitations` **first**, then creates the auth
+account. `handle_new_user` reads that row and creates the profile, the contact and every grant in one
+transaction. `enforce_email_allowlist` accepts a pending unexpired invitation as well as an
+`allowed_emails` row.
+
+**Why the invitation is written before the account.** Because the other order has a window. If the
+profile were created by the trigger and the contact row by the action afterwards, then between the
+two the account exists, `account_kind` is `'internal'` by default, and `is_active_member()` is true
+for it — a real interval in which a brand-new client account reads the entire database. It is short
+and nobody would ever observe it, which is what makes it worth removing rather than accepting. In
+this order a failure leaves a pending invitation and no account: visible on the screen, withdrawable,
+harmless.
+
+**Why the kind cannot come from the request.**
+`20260821180000_role_is_not_client_supplied.sql` is the precedent — `handle_new_user` read `role`
+from `raw_user_meta_data`, which is `options.data` on a public endpoint taking the anon key, and
+anybody on the allowlist could POST themselves admin. `account_kind` has identical exposure and a
+larger blast radius in the other direction. There are pgTAP assertions for the crafted sign-up
+(`"role":"admin"`, `"account_kind":"internal"`, a supplied `client_id`) and for the sharper case: an
+**invited** address claiming `"account_kind":"internal"` is still a client, because the invitation is
+the only source.
+
+**Everything fails toward less.** No invitation → internal, which is how every teammate signs up. An
+**expired** invitation → no contact and no grant, asserted separately, because an expiry that
+silently still works is not an expiry.
+
+**No email, and the UI says so in words.** `docs/05-DECISIONS.md` (2026-08-22) is categorical. The
+form carries "No email is sent — this application has no mail transport. You will be given a password
+once, to pass on yourself." The password is returned once, held in component state, copied by a
+button, dismissed explicitly rather than on a timer — a panel that vanishes mid-copy is worse than
+one that has to be closed. It is stored in no table, no log and no activity row, and a pgTAP-adjacent
+assertion in the e2e suite greps the invitation row for it.
+
+**No optimistic update on this screen, and that is not an oversight.** Everywhere else a mutation
+shows immediately and rolls back on failure, because the cost of being briefly wrong is a row that
+flickers. Here the cost is an admin believing they revoked somebody's access when they did not.
+Invariant 4 asks for a rollback path and a visible error; the honest reading for access changes is
+not to make the claim early.
+
+**A lead reads, an admin writes.** The same split the email allowlist and role changes already use. A
+lead runs delivery and can create clients and projects; deciding what leaves the company is not a
+delivery decision. An engineer gets `notFound()` — and, more importantly, is not shown a nav item
+that would 404, which is why `NavItem` gained `visibleTo` and both the rail and the phone's overflow
+sheet now read the same predicate rather than each filtering for itself.
+
+**Withdrawal stamps three things and deletes nothing** — the contact's status, every live grant, and
+nothing else. The account survives, so she signs in and sees "your access is still being set up",
+which is honest. Deleting the contact would take her name off her own messages, and
+`client_messages.author_id` is `on delete restrict` precisely so that cannot happen by accident.
+Withdrawing an **unclaimed invitation** is the one real delete in the feature: nothing happened,
+nobody signed in, there is no message with a name on it, and leaving it would show an address that
+can still open an account as though it cannot.

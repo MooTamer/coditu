@@ -26,6 +26,8 @@ Geometry, spacing, and copy come from `design/project/Coditu App.dc.html`. What 
 /app/settings                              your profile: name, picture, notifications, your earnings,
                                            account, sign out — plus, for an admin, every tunable
 /app/earnings                              what each sprint paid, and the confirmation panel
+/app/clients                               who outside the company can see our work, and what
+                                           they can see. Lead reads, admin writes, engineer 404s
 /api/attachments/[...path]                 Route Handler: authorizes, then signs a fresh storage URL
 /api/uploads                               Route Handler: one image, with upload progress
 

@@ -1400,8 +1400,8 @@ expected one, because the publication section three hundred lines earlier had pu
 into the same project and nothing rolls back until the end. The read-boundary section now unpublishes
 it explicitly rather than asserting "1" while meaning "1 of the 2 I happen to know about".
 
-| C7 | **The read model** — `lib/data/client.ts`, four loaders, one RPC each, importing none of the internal ones | `done` | pending | `npm run typecheck` |
-| C8 | **The portal** — overview, component detail, loading states, `not-found.tsx`, `ProgressLine`, `ComponentCard` | `done` | pending | 14 portal specs; axe clean on both screens; 0 overflow at 320/360/390/430; `/client` own JS **0 KB** |
+| C7 | **The read model** — `lib/data/client.ts`, four loaders, one RPC each, importing none of the internal ones | `done` | `a8cd471` | `npm run typecheck` |
+| C8 | **The portal** — overview, component detail, loading states, `not-found.tsx`, `ProgressLine`, `ComponentCard` | `done` | `a8cd471` | 14 portal specs; axe clean on both screens; 0 overflow at 320/360/390/430; `/client` own JS **0 KB** |
 
 ### C7/C8 — measured, and two bugs a test could not have found
 
@@ -1430,6 +1430,37 @@ auto`. Without JS they render at opacity 0 — **which `/app/projects` does too*
 authenticated app has always required JS. Not introduced here, and not changed here either: fixing it
 would change every internal screen.
 
+| C9 | **The invitation** — `handle_new_user` reads a server-side invitation, `enforce_email_allowlist` accepts one | `done` | pending | `npm run db:test` — **246** assertions (was 237) |
+| C10 | **The access manager** — `/app/clients`, `lib/actions/client-access.ts`, `lib/data/client-access.ts`, role-aware nav | `done` | pending | 5 admin specs incl. the full round trip |
+
+### C9/C10 — the round trip, driven rather than described
+
+`e2e/client-access-admin.spec.ts` does the whole lifecycle through the real UI: an admin opens
+`/app/clients`, fills the invite form, and the effective access is on screen before the button —
+Collaborator, and asserted **not** to contain "See total hours" or "Open shared files". The account
+is created, the password comes back once, and the test greps the invitation row to prove it was
+stored nowhere. Then it becomes her: signs in with that password, is stopped by the forced password
+change, sets her own, lands on `/client` seeing exactly the one project she was granted and the one
+published component, and is redirected away from `/app`. Finally the admin withdraws access and her
+**already-open tab** empties on reload.
+
+If the invitation, the trigger, the grant, the guard and the read model disagree anywhere, that spec
+is where it shows.
+
+**The window that is not there.** The invitation row is written before the account, so
+`handle_new_user` creates the profile, the contact and the grants in one transaction. The other
+order leaves an interval — short, unobservable, real — in which a brand-new account is `internal`
+and `is_active_member()` is true for it.
+
+**`NavItem` gained `visibleTo`.** Clients is the first destination that is not for the whole team,
+and a nav item that 404s reads as a broken app rather than as a screen that is not yours. The rail
+and the phone's overflow sheet now read one predicate instead of each filtering for itself — the same
+reasoning that put `isActive` in `nav-items.ts` in the first place.
+
+**`generateTemporaryPassword` moved to `lib/temporary-password.ts`.** `lib/actions/profiles.ts` is
+`"use server"`, so every export from it must be an async Server Action and a plain function cannot be
+shared out of it. The algorithm is unchanged and `setTemporaryPassword` now imports it.
+
 ### Still to come in this brief
 
-C9 questions, C10 the internal access manager, C11 attachments, C12 notifications.
+C11 client question threads, C12 client-safe attachments, C13 notifications.

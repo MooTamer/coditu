@@ -108,7 +108,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {children}
         </div>
 
-        <TabBar unreadCount={unreadCount} />
+        <TabBar unreadCount={unreadCount} role={profile.role} />
 
         {/* Renders nothing. Puts the same unread count the rail draws its dot
             from onto the installed app's icon. */}

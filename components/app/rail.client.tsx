@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-import { NAV } from "@/components/app/nav-items";
+import { navFor } from "@/components/app/nav-items";
 import { NavIcon, NavLink } from "@/components/app/nav-link.client";
 import { PersonAvatar, type AvatarPerson } from "@/components/app/person-avatar";
 import { CoditusMark } from "@/components/coditu/coditus-mark";
@@ -94,7 +94,7 @@ export function Rail({
       </button>
 
       <nav className="flex flex-col gap-1">
-        {NAV.map(({ id, label, href, Icon, isActive }) => {
+        {navFor(role).map(({ id, label, href, Icon, isActive }) => {
           const active = isActive(pathname);
           return (
             <NavLink

@@ -1,4 +1,4 @@
-import { CheckCheck, FolderOpen, Import, Rows3, Settings, Users, Wallet } from "lucide-react";
+import { Building2, CheckCheck, FolderOpen, Import, Rows3, Settings, Users, Wallet } from "lucide-react";
 
 /**
  * The application's destinations, and the rule for when each one is current.
@@ -22,6 +22,17 @@ export interface NavItem {
   href: string;
   Icon: typeof Rows3;
   isActive: (path: string) => boolean;
+  /**
+   * Who this destination is for. Absent means everybody.
+   *
+   * A nav item that 404s for the person looking at it is worse than no nav
+   * item: it reads as a broken link rather than as a screen that is not
+   * theirs. `Clients` is the first item in this list that is not for the whole
+   * team, so this is where that gets expressed — once, in the place both the
+   * rail and the phone's overflow sheet already read from, because two copies
+   * of the rule is two chances for them to disagree about what is on screen.
+   */
+  visibleTo?: (role: string) => boolean;
 }
 
 export const NAV: readonly NavItem[] = [
@@ -65,7 +76,24 @@ export const NAV: readonly NavItem[] = [
     Icon: Import,
     isActive: (path) => path.startsWith("/app/import"),
   },
+  {
+    id: "clients",
+    label: "Clients",
+    href: "/app/clients",
+    Icon: Building2,
+    isActive: (path) => path.startsWith("/app/clients"),
+    // A lead reads it, an admin changes it, an engineer has no business there
+    // and the page itself answers `notFound()` for one. Same split as the email
+    // allowlist and role changes: deciding what leaves the company is not a
+    // delivery decision.
+    visibleTo: (role) => role !== "engineer",
+  },
 ];
+
+/** `NAV`, minus the destinations this role has no route to. */
+export function navFor(role: string): readonly NavItem[] {
+  return NAV.filter((item) => item.visibleTo?.(role) ?? true);
+}
 
 /**
  * Settings is not in `NAV` and that is deliberate: it is not a place the team
@@ -112,9 +140,14 @@ export const TABS: readonly NavItem[] = TAB_IDS.map(
   (id) => NAV.find((item) => item.id === id)!
 );
 
-/** People, Import, Earnings and Settings — reached through the overflow sheet. */
+/** People, Import, Clients, Earnings and Settings — behind the overflow sheet. */
 export const OVERFLOW: readonly NavItem[] = [
   ...NAV.filter((item) => !TAB_IDS.includes(item.id as (typeof TAB_IDS)[number])),
   EARNINGS_ITEM,
   SETTINGS_ITEM,
 ];
+
+/** The same sheet, minus what this role cannot reach. */
+export function overflowFor(role: string): readonly NavItem[] {
+  return OVERFLOW.filter((item) => item.visibleTo?.(role) ?? true);
+}
