@@ -9,7 +9,7 @@ import { listComponentsByProject } from "@/lib/data/components";
 import { countUnreadNotifications } from "@/lib/data/notifications";
 import { listActiveProfiles } from "@/lib/data/profiles";
 import { listProjects } from "@/lib/data/projects";
-import { getCurrentProfile } from "@/lib/supabase/server";
+import { getClientContact, getCurrentProfile } from "@/lib/supabase/server";
 
 export const metadata = {
   title: { default: "Coditu", template: "%s · Coditu" },
@@ -26,7 +26,29 @@ export const metadata = {
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile();
-  if (!profile) redirect("/login?next=/app");
+
+  /**
+   * `getCurrentProfile()` returns null for two very different people, and
+   * sending both to `/login` was measurably wrong.
+   *
+   * A client contact is signed in. Her password works. Bouncing her to a
+   * sign-in form tells her it does not, and she would sign in again and be
+   * bounced again — a loop with no way out and nothing on screen explaining it.
+   *
+   * So the two cases are separated before the redirect is chosen. This costs
+   * one query, and only on the path that was going to redirect anyway.
+   *
+   * Verified against the failure it fixes: before this branch existed, a client
+   * account that reached `/app` rendered the **internal shell** — rail, topbar,
+   * New-item control and all — and landed on `/app/projects`, empty only
+   * because RLS returned no rows. An empty internal shell is still the internal
+   * shell.
+   */
+  if (!profile) {
+    const contact = await getClientContact();
+    if (contact) redirect("/client");
+    redirect("/login?next=/app");
+  }
 
   /**
    * The forced password change, and **this is the gate that holds the line**.

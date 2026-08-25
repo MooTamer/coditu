@@ -1264,7 +1264,8 @@ Worked in slices, each with its failing test observed before the code. Newest at
 
 | # | Slice | Status | Commit | Verification |
 |---|---|---|---|---|
-| C1 | **The account boundary** — `profiles.account_kind`, `is_active_member()`/`auth_role()` mean *internal*, `is_admin_or_lead()` stops being three-valued, `"own profile read"` | `done` | pending | `npm run db:test` — **186** assertions (was 162). 24 new, 15 of which were observed failing first |
+| C1 | **The account boundary** — `profiles.account_kind`, `is_active_member()`/`auth_role()` mean *internal*, `is_admin_or_lead()` stops being three-valued, `"own profile read"` | `done` | `bbd19d8` | `npm run db:test` — **186** assertions (was 162). 24 new, 15 of which were observed failing first |
+| C2 | **The application boundary** — `getCurrentProfile()` answers for internal accounts only, `getClientContact()` is its mirror, `/client` is its own route tree with its own shell, both layouts redirect to the other's home | `done` | pending | `npm run e2e` — **462 passed, 4 skipped, 0 failed**, including 5 new boundary specs. Zero horizontal overflow at 320/375/390/430/1280 |
 
 ### C1 — what the test found before the code existed
 
@@ -1304,9 +1305,46 @@ her name, and tightening `is_active_member()` took it away with everybody else's
 is a second permissive policy scoped by primary key — it cannot return a second row, and the
 assertion checks both halves: exactly one row, and it is hers.
 
+### C2 — the browser found what the database could not
+
+`supabase/tests/rls.sql` already proved a client account reads no rows. That was necessary and it was
+not sufficient. The first run of `e2e/client-boundary.spec.ts` said so:
+
+```
+Expected pattern: /\/client$/
+Received string:  "http://localhost:3000/app/projects"
+```
+
+A client contact who typed `/app` **rendered the internal shell** — rail, topbar, New-item control,
+tab bar — and settled on `/app/projects`. Every panel was empty, because RLS returned nothing, and an
+empty internal shell is still the internal shell: it is the wrong furniture, the wrong navigation, and
+the wrong promise about what this account is for.
+
+`getCurrentProfile()` had let her through because `"own profile read"` lets her read her own row and
+`is_active` is true. It now returns null for any account that is not `internal`, which is the change
+that makes the twenty-two `role === "engineer"` denylist checks unreachable rather than merely
+unfriendly — the caller bails out before a role is ever compared.
+
+**Redirected, not refused.** `getCurrentProfile()` returning null covers two different people, and
+they must not get the same answer. A signed-out visitor belongs at `/login`; a client contact's
+password works, so a sign-in form tells her it does not and loops. `app/app/layout.tsx` asks
+`getClientContact()` before choosing, and only on the path that was going to redirect anyway.
+
+**`/client` loads one row.** The internal layout awaits four queries — every project, every profile,
+every project's component registry, an unread count — before rendering. The client layout awaits one:
+who is asking. That is the reason this is a separate tree and not a flag, and the 116.2KB shell is the
+second reason.
+
+**Measured, at the widths that matter.** `/client` at 320, 375, 390, 430 and 1280: no horizontal
+overflow at any of them, and the returned HTML contains none of `COD-`, `Log time`, `Earnings`,
+`assignee`, `minutes_logged` or `hourly`. Not hidden — absent.
+
+**The e2e specs for this brief are local-only**, per the standing instruction to keep new browser
+verification out of git unless asked. `e2e/client-*.spec.ts` and `e2e/client-fixtures.local.ts` are
+gitignored. They run, they gate the work, and they are not committed — say the word and they go in.
+
 ### Still to come in this brief
 
-C2 the TypeScript boundary (`getCurrentProfile()` returns null for a client; `/app` routes her to
-`/client`), C3 access tables and grants, C4 capabilities and presets, C5 publication, C6 the
-client-safe read model, C7–C8 the portal, C9 questions, C10 the internal access manager, C11
-attachments, C12 notifications.
+C3 access tables and grants, C4 capabilities and presets, C5 publication, C6 the client-safe read
+model, C7–C8 the portal itself, C9 questions, C10 the internal access manager, C11 attachments,
+C12 notifications.

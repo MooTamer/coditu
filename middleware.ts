@@ -50,7 +50,13 @@ const authBreaker = createBreaker({
 
 /** Belt to the matcher's braces — this stays true if the matcher is edited. */
 function needsSession(pathname: string): boolean {
-  return pathname === "/login" || pathname === "/app" || pathname.startsWith("/app/");
+  return (
+    pathname === "/login" ||
+    pathname === "/app" ||
+    pathname.startsWith("/app/") ||
+    pathname === "/client" ||
+    pathname.startsWith("/client/")
+  );
 }
 
 export async function middleware(request: NextRequest) {
@@ -198,8 +204,14 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // The two surfaces that have anything to do with a session. Everything else —
+  // The surfaces that have anything to do with a session. Everything else —
   // the whole marketing site, every static asset, every image — is served
   // without touching the auth server at all.
-  matcher: ["/app", "/app/:path*", "/login"],
+  //
+  // `/client` is on the list for the same reason `/app` is, and for no more
+  // than that reason: this is a session gate, not the authorization model.
+  // Which KIND of account may be here is decided by `app/client/layout.tsx`,
+  // server-side, against the database — never here, where the only thing
+  // available is a token the client holds.
+  matcher: ["/app", "/app/:path*", "/client", "/client/:path*", "/login"],
 };

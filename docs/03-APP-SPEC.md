@@ -28,7 +28,21 @@ Geometry, spacing, and copy come from `design/project/Coditu App.dc.html`. What 
 /app/earnings                              what each sprint paid, and the confirmation panel
 /api/attachments/[...path]                 Route Handler: authorizes, then signs a fresh storage URL
 /api/uploads                               Route Handler: one image, with upload progress
+
+/client                                    the client portal — overview
 ```
+
+**`/client` is a separate route tree, not a mode of `/app`.** A client contact never renders the
+internal shell, and the reason is a data boundary rather than a visual one: `app/app/layout.tsx`
+fetches every project, every active profile, every project's component registry and an unread count
+before it renders a pixel. Hiding those with CSS still ships them in the RSC payload, and the app
+shell was already 116.2KB against a 110KB budget before any of this. `app/client/layout.tsx` reads
+exactly one row — who is asking — and everything else is fetched per page, per capability.
+
+Routing is decided **server-side from `profiles.account_kind`**, never from a JWT claim. An internal
+account that lands on `/client` is sent to `/app`; a client contact that lands on `/app` is sent to
+`/client`. Neither is a refusal — both are people at the wrong door, and a sign-in form would tell
+either of them their password was wrong when it is not.
 
 **`/app/earnings` is reachable from the account menu and the phone's "More" sheet, and from nowhere
 else.** Not the rail, not the top bar. Those are visible on every screen that gets shared — a

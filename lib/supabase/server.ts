@@ -89,11 +89,38 @@ export async function createSnapshotClient() {
 }
 
 /**
- * The signed-in profile, read from the database rather than the JWT.
+ * The signed-in **internal** profile, read from the database rather than the JWT.
  *
  * Invariant 3: a client-held role is never trusted. The JWT says who you are;
  * `profiles.role` says what you may do, and only the second one is
  * authoritative. Returns null for a signed-out or deactivated user.
+ *
+ * ── And null for a client contact, which is the load-bearing part ───────────
+ *
+ * This function is the front door to every internal surface: every file under
+ * `lib/actions/` calls it, and so does every page under `app/app/`. Twenty-two
+ * of those call sites are written as a DENYLIST —
+ *
+ *     if (profile.role === "engineer") return { ok: false, error: … }
+ *
+ * — so anything that is not an engineer is privileged. If this function
+ * answered for a client contact, every one of those twenty-two would wave her
+ * through to reassign work items, create sprints and commit an import.
+ *
+ * Returning null instead makes them **unreachable** rather than merely
+ * unfriendly: the caller has already bailed out before the role is ever
+ * compared. That is why the fix is here, in one place, and not twenty-two
+ * edits that the twenty-third call site would not inherit.
+ *
+ * A client contact is not signed out, and callers must not treat her as such.
+ * `getClientContact()` below is who she is; `app/app/layout.tsx` uses both to
+ * tell "no session" apart from "wrong door", and sends her to `/client` rather
+ * than to a sign-in form that would imply her password is wrong.
+ *
+ * The database agrees independently: `is_active_member()` and `auth_role()`
+ * both require `account_kind = 'internal'`, so even if this check were removed
+ * the select below would return nothing but her own row and every other table
+ * would be empty. Two layers, on purpose.
  */
 export async function getCurrentProfile() {
   const supabase = await createClient();
@@ -105,10 +132,54 @@ export async function getCurrentProfile() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, full_name, initials, avatar_url, role, weekly_capacity_minutes, is_active, is_developer, must_set_password")
+    .select(
+      "id, full_name, initials, avatar_url, role, weekly_capacity_minutes, is_active, is_developer, must_set_password, account_kind"
+    )
     .eq("id", user.id)
     .maybeSingle();
 
   if (!profile || !profile.is_active) return null;
+  if (profile.account_kind !== "internal") return null;
+  return { ...profile, email: user.email ?? null };
+}
+
+/**
+ * The signed-in client contact, or null.
+ *
+ * The mirror image of `getCurrentProfile()`, and deliberately a separate
+ * function rather than a flag on the same one. A single `getProfile()` that
+ * returned both kinds would put the burden of remembering which kind it got on
+ * every one of its fifty callers, and the one that forgot would be a leak. Two
+ * functions cannot be confused: `lib/actions/**` calls the first and never the
+ * second, `app/client/**` calls the second and never the first.
+ *
+ * Read on **every request**, from the database, with no claim cached anywhere.
+ * That is what makes revocation immediate: an admin who revokes access changes
+ * a row, and the very next request this contact makes sees it. A copy in
+ * `app_metadata` would be faster and would keep letting her in until her token
+ * refreshed, which for a revocation is the wrong trade.
+ *
+ * Membership, grants and capabilities are NOT resolved here — they are decided
+ * inside the `client_*` RPCs, per project. This answers only "who is this, and
+ * is she still a client contact at all".
+ */
+export async function getClientContact() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  // `"own profile read"` is what makes this readable: the broad
+  // `is_active_member()` policy excludes her, so this is the one row she gets.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, full_name, initials, avatar_url, is_active, account_kind")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile || !profile.is_active) return null;
+  if (profile.account_kind !== "client") return null;
   return { ...profile, email: user.email ?? null };
 }

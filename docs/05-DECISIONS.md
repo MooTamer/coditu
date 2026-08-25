@@ -2485,3 +2485,53 @@ Internal members keep reading the whole team through the existing policy.
 `profiles` row — it would need a parallel identity, and `auth.users` already cascades to `profiles`.
 Putting the kind in `app_metadata` for the middleware to read — a claim goes stale, and revocation
 has to bite an already-open session; every check reads the database.
+
+---
+
+## 2026-08-25 · The client portal is its own route tree, and `getCurrentProfile()` answers for nobody else
+
+**Decision.** `/client` is a separate segment with its own layout. `getCurrentProfile()` returns
+**null** for a client contact; `getClientContact()` is a second function that answers only for one.
+Neither ever answers for both.
+
+**Why a second function instead of a flag.** A single `getProfile()` returning a discriminated union
+would put the burden of remembering which kind came back on every one of its fifty-odd callers, and
+the one that forgot would be a leak. Two functions cannot be confused: everything under
+`lib/actions/**` calls the first and never the second; everything under `app/client/**` calls the
+second and never the first.
+
+Returning null from the first is what makes the twenty-two `role === "engineer"` denylist checks
+**unreachable** rather than merely unfriendly — the caller has already bailed out before a role is
+compared. One edit, in one place, that the twenty-third call site inherits for free.
+
+**Why a separate tree and not a mode of `/app`.** Measured, not assumed. `app/app/layout.tsx` awaits
+`listProjects`, `countUnreadNotifications`, `listActiveProfiles` and `listComponentsByProject` before
+it renders anything. Hiding the results with CSS leaves them in the RSC payload, which is not a
+boundary. And the app shell is at **116.2KB against a 110KB budget** already — a pre-existing
+regression recorded in `06-PROGRESS.md`, and reason enough not to hang a second audience off it.
+
+**What the browser test found before the fix existed.** A client account that typed `/app` did not
+get bounced. It rendered the **internal shell** — rail, topbar, New-item control — and landed on
+`/app/projects`, empty only because RLS returned no rows:
+
+```
+Expected pattern: /\/client$/
+Received string:  "http://localhost:3000/app/projects"
+```
+
+An empty internal shell is still the internal shell. The SQL layer was already correct at that point
+and it was not enough on its own, which is the argument for both layers.
+
+**Redirected, not refused.** A client contact who follows a stale `/app` link is not an attacker.
+`403` would be wrong and `/login` would be worse — her password works, so a sign-in form is a lie
+that loops. Both layouts redirect to the other's home instead.
+
+**Nothing is cached in a claim.** `getClientContact()` reads the database on every request. Putting
+`account_kind` in `app_metadata` would be one fewer query and would keep a revoked contact signed in
+until her token refreshed. For a revocation path that is the wrong trade, and it is the same reason
+`middleware.ts` is described in its own header as a gate rather than the authorization model.
+
+**Verified.** `npm run e2e` — 462 passed, 4 skipped, 0 failed, including five specs that assert a
+client contact reaches no internal route, that `COD-`, `Log time` and `Earnings` appear nowhere in
+the returned HTML, that `/api/attachments/*` refuses her, and that an admin's own path is unchanged.
+Zero horizontal overflow at 320, 375, 390, 430 and 1280.
