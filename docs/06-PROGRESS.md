@@ -1536,7 +1536,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W0 | **Baseline and characterisation** — branch, real gate numbers, two stale docs corrected, the read boundary pinned by shape | `done` | `6ff7cb8` | `lint` + `typecheck` clean · `npm run test` **237** · `npm run db:test` **283** (was 263) · `npm run budgets` **FAILS 116.5/110, pre-existing** · `npx playwright test` **466 passed**, 4 skipped, 4 contention failures each of which passes alone |
 | W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | pending | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
 | W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `done` | `4df9a48` | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. `test` **245** · `db:test` **303** · components 12/12 incl. axe with the panel open · sprint-table, new-item, inline-edit 33/33 · rendered at 320/375/390/430/1280 |
-| W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `wip` | | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. **Open: 3b-ii** the slash menu, **3c** sprint notes, **3d** story body |
+| W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `wip` | | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. `/` menu, editor 16/16 incl. axe with the menu open, `budgets` **OK 69.2/110**. **Open: 3c** sprint notes, **3d** story body |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `todo` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `todo` | | one `aria-current` · zero overflow at 8 widths + 200% · axe · budgets |
@@ -1862,6 +1862,40 @@ The first draft of the announcement assertion used `[aria-live='polite']` and
 matched five elements: the criteria count, the thread, the hours stepper, the
 toast rail and the new one. Asserting on that attribute is asserting that no
 other part of the screen has anything to say.
+
+## W3b-ii — the slash menu, and the Escape that never worked
+
+`/` at the start of a block opens the twelve-item menu, built on the same
+`@tiptap/suggestion` plugin the `@` list uses. One interaction language: arrows
+move, Enter or Tab picks, Escape dismisses. Somebody who has learned `@` already
+knows `/`.
+
+`startOfLine: true`, which is the difference between a shortcut and an ambush —
+"and/or", "src/lib/blocks" and every pasted path would otherwise open a block
+menu mid-sentence. The spec for it was written by accident: the Escape test typed
+"keep me" first and the menu correctly refused to open.
+
+### Escape has never dismissed the mention list
+
+Found while building the `/` menu, which has the identical shape.
+`editorProps.handleKeyDown` treats Escape as "step away" — blur without
+discarding, because the draft is in `localStorage`. **ProseMirror's `someProp`
+checks the view's own props before any plugin's**, so that branch wins and
+neither suggestion plugin ever sees the key: one press blurred the whole composer
+while the list stayed on screen.
+
+Nothing asserted it, so nothing said so. There was no spec anywhere that pressed
+Escape with the mention list open.
+
+The editor now tracks whether a menu is showing and stands aside for exactly one
+press. Both menus have a spec.
+
+**The general shape is worth keeping:** when two layers can handle a key, the one
+that wins is decided by the framework's lookup order, not by which is nearer the
+user. `someProp` is view-props-then-plugins; the DOM is capture-then-bubble; and
+this repository already had `⌘K` resolved by a capture listener on the editor's
+own wrapper for the same reason. A handler that is "obviously innermost" is not
+necessarily first.
 
 ## W1 — the shell gets under its own gate, and the reason it was over is one import
 

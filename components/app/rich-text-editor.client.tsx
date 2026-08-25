@@ -21,6 +21,7 @@ import { uploadImage } from "@/lib/upload-image";
 import { IMAGE_ACCEPT } from "@/lib/images";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { CODE_LANGUAGES } from "@/lib/blocks/schema";
+import { buildSlashSuggestion, SlashMenu } from "@/components/app/slash-suggestion";
 import { Callout } from "@/lib/blocks/callout";
 import { MoveBlock } from "@/lib/blocks/move-block";
 import { normaliseHref } from "@/lib/links";
@@ -295,6 +296,22 @@ export function RichTextEditor({
    */
   const [announcement, setAnnouncement] = useState("");
 
+  // Declared ABOVE `useEditor` because the slash menu's "Image / attachment"
+  // reaches it. The ref is read when the item is chosen, not when the extension
+  // is built, so it is populated by then.
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Whether the `/` or `@` menu is showing.
+   *
+   * ProseMirror's `someProp` checks the VIEW's own props before any plugin's, so
+   * the Escape branch in `editorProps.handleKeyDown` below wins over both
+   * suggestion plugins. Left alone, one press blurs the whole editor while the
+   * menu the reader meant to dismiss stays on screen — which is what it did,
+   * unasserted, for as long as the mention list has existed.
+   */
+  const suggestionOpen = useRef(false);
+
   const editor = useEditor({
     // Rendering on the server would produce markup React then has to reconcile
     // against ProseMirror's own DOM, which it does not own.
@@ -335,7 +352,9 @@ export function RichTextEditor({
         // The stored node keeps the profile UUID, never the display name, so a
         // rename cannot break a historical mention.
         renderText: ({ node }) => `@${node.attrs.label ?? "someone"}`,
-        suggestion: buildMentionSuggestion(people),
+        suggestion: buildMentionSuggestion(people, (open) => {
+          suggestionOpen.current = open;
+        }),
       }),
       Placeholder.configure({ placeholder }),
 
@@ -372,6 +391,19 @@ export function RichTextEditor({
       MoveBlock.configure({
         onMoved: (position, total) => setAnnouncement(`Block moved to position ${position} of ${total}`),
       }),
+
+      // `/` at the start of a block. The composer keeps its compact toolbar —
+      // six buttons for the things people reach for constantly — and the full
+      // block menu lives behind one key, which is the design's own split.
+      SlashMenu.configure({
+        suggestion: buildSlashSuggestion({
+          images,
+          onPickImage: () => fileInputRef.current?.click(),
+          onOpenChange: (open) => {
+            suggestionOpen.current = open;
+          },
+        }),
+      }),
     ],
     content: (initialDoc as never) ?? undefined,
     editorProps: {
@@ -396,6 +428,10 @@ export function RichTextEditor({
           return true;
         }
         if (event.key === "Escape") {
+          // A menu is showing: stand aside so its own handler can dismiss it.
+          // One press, one dismissal — the reader meant "not this list", not
+          // "step away from the whole composer".
+          if (suggestionOpen.current) return false;
           // Blur without discarding. The draft is already in localStorage, so
           // Esc is "step away", not "throw it out".
           event.preventDefault();
@@ -482,7 +518,6 @@ export function RichTextEditor({
   const editorRef = useRef<Editor | null>(null);
   editorRef.current = editor;
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

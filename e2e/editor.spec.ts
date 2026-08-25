@@ -1,4 +1,4 @@
-import { SEED, expect, query, test } from "./fixtures";
+import { SEED, auditA11y, expect, query, test } from "./fixtures";
 
 const ITEM_KEY = SEED.thread;
 const ITEM = `${SEED.sprint}/items/${ITEM_KEY}`;
@@ -308,7 +308,7 @@ test.describe("the comment editor", () => {
   });
 
   test("the stored checklist renders as a checklist, disabled", async ({ adminPage: page }) => {
-    const editor = await openComposer(page);
+    await openComposer(page);
     await page.keyboard.type("[ ] read it back");
     await page.keyboard.press("ControlOrMeta+Enter");
 
@@ -320,6 +320,92 @@ test.describe("the comment editor", () => {
     // Rendered, not interactive: there is no write path behind a tick in a
     // stored comment, and a box that moves but saves nothing is a lie.
     await expect(thread.locator("input[type=checkbox]")).toBeDisabled();
+  });
+
+
+  test("slash opens the block menu, and the keyboard drives it", async ({ adminPage: page }) => {
+    const editor = await openComposer(page);
+
+    await page.keyboard.type("/");
+    const menu = page.getByRole("listbox", { name: "Insert a block" });
+    await expect(menu).toBeVisible();
+
+    // Filtering, then the same keys the mention list uses — one interaction
+    // language, not two.
+    await page.keyboard.type("quote");
+    await expect(menu.getByRole("option")).toHaveCount(1);
+    await page.keyboard.press("Enter");
+
+    await expect(editor.locator("blockquote")).toBeVisible();
+    // The "/quote" that summoned it is gone — the range is deleted, not left
+    // behind as text inside the block it asked for.
+    await expect(editor).not.toContainText("/quote");
+  });
+
+  test("slash does not fire mid-sentence, where a slash is just a slash", async ({
+    adminPage: page,
+  }) => {
+    const editor = await openComposer(page);
+
+    // "and/or", "src/lib/blocks", "TypeScript 5/6" — far more common than the
+    // shortcut, and a menu opening on them is an ambush rather than a feature.
+    await page.keyboard.type("see src/lib/blocks");
+    await expect(page.getByRole("listbox", { name: "Insert a block" })).toHaveCount(0);
+    await expect(editor).toContainText("see src/lib/blocks");
+  });
+
+  test("Escape closes the block menu and leaves the draft standing", async ({
+    adminPage: page,
+  }) => {
+    const editor = await openComposer(page);
+    await page.keyboard.type("keep me");
+
+    // A NEW block — `startOfLine` is doing its job, and typing "/" straight
+    // after "keep me" correctly opens nothing. The first draft of this test got
+    // that wrong and the menu never appeared, which is the shortcut's own
+    // guarantee working.
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("/");
+    await expect(page.getByRole("listbox", { name: "Insert a block" })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("listbox", { name: "Insert a block" })).toHaveCount(0);
+
+    // One press, one dismissal. Without `stopPropagation` the key travels on —
+    // on the intercepted route it closes the item dialog, and here it would tear
+    // down the composer with the draft still in it. The same trap the link
+    // popover and the image viewer each hit.
+    //
+    // Asserted on the DRAFT rather than on a dialog: this spec opens the item as
+    // a full page, where there is no dialog to survive.
+    await expect(editor).toBeVisible();
+    await expect(editor).toContainText("keep me");
+  });
+
+  test("the block menu is clean to axe", async ({ adminPage: page }) => {
+    await openComposer(page);
+    await page.keyboard.type("/");
+    await expect(page.getByRole("listbox", { name: "Insert a block" })).toBeVisible();
+    expect(await auditA11y(page)).toEqual([]);
+  });
+
+
+  test("Escape dismisses the mention list too, and only the list", async ({ adminPage: page }) => {
+    const editor = await openComposer(page);
+    await page.keyboard.type("ask ");
+    await page.keyboard.type("@");
+
+    const list = page.getByRole("listbox", { name: "Mention someone" });
+    await expect(list).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(list).toHaveCount(0);
+
+    // This never worked and nothing said so. ProseMirror checks the VIEW's own
+    // `handleKeyDown` before any plugin's, so the editor's "Escape means step
+    // away" branch won and blurred the whole composer while the list stayed on
+    // screen. Found while building the `/` menu, which has the identical shape.
+    await expect(editor).toContainText("ask");
   });
 
 });

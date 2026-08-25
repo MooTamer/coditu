@@ -15,7 +15,16 @@ import type { ProfileRef } from "@/lib/data/profiles";
  * Arrow keys move, Enter picks, Escape dismisses without inserting. The chosen
  * node stores the profile UUID; the label is only what the author saw.
  */
-export function buildMentionSuggestion(people: ProfileRef[]): Omit<SuggestionOptions, "editor"> {
+export function buildMentionSuggestion(
+  people: ProfileRef[],
+  /**
+   * Told when the list opens and closes — see `slash-suggestion.tsx` for why.
+   * Escape has never dismissed this list: the editor's own `handleKeyDown` runs
+   * first and blurs the whole editor instead. Nothing asserted it, so nothing
+   * said so.
+   */
+  onOpenChange?: (open: boolean) => void
+): Omit<SuggestionOptions, "editor"> {
   return {
     char: "@",
     allowSpaces: false,
@@ -126,6 +135,7 @@ export function buildMentionSuggestion(people: ProfileRef[]): Omit<SuggestionOpt
 
           paint();
           place(props.clientRect);
+          onOpenChange?.(true);
         },
 
         onUpdate: (props) => {
@@ -157,6 +167,7 @@ export function buildMentionSuggestion(people: ProfileRef[]): Omit<SuggestionOpt
             props.event.stopPropagation();
             element?.remove();
             element = null;
+            onOpenChange?.(false);
             return true;
           }
           return false;
@@ -165,6 +176,7 @@ export function buildMentionSuggestion(people: ProfileRef[]): Omit<SuggestionOpt
         onExit: () => {
           element?.remove();
           element = null;
+          onOpenChange?.(false);
         },
       };
     },
