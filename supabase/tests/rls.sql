@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(252);
+select plan(257);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -2033,6 +2033,101 @@ select is(
   (select item_count from public.client_components('40000000-0000-0000-0000-000000000001'))::int, 1,
   'negative: the item count counts only PUBLISHED work — an unpublished item does not raise the total'
 );
+
+-- ---------------------------------------------------------------------------
+-- A story is about more than one thing, and the client sees it under each.
+--
+-- This is the property the join table exists for, stated at the boundary that
+-- matters most. Reached through `work_items.component_id` a story tagged with
+-- two components appeared under whichever sorted first and was MISSING from the
+-- other — a client reading that component's page would be told less work had
+-- been done on it than had.
+--
+-- What must not follow from it: being tagged with a published component does not
+-- publish an item, and being published does not reveal it under an unpublished
+-- one. Both are still required, so appearing in two places broadens nothing.
+--
+-- **Everything this section adds, it puts back.** The assertions after it read
+-- `client_components()` as a single row, and a second published component turns
+-- those into "more than one row returned by a subquery". That is the fixture
+-- bleed this file has already been bitten by once: pgTAP runs the whole file in
+-- one transaction and nothing rolls back until the end.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_owner();
+
+insert into public.components (id, project_id, name, slug, kind, client_summary, published_at) values
+  ('e0000000-0000-0000-0000-000000000021', '40000000-0000-0000-0000-000000000001',
+   'Banner', 'banner', 'spfx', 'The strip across the top of the intranet.', now());
+
+-- The already-published item now names BOTH. Written as a tag rather than
+-- through the mirror column, because the mirror can only ever hold one.
+insert into public.work_item_components (work_item_id, component_id)
+values ('60000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000021');
+
+-- And an UNPUBLISHED item tagged with the same published component, which is the
+-- negative half: a tag is not a publication.
+insert into public.work_item_components (work_item_id, component_id)
+values ('60000000-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000021');
+
+-- Cara was granted view_project, view_components and read_questions. Reading the
+-- work itself needs view_work, which is why no assertion in this file had ever
+-- called `client_component_work` before now.
+update public.client_project_grants
+   set capabilities = capabilities || '{view_work}'::public.client_capability[]
+ where contact_profile_id = '66666666-6666-6666-6666-666666666666';
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+
+select is(
+  (select item_count from public.client_components('40000000-0000-0000-0000-000000000001')
+    where slug = 'banner'),
+  1,
+  'positive: the second component counts the published story — it is not the mirror''s to give away'
+);
+select is(
+  (select item_count from public.client_components('40000000-0000-0000-0000-000000000001')
+    where slug = 'news-web-part'),
+  1,
+  'and the first one still counts it too — appearing under two components is not moving between them'
+);
+select is(
+  (select count(*)::int from public.client_component_work(
+     '40000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000021')),
+  1,
+  'positive: the work itself is readable under the second component, and only the published one is'
+);
+select is(
+  (select item_count from public.client_components('40000000-0000-0000-0000-000000000001')
+    where slug = 'banner'),
+  1,
+  'negative: the unpublished item tagged with it raises neither the list nor the count beside it'
+);
+
+-- The other direction: a published item tagged with a component nobody published
+-- is not reachable through that component.
+select pg_temp.act_as_owner();
+insert into public.work_item_components (work_item_id, component_id)
+values ('60000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000011');
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+
+select is_empty(
+  $$select 1 from public.client_component_work(
+      '40000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000011')$$,
+  'negative: Secret Spike was never published, so nothing is readable under it however it is tagged'
+);
+
+-- Put it all back, so the single-row assertions below still mean what they say.
+select pg_temp.act_as_owner();
+delete from public.work_item_components
+ where component_id in ('e0000000-0000-0000-0000-000000000021',
+                        'e0000000-0000-0000-0000-000000000011');
+update public.components set published_at = null
+ where id = 'e0000000-0000-0000-0000-000000000021';
+update public.client_project_grants
+   set capabilities = array_remove(capabilities, 'view_work'::public.client_capability)
+ where contact_profile_id = '66666666-6666-6666-6666-666666666666';
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
 
 -- Cross-company and cross-project, from a real session rather than in theory.
 select is_empty(

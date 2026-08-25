@@ -1535,7 +1535,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 |---|---|---|---|---|
 | W0 | **Baseline and characterisation** — branch, real gate numbers, two stale docs corrected, the read boundary pinned by shape | `done` | `6ff7cb8` | `lint` + `typecheck` clean · `npm run test` **237** · `npm run db:test` **283** (was 263) · `npm run budgets` **FAILS 116.5/110, pre-existing** · `npx playwright test` **466 passed**, 4 skipped, 4 contention failures each of which passes alone |
 | W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | pending | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
-| W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `wip` | | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **Still open: 2c** — the searchable multi-select, `Match any`/`Match all` in the URL, the two client RPCs, and the component column in CSV/Markdown exports |
+| W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `wip` | | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. **Still open: 2c** — the searchable multi-select, `Match any`/`Match all` in the URL, and the component column in CSV/Markdown exports |
 | W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `todo` | | hostile-JSON vitest per node type · `e2e editor + composer + mobile` |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `todo` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
@@ -1668,6 +1668,37 @@ tag. The spec's own SQL was counting through the mirror column and had to move t
 the join table too: a story may carry a component as its *second* tag, where the
 mirror still names the first, so the two counts diverge the moment anything adds
 one — and the page is the one that is right.
+
+## W2c — the client boundary follows every tag
+
+`client_components` and `client_component_work` reached work through
+`work_items.component_id`, which is now a mirror of the first tag. A story tagged
+with the Link Kachel and the Newspart appeared under whichever sorted first and
+was **missing from the other** — a client reading that component's page would
+have been told less work had been done on it than had.
+
+Both now go through `work_item_components`. **`read-boundary.sql` still passes
+unchanged**, which is the point of having written it in W0: this is a change to
+which rows are found, not to what is said about them, and a rewrite that quietly
+widened the projection is exactly what that file exists to catch.
+
+The assertions state the property and the two things that must not follow from
+it: a tag is not a publication (an unpublished item tagged with a published
+component stays invisible, and does not raise the count beside the list), and a
+publication is not a tag (a published item tagged with a component nobody
+published is not reachable through it).
+
+**No assertion in this repository had ever called `client_component_work`.** Cara,
+the fixture contact, was granted `view_project`, `view_components` and
+`read_questions` — never `view_work` — so the function had no positive case at
+all. The new section grants it, asserts, and takes it back.
+
+**And it puts everything else back too.** Adding a second published component
+turned the single-row assertions further down the file into "more than one row
+returned by a subquery" — the same fixture bleed recorded for C5/C6, arriving
+again in the same file, because pgTAP runs the whole thing in one transaction and
+nothing rolls back until the end. The section unpublishes the component, deletes
+its tags and removes the capability before handing back.
 
 ## W1 — the shell gets under its own gate, and the reason it was over is one import
 
