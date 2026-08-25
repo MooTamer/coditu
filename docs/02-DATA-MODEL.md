@@ -192,6 +192,52 @@ does anything in the React app.
 deleting one would blank the column on every item that named it. `is_archived` retires it from the
 pickers and keeps the history.
 
+### `work_item_components`
+`work_item_id fk work_items on delete cascade`, `component_id fk components on delete cascade`,
+`position smallint not null default 0`, `created_at`, `primary key (work_item_id, component_id)`.
+
+A story is about more than one thing. Three of Week 17's twelve items name several components in
+their own title — "Responsiveness for Link Kachel, Tabs with Cards, Newspart" — and the single
+`work_items.component_id` could only ever hold one of them, so the per-component history was wrong
+for exactly the items where it mattered most.
+
+**`position` orders, it does not index.** No unique constraint and no requirement to be dense: making
+it dense would mean re-packing every sibling on each delete, which is machinery in service of a
+property no query has. What is guaranteed is a **total, deterministic order** —
+`(position, created_at, component_id)` — so the same item renders its chips in the same sequence on
+every machine and after every reload. `primary_component_of(work_item_id)` is that order's first row,
+and it is the only correct way to ask; an assertion written against `position = 0` fails with
+"more than one row returned by a subquery" the moment two tags share a position, which is legal.
+
+`guard_work_item_component_scope` is invariant 1 on the join, re-deriving the project from the item's
+own sprint exactly as `guard_work_item_component_project` does for the mirror column.
+`guard_work_item_move_keeps_scope` is the other half: moving an item to another project's sprint would
+otherwise carry every tag with it.
+
+**No update policy and no update grant.** A tag is added or removed, never edited — so changing which
+component an item is about writes two `activity` rows naming both, rather than one naming neither.
+Read is `is_active_member()`; insert and delete are `is_admin_or_lead()`, the same rule the registry
+itself carries, because which component an item is about is a lead's call and not the assignee's.
+
+**`work_items.component_id` survives as a trigger-maintained mirror of the first tag, and it is
+bidirectional.** This is a transition state with a removal migration owed, and the reason it is not
+one-directional is this repository's deployment reality rather than caution in general: migrations are
+pushed by hand and the application deploys separately, so schema and code arrive days apart. Writing
+the join re-points the column, so **not-yet-redeployed code still reads correctly**; writing the
+column re-points the join, so **not-yet-redeployed code still writes correctly**. Without the second
+half a lead tagging an item from a stale browser gets a success toast and a change the new read model
+cannot see.
+
+Setting the column means "the primary component is now X", so X is promoted to the front —
+`min(position) - 1` — rather than replacing everything: an item carrying three components does not
+lose two because a stale browser set one. Neither direction can loop, because each is a no-op when the
+two already agree, and `is distinct from` in the WHERE clause means no row is updated at all, so the
+other trigger never fires.
+
+Activity for tagging lives on the join table alone. `record_work_item_activity` stopped logging
+`component_id` in the same migration: with the mirror in place every column change either follows a
+join write or causes one, so leaving both in would have written the same fact twice.
+
 ### `acceptance_criteria`
 `id`, `work_item_id fk on delete cascade`, `body text`, `body_json jsonb`,
 `is_done bool default false`, `order_index int default -1`.

@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(237);
+select plan(251);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -962,6 +962,164 @@ select throws_ok(
   '42501',
   null,
   'negative: an engineer cannot retag even their own item'
+);
+select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- work_item_components — a story is about more than one thing
+--
+-- The single `work_items.component_id` could not say "this touches the Link
+-- Kachel AND Tabs with Cards", which is what most of the responsiveness work
+-- actually is. The column becomes a trigger-maintained MIRROR of the first
+-- component and the join table becomes the truth — see the migration for why
+-- the mirror stays for one release rather than being dropped in the same
+-- change.
+--
+-- Every rule the scalar column carried has to survive the move, and each one
+-- fails differently: invariant 1 is a TRIGGER, who may tag is a POLICY, and
+-- "nobody edits a tag, they add or remove one" is the absence of an UPDATE
+-- grant.
+-- ---------------------------------------------------------------------------
+
+select has_table('public', 'work_item_components', 'a story can name more than one component');
+
+-- Two more components under the FIRST project, so "a second component" and "a
+-- component this item does not have" are both available without reusing the one
+-- the earlier section already attached.
+insert into public.components (id, project_id, name, slug, kind) values
+  ('cc000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000001', 'EVIM Banner', 'evim-banner', 'spfx'),
+  ('cc000000-0000-0000-0000-000000000004', '40000000-0000-0000-0000-000000000001', 'EVIM Events', 'evim-events', 'spfx');
+
+-- The backfill, asserted as an INVARIANT rather than as a count. A count over
+-- seeded rows is a number that drifts the moment a browser suite runs; "the two
+-- representations agree" is true before and after anything else touches them.
+select is(
+  (select count(*)::int from public.work_items w
+    where w.component_id is not null
+      and not exists (select 1 from public.work_item_components wc
+                       where wc.work_item_id = w.id and wc.component_id = w.component_id)),
+  0,
+  'backfill: every attributed item carries its component as a tag'
+);
+
+-- Stated against `primary_component_of` rather than against `position = 0`,
+-- because position is deliberately neither unique nor dense — two tags may
+-- legitimately share a position and the total order breaks the tie. Asserting
+-- on the raw column would be asserting an implementation detail the schema
+-- never promised, and it fails with "more than one row returned by a subquery"
+-- rather than with anything informative.
+select is(
+  (select count(*)::int from public.work_items w
+    where exists (select 1 from public.work_item_components wc where wc.work_item_id = w.id)
+      and w.component_id is distinct from public.primary_component_of(w.id)),
+  0,
+  'and the mirror column holds the first tag for every item that has one'
+);
+
+-- Invariant 1, restated for the join. Without this the model rests on the
+-- application remembering, and "the lead picked the wrong row out of a
+-- dropdown" becomes a cross-client leak rather than a validation error.
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select lives_ok(
+  $$insert into public.work_item_components (work_item_id, component_id)
+    values ('60000000-0000-0000-0000-000000000001', 'cc000000-0000-0000-0000-000000000003')$$,
+  'positive: a lead tags an item with a SECOND component from its own project'
+);
+
+select throws_ok(
+  $$insert into public.work_item_components (work_item_id, component_id)
+    values ('60000000-0000-0000-0000-000000000001', 'cc000000-0000-0000-0000-000000000002')$$,
+  '23514',
+  null,
+  'negative: a component from another client''s project is refused by the guard'
+);
+
+-- Who may tag. Same rule the scalar column had: which component an item is
+-- about is a lead's call, not the assignee's.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select throws_ok(
+  $$insert into public.work_item_components (work_item_id, component_id)
+    values ('60000000-0000-0000-0000-000000000001', 'cc000000-0000-0000-0000-000000000004')$$,
+  '42501',
+  null,
+  'negative: an engineer cannot tag an item, even one they are assigned'
+);
+
+-- The engineer's DELETE refuses one layer earlier than the INSERT: a
+-- row-filtering policy denies by matching nothing, so the statement succeeds and
+-- reports zero rows. Asserting a raise here would be asserting a failure mode
+-- Postgres does not have.
+select lives_ok(
+  $$delete from public.work_item_components
+     where work_item_id = '60000000-0000-0000-0000-000000000001'$$,
+  'negative: an engineer''s delete raises nothing — it matches nothing'
+);
+select pg_temp.act_as_owner();
+select is(
+  (select count(*)::int from public.work_item_components
+    where work_item_id = '60000000-0000-0000-0000-000000000001'),
+  2,
+  'negative: and both tags are still there'
+);
+
+-- A tag is added or removed, never edited. There is no UPDATE policy and no
+-- UPDATE grant, so moving a tag from one component to another is two statements
+-- and both of them are recorded.
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select throws_ok(
+  $$update public.work_item_components set position = 5
+     where work_item_id = '60000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: nobody updates a tag in place, not even a lead'
+);
+
+-- The mirror. Code that has not been deployed yet still reads component_id, so
+-- it has to keep answering correctly while both exist.
+select pg_temp.act_as_owner();
+select is(
+  (select w.component_id from public.work_items w
+    where w.id = '60000000-0000-0000-0000-000000000001'),
+  public.primary_component_of('60000000-0000-0000-0000-000000000001'),
+  'the mirror column still holds whatever sorts first'
+);
+
+-- Removing the first tag re-points the mirror at whatever is now first. A
+-- mirror that goes stale is worse than no mirror: it is a wrong answer that
+-- looks like a right one.
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select lives_ok(
+  $$delete from public.work_item_components
+     where work_item_id = '60000000-0000-0000-0000-000000000001'
+       and component_id = 'cc000000-0000-0000-0000-000000000001'$$,
+  'positive: a lead removes a tag'
+);
+select pg_temp.act_as_owner();
+select is(
+  (select w.component_id from public.work_items w
+    where w.id = '60000000-0000-0000-0000-000000000001'),
+  'cc000000-0000-0000-0000-000000000003'::uuid,
+  'and the mirror follows — the remaining tag is now the first'
+);
+
+-- Tagging is a change to the record of what happened to a component, so it
+-- belongs in the feed beside status and assignee — and by NAME, because a
+-- history that reads "added component 3f2a..." is not one.
+select is(
+  (select count(*)::int from public.activity
+    where work_item_id = '60000000-0000-0000-0000-000000000001'
+      and field = 'component'
+      and to_value = 'EVIM Banner'),
+  1,
+  'positive: adding a component is recorded in the item''s activity, by name'
+);
+
+-- Reading follows the same rule as the registry itself.
+select pg_temp.act_as('55555555-5555-5555-5555-555555555555');
+select is(
+  (select count(*)::int from public.work_item_components),
+  0,
+  'negative: a deactivated member reads no tags at all'
 );
 select pg_temp.act_as_owner();
 

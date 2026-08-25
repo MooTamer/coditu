@@ -1326,6 +1326,42 @@ export type Database = {
           },
         ]
       }
+      work_item_components: {
+        Row: {
+          component_id: string
+          created_at: string
+          position: number
+          work_item_id: string
+        }
+        Insert: {
+          component_id: string
+          created_at?: string
+          position?: number
+          work_item_id: string
+        }
+        Update: {
+          component_id?: string
+          created_at?: string
+          position?: number
+          work_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_item_components_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_item_components_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_items: {
         Row: {
           assignee_id: string | null
@@ -1673,6 +1709,7 @@ export type Database = {
           title: string
         }[]
       }
+      primary_component_of: { Args: { p_work_item: string }; Returns: string }
       rebalance_project_keys: { Args: never; Returns: undefined }
       reorder_criteria: {
         Args: { p_criterion_id: string; p_ordered_ids: string[] }
