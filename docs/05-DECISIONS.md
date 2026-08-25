@@ -3053,3 +3053,33 @@ document, not the text.
 *Rejected:* installing `jsdiff` — fifty lines here, against a shell budget that took all of W1 to get
 under. *Rejected:* word-level diffing inside a changed line — a real improvement nobody has asked for,
 and adding it later changes nothing outside `lib/diff.ts`.
+
+## The bin shows where something was, never what it said
+
+**Decided 2026-08-25, W4d.**
+
+`trash_list()` returns a withdrawn comment as `Comment on COD-241` plus its project, sprint and
+timestamp. Its `body_text` is not in the projection at all — not hidden by the page, absent from what
+the page is given.
+
+A withdrawn comment keeps its tombstone in the thread and its words reach nobody, including its
+author. A trash screen that printed them would quietly redefine what "withdraw" means, and the person
+who withdrew it would have no way of knowing.
+
+**A lead can see one and cannot restore it.** The permission matrix gives a lead restore rights, and
+they have them for stories. For comments the governing policy is `edit own comment` — author or admin
+— and widening trash to match the matrix would mean widening that policy, which would also let a lead
+rewrite anybody's comment. Same rule as `restore_document_revision`: who may restore is who may
+write, decided in one place. The row says *"only its author or an admin"* rather than hiding.
+
+## `access_events` is deferred from W4 to W9
+
+**Decided 2026-08-25, W4d.** §5.3 places an `access_events` audit table in this phase. It is deferred
+to W9, where People & Access provides both its writers and its only reader.
+
+Building it now means a table with no writer, no reader and no test that can fail, sitting unused for
+five phases and going stale against the screen it is eventually for. Nothing is lost by waiting: it
+is purely additive and depends on nothing built here. Nothing is gained by hurrying: no code shipped
+in W4 through W8 would write to it.
+
+*This is a scheduling change, not a scope cut.* `access_events` remains in the plan.

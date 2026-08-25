@@ -231,6 +231,28 @@ database refuses the rest, and it is the database that decides.
 Expansion is a `<details>` element and the diffs are server-rendered, so the only client JavaScript on
 this panel is the restore button.
 
+## Trash
+
+`/app/trash`, reached from the account menu and the phone's "More" sheet — not the rail. A bin on
+every screen is noise most days and a small invitation on the rest.
+
+Deleted stories and withdrawn comments, newest first. Each row says **where it was** — key, title,
+project, sprint, when it went — because a story deleted from the wrong sprint is otherwise
+recoverable in principle and unfindable in practice. A story's row also states the hours logged
+against it, before anybody presses anything: that is what a purge actually costs, and it is invisible
+everywhere else once the story is binned.
+
+**A withdrawn comment's words are never shown.** The row reads `Comment on COD-241` and nothing more.
+The words are not hidden by this screen; they are absent from what it is given.
+
+Who sees what: stories, admin and lead. Comments, the author or an admin — a lead sees the row and is
+told *"only its author or an admin"* rather than finding a control missing.
+
+**Purging is admin only, one row at a time, and there is no "empty the trash".** The confirmation
+names what goes — the criteria, the thread, the version history, the hours — because "are you sure?"
+tells nobody anything they did not already know. It is the only irreversible action in the
+application.
+
 ## Components
 
 Two screens, both under the project rather than the sprint, because a component

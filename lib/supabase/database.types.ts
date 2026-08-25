@@ -1838,6 +1838,10 @@ export type Database = {
         }[]
       }
       primary_component_of: { Args: { p_work_item: string }; Returns: string }
+      purge_deleted: {
+        Args: { p_entity_id: string; p_kind: string }
+        Returns: undefined
+      }
       rebalance_project_keys: { Args: never; Returns: undefined }
       reorder_criteria: {
         Args: { p_criterion_id: string; p_ordered_ids: string[] }
@@ -1847,6 +1851,7 @@ export type Database = {
         Args: { p_item_id: string; p_ordered_ids: string[] }
         Returns: string
       }
+      restore_comment: { Args: { p_comment_id: string }; Returns: string }
       restore_document_revision: {
         Args: {
           p_entity_id: string
@@ -1866,6 +1871,21 @@ export type Database = {
       set_work_item_deleted: {
         Args: { p_deleted: boolean; p_item_id: string }
         Returns: Json
+      }
+      trash_list: {
+        Args: never
+        Returns: {
+          can_restore: boolean
+          deleted_at: string
+          entity_id: string
+          item_key: string
+          kind: string
+          minutes_logged: number
+          project_name: string
+          project_slug: string
+          sprint_number: number
+          title: string
+        }[]
       }
       work_item_project_id: { Args: { item_id: string }; Returns: string }
       work_item_status_rank: {

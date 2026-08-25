@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(262);
+select plan(267);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -2524,6 +2524,67 @@ select alike(
   '%(profile_id, idempotency_key)%',
   'a time-entry retry token is unique per person, not globally'
 );
+
+-- ---------------------------------------------------------------------------
+-- The bin, and the one irreversible thing in this schema.
+--
+-- `purge_deleted` cascades a story's criteria, its thread, its logged hours and
+-- its version history, and none of it comes back. Admin only, one row at a
+-- time, and only rows that are already soft-deleted — purging is emptying the
+-- bin, never a shortcut past the delete.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_owner();
+update public.work_items set deleted_at = now()
+ where id = '60000000-0000-4000-8000-000000000231';
+
+-- An engineer. `a0000000-…-003` is Abdelrahman.
+select pg_temp.act_as('a0000000-0000-4000-8000-000000000003');
+select throws_ok(
+  $$ select public.purge_deleted('work_item', '60000000-0000-4000-8000-000000000231'::uuid) $$,
+  '42501',
+  'Only an admin may purge',
+  'negative: an engineer cannot purge'
+);
+
+-- A lead may delete a story and may restore one, and still may not destroy it.
+select pg_temp.act_as('a0000000-0000-4000-8000-000000000002');
+select throws_ok(
+  $$ select public.purge_deleted('work_item', '60000000-0000-4000-8000-000000000231'::uuid) $$,
+  '42501',
+  'Only an admin may purge',
+  'negative: a lead cannot purge, though they can delete and restore'
+);
+
+-- Counted as the OWNER, not as the lead. A soft-deleted story is invisible to
+-- every SELECT under RLS — that is what the read policy is for, and it is why
+-- deleting one needed no list, export or total to learn about it. Asking as the
+-- lead returns 0 whether the row survived or not, so it would prove nothing.
+select pg_temp.act_as_owner();
+select is(
+  (select count(*)::int from public.work_items
+    where id = '60000000-0000-4000-8000-000000000231'),
+  1,
+  'and the story is still there after both refusals'
+);
+
+-- An admin, on a story that is NOT in the bin.
+select pg_temp.act_as_owner();
+update public.work_items set deleted_at = null
+ where id = '60000000-0000-4000-8000-000000000231';
+select pg_temp.act_as('a0000000-0000-4000-8000-000000000001');
+select lives_ok(
+  $$ select public.purge_deleted('work_item', '60000000-0000-4000-8000-000000000231'::uuid) $$,
+  'purging a live story raises nothing …'
+);
+select is(
+  (select count(*)::int from public.work_items
+    where id = '60000000-0000-4000-8000-000000000231'),
+  1,
+  '… and does nothing — a purge only ever removes something already deleted'
+);
+
+select pg_temp.act_as_owner();
 
 select * from finish();
 rollback;

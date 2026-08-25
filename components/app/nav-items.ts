@@ -1,4 +1,4 @@
-import { Building2, CheckCheck, FolderOpen, Import, Rows3, Settings, Users, Wallet } from "lucide-react";
+import { Building2, CheckCheck, FolderOpen, Import, Rows3, Settings, Trash2, Users, Wallet } from "lucide-react";
 
 /**
  * The application's destinations, and the rule for when each one is current.
@@ -127,6 +127,25 @@ export const EARNINGS_ITEM: NavItem = {
 };
 
 /**
+ * Trash is not in `NAV` either, for the same reason as Settings: it is not a
+ * place the team works. It is where you go on the day you need it, and putting
+ * it in the rail would advertise a bin on every screen — which is both noise
+ * and a small invitation.
+ *
+ * Every internal member can reach it. What each of them SEES there is decided
+ * by `trash_list()`, not by this list: an engineer finds their own withdrawn
+ * comments and no stories, so hiding the destination from them would hide
+ * something that is genuinely theirs.
+ */
+export const TRASH_ITEM: NavItem = {
+  id: "trash",
+  label: "Trash",
+  href: "/app/trash",
+  Icon: Trash2,
+  isActive: (path) => path.startsWith("/app/trash"),
+};
+
+/**
  * What a phone puts in the bar, and what goes behind "More".
  *
  * Four across at 390px is 97px each, which is comfortable; five is 78px and
@@ -140,10 +159,11 @@ export const TABS: readonly NavItem[] = TAB_IDS.map(
   (id) => NAV.find((item) => item.id === id)!
 );
 
-/** People, Import, Clients, Earnings and Settings — behind the overflow sheet. */
+/** People, Import, Clients, Earnings, Trash and Settings — behind the overflow sheet. */
 export const OVERFLOW: readonly NavItem[] = [
   ...NAV.filter((item) => !TAB_IDS.includes(item.id as (typeof TAB_IDS)[number])),
   EARNINGS_ITEM,
+  TRASH_ITEM,
   SETTINGS_ITEM,
 ];
 

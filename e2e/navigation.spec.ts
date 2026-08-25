@@ -244,14 +244,20 @@ test.describe("the account menu", () => {
     await page.keyboard.press("ArrowDown");
     await expect(page.getByRole("menu", { name: "Account" })).toBeVisible();
 
-    // Three items, and Earnings is deliberately the middle one: E5 keeps it out
-    // of the top bar and the rail so a screen shared with a client never
-    // advertises it, which leaves the account menu as its only home. This test
-    // used to step Settings → Sign out and started failing the day that was
-    // done — the menu grew an item, not a bug.
+    // Four items now. Earnings and Trash are both here rather than in the rail
+    // for the same reason — E5 keeps money off any screen shared with a client,
+    // and a bin on every screen is noise most days and a small invitation on the
+    // rest — which leaves the account menu as their only home.
+    //
+    // This test has now grown twice: it once stepped Settings → Sign out, then
+    // Settings → Earnings → Sign out. Each time the menu gained an item, not a
+    // bug. If it fails again, check what was added before assuming the
+    // traversal broke.
     await expect(page.getByRole("menuitem", { name: "Settings" })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(page.getByRole("menuitem", { name: "Earnings" })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByRole("menuitem", { name: "Trash" })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeFocused();
     // And it wraps.

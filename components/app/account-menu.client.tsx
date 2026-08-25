@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { LogOut, Settings, Wallet } from "lucide-react";
+import { LogOut, Settings, Trash2, Wallet } from "lucide-react";
 
 import { PersonAvatar, type AvatarPerson } from "@/components/app/person-avatar";
 import { Mono } from "@/components/coditu/mono";
@@ -215,6 +215,21 @@ export function AccountMenu({ me }: { me: AccountIdentity }) {
                 >
                   <Wallet size={15} strokeWidth={1.9} aria-hidden />
                   Earnings
+                </Link>
+
+                {/* Beside Settings rather than in the rail: a bin on every
+                    screen is noise most days and a small invitation on the
+                    rest. What each person finds in it is decided by
+                    `trash_list()`. */}
+                <Link
+                  role="menuitem"
+                  href="/app/trash"
+                  prefetch={false}
+                  onClick={() => setOpen(false)}
+                  className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
+                >
+                  <Trash2 size={15} strokeWidth={1.9} aria-hidden />
+                  Trash
                 </Link>
 
                 <button

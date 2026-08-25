@@ -466,6 +466,28 @@ purpose: who may restore a document is who may write it, and the surfaces' own p
 `guard_work_item_columns` already say so. Restoring v2 over v5 writes v6 with `restored_from = 2`
 and leaves 3, 4 and 5 readable.
 
+### Trash — `trash_list()`, `restore_comment()`, `purge_deleted()`
+No new table. Soft delete already lived on `work_items.deleted_at` and `comments.deleted_at`; what
+was missing was a way to see either.
+
+`trash_list()` is `security definer` — it has to be, because a deleted story is invisible to every
+SELECT this app can make. It returns kind, title, item key, project, sprint, hours logged, when it
+went, and a per-row `can_restore`. **It never returns a withdrawn comment's `body_text`.** The thread
+hides those words from every reader including their author, and a bin that printed them would
+redefine "withdrawn" as "moved somewhere less obvious".
+
+Who sees what: stories, admin and lead — matching who may delete one. Comments, the author or an
+admin — matching the `edit own comment` policy, because restoring somebody's withdrawn remark into a
+thread is closer to editing it than to un-deleting a row. A lead sees a withdrawn comment and is told
+why they cannot restore it.
+
+`restore_comment()` is `security invoker`, so that policy decides and nothing restates it. Stories
+keep using `set_work_item_deleted(id, false)`.
+
+`purge_deleted(kind, id)` is the only irreversible operation in this schema: admin only, one row at a
+time, and only rows already soft-deleted — there is no "empty the trash", and no shortcut past the
+soft delete.
+
 ---
 
 ## Triggers, views, indexes

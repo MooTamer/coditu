@@ -1537,7 +1537,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | `c669851` | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
 | W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `done` | `4df9a48` | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. `test` **245** · `db:test` **303** · components 12/12 incl. axe with the panel open · sprint-table, new-item, inline-edit 33/33 · rendered at 320/375/390/430/1280 |
 | W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `done` | pending | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. `/` menu, editor 16/16 incl. axe with the menu open, `budgets` **OK 69.2/110**. **W3 done.** `test` **252** · `db:test` **306** · 49 document specs · `budgets` **OK 72.7/110** after finding two 60KB client-bundle regressions |
-| W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `wip` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
+| W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, revisions, version history, `/app/trash` | `done` | pending | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `todo` | | one `aria-current` · zero overflow at 8 widths + 200% · axe · budgets |
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `todo` | | comparator vitest · e2e desktop + mobile sheets |
@@ -2110,6 +2110,67 @@ message.
 
 `db:test` **326** · `test` **264** (12 new diff tests) · 5 e2e incl. axe with a
 version expanded · `budgets` **OK 72.7/110**.
+
+## W4d — the bin, and the one thing in this application that cannot be undone
+
+Soft delete has existed here since August and had no window into it. A story
+deleted from the wrong sprint was recoverable in principle and unfindable in
+practice — `list_deleted_work_items` needs you to already know which sprint to
+ask about — and a withdrawn comment was recoverable by nobody at all.
+`/app/trash` is the read.
+
+`trash_list()` has to be `security definer`: a deleted story is invisible to
+every SELECT this app can make, which is exactly why deleting one needed no
+list, export or total to learn about it.
+
+### It shows where something was and never what it said
+
+A withdrawn comment appears as `Comment on COD-241` with its project, sprint and
+timestamp. **`body_text` is not in the projection at all** — not hidden by the
+page, absent from what the page is given. The thread hides those words from every
+reader including their author, and a bin that printed them would quietly redefine
+"withdraw" as "moved somewhere less obvious". The spec asserts it with
+`page.content()` rather than `not.toBeVisible()`, which passes for text that is
+present and hidden with CSS — the bug being looked for.
+
+**A lead sees one and cannot restore it.** The permission matrix gives a lead
+restore rights and they have them for stories; for comments the governing policy
+is `edit own comment`, and widening trash to match the matrix would mean widening
+that policy, which would also let a lead rewrite anybody's comment. The row says
+*"only its author or an admin"* rather than hiding. Same rule as W4a: who may
+restore is who may write, decided once.
+
+### Purging
+
+The only irreversible operation in this schema. Admin only, one row at a time,
+only rows already in the bin — no "empty the trash", because a single press that
+destroys an unbounded amount of work is not a control worth having. The
+confirmation names what goes: the criteria, the thread, the version history and
+the logged hours, with the hours stated in the row **before** anybody presses
+anything, since they are invisible everywhere else once a story is binned.
+
+### Two things found by opening the page
+
+The row rendered the story's title and not its key, so `COD-237` was nowhere on a
+screen whose whole job is helping somebody find a story that is on no other
+screen. And a comment row printed its key twice — once as a chip and once inside
+"Comment on COD-235".
+
+### One pgTAP assertion was wrong in an instructive way
+
+*"the story is still there after both refusals"* counted as the lead and got 0 —
+because a soft-deleted story is invisible under RLS. The row had survived; the
+policy was hiding it. Counting as the owner is what proves existence, and the
+assertion says so now.
+
+### `access_events` moved to W9
+
+§5.3 puts it here. It has no writer and no reader until People & Access exists,
+so building it now means a table with no test that can fail sitting unused for
+five phases. Deferred, not dropped — recorded in `05-DECISIONS.md`.
+
+`db:test` **331** · `test` **264** · 6 trash e2e incl. axe and the no-words
+assertion · `budgets` **OK 72.9/110**.
 
 ## W3d — the story's own words, and two imports that cost 60KB each
 

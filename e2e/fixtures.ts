@@ -14,6 +14,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:5
 const DB_URL = process.env.E2E_DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54422/postgres";
 
 export const SEED_ADMIN = { email: "mohamed@coditu.com", password: "coditu" };
+export const SEED_LEAD = { email: "adam@coditu.com", password: "coditu" };
 export const SEED_ENGINEER = { email: "ahmed@coditu.com", password: "coditu" };
 
 /**
