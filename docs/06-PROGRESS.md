@@ -1539,7 +1539,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `done` | pending | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. `/` menu, editor 16/16 incl. axe with the menu open, `budgets` **OK 69.2/110**. **W3 done.** `test` **252** · `db:test` **306** · 49 document specs · `budgets` **OK 72.7/110** after finding two 60KB client-bundle regressions |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, revisions, version history, `/app/trash` | `done` | pending | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `wip` | | two browser contexts · socket frames carry no text · channel gone on unmount |
-| W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `todo` | | one `aria-current` · zero overflow at 8 widths + 200% · axe · budgets |
+| W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `wip` | | one `aria-current` · zero overflow at 8 widths + 200% · axe · budgets |
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `todo` | | comparator vitest · e2e desktop + mobile sheets |
 | W8 | **Projects and project home** | `todo` | | e2e search/filter/archived · axe |
 | W9 | **People & Access** — six sections, safety states, the per-project client grant editor | `todo` | | pgTAP self-demote / self-deactivate / last-admin · e2e disabled-and-explained |
@@ -2301,6 +2301,54 @@ legitimate record of what the work asked for; withdrawing a comment is
 specifically the act of taking words back.
 
 `db:test` **338** · `test` **264** · `budgets` **OK 73.8/110**.
+
+## W6a — `/app` becomes the workspace, and three bugs the green gate could not see
+
+Home renders the date and a greeting in Cairo, the active sprint as a card, the
+two "my work" queues and the mentions list — every number read by the same
+function the screen it links to uses, because Home is the one screen people
+glance at without clicking through.
+
+`/app/sprint` is the old redirect, moved. It is an **entrance rather than an
+address**: it resolves the active sprint and redirects to the project-scoped URL,
+which is invariant 1 living in the URL. It also solves a problem the rail had —
+the navigation is a client component that cannot know which project is active,
+and a fixed link to a route that does know costs nothing until it is clicked.
+
+Favourites, recents and project spaces are in the design and are deliberately
+absent: they need a table nobody has designed, and inventing them would put the
+prototype's furniture on the team's home page.
+
+### Everything below here was found by opening the page in a browser
+
+`lint`, `typecheck` and `test` were all green on a page that **threw on every
+load**. `06-PROGRESS.md` has said "the green gate never opens a page" since W0
+and this is the clearest instance of it so far.
+
+**`getSprint` takes a project id; I passed the slug.** Both are `string`, so
+nothing could catch it before the query ran: `22P02 invalid input syntax for
+type uuid: "meinevim"`, rendered as the error boundary.
+
+**Every status chip printed its label twice** — *"in progress in progress 3"* —
+because `StatusChipDot` already renders it.
+
+**A sprint that ended two days ago said "0 days left"**, because `daysRemaining`
+clamps at zero. Fixed at the render edge here rather than changing the shared
+helper mid-phase; the sprint header has the same latent wording.
+
+And one inconsistency of my own making: the rail's first item read **Sprint** and
+pointed at `/app`, which is now Home. Fixed with a Home item and the
+`/app/sprint` entrance, plus two "back to the current sprint" links in the error
+and not-found pages. The marketing site's two links to `/app` correctly still
+mean "open the app".
+
+Verified at 1440/375/320 and in both themes through the app's own toggle: zero
+overflowing elements at 320, measured by element **geometry** rather than
+`scrollWidth`, which lies under `overflow-x-clip`.
+
+`test` **270** (6 new for the Cairo greeting, incl. one pinning that Egypt keeps
+DST — Cairo is UTC+**3** in August, and a fixed +2 is right for half the year) ·
+`home.spec.ts` **8/8** incl. axe · `budgets` **OK 73.9/110**.
 
 ## W3d — the story's own words, and two imports that cost 60KB each
 

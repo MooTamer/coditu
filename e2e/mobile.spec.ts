@@ -34,7 +34,10 @@ test.describe("the shell on a phone", () => {
 
     const bar = page.locator("[data-tab-bar]");
     await expect(bar).toBeVisible();
-    for (const label of ["Sprint", "My work", "Projects", "More"]) {
+    // Four across at 390px is 97px each; five is 78px and the labels truncate.
+    // So the bar takes the first three of the design's own nav order — Home,
+    // Sprint, My work — and Projects went behind More when Home arrived in W6.
+    for (const label of ["Home", "Sprint", "My work", "More"]) {
       await expect(bar.getByText(label, { exact: true })).toBeVisible();
     }
 
@@ -60,18 +63,19 @@ test.describe("the shell on a phone", () => {
         .locator('[data-tab-bar] [aria-current="page"]')
         .evaluateAll((nodes) => nodes.map((node) => node.textContent?.trim() ?? ""));
 
+    await page.goto("/app");
+    expect(await current()).toEqual(["Home"]);
+
     await page.goto(SPRINT);
     expect(await current()).toEqual(["Sprint"]);
 
     await page.goto("/app/my-work");
     expect(await current()).toEqual(["My work"]);
 
-    await page.goto("/app/projects");
-    expect(await current()).toEqual(["Projects"]);
-
-    // People, Import and Settings live behind More — which is what carries the
-    // current marker for all three, so there is still exactly one.
-    for (const path of ["/app/people", "/app/import", "/app/settings"]) {
+    // Projects, People, Import and Settings live behind More — which is what
+    // carries the current marker for all of them, so there is still exactly
+    // one. Projects joined that list in W6, when Home took a tab.
+    for (const path of ["/app/projects", "/app/people", "/app/import", "/app/settings"]) {
       await page.goto(path);
       expect(await current(), path).toEqual(["More"]);
     }

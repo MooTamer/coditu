@@ -3169,3 +3169,23 @@ On the sprint, you know you are there, and a face of your own on every screen is
 permanent noise. On one story the stack answers a different question — *is anybody in here with me,
 before I rewrite this description?* — and your own face is what makes the others countable at a
 glance.
+
+## `/app` is the workspace home; `/app/sprint` is the entrance to the sprint
+
+**Decided 2026-08-25, W6a.** The design puts a workspace home at `/app` and navigates to a flat
+`/app/sprint`. This application's canonical sprint URL is project-scoped and stays that way.
+
+So `/app` renders Home, and `/app/sprint` is a server route that resolves the active sprint and
+redirects to its real address. It is an entrance rather than an address: what lands in the address
+bar is the shareable URL that names its project, which is invariant 1 expressed in the URL.
+
+That also solves a problem the rail had: the navigation is a client component with no idea which
+project has an active sprint, and teaching it would mean loading the project list into the shell on
+every page. A fixed link to a route that knows the answer costs nothing until somebody clicks it.
+
+The old redirect survives as the fallback it always should have been — with nothing active anywhere,
+`/app/sprint` goes to the projects list rather than rendering an empty sprint page.
+
+*Consequence to remember:* any link that meant "the current sprint" and pointed at `/app` now points
+at Home. Two did — the error page and the not-found page — and the marketing site's two links to
+`/app` correctly still mean "open the app".

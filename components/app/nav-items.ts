@@ -1,4 +1,4 @@
-import { Building2, CheckCheck, FolderOpen, Import, Rows3, Settings, Trash2, Users, Wallet } from "lucide-react";
+import { Building2, CheckCheck, FolderOpen, House, Import, Rows3, Settings, Trash2, Users, Wallet } from "lucide-react";
 
 /**
  * The application's destinations, and the rule for when each one is current.
@@ -37,11 +37,25 @@ export interface NavItem {
 
 export const NAV: readonly NavItem[] = [
   {
+    id: "home",
+    label: "Home",
+    href: "/app",
+    Icon: House,
+    // Exactly `/app` and nothing beneath it. Every other destination in this
+    // app is `/app/something`, so a prefix test here would light Home on all
+    // of them.
+    isActive: (path) => path === "/app",
+  },
+  {
     id: "sprint",
     label: "Sprint",
-    href: "/app",
+    href: "/app/sprint",
+    // `/app/sprint` is an entrance rather than an address: it redirects to the
+    // active sprint's real, project-scoped URL. So this has to light up on
+    // both — the link the reader clicked, and the page they land on.
     Icon: Rows3,
-    isActive: (path) => path === "/app" || /^\/app\/projects\/[^/]+\/sprints(\/|$)/.test(path),
+    isActive: (path) =>
+      path === "/app/sprint" || /^\/app\/projects\/[^/]+\/sprints(\/|$)/.test(path),
   },
   {
     id: "projects",
@@ -150,10 +164,14 @@ export const TRASH_ITEM: NavItem = {
  *
  * Four across at 390px is 97px each, which is comfortable; five is 78px and
  * the labels start truncating. The split is by how often a person on a phone
- * actually needs each one: the sprint they are working, the work assigned to
- * them, and then everything that is administration.
+ * actually needs each one: where they landed, the sprint they are working, the
+ * work assigned to them, and then everything else behind More.
+ *
+ * Projects moved into the overflow when Home arrived. On a phone, "what should
+ * I look at" and "the sprint" are the two things somebody opens standing up;
+ * the project list is something you go to at a desk.
  */
-export const TAB_IDS = ["sprint", "my-work", "projects"] as const;
+export const TAB_IDS = ["home", "sprint", "my-work"] as const;
 
 export const TABS: readonly NavItem[] = TAB_IDS.map(
   (id) => NAV.find((item) => item.id === id)!

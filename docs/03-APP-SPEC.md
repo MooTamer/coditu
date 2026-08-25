@@ -231,6 +231,28 @@ database refuses the rest, and it is the database that decides.
 Expansion is a `<details>` element and the diffs are server-rendered, so the only client JavaScript on
 this panel is the restore button.
 
+## Workspace home — `/app`
+
+`/app` renders the workspace. It used to be a router that found a project with an active sprint and
+redirected there; that was right when the sprint was the only screen worth landing on and stopped
+being right once there were nine. **`/app/sprint` is that router now** — an *entrance*, not an
+address: it resolves and redirects to `/app/projects/[slug]/sprints/[number]`, because invariant 1
+lives in the URL and a sprint address that does not name its project cannot be shared.
+
+The page: the date and a greeting, both in `Africa/Cairo`; the active sprint as a card — name, goal,
+window, status distribution, hours logged against estimated, per-person load; **My work**, the two
+queues that `/app/my-work` opens in full; and **mentions & discussion**.
+
+**Every number is read by the same function the screen it links to uses.** Home is the one screen
+people glance at without clicking through, so a figure that disagrees with its destination is worse
+than no figure.
+
+**An ended sprint says `ended`, not `0 days left`.** `daysRemaining` clamps at zero, so the obvious
+rendering tells you a sprint that finished last week is on its last day.
+
+Favourites, recents and project spaces are in the design and are **not built**: they need a table
+nobody has designed, and inventing them would put the prototype's furniture on the team's home page.
+
 ## Presence
 
 Beside the sprint's name in the header eyebrow, never in the shell: this is presence **on this

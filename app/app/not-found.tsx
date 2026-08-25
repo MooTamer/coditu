@@ -23,7 +23,7 @@ export default function AppNotFound() {
       </div>
 
       <Link
-        href="/app"
+        href="/app/sprint"
         className="inline-flex h-11 items-center gap-2 rounded-control border border-[var(--hairline-strong)] px-4 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
       >
         Go to the current sprint

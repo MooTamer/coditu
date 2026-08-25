@@ -50,7 +50,7 @@ export default function AppError({
         </button>
 
         <Link
-          href="/app"
+          href="/app/sprint"
           className="inline-flex h-11 items-center rounded-control px-3 text-[13.5px] font-medium text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
         >
           Back to the current sprint

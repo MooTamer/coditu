@@ -273,6 +273,48 @@ plainly finished — the error toast appeared, the draft came back, and only
 test passed on the parent, failed with the change, and passed again with a
 single `useAnnounceSurface` call neutralised.
 
+### Two `string` parameters is a type system that cannot help you
+
+`getSprint(projectId: string, number: number)` takes a project **ID**. The
+workspace home passed a **slug**. It typechecks perfectly, lints clean, and
+fails at the database with:
+
+```
+22P02  invalid input syntax for type uuid: "meinevim"
+```
+
+which the app renders as its error boundary — *"This screen did not load."* No
+unit test caught it, because the failure is a real query against a real
+database; nothing but opening the page would have.
+
+Two lessons, and the second is the general one:
+
+- **`getSprint` and friends take ids, not slugs.** `getProjectBySlug` is the one
+  that takes a slug, and its name says so. Check the parameter name, not the
+  type.
+- **The green gate does not open a page.** `lint`, `typecheck` and `test` all
+  passed on a page that threw on every single load. `06-PROGRESS.md` has said
+  "the green gate never opens a page" since W0; this is the clearest instance
+  of it yet, and it was found because somebody insisted on looking in a browser.
+
+Two more defects surfaced in the same look and neither is visible to a test that
+does not read the rendering: `StatusChipDot` already prints its label, so
+printing `STATUS_LABEL` beside it rendered *"in progress in progress 3"*; and
+`daysRemaining` clamps at zero, so a sprint that ended two days ago read
+*"0 days left"*.
+
+**Signing in to the browser without typing a password:** mint a token against the
+local auth API and set the cookie, exactly as `e2e/fixtures.ts` does.
+
+```bash
+curl -s -X POST "http://127.0.0.1:54421/auth/v1/token?grant_type=password" \
+  -H "apikey: $ANON" -H "Content-Type: application/json" \
+  -d '{"email":"mohamed@coditu.com","password":"coditu"}'
+```
+
+then `document.cookie = "sb-127-auth-token=base64-" + btoa(JSON.stringify({access_token, refresh_token, expires_at, expires_in: 3600, token_type: "bearer"}))`.
+The cookie name's `127` is the first label of the Supabase URL, not a typo.
+
 ### A loaded machine fails the suite as timeouts
 The suite is ~6 minutes at 12 workers on an idle machine. Under load (a browser, a VM, another build)
 the same run takes 30+ and fails 20 tests, all of them `Test timeout of 30000ms exceeded` — including
