@@ -126,6 +126,31 @@ It hides in a full run: `criteria.spec.ts` is `serial`, so when anything earlier
 in the describe fails this one is reported as "did not run" rather than as a
 failure. Absence from a red summary is not evidence it passed.
 
+### A pgTAP file that counts rows in an append-only table must build its own fixture
+
+`document_revisions` accumulates, and the e2e suite writes documents. So the
+revision count of any SEEDED story is whatever the last browser run left it at,
+and an assertion like
+
+```sql
+select is((select count(*) from public.document_revisions
+            where entity_id = '…231'), 1, '…');
+```
+
+is asserting the history of the test suite. It is the "suite leaves the seed
+changed" trap in a nastier form than reading a row by position: it passes on a
+fresh database, passes again on the run right after a reset, and fails only on
+the runs that follow a browser run — so it reads as flakiness rather than as the
+deterministic thing it is.
+
+`supabase/tests/revisions.sql` creates its own work item and criterion inside the
+transaction, so numbering starts at 1 by construction and `rollback` removes it.
+Any future test that counts rows in an append-only table should do the same.
+
+The first draft of that file did use COD-231 and passed — purely because the
+suite happens to edit a different story's description. That is luck, not a
+design.
+
 ### A loaded machine fails the suite as timeouts
 The suite is ~6 minutes at 12 workers on an idle machine. Under load (a browser, a VM, another build)
 the same run takes 30+ and fails 20 tests, all of them `Test timeout of 30000ms exceeded` — including

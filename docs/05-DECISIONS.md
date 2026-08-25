@@ -2957,3 +2957,44 @@ into hard breaks — 58 imported descriptions are requirement lists, and collaps
 unreadable paragraph once before — and takes a `starsAreCallouts` option that only the sprint notes
 pass, because a `**wrapped**` paragraph was the notes' convention and a description never used it. It
 has `highlight`, a column of its own.
+
+## History is captured by a trigger, and a restore cannot rewind it
+
+**Decided 2026-08-25, W4a.**
+
+Revisions are written by an `after` trigger on the five document surfaces, not by the Server Actions
+that save them. Four actions write documents today and there will be more; each one would have to
+remember, and the one that forgets loses history silently and permanently. A trigger also catches the
+writes no action makes — a migration, a hand-applied fix in the SQL editor, the importer — which are
+exactly the changes nobody can otherwise account for. The price is that a trigger knows what changed
+and not why; `restored_from` is the one piece of intent that matters and it arrives through a
+transaction-local setting.
+
+`document_revisions` grants `authenticated` nothing but `select`, and carries no insert, update or
+delete policy. **The append-only guarantee is what is absent, not a guard that raises** — a guard has
+to be written correctly and can be got round by a path its author did not consider; a privilege that
+was never granted cannot. It follows that a restore adds a version rather than rewinding the table,
+because rewinding is not an operation the schema offers. Restoring v2 over v5 produces v6.
+
+*Rejected:* writing revisions in the actions, for the reason above. *Rejected:* a `before delete`
+guard trigger instead of withheld privileges — weaker, and it invites an exception.
+
+## `restore_document_revision` is `security invoker`, alone among our functions
+
+**Decided 2026-08-25, W4a.**
+
+Almost every function in this schema is `security definer`. This one must not be. Who may restore a
+document is exactly who may write it, and that rule already exists — in the policies on `work_items`,
+`sprints`, `acceptance_criteria` and `comments`, and in `guard_work_item_columns`. A definer function
+would state it a second time, in a `case` over five surfaces, and the second copy is the one that
+goes stale.
+
+The first draft did exactly that, and got it wrong in a way that mattered: it required admin-or-lead
+for the three story-level surfaces and let *any* active member restore a criterion body — including
+on a story they cannot edit. As an invoker function the question does not arise. `supabase/tests/revisions.sql`
+pins both halves, and the refusal it observes comes from the column guard, naming the column, rather
+than from anything restated here.
+
+*The catch, recorded because it is not obvious:* RLS refuses a write by matching no rows rather than
+by raising, so the function checks `row_count` and raises `42501` itself. Without that a denied
+restore reports success.

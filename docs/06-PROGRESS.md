@@ -1537,7 +1537,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | `c669851` | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
 | W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `done` | `4df9a48` | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. `test` **245** · `db:test` **303** · components 12/12 incl. axe with the panel open · sprint-table, new-item, inline-edit 33/33 · rendered at 320/375/390/430/1280 |
 | W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `done` | pending | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. `/` menu, editor 16/16 incl. axe with the menu open, `budgets` **OK 69.2/110**. **W3 done.** `test` **252** · `db:test` **306** · 49 document specs · `budgets` **OK 72.7/110** after finding two 60KB client-bundle regressions |
-| W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `todo` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
+| W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `wip` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `todo` | | one `aria-current` · zero overflow at 8 widths + 200% · axe · budgets |
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `todo` | | comparator vitest · e2e desktop + mobile sheets |
@@ -1949,6 +1949,56 @@ to a missing column is the worse half of that bug. `isMissingColumn`, not a bare
 `42703`: a refused WRITE answers `PGRST204` from PostgREST's schema cache and
 never reaches Postgres, which is why the first version of that fallback did
 nothing at all.
+
+## W4a — every version of every document, and a restore that cannot rewind
+
+`activity` has recorded property changes since the first week. What it never
+recorded is what a document *said* before somebody replaced it —
+`document_revisions` does, for the five internal writing surfaces.
+`client_messages` is deliberately left out: it is the one document a client
+contact writes, and this table's read policy is `is_active_member()`.
+
+**Captured by a trigger, not by the four Server Actions that save documents.**
+Each of them would have to remember, and the one that forgets loses history
+permanently and silently. The trigger also catches the writes no action makes —
+the seed, a migration, a fix applied by hand in the SQL editor. Proof it works
+that way: after the document e2e specs ran, history held their edits attributed
+to the account the suite signs in as, and the seed's own 356 original versions
+underneath.
+
+**Append-only is what is absent.** `authenticated` has `select` and nothing
+else; there is no insert, update or delete policy at all. A guard that raises
+has to be written correctly and can be got round by a path its author did not
+think of; a privilege that was never granted cannot. So a restore *adds* a
+version — restoring v2 over v3 writes v4 with `restored_from = 2`, and 2 and 3
+stay readable — because rewinding is not an operation the schema offers.
+
+### The restore function is the one `security invoker` function in the schema
+
+Who may restore a document is exactly who may write it, and that rule is already
+written down in the surfaces' own policies and in `guard_work_item_columns`. The
+first draft restated it anyway — `security definer`, admin-or-lead for the three
+story-level surfaces — and got it wrong: any active member could restore a
+criterion body on a story they cannot edit. As an invoker function the question
+does not arise, and the refusal a test observes comes from the column guard,
+naming the column.
+
+RLS refuses a write by matching no rows rather than by raising, so the function
+checks `row_count` and raises `42501` itself. Without that, a denied restore
+reports success.
+
+### The test builds its own story
+
+Revisions accumulate and the e2e suite writes documents, so a seeded story's
+revision count is whatever the last browser run left it at. The first draft
+asserted COD-231 had exactly one revision and passed — by luck, because the
+suite edits a different story. It now creates its own work item and criterion
+inside the transaction, and numbering starts at 1 by construction.
+
+`db:test` **324** (306 + 18) · `test` **252** · `lint`, `typecheck` clean · 31
+document e2e specs pass with the trigger live. `seed.sql` 16–17 failed first
+time round and were the documented e2e drift, green again after `db:reset` —
+the fourth time that has cost somebody the same ten minutes.
 
 ## W3d — the story's own words, and two imports that cost 60KB each
 

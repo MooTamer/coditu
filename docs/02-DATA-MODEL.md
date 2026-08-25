@@ -433,6 +433,25 @@ never breaks a historical mention.
 Written by `security definer` triggers on status, assignee, reviewer, and deadline changes.
 Read-only to everyone.
 
+### `document_revisions`
+`id`, `surface enum`, `entity_id`, `revision_no smallint`, `actor_id`, `doc jsonb`, `plain_text`,
+`doc_version`, `restored_from smallint`, `work_item_id fk`, `sprint_id fk`, `created_at`.
+`unique (surface, entity_id, revision_no)`.
+
+Five surfaces: `work_item_description`, `work_item_highlight`, `sprint_notes`,
+`acceptance_criterion`, `comment`. `client_messages` is deliberately absent — it is the one document
+surface a client writes, and this table's read policy is `is_active_member()`.
+
+**Append-only, by omission.** `authenticated` holds `select` and nothing else, and there is no
+insert, update or delete policy. Rows arrive only through the `security definer` trigger
+`record_document_revision()`, which fires on the five surfaces whenever a document column actually
+changes. Nothing — not an admin, not the app — can alter or remove one.
+
+A restore therefore **adds** a version. `restore_document_revision()` is `security invoker` on
+purpose: who may restore a document is who may write it, and the surfaces' own policies plus
+`guard_work_item_columns` already say so. Restoring v2 over v5 writes v6 with `restored_from = 2`
+and leaves 3, 4 and 5 readable.
+
 ---
 
 ## Triggers, views, indexes
