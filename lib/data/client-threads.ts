@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import type { ClientMessageView, ClientThreadState, ClientThreadView } from "@/lib/client-threads";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -16,50 +17,15 @@ import { createClient } from "@/lib/supabase/server";
  * tables are unsafe, it is that a query which joins **outward** from them is.
  */
 
-export interface ClientMessageView {
-  id: string;
-  authorId: string;
-  authorName: string;
-  authorInitials: string;
-  /** Whether Coditu wrote it. Drives the side of the thread it sits on. */
-  fromCoditu: boolean;
-  bodyJson: unknown;
-  bodyText: string;
-  createdAt: string;
-  editedAt: string | null;
-}
-
-export type ClientThreadState = "waiting_client" | "waiting_coditu" | "resolved";
-
-export interface ClientThreadView {
-  id: string;
-  title: string;
-  state: ClientThreadState;
-  componentId: string;
-  componentName: string;
-  componentSlug: string;
-  projectId: string;
-  projectSlug: string;
-  createdAt: string;
-  lastMessageAt: string | null;
-  messageCount: number;
-  /** True when something arrived after this reader last opened it. */
-  unread: boolean;
-}
-
-/** What a person is being asked, in words rather than an enum. */
-export const THREAD_STATE_LABEL: Record<ClientThreadState, string> = {
-  waiting_client: "Waiting for your reply",
-  waiting_coditu: "We're on it",
-  resolved: "Resolved",
-};
-
-/** The same three states, said from Coditu's side of the conversation. */
-export const THREAD_STATE_LABEL_INTERNAL: Record<ClientThreadState, string> = {
-  waiting_client: "Waiting for client",
-  waiting_coditu: "Needs our answer",
-  resolved: "Resolved",
-};
+// The vocabulary lives in `lib/client-threads.ts`, which has no `server-only`
+// and can therefore be read by the client components that render these words.
+// Re-exported here so existing callers do not have to care which file it is in.
+export type {
+  ClientMessageView,
+  ClientThreadState,
+  ClientThreadView,
+} from "@/lib/client-threads";
+export { THREAD_STATE_LABEL, THREAD_STATE_LABEL_INTERNAL } from "@/lib/client-threads";
 
 /**
  * Every thread this session may see, newest activity first.

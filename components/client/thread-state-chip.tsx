@@ -1,4 +1,4 @@
-import { THREAD_STATE_LABEL, type ClientThreadState } from "@/lib/data/client-threads";
+import { THREAD_STATE_LABEL, type ClientThreadState } from "@/lib/client-threads";
 
 /**
  * Whose turn it is, in words.

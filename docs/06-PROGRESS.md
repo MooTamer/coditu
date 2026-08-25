@@ -1461,7 +1461,7 @@ reasoning that put `isActive` in `nav-items.ts` in the first place.
 `"use server"`, so every export from it must be an async Server Action and a plain function cannot be
 shared out of it. The algorithm is unchanged and `setTemporaryPassword` now imports it.
 
-| C11 | **Questions** — `client_threads`/`client_messages`/`client_thread_reads`, the thread RPCs, `/client/questions`, the composer | `done` | pending | `npm run db:test` — **263** assertions (was 246); 10 question specs |
+| C11 | **Questions** — `client_threads`/`client_messages`/`client_thread_reads`, the thread RPCs, `/client/questions`, the composer | `done` | `958901f` | `npm run db:test` — **263** assertions (was 246); 10 question specs |
 
 ### C11 — the bug the browser found and the database could not
 
@@ -1484,7 +1484,34 @@ overflow, just a control that could not be read or hit, because `html` carries `
 That is the same failure the topbar shipped in step 7. The fix is an icon below `sm`; the guard
 asserts element geometry rather than document width, for every header control at 320/360/390.
 
-### Still to come in this brief
+| C12 | **The internal side** — publish a component and its work, ask a question, resolve one, from the component page | `done` | pending | `npm run lint && npm run typecheck`; rendered at 320/375/390/430/1280 |
 
-C12 client-safe attachments, C13 notifications, and internal thread-composition UI on the component
-page (a client can read and answer today; opening a question is a Server Action with no screen yet).
+### C12 — a build error that four green commands did not see
+
+`client-visibility-panel.client.tsx` imported one const from `lib/data/client-threads.ts`, which
+begins `import "server-only"`. `typecheck` passed. `lint` passed. `test` and `db:test` passed. The
+rule is enforced by the **bundler**, so only building or opening the page finds it — and the
+screenshot did.
+
+Shared vocabulary now lives in `lib/client-threads.ts`, which has no `server-only`; the loaders stay
+where they were and re-export it. Types were never the problem — they are erased — it is a runtime
+value that drags a module across the boundary. In `07-FIELD-NOTES.md`, with the general form: the
+green gate never opens a page, so a route no spec visits is a route where a build error can sit.
+
+### What this brief did NOT do
+
+Stated plainly rather than left to be discovered:
+
+- **`view_attachments` is a capability with nothing behind it.** The enum value exists, the presets
+  correctly leave it off, and the access screen offers it with its "this reveals…" sentence — but no
+  client-facing attachment path was built. Granting it today changes nothing. It should either be
+  built or removed from the enum before anybody is told it works.
+- **No notifications.** A client is not told a question is waiting, and Coditu is not told an answer
+  arrived, except by opening the portal. `push_subscriptions` and `lib/push/*` exist and were not
+  extended; the payload rules for a client thread (title and state, never message text) are written
+  in the plan and not implemented.
+- **Editing and withdrawing a message have policies but no UI.** RLS allows an author to edit their
+  own and an admin to soft-delete any; neither screen offers it yet.
+- **`/app/clients` has no per-project grant editor.** An admin invites with a capability set and can
+  revoke or restore the whole contact; changing one project's capabilities afterwards is
+  `setClientGrant`, which exists and is unused by any screen.

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ClientVisibilityPanel } from "@/components/app/client-visibility-panel.client";
 import { ComponentSettings } from "@/components/app/component-admin.client";
 import { ComponentIcon } from "@/components/coditu/component-icon";
 import { Mono } from "@/components/coditu/mono";
@@ -8,6 +9,7 @@ import { StatusChipDot, ToneChip } from "@/components/coditu/status-chip";
 import { Reveal } from "@/components/motion/reveal";
 import { COMPONENT_KIND_LABEL, COMPONENT_KIND_TONE } from "@/lib/components";
 import { getComponentDossier, type ComponentItem } from "@/lib/data/components";
+import { listClientThreads } from "@/lib/data/client-threads";
 import { getProjectBySlug } from "@/lib/data/projects";
 import { hours } from "@/lib/format";
 import { getCurrentProfile } from "@/lib/supabase/server";
@@ -53,6 +55,13 @@ export default async function ComponentPage({
   if (!dossier) notFound();
 
   const canManage = profile.role === "admin" || profile.role === "lead";
+
+  // Threads on THIS component, out of the project's. One query rather than a
+  // per-component RPC parameter: a project has a few dozen threads at most, and
+  // `client_thread_list` is already the one place the read rule lives.
+  const threads = (await listClientThreads(project.id)).filter(
+    (thread) => thread.componentId === dossier.id
+  );
 
   // Grouped by sprint, in the order `getComponentDossier` already sorted them —
   // newest sprint first, and the fixed status display order inside each.
@@ -172,6 +181,26 @@ export default async function ComponentPage({
           </div>
         )}
       </Reveal>
+      <Reveal tier="section" delay={0.08} as="section" aria-label="Client visibility">
+        <ClientVisibilityPanel
+          componentId={dossier.id}
+          componentName={dossier.name}
+          projectSlug={project.slug}
+          componentSlug={dossier.slug}
+          published={dossier.clientPublished}
+          summary={dossier.clientSummary}
+          items={dossier.items.map((item) => ({
+            id: item.id,
+            key: item.key,
+            title: item.title,
+            clientTitle: item.clientTitle,
+            published: item.clientPublished,
+          }))}
+          threads={threads}
+          canManage={canManage}
+        />
+      </Reveal>
+
     </main>
   );
 }

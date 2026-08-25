@@ -160,6 +160,10 @@ export interface ComponentItem {
   id: string;
   key: string;
   title: string;
+  /** The client-safe rewrite, when one was written. Null means the title is fine. */
+  clientTitle: string | null;
+  /** Whether this item is part of what the client sees. */
+  clientPublished: boolean;
   status: WorkItemStatus;
   type: WorkItemType;
   minutesLogged: number;
@@ -171,6 +175,10 @@ export interface ComponentItem {
 export interface ComponentDossier extends ComponentSummary {
   /** Every item that names this component, newest sprint first. */
   items: ComponentItem[];
+  /** The sentence written for the client, or "" — never the internal name. */
+  clientSummary: string;
+  /** Whether this component has been deliberately shown to the client. */
+  clientPublished: boolean;
 }
 
 /**
@@ -193,8 +201,9 @@ export const getComponentDossier = cache(
     const { data, error } = await supabase
       .from("components")
       .select(
-        `id, name, slug, kind, is_archived, icon,
+        `id, name, slug, kind, is_archived, icon, client_summary, published_at,
          work_items ( id, key, title, status, type, minutes_logged, estimate_minutes, closed_at,
+                      client_title, client_published_at,
                       sprints!inner ( number, name ) )`
       )
       .eq("project_id", projectId)
@@ -211,6 +220,8 @@ export const getComponentDossier = cache(
         id: item.id,
         key: item.key,
         title: item.title,
+        clientTitle: item.client_title,
+        clientPublished: item.client_published_at !== null,
         status: item.status as WorkItemStatus,
         type: item.type as WorkItemType,
         minutesLogged: item.minutes_logged ?? 0,
@@ -236,6 +247,8 @@ export const getComponentDossier = cache(
       estimateMinutes: items.reduce((total, item) => total + item.estimateMinutes, 0),
       lastSprintNumber: items[0]?.sprint.number ?? null,
       items,
+      clientSummary: data.client_summary ?? "",
+      clientPublished: data.published_at !== null,
     };
   }
 );

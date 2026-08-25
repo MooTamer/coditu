@@ -698,3 +698,28 @@ if (rect.right > viewportWidth || rect.left < 0) // escaped
 ```
 
 `e2e/client-questions.spec.ts` does this for every header control at 320/360/390.
+
+### `server-only` is a bundler rule, so `typecheck` and `lint` both pass
+
+`components/app/client-visibility-panel.client.tsx` imported `THREAD_STATE_LABEL_INTERNAL` from
+`lib/data/client-threads.ts`, which begins `import "server-only"`. That is a build error:
+
+```
+Ecmascript file had an error
+> 1 | import "server-only";
+```
+
+`npm run typecheck` passed. `npm run lint` passed. The rule is enforced by the **bundler**, so
+nothing short of `next build` or actually loading the page sees it — and the page in question was a
+route neither the unit tests nor the pgTAP suite touch. The screenshot found it.
+
+**Types are fine either way** — they are erased, so `import type` across the boundary never trips it.
+It is a runtime value (a const, a function, an object) that drags the whole module across.
+
+The fix is to put shared vocabulary in a module with no `server-only` and let the server-only file
+re-export it: `lib/client-threads.ts` holds the labels and the view types, `lib/data/client-threads.ts`
+holds the loaders. When a client component needs one word from a server module, move the word.
+
+**The general lesson for this repo:** the green gate is `lint + typecheck + test + db:test`, and none
+of those four opens a page. A route that no spec visits is a route where a build error can sit
+undetected. Run it, or screenshot it.
