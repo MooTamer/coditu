@@ -62,6 +62,12 @@ export function generateMarkdown(payload: ExportPayload): string {
     lines.push(`| status | \`${item.status}\` |`);
     lines.push(`| type | \`${item.type}\` |`);
     lines.push(`| grouping | ${item.grouping ? `\`${item.grouping}\`` : "—"} |`);
+    // After grouping, and named rather than counted: the Markdown export exists
+    // for an agent reading the sprint, and "which web parts does this touch" is
+    // one of the first questions it has to answer.
+    lines.push(
+      `| components | ${item.components.length ? item.components.map((name) => `\`${name}\``).join(", ") : "not attributed"} |`
+    );
 
     if (options.owners) {
       lines.push(`| assignee | ${item.assignee?.fullName ?? "unassigned"} |`);

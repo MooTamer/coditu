@@ -1535,7 +1535,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 |---|---|---|---|---|
 | W0 | **Baseline and characterisation** — branch, real gate numbers, two stale docs corrected, the read boundary pinned by shape | `done` | `6ff7cb8` | `lint` + `typecheck` clean · `npm run test` **237** · `npm run db:test` **283** (was 263) · `npm run budgets` **FAILS 116.5/110, pre-existing** · `npx playwright test` **466 passed**, 4 skipped, 4 contention failures each of which passes alone |
 | W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | pending | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
-| W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `wip` | | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. **Still open: 2c** — the searchable multi-select, `Match any`/`Match all` in the URL, and the component column in CSV/Markdown exports |
+| W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `wip` | | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. **2c exports done. Still open: 2c** — the searchable multi-select picker and `Match any`/`Match all` in the URL |
 | W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `todo` | | hostile-JSON vitest per node type · `e2e editor + composer + mobile` |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `todo` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
@@ -1699,6 +1699,28 @@ returned by a subquery" — the same fixture bleed recorded for C5/C6, arriving
 again in the same file, because pgTAP runs the whole thing in one transaction and
 nothing rolls back until the end. The section unpublishes the component, deletes
 its tags and removes the capability before handing back.
+
+## W2c — the exports name the components, and the PDF deliberately does not
+
+`components` is the last always-present CSV column and a `| components |` row in
+the Markdown. Both were absent entirely, so this is an addition rather than a
+change of contract — and it is placed at the end of the base block, so nothing
+that was there before moves. The conditional blocks after it shift by one, which
+is already true of them whenever an Include toggle changes; nothing can have been
+reading those by position and been right.
+
+One cell, joined with ` | `, rather than one column per component: a story may
+name five, and a CSV whose width depends on its contents is not an import target.
+
+**The PDF does not carry them, on purpose.** It is the client's artefact, and an
+internal component name has not been through the publication check that
+`client_components()` applies — `components.client_summary` and `published_at`
+exist precisely because the internal name is not the client-facing one. The CSV
+and the Markdown are internal ("for an AI agent", "detailed").
+
+The golden files were read before they were updated, not regenerated on faith:
+the diff is the header gaining one name, one row gaining two component names, one
+row gaining an empty cell, and two Markdown table rows. Nothing else moved.
 
 ## W1 — the shell gets under its own gate, and the reason it was over is one import
 

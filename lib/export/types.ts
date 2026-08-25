@@ -38,6 +38,13 @@ export interface ExportItem {
   status: WorkItemStatus;
   type: WorkItemType;
   grouping: number | null;
+  /**
+   * Every component this item is about, in the order the app renders them.
+   *
+   * Names, not ids: an export is read by a person or by an agent, and neither
+   * has the registry to resolve a uuid against.
+   */
+  components: string[];
   assignee: ExportPerson | null;
   reviewer: ExportPerson | null;
   deadline: string | null;

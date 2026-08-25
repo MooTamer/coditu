@@ -42,9 +42,9 @@ describe("csvCell — RFC 4180", () => {
 describe("CSV export", () => {
   it("matches the golden file", () => {
     expect(generateCsv(EXPORT_FIXTURE)).toMatchInlineSnapshot(`
-      "﻿key,title,status,type,grouping,assignee,reviewer,deadline,estimate_hours,hours_logged,acceptance_criteria_done,acceptance_criteria_total,acceptance_criteria,comments,activity,time_entries
-      COD-140,"Add optional titles, and a ""Show Title"" toggle",in_progress,story,,Mohamed Tamer,Abdelrahman Elkhateeb,2026-08-21,8.00,7.50,1,2,"[x] Each webpart has a ""Show Title"" toggle | [ ] Spacing matches Link Kachel | at all breakpoints","Abdelrahman Elkhateeb (2026-08-19 14:02): Inline edit needs the same field ordering as the panel, otherwise editors lose the toggle.",MT changed status ready → in_progress · 2026-08-18 09:12,2026-08-18 3.0 h | 2026-08-19 4.5 h
-      COD-144,Newspart changes,ready,change_request,2,,,2026-08-23,3.00,0.00,0,0,,,,
+      "﻿key,title,status,type,grouping,assignee,reviewer,deadline,estimate_hours,hours_logged,components,acceptance_criteria_done,acceptance_criteria_total,acceptance_criteria,comments,activity,time_entries
+      COD-140,"Add optional titles, and a ""Show Title"" toggle",in_progress,story,,Mohamed Tamer,Abdelrahman Elkhateeb,2026-08-21,8.00,7.50,EVIM Themen Kachel | EVIM Newspart,1,2,"[x] Each webpart has a ""Show Title"" toggle | [ ] Spacing matches Link Kachel | at all breakpoints","Abdelrahman Elkhateeb (2026-08-19 14:02): Inline edit needs the same field ordering as the panel, otherwise editors lose the toggle.",MT changed status ready → in_progress · 2026-08-18 09:12,2026-08-18 3.0 h | 2026-08-19 4.5 h
+      COD-144,Newspart changes,ready,change_request,2,,,2026-08-23,3.00,0.00,,0,0,,,,
       "
     `);
   });
@@ -117,6 +117,7 @@ describe("Markdown export", () => {
       | status | \`in_progress\` |
       | type | \`story\` |
       | grouping | — |
+      | components | \`EVIM Themen Kachel\`, \`EVIM Newspart\` |
       | assignee | Mohamed Tamer |
       | reviewer | Abdelrahman Elkhateeb |
       | deadline | 2026-08-21 |
@@ -152,6 +153,7 @@ describe("Markdown export", () => {
       | status | \`ready\` |
       | type | \`change_request\` |
       | grouping | \`2\` |
+      | components | not attributed |
       | assignee | unassigned |
       | reviewer | — |
       | deadline | 2026-08-23 |

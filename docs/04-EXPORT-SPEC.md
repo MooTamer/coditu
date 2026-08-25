@@ -39,8 +39,14 @@ the report route.
 Header:
 
 ```
-key,title,status,type,grouping,assignee,reviewer,deadline,estimate_hours,hours_logged
+key,title,status,type,grouping,assignee,reviewer,deadline,estimate_hours,hours_logged,components
 ```
+
+`components` is the last always-present column and holds every component the item names, joined
+with ` | ` in one cell — one column per component would make the file's width depend on its contents.
+Empty means not attributed, which is a real state for the 232 items imported before the registry
+existed. It is **not** in the PDF: that one is the client's, and an internal component name has not
+been through the publication check that `client_components()` applies.
 
 then conditionally, per the Include toggles:
 

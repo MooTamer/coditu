@@ -40,6 +40,11 @@ export function csvHeader(payload: ExportPayload): string[] {
     "deadline",
     "estimate_hours",
     "hours_logged",
+    // Last of the ALWAYS-PRESENT columns. Nothing that was here before it moves;
+    // the conditional blocks after it do shift by one, which is already true of
+    // them whenever a toggle changes, so nothing can have been reading those by
+    // position and been right.
+    "components",
   ];
 
   if (payload.options.criteria) {
@@ -74,6 +79,9 @@ export function generateCsv(payload: ExportPayload): string {
       // and the value is derived from integer minutes at this last step only.
       (item.estimateMinutes / 60).toFixed(2),
       (item.minutesLogged / 60).toFixed(2),
+      // One cell, not one column per component: a story may name five, and a
+      // CSV whose width depends on its contents is not an import target.
+      item.components.join(JOIN),
     ];
 
     if (options.criteria) {

@@ -5,6 +5,7 @@ import { cache } from "react";
 import { daysRemaining, todayInCairo } from "@/lib/data/sprint";
 import { timestamp } from "@/lib/format";
 import { statusRank, type WorkItemStatus, type WorkItemType } from "@/lib/work-items";
+import { COMPONENT_TAGS_SELECT, toComponentTags } from "@/lib/components";
 import { createClient } from "@/lib/supabase/server";
 import {
   DEFAULT_EXPORT_OPTIONS,
@@ -40,6 +41,7 @@ export const buildExportPayload = cache(
          work_items (
            key, title, description, highlight, status, type, grouping, deadline,
            estimate_minutes, minutes_logged, order_index,
+           ${COMPONENT_TAGS_SELECT},
            assignee:profiles!work_items_assignee_id_fkey ( full_name, initials ),
            reviewer:profiles!work_items_reviewer_id_fkey ( full_name, initials ),
            acceptance_criteria ( body, is_done, order_index ),
@@ -70,6 +72,7 @@ export const buildExportPayload = cache(
       status: item.status as WorkItemStatus,
       type: item.type as WorkItemType,
       grouping: item.grouping,
+      components: toComponentTags(item.work_item_components).map((c) => c.name),
       assignee: item.assignee
         ? { fullName: item.assignee.full_name, initials: item.assignee.initials }
         : null,
