@@ -67,3 +67,4 @@ next-env.d.ts
 # are not committed.
 /e2e/client-*.spec.ts
 /e2e/client-fixtures.local.ts
+/scripts/.*.local.mjs

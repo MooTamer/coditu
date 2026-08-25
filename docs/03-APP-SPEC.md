@@ -30,6 +30,8 @@ Geometry, spacing, and copy come from `design/project/Coditu App.dc.html`. What 
 /api/uploads                               Route Handler: one image, with upload progress
 
 /client                                    the client portal — overview
+  /client/projects/[slug]/components/[component]   one component: its curated summary,
+                                           its progress, and the work published to this client
 ```
 
 **`/client` is a separate route tree, not a mode of `/app`.** A client contact never renders the

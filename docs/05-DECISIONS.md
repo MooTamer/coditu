@@ -2646,3 +2646,56 @@ transaction timestamp, and the engineer's `client_published_at = now()` wrote th
 lead had written a statement earlier — so `is distinct from` was false and the guard correctly did
 nothing. It asserts unpublishing now, which is both genuinely distinct and the sharper attack: it is
 how a late piece of work disappears from a report a client is already reading.
+
+---
+
+## 2026-08-25 · The portal is Server Components all the way down, and it shows in the bytes
+
+**Decision.** `/client`, `/client/projects/[slug]/components/[component]`, the cards, the progress
+line and the not-found page are all Server Components. There is not one `"use client"` file in the
+portal.
+
+**Measured, against a production build.** `/client` ships **less JavaScript than `/login`** — its own
+cost over the framework floor is **0 KB**. The internal sprint table's own cost is 408 KB by the same
+probe. The portal is not "light for an app screen"; it is lighter than the lightest route this
+application already had.
+
+That is not restraint for its own sake. The app shell is 116.3 KB against a 110 KB budget and has
+been since before this work — hanging a second audience off it would have made a failing number
+worse, and the portal has nothing that needs a client island yet: no drag, no optimistic mutation, no
+realtime, no command palette. When Questions arrives it will need exactly one, for the composer.
+
+**`prefetch={false}` on every portal link.** These are authenticated dynamic routes; prefetching a
+grid of component cards renders every one on the server to save a navigation that may never happen.
+`07-FIELD-NOTES.md` records the measurement that made this a rule — twenty-eight wasted renders per
+page view.
+
+**Two bugs found by looking rather than by testing**, both invisible to every assertion that existed:
+
+*The progress track was `--ring-track`* — `rgba(11,14,20,0.48)`. Correct for `progress-ring.tsx`,
+where it is a thin circular stroke; catastrophic as a 6px full-width bar, where an empty track read
+as a finished one. "0 of 3 done" sat underneath something that looked complete. It is `--hairline`
+now, which is the token for a subtle horizontal rule.
+
+*The fill was `bg-[var(--signal)]`* — and `--signal` is a `linear-gradient`, not a colour. Tailwind's
+`bg-[…]` compiles to `background-color`, a gradient is not a valid `background-color`, the
+declaration was dropped, and the fill painted **nothing**. Every bar was 100% track. The one other
+use of `--signal` in this repository is `background-image` in `globals.css`, which is the tell. No
+test could have caught either: both render, both are the right size, both have correct accessible
+names. They were wrong in a way only a screenshot shows.
+
+**`clip-path: inset()` rather than `transform: scaleX()`** for the fill. Scaling squeezes the whole
+blue→teal gradient into whatever fraction is filled, so a bar at 10% shows the entire gradient in a
+sliver and every bar looks alike. Clipping reveals a full-width gradient, so the colour at a given x
+is the same on every bar and the line reads as the signal trace being drawn — which is the brand
+motif doing actual work. It composites like a transform and interpolates for the transition.
+
+**`app/client/not-found.tsx` exists so a client is never offered `/app`.** The internal one says "Go
+to the current sprint" and links into a tree she cannot reach. Both pages give the **same** answer for
+"not shared with you" and "does not exist", for the same reason: a message that distinguished them
+would let anyone with one project's URL discover the shape of another's.
+
+**A streamed screen is still not a 404**, exactly as recorded on 2026-08-22. `loading.tsx` flushes the
+shell before the page body runs, so `notFound()` here returns 200. The portal specs assert the
+security property and the `<meta name="next-error">` marker instead of the status — the remedy that
+decision already named.

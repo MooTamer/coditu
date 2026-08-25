@@ -479,6 +479,46 @@ on a phone the stored mark was lost before `onMouseDown` ever ran. Prevent both,
 
 ---
 
+### Hand-written demo data breaks specs you did not touch
+
+Setting up a screenshot by writing straight into the seeded database — attributing seven Week 17
+items to components, publishing three components — broke `components.spec.ts` twenty minutes later,
+in a run whose diff contained none of those files. The spec filters the sprint by
+`?component=evim-themen-kachel` and counts rows; the demo SQL had changed which items carry which
+component. `npm run db:reset` and it was 11/11 again.
+
+The shared-database note above is about two *runs* colliding. This is the same hazard from a
+different direction: a **person** setting up a demo is another writer on the one seeded database, and
+the damage surfaces somewhere unrelated, later, looking like a regression in whatever is being worked
+on at the time.
+
+Use a spec fixture that creates its own rows under a recognisable prefix and deletes them afterwards
+(`e2e/client-*.local.ts` uses `portal-e2e-%`), or `db:reset` immediately after looking. Do not leave
+hand-written rows in the seed.
+
+### Two spec files cannot share one fixture
+
+`test.describe.configure({ mode: "serial" })` orders tests **within a file**. Playwright still runs
+different files in different workers at the same time, and `beforeAll`/`afterAll` run once per
+worker — so two spec files calling the same `setupFixture()`/`teardownFixture()` delete each other's
+rows mid-assertion. It presents as an assertion failing on data that was definitely there, and it
+moves between runs.
+
+Serial mode does not fix it and cannot. Give each file its own rows —
+`client-boundary.spec.ts` uses `boundary@portal-e2e.test`, `client-portal.spec.ts` uses
+`cara@portal-e2e.test` — so the fix does not depend on scheduling.
+
+### The suite's failures move between runs, and three is not a regression
+
+Two consecutive full runs on the same commit failed **different** specs — first
+`criteria`/`mobile`, then `my-work-import`/`mobile`/`motion` — and every one of them passed when run
+alone. That is the loaded-machine and shared-database pattern already recorded above, not a fault in
+whatever changed.
+
+The check that distinguishes them is cheap and should always be made before believing a red suite:
+re-run the named specs **in isolation**. If they pass, the suite is telling you about the machine. If
+they fail, they are telling you about the code.
+
 ## Regexes and character classes
 
 ### A hyphen between two escapes is a RANGE, and it is silent

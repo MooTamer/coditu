@@ -1372,8 +1372,8 @@ uploads images against the same local database. A `db:reset` cleared both. This 
 note in `07-FIELD-NOTES.md` arriving in a new place: **`db:test` after `e2e` is not a clean run**, and
 the two failures name the seed, not the change under test.
 
-| C5 | **Publication** — `components.client_summary`/`published_at` with a check constraint, `work_items.client_published_at`/`client_title`/`client_summary`, both column guards | `done` | pending | `npm run db:test` — **223** assertions (was 210) |
-| C6 | **The read boundary** — `client_projects()`, `client_components()`, `client_component_work()`, `client_current_sprint()` | `done` | pending | `npm run db:test` — **237** assertions (was 223) |
+| C5 | **Publication** — `components.client_summary`/`published_at` with a check constraint, `work_items.client_published_at`/`client_title`/`client_summary`, both column guards | `done` | `bc778c0` | `npm run db:test` — **223** assertions (was 210) |
+| C6 | **The read boundary** — `client_projects()`, `client_components()`, `client_component_work()`, `client_current_sprint()` | `done` | `bc778c0` | `npm run db:test` — **237** assertions (was 223) |
 
 ### C5/C6 — the two assertions worth reading
 
@@ -1400,7 +1400,36 @@ expected one, because the publication section three hundred lines earlier had pu
 into the same project and nothing rolls back until the end. The read-boundary section now unpublishes
 it explicitly rather than asserting "1" while meaning "1 of the 2 I happen to know about".
 
+| C7 | **The read model** — `lib/data/client.ts`, four loaders, one RPC each, importing none of the internal ones | `done` | pending | `npm run typecheck` |
+| C8 | **The portal** — overview, component detail, loading states, `not-found.tsx`, `ProgressLine`, `ComponentCard` | `done` | pending | 14 portal specs; axe clean on both screens; 0 overflow at 320/360/390/430; `/client` own JS **0 KB** |
+
+### C7/C8 — measured, and two bugs a test could not have found
+
+**The portal ships less JavaScript than `/login`.** Own cost over the framework floor: **0 KB**, against
+408 KB for the internal sprint table. There is no `"use client"` file in the portal at all — nothing
+in it yet needs one. The app shell is 116.3 KB against its 110 KB budget and has been since before
+this work (`bd66f65` measured 116.2); hanging a second audience off it would have made a failing
+number worse.
+
+**Two rendering bugs, both invisible to every assertion.** The progress track used `--ring-track`
+(`rgba(11,14,20,0.48)`) — right for a thin circular ring stroke, catastrophic as a 6px bar, where the
+*empty* track read as a *full* one: "0 of 3 done" sat under something that looked finished. And the
+fill was `bg-[var(--signal)]`, but `--signal` is a `linear-gradient`; Tailwind's `bg-[…]` compiles to
+`background-color`, a gradient is not valid there, the declaration was dropped, and the fill painted
+nothing at all. Both render, both are the right size, both have correct accessible names. Only a
+screenshot showed them.
+
+**The screenshot harness was lying too**, in the same direction. It shot at `networkidle`, which is
+before the entrance reveals finish, so every capture was blurred and every capture looked like a
+rendering fault. It waits for `[data-reveal]` to reach opacity 1 now — the same question
+`auditA11y` already asks, and for the same reason.
+
+**Reveals settle correctly and are not pinned**: opacity 1, no transform, `blur(0px)`, `will-change:
+auto`. Without JS they render at opacity 0 — **which `/app/projects` does too**, identically. The
+`.js` gate in `globals.css` covers `[data-reveal-on-view]`, not the entrance tiers, and the
+authenticated app has always required JS. Not introduced here, and not changed here either: fixing it
+would change every internal screen.
+
 ### Still to come in this brief
 
-C7–C8 the portal itself, C9 questions, C10 the internal access manager, C11 attachments,
-C12 notifications.
+C9 questions, C10 the internal access manager, C11 attachments, C12 notifications.
