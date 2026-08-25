@@ -288,3 +288,107 @@ test.describe("the account menu", () => {
     expect(await auditA11y(page)).toEqual([]);
   });
 });
+
+/**
+ * The breadcrumb trail, and the width it exists at.
+ *
+ * Written in W6c and left un-mounted because the topbar's project switcher was
+ * saying the same thing and neither fitted. The switcher is gone; these are the
+ * assertions that keep it from coming back in a different form — anything else
+ * that takes the bar's width will show up here as a clipped crumb, which is the
+ * failure `lib/breadcrumbs.ts`'s eleven unit tests cannot see.
+ */
+test.describe("the breadcrumb trail", () => {
+  const trail = (page: import("@playwright/test").Page) =>
+    page.locator('nav[aria-label="Breadcrumb"]');
+
+  test("names the project and the sprint rather than repeating the URL", async ({
+    adminPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto(`${SPRINT}/items/COD-241`);
+
+    await expect(trail(page)).toBeVisible();
+    await expect(trail(page)).toContainText("Coditu");
+    await expect(trail(page)).toContainText("MEINEvim components");
+    await expect(trail(page)).toContainText("Sprint — Week 17");
+    await expect(trail(page)).toContainText("COD-241");
+    // Names, not slugs. `meinevim` in the trail would be the URL with the
+    // slashes drawn differently.
+    await expect(trail(page)).not.toContainText("meinevim");
+
+    // The last crumb is where you already are, so it is not a link.
+    const current = trail(page).locator('[aria-current="page"]');
+    await expect(current).toHaveCount(1);
+    await expect(current).toContainText("COD-241");
+    await expect(trail(page).getByRole("link", { name: /COD-241/ })).toHaveCount(0);
+  });
+
+  /**
+   * The regression this whole ordering existed for.
+   *
+   * With the project switcher still in the bar this measured `Coditu` at 22px
+   * — a six-letter word clipped — at 1400px, and every other crumb with it.
+   * 1024 is the narrowest width the trail appears at, so it is the one that
+   * has to hold.
+   */
+  test("fits without clipping a single crumb, at the width it first appears", async ({
+    adminPage: page,
+  }) => {
+    for (const width of [1024, 1180, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${SPRINT}/items/COD-241`);
+
+      const clipped = await trail(page)
+        .locator("span.truncate")
+        .evaluateAll((spans) =>
+          spans
+            .filter((span) => span.scrollWidth > span.clientWidth + 1)
+            .map((span) => `${span.textContent} ${Math.round(span.getBoundingClientRect().width)}px`)
+        );
+      expect(clipped, `nothing clipped at ${width}px`).toEqual([]);
+    }
+  });
+
+  test("a crumb goes where it says", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto(`${SPRINT}/items/COD-241`);
+
+    await trail(page).getByRole("link", { name: "Sprint — Week 17" }).click();
+    await expect(page).toHaveURL(new RegExp(`${SPRINT}$`));
+  });
+
+  test("is not there below lg, and says nothing on Home", async ({ adminPage: page }) => {
+    await page.setViewportSize(PHONE);
+    await page.goto(`${SPRINT}/items/COD-241`);
+    await expect(trail(page)).toBeHidden();
+
+    // `Coditu / Home` says nothing the rail does not, so there is no trail at
+    // all rather than a one-crumb one.
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto("/app");
+    await expect(trail(page)).toHaveCount(0);
+  });
+
+  /**
+   * The bar used to name the sprint twice — once in the switcher, once in the
+   * trail — and that is what stopped either of them fitting. Counted rather
+   * than eyeballed, because the second name is exactly the kind of thing that
+   * comes back as somebody else's helpful addition.
+   */
+  test("the topbar no longer carries a second name for the same sprint", async ({
+    adminPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto(SPRINT);
+
+    const named = await page.locator("header[data-app-chrome]").evaluate(
+      (header, name) =>
+        [...header.querySelectorAll("*")].filter(
+          (element) => !element.firstElementChild && element.textContent?.trim() === name
+        ).length,
+      "Sprint — Week 17"
+    );
+    expect(named, "the sprint is named once in the topbar").toBe(1);
+  });
+});

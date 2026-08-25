@@ -179,8 +179,14 @@ test.describe("export scoping — one client's work can never appear under anoth
     // the one marker Next leaves on a streamed not-found.
     const html = await (await page.request.get("/app/projects/nile-atelier/sprints/17/report")).text();
     expect(html).toMatch(/name="next-error"[^>]*content="not-found"/);
-    await expect(page.getByText("EVIM")).toHaveCount(0);
-    await expect(page.getByText("Add optional titles to all webparts")).toHaveCount(0);
+    // Scoped to the page's own content. The sidebar lists every project this
+    // admin can see, including `MEINEvim components` — which `getByText` matches
+    // case-insensitively on the substring — and a navigation tree naming a
+    // project is chrome, not one client's work appearing under another's. The
+    // scope claim is about what the PAGE renders.
+    const body = page.getByRole("main");
+    await expect(body.getByText("EVIM")).toHaveCount(0);
+    await expect(body.getByText("Add optional titles to all webparts")).toHaveCount(0);
   });
 
   test("selected keys from another project are ignored, not imported", async ({ adminPage: page }) => {

@@ -374,8 +374,32 @@ test.describe("a temporary password, and the change it forces", () => {
     await createThrowawayAccount(me);
     try {
       const shown = await issueTemporaryPasswordFor(adminPage, me.fullName);
-      // The People panel with the password on screen is the other new surface.
-      expect(await auditA11y(adminPage), "People with a temporary password shown").toEqual([]);
+      /**
+       * The People panel with the password on screen is the other new surface,
+       * and the audit is scoped to the row that carries it.
+       *
+       * Unscoped, this reported `target-size … partially obscured` against a
+       * DIFFERENT person's `Temporary password` button — measured: the whole
+       * page at `scrollY: 666` reports it, the same page at `scrollY: 0`
+       * reports nothing, and `elementFromPoint` at the button's centre returns
+       * the topbar. Clicking the throwaway account's button scrolls the page,
+       * and a `position: sticky` header genuinely overlaps whatever passes
+       * under it — for any control, on any scrolled page in this app.
+       *
+       * That is a property of the scroll position, not of this surface, so a
+       * whole-page audit taken after a click that scrolled is not reproducible.
+       * `/app/people` unscrolled is audited by `a11y.spec.ts`; what belongs
+       * here is the panel this test is about.
+       *
+       * NOT the same thing as the criterion editor on a phone, where the
+       * browser scrolled a control into view and LEFT it under the bar — that
+       * one is a real failure and `scroll-margin-top` fixes it. The difference
+       * is whether anybody was sent to the obscured control.
+       */
+      expect(
+        await auditA11y(adminPage, "[data-team-member]:has([data-temporary-password])"),
+        "People with a temporary password shown"
+      ).toEqual([]);
 
       const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 900 } });
       try {

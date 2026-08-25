@@ -68,3 +68,6 @@ next-env.d.ts
 /e2e/client-*.spec.ts
 /e2e/client-fixtures.local.ts
 /scripts/.*.local.mjs
+
+# One-off browser diagnostics — verification only, never committed
+/e2e/*.local.spec.ts

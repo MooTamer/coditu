@@ -1539,7 +1539,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `done` | `d1c3f98` | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. `/` menu, editor 16/16 incl. axe with the menu open, `budgets` **OK 69.2/110**. **W3 done.** `test` **252** · `db:test` **306** · 49 document specs · `budgets` **OK 72.7/110** after finding two 60KB client-bundle regressions |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, revisions, version history, `/app/trash` | `done` | `72853ed` | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `done` | `34b7d7e` | two browser contexts · socket frames carry no text · channel gone on unmount |
-| W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `wip` | | **W6a–W6d done.** one `aria-current` · zero overflow at 13 widths + 200% · axe · `budgets` **OK 74.9/110** · `test` **293** · rail 12/12, home 8/8, navigation 10/10. **W6e outstanding:** the switcher leaves the topbar, the trail mounts |
+| W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `done` | `pending` | one `aria-current` **per navigation** (the trail's last crumb is the ARIA breadcrumb pattern — see `05-DECISIONS.md`) · zero overflow at 13 widths + 200% · axe · `budgets` **OK 74.6/110, 214.6/220** · `test` **293** · `db:test` **338** · full e2e `--workers=1` **550 passed**, 1 contention failure that passes alone · rail 12/12, navigation 15/15, home 8/8. **Favourites and recents deferred** to W7/W9, recorded rather than faked |
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `todo` | | comparator vitest · e2e desktop + mobile sheets |
 | W8 | **Projects and project home** | `todo` | | e2e search/filter/archived · axe |
 | W9 | **People & Access** — six sections, safety states, the per-project client grant editor | `todo` | | pgTAP self-demote / self-deactivate / last-admin · e2e disabled-and-explained |
@@ -2588,3 +2588,108 @@ spaces specs · a11y **15/15** incl. thirteen widths and 200% zoom · navigation
 
 **Next:** W6e — the switcher leaves the topbar and the breadcrumb trail mounts
 into the room that makes.
+
+## W6e — the switcher leaves, and the trail measured 22px becomes 37
+
+W6c wrote the breadcrumb trail, tested every route it has, and deliberately did
+not mount it: the topbar still carried a project switcher naming the same
+project and the same sprint as crumbs two and three, and with both present
+neither fitted. W6d moved switching into the sidebar. This deletes the switcher
+and mounts the trail, which is the one line W6c said it would be.
+
+```
+              W6c        W6e
+Coditu        22px  →    37px   full
+MEINEvim      73px  →   128px   full   (and it is "MEINEvim components" now)
+Sprint — …    68px  →   104px   full
+COD-241       40px  →    58px   full
+```
+
+`project-switcher.client.tsx` is deleted; nothing else imported it. Export and
+New item still need to know which project and sprint are open and still derive
+it from the URL, exactly as the switcher did — so removing the control removed
+no behaviour.
+
+### Mounting it was not enough, and the second half was found by measuring
+
+With the switcher gone the trail still clipped every crumb at 1024 — `Coditu` at
+24px, the same bar W6c refused to ship, arrived at from the other direction. The
+cause is the ⌘K box: `flex-1` with the default `min-width: auto` holds its whole
+placeholder and makes the trail give way.
+
+`min-w-[140px]` reverses that, and the box moved from `sm` to **`xl`** — a number
+from the bar's own arithmetic rather than from Tailwind's ladder. Trail 415 +
+cluster 303 + padding and gaps 79 + a 268px sidebar above 1180 = **1205px**
+before a box with a usable minimum starts costing the trail letters. At `sm` it
+cost exactly 20px at 1180 and clipped all four crumbs; the e2e assertion caught
+that after the browser said 1180 was fine, because the browser had a stored
+sidebar preference the fresh context did not.
+
+Below `xl` the icon beside it is search — same dialog, same ⌘K.
+
+### `lg` is where the trail starts, and it is measured
+
+Forced on at each width, on the deepest route:
+
+```
+1024   Coditu 37   MEINEvim components 128   nothing clipped
+ 900   Coditu 35   MEINEvim components 122   every crumb clipped
+ 768   Coditu 16   MEINEvim components  54   every crumb clipped
+ 390   Coditu 37   MEINEvim components   8   unreadable
+```
+
+**Stated plainly, because it is a real cost:** below 768 there is no one-tap
+project switch any more. No sidebar, no trail — switching is More → Projects →
+the project, one tap more than the switcher was. The design does exactly this,
+the destination is already in the overflow sheet, and every screen names its own
+project. If it proves annoying, project spaces belong in the More sheet, not the
+switcher back in the bar.
+
+### The full suite found four red specs, and only one of them was this work
+
+The first full `--workers=1` run of the branch since W0. **541 passed, 9 failed**
+— which is four distinct specs across three Playwright projects, plus one
+contention flake. Triaged the way `07-FIELD-NOTES.md` says to, and three of the
+four were **pre-existing**, confirmed by checking out the parent commit and
+re-running there rather than by assuming:
+
+| Spec | Cause | Since |
+|---|---|---|
+| `item-detail.spec.ts` → *a hard navigation … renders the full page* | **this work.** The trail names the sprint, so an unscoped `getByRole("link", {name: /Sprint — Week 17/})` resolves to two — a strict-mode violation, not a finding. Scoped to `main` | W6e |
+| `pwa.spec.ts` → *takes a signed-in visitor straight into the app* | `/app` stopped redirecting into a sprint and became Home. The spec asserted the old URL | **W6a** |
+| `allowlist.spec.ts` → *an admin invites, and then the same address can sign up* | same cause: it asserted `/\/app\//`, with the trailing slash a new account no longer has | **W6a** |
+| `password.spec.ts` → *axe finds nothing …* | `target-size … partially obscured` on a **bystander** button, 161×36. The page reports it at `scrollY: 666` and reports nothing at `scrollY: 0`; the obscurer is the sticky topbar. W6b's 268px sidebar made `/app/people` tall enough at 1280 that the click scrolls | **W6b** |
+| `reliable-writes.spec.ts` | passes alone — contention | — |
+
+All four are fixed here, because a phase is not done while it has left specs red
+three phases back. **And the fix for the `pwa.spec.ts` one was itself wrong on
+the first attempt** — it asserted the Home greeting matched
+`/Good (morning|afternoon|evening)/`, which passed all evening and went red at
+00:30 Cairo, because `greeting()` has a fourth wording, `Still up`, below 05:00.
+It asserts the rail marks Home as current now, which no clock can move. The axe one is scoped to the surface the test names; the
+reasoning, and why it is **not** the criterion-editor case that `scroll-margin-top`
+fixes, is in `07-FIELD-NOTES.md`.
+
+### And one test was asserting more than it meant
+
+`export.spec.ts` → *"a sprint number from another project does not resolve"*
+asserted `getByText("EVIM")` was absent from the whole page. `getByText` matches
+substrings case-insensitively, so the sidebar's new `MEINEvim components` row
+matched it. Scoped to `main`: a navigation tree naming a project is chrome, and
+the claim that test makes is about what the **page** renders.
+
+`test` **293** · `lint`, `typecheck` clean · `db:test` **338** after `db:reset` ·
+`budgets` **OK 74.6 / 110 own, 214.6 / 220 total** (74.9 at W6d — the switcher's
+178 lines left, the trail arrived) · navigation **15/15** incl. five new trail
+specs, one of them measuring `scrollWidth` against `clientWidth` on every crumb
+at 1024/1180/1440.
+
+Full suite, `--workers=1`, after a `db:reset`: **550 passed, 4 skipped, 1
+failed** — `trash.spec.ts` → *a deleted story is listed with where it was*,
+which passes **6/6 alone**. Category 2 of the field notes' three-way triage, and
+a different spec from the two failures the earlier runs of this session had, so
+it is the shared-database contention this branch has had since W0 rather than
+anything here. Nothing in this phase touches the trash.
+
+**W6 is done.** Next: W7 — sprint database, multi-column sort, filters, saved
+views. Favourites ride along with saved views; see `05-DECISIONS.md`.

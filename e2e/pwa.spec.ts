@@ -112,7 +112,22 @@ test.describe("the way in", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
     await page.locator('header a[href="/app"]').first().click();
-    await expect(page).toHaveURL(/\/app\/projects\/.+\/sprints\/\d+$/);
+
+    // `/app` and no further. It asserted a sprint URL until W6a, when `/app`
+    // stopped redirecting and became the workspace home — the marketing link
+    // means "open the app", and the app now has a front door of its own to open
+    // onto. `/app/sprint` is the entrance to the sprint; see `05-DECISIONS.md`.
+    await expect(page).toHaveURL(/\/app$/);
+    // And what is there is Home. Asserted through the rail rather than through
+    // the greeting: `greeting()` has four wordings and the fourth is
+    // `Still up, …` below 05:00 Cairo, so a version of this that matched
+    // "Good morning|afternoon|evening" passed all day and went red at midnight.
+    // The rail only — the bottom bar marks its own current item, which is why
+    // `rail.spec.ts` and `home.spec.ts` scope the same way.
+    const current = await page
+      .locator('aside a[aria-current="page"]')
+      .evaluateAll((links) => links.map((link) => link.getAttribute("title") ?? ""));
+    expect(current).toEqual(["Home"]);
   });
 });
 

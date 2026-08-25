@@ -7,11 +7,14 @@ import { Mono } from "@/components/coditu/mono";
 import { crumbsFor, type CrumbProject } from "@/lib/breadcrumbs";
 
 /**
- * Where you are, in the topbar — **not mounted yet, and deliberately so.**
+ * Where you are, in the topbar.
  *
- * ## Why this is written and not rendered
+ * ## It waited for the sidebar, and the wait was the point
  *
- * The trail measured, at 1400px, with this in the topbar:
+ * Written and tested in W6c, mounted in W6e. In between, the topbar still
+ * carried a **project switcher** naming the same project and the same sprint as
+ * crumbs two and three — two controls saying one thing, and at 1400px neither
+ * of them fitting:
  *
  * ```
  * Coditu            22px   truncated
@@ -20,38 +23,32 @@ import { crumbsFor, type CrumbProject } from "@/lib/breadcrumbs";
  * COD-241           40px   truncated
  * ```
  *
- * Every crumb clipped, including a six-letter word. The cause is not styling:
- * the topbar already carries the **project switcher**, which names the same
- * project and the same sprint as crumbs two and three. Two controls saying one
- * thing, and neither fitting.
+ * Project spaces took switching into the sidebar, the switcher left, and the
+ * same four crumbs now measure 37 / 128 / 104 / 58 at their natural widths with
+ * nothing clipped. It was never a styling problem.
  *
- * The design does not have this problem because its topbar has no switcher —
- * project spaces live in the sidebar there, and the topbar is breadcrumbs,
- * presence, save state, search and New. So the order of work is: the sidebar
- * takes over project switching, the switcher leaves the topbar, and this
- * mounts into the room that makes.
+ * ## Below `lg` it is not there, and that is measured rather than assumed
  *
- * Shipping it before that would mean a bar where "Coditu" is twenty-two pixels
- * wide, which is worse than no trail at all.
+ * Forced on at each width, on the deepest route this app has:
  *
- * `lib/breadcrumbs.ts` and its eleven tests are the hard part and they are
- * done: every route this app has is asserted. Mounting is one line in
- * `topbar.client.tsx`.
+ * ```
+ * 1024   Coditu 37   MEINEvim components 128   nothing clipped
+ *  900   Coditu 35   MEINEvim components 122   every crumb clipped
+ *  768   Coditu 16   MEINEvim components  54   every crumb clipped
+ *  390   Coditu 37   MEINEvim components   8   unreadable
+ * ```
  *
- * ## Where you are, in the topbar.
+ * So `lg` is where it starts. Below it the page's own `h1` says which screen,
+ * the sprint and item headers name their project, and the back gesture is a
+ * swipe. Hidden with CSS rather than a width hook, so the server renders the
+ * same markup either way.
  *
- * The trail comes from `crumbsFor`, a pure function of the path and the
- * projects the topbar already holds — so this file is presentation and nothing
- * else, and every route's trail is asserted in `tests/breadcrumbs.test.ts`
- * rather than checked by opening two screens.
+ * ## The trail comes from a pure function
  *
- * ## Below `lg` it is not there
- *
- * The topbar at 390px already carries the project switcher, search, theme,
- * export, new, and the account menu. A trail is the first thing to go: the
- * switcher says which project, the page's own `h1` says which screen, and the
- * back gesture is a swipe. Hidden with CSS rather than a width hook, so the
- * server renders the same markup either way.
+ * `crumbsFor` is a function of the path and the projects the topbar already
+ * holds, so this file is presentation and nothing else, and every route's trail
+ * is asserted in `tests/breadcrumbs.test.ts` rather than checked by opening two
+ * screens.
  *
  * ## The last crumb is a `<span>`, not a disabled link
  *

@@ -5,10 +5,10 @@ import { useEffect, useState } from "react";
 import { Download, Plus, Search } from "lucide-react";
 
 import { AccountMenu, type AccountIdentity } from "@/components/app/account-menu.client";
+import { Breadcrumbs } from "@/components/app/breadcrumbs.client";
 import { CommandPalette } from "@/components/app/command-palette.client";
 import { ExportDialog } from "@/components/app/export-dialog.client";
 import { NewItemDialog } from "@/components/app/new-item-dialog.client";
-import { ProjectSwitcher } from "@/components/app/project-switcher.client";
 import { ThemeToggle } from "@/components/app/theme-toggle.client";
 import { Mono } from "@/components/coditu/mono";
 import type { ComponentRef } from "@/lib/data/components";
@@ -17,13 +17,22 @@ import type { ProjectSummary } from "@/lib/data/projects";
 import { cn } from "@/lib/utils";
 
 /**
- * 60px topbar.
+ * 60px topbar: where you are, search, and the two things you do from anywhere.
  *
  * A client component only because the shell layout cannot see the URL of a
  * deeper route on the server, and the topbar has to know which project and
  * sprint are open. It reads `usePathname()` and picks from a list the server
  * already fetched — no second query, no waterfall, and the alternative
  * (repeating the topbar in every page) is worse.
+ *
+ * ── The project switcher used to be here, and it is gone ───────────────────
+ * It named the project and the sprint, which is what breadcrumbs two and three
+ * say — two controls saying one thing, and with both present neither fitting.
+ * Project switching lives in the sidebar's spaces tree now, which is where the
+ * design has it and where a tree has room to be one. What is left of it here is
+ * `activeProject` / `activeSprint` below: Export and New item still need to
+ * know what is open, and they derive it from the URL exactly as the switcher
+ * did.
  */
 export function Topbar({
   projects,
@@ -94,28 +103,36 @@ export function Topbar({
   return (
     <header
       data-app-chrome
-      // `min-w-0` on the flex parent AND on the switcher below: without it a
-      // flex child refuses to shrink past its content and the whole right-hand
+      // `min-w-0` on the flex parent AND on the trail below: without it a flex
+      // child refuses to shrink past its content and the whole right-hand
       // cluster is pushed off a 320px screen — clipped, so the Export button
       // is not just cramped, it is unreachable.
       className="sticky top-0 z-30 flex min-w-0 items-center gap-2 border-b border-[var(--hairline)] bg-[var(--raised)] px-[var(--app-gutter)] sm:gap-4"
       style={{ height: "var(--topbar-h)", paddingRight: "max(var(--app-gutter), env(safe-area-inset-right))" }}
     >
-      <div className="min-w-0 shrink">
-        <ProjectSwitcher
-          projects={projects}
-          activeProject={activeProject}
-          activeSprintName={activeSprint?.name ?? null}
-          sprints={activeProject?.sprints ?? []}
-        />
-      </div>
+      {/* Where you are. `lg` and above only, and that breakpoint is measured
+          rather than chosen — the numbers are in `breadcrumbs.client.tsx`. */}
+      <Breadcrumbs projects={projects} />
 
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}
         aria-haspopup="dialog"
         aria-keyshortcuts="Meta+K Control+K"
-        className="hidden h-[34px] max-w-[420px] flex-1 cursor-pointer items-center gap-[10px] rounded-control border border-[var(--hairline)] bg-[var(--canvas)] px-3 text-left text-[var(--ink-faint)] hover:border-[var(--hairline-strong)] sm:flex"
+        // `xl` rather than `sm`, and the number comes from the bar's own
+        // arithmetic rather than from the ladder. The deepest route's trail is
+        // 415px, the right-hand cluster is 303, padding and gaps are 79, and
+        // above 1180 the sidebar takes 268 — so a box with a usable minimum
+        // needs 1205px before the trail starts losing letters. It had `sm`,
+        // and at 1180 that cost the trail 20px: `Coditu` 34 of the 37 it
+        // needs, every crumb clipped, which is the exact bar W6c refused to
+        // ship. Below `xl` the icon beside it is search, and ⌘K is unchanged.
+        //
+        // `min-w-[140px]` rather than the default `min-width: auto` for the
+        // same reason: with `auto` this button holds its whole placeholder and
+        // the trail gives way instead. A stated minimum reverses that, so a
+        // project with a very long name ellipses the placeholder first.
+        className="hidden h-[34px] min-w-[140px] max-w-[420px] flex-1 cursor-pointer items-center gap-[10px] rounded-control border border-[var(--hairline)] bg-[var(--canvas)] px-3 text-left text-[var(--ink-faint)] hover:border-[var(--hairline-strong)] xl:flex"
       >
         <Search size={14} strokeWidth={1.8} aria-hidden />
         <span className="min-w-0 flex-1 truncate text-[13.5px]">Search items, sprints, people</span>
@@ -125,17 +142,18 @@ export function Topbar({
       </button>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        {/* The palette's own trigger is `hidden … sm:flex` — a 420px search box
-            has no room on a phone. Search itself does, though, and losing it
-            below `sm` meant the only way to find an item was to scroll the
-            sprint it happens to be in. Same dialog, one icon. */}
+        {/* The palette's own trigger is `hidden … xl:flex` — a 420px search box
+            has no room on a phone, and below 1280 it has no room beside the
+            breadcrumb trail either. Search itself is needed at every width, or
+            the only way to find an item is to scroll the sprint it happens to
+            be in. Same dialog, one icon. */}
         <button
           type="button"
           onClick={() => setPaletteOpen(true)}
           aria-haspopup="dialog"
           aria-label="Search items, sprints, people"
           title="Search items, sprints, people"
-          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-control border border-[var(--hairline)] text-[var(--ink-muted)] hover:bg-[var(--canvas)] sm:hidden"
+          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-control border border-[var(--hairline)] text-[var(--ink-muted)] hover:bg-[var(--canvas)] xl:hidden"
         >
           <Search size={16} strokeWidth={1.9} aria-hidden />
         </button>

@@ -26,7 +26,14 @@ test.describe("item detail", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: "Add optional titles to all webparts" })).toBeVisible();
     // The full page offers a way back; the modal has a close button instead.
-    await expect(page.getByRole("link", { name: /Sprint — Week 17/ })).toBeVisible();
+    //
+    // Scoped to the page. Since W6e the breadcrumb trail names the sprint too,
+    // and an unscoped `getByRole("link")` resolves to two — which is a strict
+    // mode violation, not a finding. The claim here is about the PAGE's own way
+    // back, which is the one the modal deliberately does not have.
+    await expect(
+      page.getByRole("main").getByRole("link", { name: /Sprint — Week 17/ })
+    ).toBeVisible();
   });
 
   test("Esc closes, unlocks scroll, and returns focus to the row", async ({ adminPage: page }) => {

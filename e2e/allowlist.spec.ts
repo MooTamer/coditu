@@ -100,7 +100,11 @@ test.describe("invite-only sign-up", () => {
     const guest = await browser.newContext();
     const page = await guest.newPage();
     await createAccount(page, PROBE);
-    await expect(page).toHaveURL(/\/app\//, { timeout: 15_000 });
+    // `/app` itself, or anything beneath it. It read `/\/app\//` — with the
+    // trailing slash — until W6a, when `/app` stopped redirecting into a sprint
+    // and became the workspace home, which is where a brand-new account lands
+    // and has nothing beneath it to land on.
+    await expect(page).toHaveURL(/\/app(\/|$)/, { timeout: 15_000 });
 
     // And the profile carries the name they typed, not the email local-part.
     const [profile] = await query<{ full_name: string; role: string }>(

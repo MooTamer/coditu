@@ -992,6 +992,36 @@ Only a computed-style assertion found it (`e2e/mobile.spec.ts`). The rule now li
 **If a rule looks right and does nothing, check what is declared after it before checking anything
 else.**
 
+### A flex item's `min-width: auto` decides which sibling gives way
+
+The topbar's ⌘K box is `max-w-[420px] flex-1`, so its flex basis is 0 and it
+looks like the thing that shrinks. It is not. A flex item's **automatic minimum
+size** — `min-width: auto`, the default — clamps it up to its content, so it
+holds the whole placeholder and the sibling with a real basis absorbs every
+pixel of the shortfall. Beside it, the breadcrumb trail lost 20px at 1180 and
+clipped all four crumbs, `Coditu` at 34 of the 37 it needs.
+
+**Whoever states a minimum wins.** `min-w-[140px]` on the box reversed it
+completely: the placeholder ellipses first and the trail keeps its natural
+width. Nothing about the trail changed.
+
+So when two flex siblings compete and the wrong one is losing, look at
+`min-width` before touching `flex`, `basis`, or `shrink`. And when a control
+must not shrink below a usable size at all, the honest fix is often a
+breakpoint rather than a smaller minimum — the box is `xl:flex` now, from the
+bar's own arithmetic (trail 415 + cluster 303 + padding and gaps 79 + a 268px
+sidebar = 1205px) rather than from Tailwind's ladder.
+
+### A tree has no 64px representation, so it leaves rather than fades
+
+The sidebar's nav labels are `opacity: 0` when collapsed, deliberately: the icon
+survives and still needs a name in the accessibility tree. Copying that to the
+project-spaces tree would be wrong in a way that looks identical on screen —
+there is no icon there to keep a name for, so a faded tree is a dozen rows
+nobody sighted can see and nobody can reach. It is `display: none`, and
+`e2e/rail.spec.ts` asserts `toBeHidden()` rather than a computed opacity, so the
+assertion is about the accessibility tree and not about the paint.
+
 ### A sticky header obscures whatever the browser scrolls into view
 Opening the criterion editor on an iPhone left **21px of a 74px** editing surface reachable; the rest
 was behind the `position: sticky` top bar. The browser had scrolled it "into view" correctly — it
@@ -1135,3 +1165,124 @@ Two things to take from it:
   The fix is `h2[id^="sprint-"]`, scoped by the id the `<section aria-labelledby>` already carries —
   which is also a small argument for labelling sections properly in the first place, since it gives a
   spec something honest to point at.
+
+
+### `getByText("EVIM")` matches `MEINEvim components`
+
+Playwright's `getByText` with a **string** matches a case-insensitive
+*substring*. `export.spec.ts` asserted `getByText("EVIM")` was absent from the
+whole page, to prove one client's work cannot appear under another's URL. The
+day the sidebar grew a project-spaces tree, `MEINEvim components` matched it,
+and a passing security assertion went red for a reason that had nothing to do
+with scoping.
+
+Two things:
+
+- **Pass a regex when you mean a word.** `/\bEVIM\b/` would not have matched.
+- **Scope the claim to what makes it.** That test is about what the **page**
+  renders, so it reads `page.getByRole("main")` now. Chrome that lists every
+  project a reader may see is not a leak, and an assertion over `page` cannot
+  tell the difference.
+
+### A browser you have been clicking in is not the fresh context the suite uses
+
+The trail measured clean at 1180px in the browser and clipped at 1180px in
+Playwright, on the same commit. The browser had a `coditu.*` preference stored
+from earlier clicking; the spec's context had none, so the sidebar was a
+different width and the topbar had 20px less to give.
+
+Before trusting a measurement taken by hand, clear the app's own keys and
+reload:
+
+```js
+Object.keys(localStorage).filter((k) => k.startsWith("coditu.")).forEach((k) => localStorage.removeItem(k));
+location.reload();
+```
+
+The general form: **any measurement of a layout that a stored preference can
+move has to say which preference it was taken under.**
+
+
+### axe's `target-size` is scroll-dependent under a sticky header
+
+`password.spec.ts` → *"axe finds nothing on the sign-in page or the password
+screen"* went red with:
+
+```
+target-size … Target has insufficient size because it is partially obscured
+(smallest space is 160.8px by 14.4px)
+```
+
+against a `Temporary password` button belonging to **a different person** than
+the one the test had just acted on. The button is 161×36 — nowhere near
+undersized.
+
+Measured, and the measurement is the whole story: the same page reports the
+violation at `scrollY: 666` and reports **nothing** at `scrollY: 0`, and
+`document.elementFromPoint` at the button's centre returns the topbar. Clicking
+a control near the bottom of a long page scrolls it, and a `position: sticky`
+header genuinely overlaps whatever passes under it — for any control, on any
+scrolled page in this app. W6b is what exposed it: a 268px sidebar makes
+`/app/people` tall enough at 1280 that the click scrolls.
+
+**So a whole-page `auditA11y` taken after a click that scrolled is not
+reproducible.** Audit the surface the test is about
+(`auditA11y(page, "[data-team-member]:has([data-temporary-password])")`), and
+leave the unscrolled whole-page audit to `a11y.spec.ts`, which is where it
+belongs.
+
+**This is NOT the same as the criterion editor on a phone**, three sections up,
+where the browser scrolled a control into view and *left it* under the bar. That
+one is a real failure and `scroll-margin-top` fixes it. The difference is whether
+anybody was sent to the obscured control: a bystander scrolled under a sticky
+header is a scroll position, a target you were just navigated to is a bug.
+
+### A route that stops redirecting leaves assertions elsewhere asserting the redirect
+
+W6a turned `/app` from a redirect into the workspace home. Two specs in unrelated
+files were asserting the old behaviour and neither was run for three phases:
+
+- `pwa.spec.ts` → *"it takes a signed-in visitor straight into the app"*,
+  expecting `/app/projects/…/sprints/\d+$` from the marketing header's link.
+- `allowlist.spec.ts` → *"an admin invites, and then the same address can sign
+  up"*, expecting `/\/app\//` — with the trailing slash — after sign-up.
+
+Both were confirmed pre-existing by checking out the phase's parent commit and
+re-running there, which is the cheap version of this diagnosis and worth doing
+before assuming anything:
+
+```bash
+git stash push -m wip && git checkout -q <parent-sha>
+npx playwright test e2e/<suspect>.spec.ts --workers=1 --project=chromium
+git checkout -q <branch> && git stash pop
+```
+
+**Grep for the route, not for the file you changed.** A route's shape is asserted
+by whoever happened to need it, and `git grep "/app/projects/.\+/sprints"` finds
+them in seconds.
+
+
+### An assertion on the greeting is an assertion on the wall clock
+
+`greeting()` has **four** wordings, and the fourth is easy to miss because you
+have to be working at the wrong hour to see it:
+
+```ts
+if (hour < 5)  return `Still up, ${first}`;
+if (hour < 12) return `Good morning, ${first}`;
+if (hour < 18) return `Good afternoon, ${first}`;
+return                `Good evening, ${first}`;
+```
+
+A `pwa.spec.ts` assertion written as
+`toContainText(/Good (morning|afternoon|evening)/)` passed all evening and went
+red at 00:30 Cairo, in the middle of the run that was meant to close the phase.
+Nineteen hours a day it is a correct test.
+
+**Assert that Home rendered, not what Home says.** The clock-free signal is the
+rail: `aside a[aria-current="page"]` is `["Home"]` on `/app`, which is what
+`home.spec.ts` and `rail.spec.ts` already use. The greeting's own wording is
+pinned where it belongs, in `tests/today.test.ts`, against a fixed hour.
+
+The general form: **anything derived from `now` needs an injected clock in a
+unit test and a different signal entirely in a browser test.**

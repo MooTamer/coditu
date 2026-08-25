@@ -3314,3 +3314,69 @@ So neither is faked with the prototype's sample data, and neither section is ren
 one table keyed by `(profile_id, kind, target_id)`, with the star control on each favouritable
 surface. Recents alongside W9's `access_events`, reading the same stream rather than opening a second
 one. *This is a scheduling decision, not a scope cut.* Both remain in the plan.
+
+## The switcher leaves the topbar, the trail arrives, and the search box moves to `xl`
+
+**Decided 2026-08-25, W6e.** This settles *Breadcrumbs wait for the sidebar to take over project
+switching* above. Project spaces shipped in W6d, so `components/app/project-switcher.client.tsx` is
+**deleted** — nothing else imported it — and `<Breadcrumbs>` is mounted in its place.
+
+The same four crumbs W6c measured at 1400px, re-measured with the switcher gone:
+
+```
+              W6c        W6e
+Coditu        22px  →    37px   full
+MEINEvim      73px  →   128px   full   (and it is "MEINEvim components" now)
+Sprint — …    68px  →   104px   full
+COD-241       40px  →    58px   full
+```
+
+Nothing is clipped, at 1024, 1180 or 1440, and `e2e/navigation.spec.ts` asserts that by measuring
+`scrollWidth` against `clientWidth` on every crumb rather than by looking at it.
+
+**What is left of the switcher is `activeProject` / `activeSprint`.** Export and New item still have
+to know what is open; they derive it from the URL exactly as the switcher did, so removing the control
+removed no behaviour.
+
+### The search box moved from `sm` to `xl`, and the number is arithmetic rather than the ladder
+
+Mounting the trail was not enough on its own. The ⌘K box is `max-w-[420px] flex-1` with the default
+`min-width: auto`, which means it holds its whole placeholder and **the trail gives way instead** —
+measured at 1024px with the switcher already gone: every crumb clipped, `Coditu` at 24px. The same bar
+W6c refused to ship, arrived at from the other direction.
+
+Two changes, both stated rather than automatic:
+
+- `min-w-[140px]` replaces `min-width: auto`, which reverses who gives way: the placeholder ellipses
+  first, and the trail keeps its natural width.
+- The box appears at **`xl`** rather than `sm`. The bar's own arithmetic: the deepest route's trail is
+  415px, the right-hand cluster 303, padding and gaps 79, and above 1180 the sidebar takes 268 — so a
+  box with a usable minimum needs **1205px** before the trail starts losing letters. At `sm` it cost
+  the trail exactly 20px at 1180 and clipped all four crumbs. Below `xl` the icon beside it is search,
+  which is the same dialog and the same ⌘K.
+
+### `lg` is where the trail starts, and that too is measured
+
+Forced on at each width, on the deepest route:
+
+```
+1024   Coditu 37   MEINEvim components 128   nothing clipped
+ 900   Coditu 35   MEINEvim components 122   every crumb clipped
+ 768   Coditu 16   MEINEvim components  54   every crumb clipped
+ 390   Coditu 37   MEINEvim components   8   unreadable
+```
+
+Below `lg` the page's own `h1` says which screen and the sprint and item headers name their project,
+so nothing is lost except the trail itself.
+
+*The consequence to accept, stated plainly:* **below 768 there is no one-tap project switch any more.**
+The sidebar is gone there and the trail is hidden, so switching is More → Projects → the project,
+which is one tap more than the switcher was. That is what the design does, the destination is in the
+overflow sheet already, and every screen still names its own project. If it proves annoying, project
+spaces belong in the More sheet — not the switcher back in the bar.
+
+*One thing that is now two rather than one:* `aria-current="page"` appears in the rail **and** on the
+trail's last crumb. That is the ARIA breadcrumb pattern and it is correct — each navigation landmark
+marks its own current item — but the W6 verification line reads "exactly one `aria-current='page'`"
+and it should be read as *one per navigation*. The rail's own count is still asserted, scoped to
+`aside`, by `e2e/rail.spec.ts`.
