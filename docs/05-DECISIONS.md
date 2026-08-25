@@ -3189,3 +3189,40 @@ The old redirect survives as the fallback it always should have been — with no
 *Consequence to remember:* any link that meant "the current sprint" and pointed at `/app` now points
 at Home. Two did — the error page and the not-found page — and the marketing site's two links to
 `/app` correctly still mean "open the app".
+
+## The sidebar's width is the viewport, not a hover and not a preference
+
+**Decided 2026-08-25, W6b.** The design measures three bands and this now matches them exactly:
+**≥1180px** a 268px sidebar with labels, **768–1179** a 64px icon rail, **<768** gone, with the bottom
+bar in its place.
+
+It used to be 72px that expanded to 240px on hover or on click-to-pin. Three things were wrong with
+that, and width-as-the-only-input fixes all three:
+
+- **Hover is not an input everybody has.** `rail.client.tsx` said so itself — the rail is hidden below
+  `md` *because* a touch screen cannot open it — and a tablet at 800px has no hover either, so it got
+  permanently unlabelled icons with no way to read them.
+- **A preference should not be needed to read your own navigation.** Pinning was discoverable only by
+  finding a button whose purpose was not obvious, and until you found it every label was invisible on
+  a 1440px screen with room to spare.
+- **Hover-to-expand moves the page under the pointer.** Reaching for Projects widened the rail and
+  reflowed the content out from under the cursor.
+
+The collapse control survives at ≥1180 only, where collapsing changes something. Its stored key was
+**renamed** `coditu.rail.pinned` → `coditu.rail.collapsed`, because the flag's meaning inverted:
+reusing the old key would have read every existing pin as a collapse and shut the sidebar for exactly
+the people who had liked it open.
+
+## The sidebar's two states are hand-written CSS, not Tailwind variants
+
+**Decided 2026-08-25, W6b.** `min-[1180px]:data-[collapsed]:w-[…]` and
+`min-[1180px]:group-data-[collapsed]/rail:opacity-0` **compile to nothing** in this setup. The class
+names sit on the element, every static check passes, and the sidebar simply never changes state —
+because the base class still applies, one of the two states looks perfectly correct.
+
+So the two rules live in `globals.css`, keyed on a `data-collapsed` attribute React sets. No variant
+stacking, no named group, nothing to compile wrongly, and a selector anybody can read.
+
+*Also decided:* widths are CSS rather than a `useMediaQuery`, so the server renders the right sidebar
+at every viewport with no hydration mismatch and no jump. JavaScript contributes the preference, not
+the layout.

@@ -2350,6 +2350,50 @@ overflowing elements at 320, measured by element **geometry** rather than
 DST — Cairo is UTC+**3** in August, and a fixed +2 is right for half the year) ·
 `home.spec.ts` **8/8** incl. axe · `budgets` **OK 73.9/110**.
 
+## W6b — the sidebar follows the viewport, and a variant that compiled to nothing
+
+Three bands, matching the design exactly: **≥1180** a 268px sidebar with labels,
+**768–1179** a 64px icon rail, **<768** gone with the bottom bar in its place.
+
+Width is now the only input. Hover-to-expand went, and it should have: this
+file's own component said the rail is hidden below `md` *because* a touch screen
+cannot open it — and a tablet at 800px has no hover either, so it got
+permanently unlabelled icons with no way to read them. Pinning went too, as a
+default: a preference should not be needed to read your own navigation. The
+collapse control survives at ≥1180 only, where collapsing changes something.
+
+The stored key was **renamed** `coditu.rail.pinned` → `coditu.rail.collapsed`,
+because the flag's meaning inverted. Reusing it would have read every existing
+pin as a collapse and shut the sidebar for exactly the people who liked it open.
+
+### The variants compiled to nothing, and looked perfect
+
+`min-[1180px]:data-[collapsed]:w-[…]` and
+`min-[1180px]:group-data-[collapsed]/rail:opacity-0` produce **no CSS at all**
+here. The class names sit on the element, every static check passes, and because
+the base class still applies the sidebar looks entirely right in one state — it
+simply never reaches the other. The rules are hand-written in `globals.css` now,
+keyed on a data attribute.
+
+Three separate things made this hard to see, all worth remembering:
+
+*Turbopack served a stale CSS chunk* — same hash, containing a token from one
+edit but not rules appended in a later one — so the same bug presented three
+different ways. Restarting `next dev` was the only fix.
+
+*Reading `getComputedStyle` in the same call that set the attribute* returned the
+pre-flush value, twice sending the diagnosis somewhere wrong.
+
+*A width transition makes a synchronous measurement lie.* `rail.spec.ts` first
+read the width directly after a resize and got **268px on its way down to 64**.
+`toHaveCSS` polls; a raw read does not.
+
+Verified in a browser at 1400 expanded, 1400 collapsed, 900 and 390, and pinned
+by two new specs — the only tests that can catch a pure-CSS layout breaking.
+
+`test` **270** · `lint`, `typecheck` clean · `budgets` **OK 74.0/110** · rail
+6/6, navigation 10/10, home 8/8.
+
 ## W3d — the story's own words, and two imports that cost 60KB each
 
 `work_items.description` and `highlight` are block documents, edited with the

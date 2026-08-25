@@ -231,6 +231,31 @@ database refuses the rest, and it is the database that decides.
 Expansion is a `<details>` element and the diffs are server-rendered, so the only client JavaScript on
 this panel is the restore button.
 
+## The shell
+
+Three bands, measured from the design:
+
+| Width | Sidebar |
+|---|---|
+| **≥ 1180px** | 268px, labels visible, collapsible to 64px |
+| **768–1179px** | 64px, icons only, no collapse control |
+| **< 768px** | absent — the bottom bar and its More sheet take over |
+
+**Width is the only input.** It used to expand on hover or on a pinned preference; hover is not an
+input a tablet has, a preference should not be needed to read your own navigation, and expanding
+under the pointer moves the thing being aimed at. The collapse control exists only at ≥1180, where
+collapsing changes something.
+
+Labels fade with `opacity` rather than `display`, so a name still reaches a screen reader at 64px —
+otherwise the sidebar is seven unlabelled icons to anybody not looking at it. `NavLink` adds a
+`title` for the pointer.
+
+The two states are plain CSS in `globals.css` keyed on `data-collapsed`, not Tailwind variants — see
+`05-DECISIONS.md` for why, and `07-FIELD-NOTES.md` for how that failure presents.
+
+The bottom bar carries **Home, Sprint, My work** and More: four across at 390px is 97px each, five is
+78px and the labels truncate, so it takes the first three of the design's nav order.
+
 ## Workspace home — `/app`
 
 `/app` renders the workspace. It used to be a router that found a project with an active sprint and

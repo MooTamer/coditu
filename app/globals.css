@@ -108,8 +108,14 @@
   --radius-section: 20px;
   --radius-pill: 999px;
 
-  --rail-collapsed: 72px;
-  --rail-expanded: 240px;
+  /* The design's own two widths. 64px fits a 22px icon in a 44px target with
+     10px either side; 268px fits the longest label — "People & Access" — plus
+     the icon and the gutters without truncating. */
+  --rail-collapsed: 64px;
+  --rail-expanded: 268px;
+  /* Where the sidebar earns its labels. Below this it is icons only, and below
+     768 it is not there at all — the bottom bar takes over. */
+  --rail-wide: 1180px;
   --topbar-h: 60px;
   /* The phone's bottom navigation. The safe-area inset is added on top of it
      wherever it is used, rather than baked in here — `env()` is 0 on a desk. */
@@ -1064,5 +1070,43 @@
   .coditu-prose li,
   .coditu-prose p.is-editor-empty:first-child::before {
     font-size: max(16px, 1em);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The sidebar's two widths.
+   
+   Written here rather than as Tailwind variants, and that is not a style
+   preference. `min-[1180px]:data-[collapsed]:w-[...]` and
+   `min-[1180px]:group-data-[collapsed]/rail:opacity-0` compile to NOTHING in
+   this setup, and the failure is silent in the worst way: the base class still
+   applies, so the sidebar looks right in one state and simply never changes.
+   It took setting the attribute by hand in a browser to see it, because every
+   static check passes on a class name that was never turned into a rule.
+
+   Two plain rules, keyed on an attribute React sets. No variant stacking, no
+   named group, nothing to compile wrongly.
+   --------------------------------------------------------------------------- */
+
+@media (min-width: 1180px) {
+  aside[data-app-chrome]:not([data-collapsed]) {
+    width: var(--rail-expanded);
+  }
+  /* The label is present at every width for a screen reader and visible only
+     where there is room — hence opacity rather than `display: none`. */
+  aside[data-app-chrome]:not([data-collapsed]) [data-rail-label] {
+    opacity: 1;
+  }
+}
+
+/* The collapse control only exists where collapsing changes anything: below
+   `--rail-wide` the sidebar is icons at every setting, and a button that
+   appears to change that and does not is worse than no button. */
+aside[data-app-chrome] [data-rail-toggle] {
+  display: none;
+}
+@media (min-width: 1180px) {
+  aside[data-app-chrome] [data-rail-toggle] {
+    display: flex;
   }
 }

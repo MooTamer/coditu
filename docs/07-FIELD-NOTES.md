@@ -315,6 +315,55 @@ curl -s -X POST "http://127.0.0.1:54421/auth/v1/token?grant_type=password" \
 then `document.cookie = "sb-127-auth-token=base64-" + btoa(JSON.stringify({access_token, refresh_token, expires_at, expires_in: 3600, token_type: "bearer"}))`.
 The cookie name's `127` is the first label of the Supabase URL, not a typo.
 
+### A Tailwind variant that does not compile fails silently and looks fine
+
+`min-[1180px]:data-[collapsed]:w-[var(--rail-collapsed)]` and
+`min-[1180px]:group-data-[collapsed]/rail:opacity-0` produce **no CSS at all**
+here. Nothing warns. The class names are on the element, `lint` and `typecheck`
+pass, and because the *base* class still applies the component looks entirely
+correct in one of its two states — it just never reaches the other one.
+
+Finding it took setting the attribute by hand in a browser and measuring:
+
+```js
+const a = document.querySelector('aside[data-app-chrome]');
+a.setAttribute('data-collapsed', 'true');   // then, IN A SEPARATE CALL:
+getComputedStyle(a).width;
+```
+
+**Measure in a separate call from the mutation.** Reading `getComputedStyle` in
+the same expression that sets the attribute or clicks the button returns the
+value from before React flushed, which sent this diagnosis down two wrong paths.
+
+When a variant stack is doing something non-trivial, write the rule in
+`globals.css` and key it on a data attribute. It is one readable selector and it
+cannot silently vanish.
+
+### Turbopack serves a stale CSS chunk after an edit
+
+While diagnosing the above: the browser was served CSS containing a token added
+in one edit but *not* rules appended in a later edit — same chunk hash, so no
+reload fixes it. That made an already-subtle bug read as three different bugs in
+sequence.
+
+Check before believing any CSS diagnosis:
+
+```js
+const css = await (await fetch(document.querySelector('link[rel=stylesheet]').href)).text();
+css.includes('the-selector-you-just-wrote');
+```
+
+If it is absent, restart `next dev` — an HMR round trip and a hard reload are
+not enough.
+
+### A width transition makes a synchronous measurement lie
+
+The sidebar animates its width over 220ms, so `getComputedStyle(el).width`
+straight after `setViewportSize` returns an **interpolated** value — 268px on its
+way down to 64. Use `expect(locator).toHaveCSS("width", …)`, which polls. The
+first version of `rail.spec.ts` read directly and failed against a sidebar that
+was working perfectly.
+
 ### A loaded machine fails the suite as timeouts
 The suite is ~6 minutes at 12 workers on an idle machine. Under load (a browser, a VM, another build)
 the same run takes 30+ and fails 20 tests, all of them `Test timeout of 30000ms exceeded` — including

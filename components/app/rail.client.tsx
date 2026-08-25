@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { PanelLeft } from "lucide-react";
 
 import { navFor } from "@/components/app/nav-items";
 import { NavIcon, NavLink } from "@/components/app/nav-link.client";
@@ -11,8 +11,36 @@ import { usePersistentFlag } from "@/lib/hooks/use-client-state";
 import { cn } from "@/lib/utils";
 
 /**
- * The rail. 72px collapsed, 240px expanded on hover *and* on click-to-pin;
- * the pinned state persists per user.
+ * The sidebar. 268px with labels at ≥1180px, 64px icons below that, gone below
+ * 768 where the bottom bar takes over.
+ *
+ * ## It used to open on hover, and that was the problem
+ *
+ * 72px collapsed, 240px on hover or on click-to-pin. Three things were wrong
+ * with it, and the design fixes all three by making width the only input:
+ *
+ * **Hover is not an input everybody has.** This file's own comment said so —
+ * the rail is hidden below `md` precisely *because* a touch screen cannot open
+ * it — and a tablet at 800px has no hover either, so it got permanently
+ * unlabelled icons with no way to read them.
+ *
+ * **A preference should not be needed to read your own navigation.** Pinning
+ * was discoverable only by finding a button whose purpose is not obvious, and
+ * until you found it every label was invisible on a 1440px screen with room to
+ * spare.
+ *
+ * **Hover-to-expand moves the page under the pointer.** Reaching for Projects
+ * at 72px meant the rail widened, the content reflowed, and the thing being
+ * aimed at moved.
+ *
+ * ## Why the widths are CSS and not state
+ *
+ * A `useMediaQuery` here would mean the server renders one width and the client
+ * corrects it, which is a hydration mismatch on every load and a visible jump.
+ * The two widths are a media query at `--rail-wide`, so the correct sidebar
+ * arrives in the HTML at every viewport with no JavaScript at all. The toggle
+ * only sets `data-collapsed`, which overrides the wide case — so the thing that
+ * needs JS is the preference, not the layout.
  *
  * The prototype's inline `<path d="…">` icons are lucide-equivalent, so they
  * are mapped to their lucide names rather than hand-rolled back into SVG.
@@ -44,7 +72,27 @@ import { cn } from "@/lib/utils";
  * reason the number in the footer is trusted is that it is never out of date.
  */
 
-const PIN_KEY = "coditu.rail.pinned";
+/**
+ * Renamed from `coditu.rail.pinned`, and the rename is deliberate rather than
+ * cosmetic: the flag's MEANING inverted. It used to mean "keep this open even
+ * though it would otherwise be shut", and now it means "keep this shut even
+ * though it would otherwise be open". Reusing the old key would have read every
+ * existing pin as a collapse and shut the sidebar for everybody who had pinned
+ * it — the worst possible outcome for the people who liked it most.
+ */
+const COLLAPSED_KEY = "coditu.rail.collapsed";
+
+/**
+ * A label that is present for a screen reader at every width and visible only
+ * where there is room for it.
+ *
+ * `opacity` rather than `hidden`: the name has to reach the accessibility tree
+ * at 64px too, or the sidebar becomes six unlabelled icons to anybody not
+ * looking at it. `NavLink` adds a `title` for the pointer.
+ */
+const LABEL = cn(
+  "whitespace-nowrap opacity-0 motion-safe:transition-opacity motion-safe:duration-150"
+);
 
 export function Rail({
   me,
@@ -57,41 +105,47 @@ export function Rail({
   unreadCount: number;
 }) {
   const pathname = usePathname();
-  const [pinned, setPinned] = usePersistentFlag(PIN_KEY);
-  const [hovered, setHovered] = useState(false);
-
-  const open = pinned || hovered;
+  const [collapsed, setCollapsed] = usePersistentFlag(COLLAPSED_KEY);
 
   return (
     <aside
       data-app-chrome
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      // Hidden below `md`, where `TabBar` takes over. Not merely narrowed: the
-      // rail expands on HOVER, which a touch screen does not have, so at 390px
-      // it was 72px of permanently unlabelled icons — 18% of the width — that
-      // could never open.
-      className="sticky top-0 hidden h-dvh shrink-0 flex-col gap-1 overflow-hidden border-r border-[var(--hairline)] bg-[var(--raised)] p-3 pl-[max(0.75rem,env(safe-area-inset-left))] md:flex"
-      style={{
-        width: open ? "var(--rail-expanded)" : "var(--rail-collapsed)",
-        transition: "width 220ms var(--ease-entrance)",
-      }}
+      // The only thing JavaScript contributes. Undefined rather than `false`,
+      // so the attribute is absent and the CSS below can key on its presence.
+      data-collapsed={collapsed || undefined}
+      // Hidden below `md`, where `TabBar` takes over — not merely narrowed. At
+      // 390px a 64px rail is 16% of the width spent on icons that compete with
+      // the content for the same thumb.
+      // 64px here; `globals.css` widens it to 268px above `--rail-wide` unless
+      // `data-collapsed` says otherwise. The two states are plain CSS because
+      // the Tailwind variants that would express them compile to nothing.
+      className={cn(
+        "sticky top-0 hidden h-dvh w-[var(--rail-collapsed)] shrink-0 flex-col gap-1",
+        "overflow-hidden border-r border-[var(--hairline)] bg-[var(--raised)]",
+        "p-3 pl-[max(0.75rem,env(safe-area-inset-left))] md:flex",
+        "motion-safe:transition-[width] motion-safe:duration-[220ms] motion-safe:ease-[var(--ease-entrance)]"
+      )}
     >
-      <button
-        type="button"
-        onClick={() => setPinned(!pinned)}
-        aria-pressed={pinned}
-        aria-label={pinned ? "Unpin the navigation rail" : "Pin the navigation rail open"}
-        className="mb-3 flex h-10 items-center gap-3 rounded-control px-1"
-      >
+      <div className="mb-3 flex h-10 items-center gap-3 px-1">
         <CoditusMark size={26} hoverTravel />
-        <span
-          className="whitespace-nowrap text-[16px] font-bold tracking-[-0.02em]"
-          style={{ opacity: open ? 1 : 0, transition: "opacity 160ms" }}
-        >
+        <span data-rail-label className={cn(LABEL, "flex-1 text-[16px] font-bold tracking-[-0.02em]")}>
           Coditu
         </span>
-      </button>
+        {/* Only where it does something. Below 1180 the sidebar is icons at
+            every setting, so a control that appears to change that and does
+            not is worse than no control. */}
+        <button
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          aria-pressed={collapsed}
+          aria-label={collapsed ? "Show navigation labels" : "Collapse the navigation"}
+          title={collapsed ? "Show navigation labels" : "Collapse the navigation"}
+          data-rail-toggle
+          className="hidden size-8 shrink-0 items-center justify-center rounded-control text-[var(--ink-faint)] hover:bg-[var(--canvas)] hover:text-[var(--ink)]"
+        >
+          <PanelLeft size={16} strokeWidth={1.9} aria-hidden />
+        </button>
+      </div>
 
       <nav className="flex flex-col gap-1">
         {navFor(role).map(({ id, label, href, Icon, isActive }) => {
@@ -125,10 +179,7 @@ export function Rail({
                       />
                     ) : null}
                   </span>
-                  <span
-                    className="text-[14.5px] font-medium"
-                    style={{ opacity: open ? 1 : 0, transition: "opacity 160ms" }}
-                  >
+                  <span data-rail-label className={cn(LABEL, "text-[14.5px] font-medium")}>
                     {label}
                     {id === "my-work" && unreadCount > 0 ? (
                       <span className="sr-only">{` — ${unreadCount} unread`}</span>
@@ -146,10 +197,7 @@ export function Rail({
             second answer to a question `profiles.initials` already answers.
             It reads the column now, like every other face in the app. */}
         <PersonAvatar person={me} size={26} fontSize={10} />
-        <span
-          className="whitespace-nowrap text-[13px] text-[var(--ink-muted)]"
-          style={{ opacity: open ? 1 : 0, transition: "opacity 160ms" }}
-        >
+        <span data-rail-label className={cn(LABEL, "text-[13px] text-[var(--ink-muted)]")}>
           {me.fullName.split(" ")[0]} · {role}
         </span>
       </div>
