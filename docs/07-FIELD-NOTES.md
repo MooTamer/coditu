@@ -290,28 +290,35 @@ audited after typing looks clean. Give the editing surface `role="textbox"` and 
 
 ## Domain
 
-### The status vocabulary — this note was wrong, and here is what is true
-**Corrected 2026-08-25.** This entry described a rename of `work_item_status` on 2026-08-21 —
-`todo → ready`, `dev_started → in_progress`, `ready_for_peer_review → in_peer_review`,
-`in_review → in_qa`. **That rename is not in this repository.** `20260820120000_enums.sql` still
-declares the original eight values, no later migration renames them, `enum_range(null::work_item_status)`
-on a freshly reset database returns `{draft,todo,dev_started,ready_for_peer_review,in_review,changes_requested,done,blocked}`,
-and `parseStatusFilter` — which this note said holds the retired spellings — **does not exist**. Verified
-three ways rather than assumed.
+### The status vocabulary — the rename DID land, and this note was wrong twice
+**Corrected 2026-08-25 (second correction).** The first correction said the rename was not in this
+repository. It is. `supabase/migrations/20260825100000_rename_work_item_statuses.sql` is on `main`,
+and on a freshly reset local database:
 
-Either the rename happened somewhere this repository is not, or the note was written from a plan. A
-stale note is worse than no note because it is trusted, so: **the vocabulary is the original eight**,
-and `lib/work-items.ts` is the one place to read it.
+```
+enum_range(null::work_item_status)
+→ {draft,ready,in_progress,in_peer_review,in_qa,changes_requested,done,blocked}
+```
 
-The one part of the entry that survives is `STATUS_ALIASES` in `lib/import/notion.ts`, which does exist
-and does map old Notion spellings onto these values.
+`parseStatusFilter`, which the first correction said "does not exist", is `lib/work-items.ts`, and it
+carries `RETIRED_STATUSES` mapping `todo → ready`, `dev_started → in_progress`,
+`ready_for_peer_review → in_peer_review`, `in_review → in_qa` forward, because an unrecognised
+`?status=` value would quietly widen the filter to the whole sprint rather than error, and those links
+are in bookmarks.
+
+**Why the first correction was reasonable and still wrong.** It read
+`20260820120000_enums.sql`, found the original eight values, and concluded. A later `alter type …
+rename value` is invisible to the file that declares the enum — you have to fold every migration in
+order, which is what `tests/status-order.test.ts` now does. **Verify a vocabulary against the live
+`enum_range`, never against the migration that created it.**
+
+`STATUS_ALIASES` in `lib/import/notion.ts` is a separate, still-correct thing: it maps *Notion's*
+spellings onto these values at import time.
 
 **Still outstanding: `blocked` is not a status, it is a flag over one.** A blocked item is also
 mid-build or waiting on a reviewer, and storing `blocked` in the status column destroys the state
 needed to unblock it. The fix is a nullable `blocked_reason` with "blocked" derived from it; deferred,
 and it needs a backfill decision for existing rows.
-
-Old Notion spellings stay readable through `STATUS_ALIASES` in `lib/import/notion.ts`.
 
 ### The component registry is a copy of the EVIM repo
 `public.components` for MEINEvim is generated from `../microsoft-web-parts-final`: one row per SPFx
@@ -723,3 +730,28 @@ holds the loaders. When a client component needs one word from a server module, 
 **The general lesson for this repo:** the green gate is `lint + typecheck + test + db:test`, and none
 of those four opens a page. A route that no spec visits is a route where a build error can sit
 undetected. Run it, or screenshot it.
+
+### …and opening the page is not enough either — run the specs that have an opinion about it
+
+The complement, found on 2026-08-25 while taking a baseline. C12 added the client-visibility panel to
+the component dossier page. Its verification was `lint && typecheck` plus looking at the rendered page
+at five widths, and the page looked correct — because it *was* correct.
+
+`e2e/components.spec.ts` had asserted, since before that panel existed:
+
+```ts
+await expect(page.getByRole("heading", { level: 2 })).toHaveCount(sprints.length);
+```
+
+A new panel with an `<h2>` of its own makes that 6 against 5. Nothing was wrong with the page; the
+assertion had quietly meant "every h2 on this page is a sprint" and nobody had said so. It sat on
+`main` from `3da9eb7` until the next full suite ran.
+
+Two things to take from it:
+
+- **A phase that changes a rendered route runs the specs for that route.** Not the whole suite
+  necessarily — `npx playwright test e2e/<that-one>.spec.ts` is twenty seconds.
+- **Count what you mean.** `getByRole("heading", { level: 2 })` is a claim about the entire document.
+  The fix is `h2[id^="sprint-"]`, scoped by the id the `<section aria-labelledby>` already carries —
+  which is also a small argument for labelling sections properly in the first place, since it gives a
+  spec something honest to point at.

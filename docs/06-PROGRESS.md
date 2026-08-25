@@ -1484,7 +1484,7 @@ overflow, just a control that could not be read or hit, because `html` carries `
 That is the same failure the topbar shipped in step 7. The fix is an icon below `sm`; the guard
 asserts element geometry rather than document width, for every header control at 320/360/390.
 
-| C12 | **The internal side** — publish a component and its work, ask a question, resolve one, from the component page | `done` | pending | `npm run lint && npm run typecheck`; rendered at 320/375/390/430/1280 |
+| C12 | **The internal side** — publish a component and its work, ask a question, resolve one, from the component page | `done` | `3da9eb7` | `npm run lint && npm run typecheck`; rendered at 320/375/390/430/1280 |
 
 ### C12 — a build error that four green commands did not see
 
@@ -1515,3 +1515,99 @@ Stated plainly rather than left to be discovered:
 - **`/app/clients` has no per-project grant editor.** An admin invites with a capability set and can
   revoke or restore the whole contact; changing one project's capabilities afterwards is
   `setClientGrant`, which exists and is unused by any screen.
+
+---
+
+# The workspace redesign — W0…W13
+
+Source: `Coditu design system updates 2-handoff.zip` (2026-08-25), the `PLAN.md` brief that produced
+it, and the engineering half that brief deliberately held back. Notion's workspace logic through
+Coditu's own instrument identity.
+
+**Out of scope, and unchanged except where an entry point moves:** the marketing site, the client
+portal, the PDF sprint report, the Notion importer.
+
+**The prototype is a prototype.** Its `@coditu.app` addresses, snapshot ids, storage sizes, backup
+schedule, routes and Week 17 metrics are demonstration content. The only confirmed real address is
+`mohamedtamer200200@gmail.com` (Mohamed Tamer, Admin).
+
+| # | Phase | Status | Commit | Verification |
+|---|---|---|---|---|
+| W0 | **Baseline and characterisation** — branch, real gate numbers, two stale docs corrected, the read boundary pinned by shape | `done` | pending | `lint` + `typecheck` clean · `npm run test` **237** · `npm run db:test` **283** (was 263) · `npm run budgets` **FAILS 116.5/110, pre-existing** · `npx playwright test` **466 passed**, 4 skipped, 4 contention failures each of which passes alone |
+| W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `todo` | | `npm run budgets` passes |
+| W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `todo` | | `npm run db:test` · `npm run test` · `e2e components + sprint-table` |
+| W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `todo` | | hostile-JSON vitest per node type · `e2e editor + composer + mobile` |
+| W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `todo` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
+| W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
+| W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `todo` | | one `aria-current` · zero overflow at 8 widths + 200% · axe · budgets |
+| W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `todo` | | comparator vitest · e2e desktop + mobile sheets |
+| W8 | **Projects and project home** | `todo` | | e2e search/filter/archived · axe |
+| W9 | **People & Access** — six sections, safety states, the per-project client grant editor | `todo` | | pgTAP self-demote / self-deactivate / last-admin · e2e disabled-and-explained |
+| W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `todo` | | `tests/earnings-boundary.test.ts` extended, both ways |
+| W11 | **Version history UI and Trash** | `todo` | | e2e restore returns comments and versions |
+| W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `todo` | | e2e rehearsal pass **and** fail, live rows untouched |
+| W13 | **Responsive, a11y, security, performance hardening** | `todo` | | full `e2e` · `budgets` · `lighthouse` · `degraded` |
+
+## W0 — the baseline, measured rather than remembered
+
+Branching, per the handoff decision: `client-portal-and-access` fast-forwarded into `main` (it had
+nothing to merge against, so the append-only-doc conflict rule did not bite), and `workspace-redesign`
+branched from there. **`main` is now 8 commits ahead of `origin/main` carrying 8 migrations.** Nothing
+is pushed. When it is, `supabase db push` goes with it or the 2026-08-21 `42703` outage repeats.
+
+**`db:test` failed first, and it was not the code.** Tests 16 and 17 of `seed.sql` reported 96 ticked
+criteria against 95 and 105 attachments against 104 — absolute counts over seeded rows, one higher
+than the seed, immediately after a browser suite had ticked a criterion and uploaded an image against
+the same local database. `npm run db:reset` and both passed. This is the shared-database note in
+`07-FIELD-NOTES.md` arriving for the third time; it is worth reading the two numbers as *the seed*
+rather than as the change under test.
+
+**Two documentation corrections, both in `07-FIELD-NOTES.md`'s own spirit.** The status-vocabulary
+note said the 2026-08-21 rename "is not in this repository". It is —
+`20260825100000_rename_work_item_statuses.sql` is on `main`, `enum_range` on a freshly reset database
+returns the renamed eight, and `parseStatusFilter` exists. The first correction had read the migration
+that *declares* the enum and concluded; a later `alter type … rename value` is invisible there. The
+note now says to verify a vocabulary against the live `enum_range`. C12's commit column was `pending`
+and is backfilled to `3da9eb7`.
+
+**The characterisation that was actually missing.** `rls.sql` proves what the four client functions
+*return for a session* — the right project, published components only, hours null without
+`view_effort`, nothing for another company. It does not prove their **shape**, and
+`02-DATA-MODEL.md`'s sharpest rule about them ("there is no `select *` in any of them and there must
+never be") had no test at all: a `select *` in `client_component_work` would return the right rows to
+the right contact and every behavioural assertion would stay green while `description` and `highlight`
+crossed the wire.
+
+`supabase/tests/read-boundary.sql` pins the returned column list of all four verbatim, refuses a bare
+`select *` in any `client_*` body, asserts all eight are definer + `search_path = ''` + revoked from
+`anon` and PUBLIC, and asserts invariant 1 on the component join as a **violation count** rather than
+a row count — zero, before and after the join table exists. `client_component_work` and
+`client_current_sprint` had no assertion of any kind before this. It is deliberately brittle: W2
+re-points two of those functions, and restating their shape has to be a decision somebody makes on
+purpose.
+
+The regexes were checked against strings rather than trusted: `select[[:space:]]+\*` catches a star
+across a newline and does **not** catch `count(*)`; `\mkey\M` matches a column called `key` and not
+`key_prefix` or `work_item_id`; the `client\_%` filter matches eight functions, so the definer,
+`search_path` and grant loops have real inputs. A test that could only ever be green is a trap this
+repository has already paid for four times in one afternoon.
+
+**The browser gate found one real failure, and it had been on `main` since C12.**
+`e2e/components.spec.ts` asserted `getByRole("heading", { level: 2 })` had the same count as the
+component's sprints. C12 added the client-visibility panel to that page, with a heading of its own, so
+the count became 6 against 5. **The page is right and the assertion was over-broad** — it always meant
+"one sprint heading per sprint", and it now says so: `h2[id^="sprint-"]`, scoped by the id those
+`<section aria-labelledby>` elements already carry.
+
+It shipped because C12's verification was `npm run lint && npm run typecheck` plus a look at the
+rendered page. This is the general lesson of `07-FIELD-NOTES.md` from the other direction: the green
+gate never opens a page, and here a page *was* opened — but the suite that had an opinion about it was
+never run. **A phase that changes a rendered route runs the specs for that route.**
+
+**Three failures were the machine, and the check that says so is cheap.** Two consecutive full runs on
+the same commit failed *different* fours — `client-portal`/`client-questions`/`components`/`mobile`,
+then `client-portal`/`client-questions`/`criteria`/`export` — and every single one passed when run
+alone. That is the shared-database and loaded-machine pattern already recorded, not a fault in
+anything under test. `export.spec.ts`'s "its numbers match the database" is the tell: it is the
+assertion that coordinates through the `sprintTotals` advisory lock, which only orders specs inside
+one run.

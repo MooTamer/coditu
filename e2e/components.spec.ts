@@ -182,7 +182,11 @@ test.describe("components", () => {
     await page.goto(`${REGISTRY}/evim-themen-kachel`);
 
     await expect(page.getByRole("heading", { name: "EVIM Themen Kachel", level: 1 })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2 })).toHaveCount(sprints.length);
+    // One SPRINT heading per sprint — scoped by the id the sections label
+    // themselves with, not "every h2 on the page". The broad version passed
+    // until the client-visibility panel arrived with a heading of its own, and
+    // then failed for a reason that had nothing to do with sprints.
+    await expect(page.locator('h2[id^="sprint-"]')).toHaveCount(sprints.length);
     await expect(page.getByRole("link", { name: new RegExp(SEED.otherItem) })).toBeVisible();
 
     // Straight back into the sprint, filtered to this component.
