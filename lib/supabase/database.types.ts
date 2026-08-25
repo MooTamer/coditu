@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           body: string
           body_json: Json | null
+          body_version: number
           created_at: string
           id: string
           is_done: boolean
@@ -22,6 +23,7 @@ export type Database = {
         Insert: {
           body: string
           body_json?: Json | null
+          body_version?: number
           created_at?: string
           id?: string
           is_done?: boolean
@@ -31,6 +33,7 @@ export type Database = {
         Update: {
           body?: string
           body_json?: Json | null
+          body_version?: number
           created_at?: string
           id?: string
           is_done?: boolean
@@ -454,6 +457,7 @@ export type Database = {
           author_id: string
           body_json: Json
           body_text: string
+          body_version: number
           created_at: string
           deleted_at: string | null
           edited_at: string | null
@@ -464,6 +468,7 @@ export type Database = {
           author_id: string
           body_json: Json
           body_text: string
+          body_version?: number
           created_at?: string
           deleted_at?: string | null
           edited_at?: string | null
@@ -474,6 +479,7 @@ export type Database = {
           author_id?: string
           body_json?: Json
           body_text?: string
+          body_version?: number
           created_at?: string
           deleted_at?: string | null
           edited_at?: string | null
@@ -744,6 +750,7 @@ export type Database = {
           author_id: string
           body_json: Json
           body_text: string
+          body_version: number
           created_at: string
           deleted_at: string | null
           edited_at: string | null
@@ -754,6 +761,7 @@ export type Database = {
           author_id: string
           body_json: Json
           body_text: string
+          body_version?: number
           created_at?: string
           deleted_at?: string | null
           edited_at?: string | null
@@ -764,6 +772,7 @@ export type Database = {
           author_id?: string
           body_json?: Json
           body_text?: string
+          body_version?: number
           created_at?: string
           deleted_at?: string | null
           edited_at?: string | null
@@ -1213,6 +1222,8 @@ export type Database = {
           name: string
           notes: string | null
           notes_author_id: string | null
+          notes_json: Json | null
+          notes_version: number
           notes_written_at: string | null
           number: number
           project_id: string
@@ -1228,6 +1239,8 @@ export type Database = {
           name: string
           notes?: string | null
           notes_author_id?: string | null
+          notes_json?: Json | null
+          notes_version?: number
           notes_written_at?: string | null
           number: number
           project_id: string
@@ -1243,6 +1256,8 @@ export type Database = {
           name?: string
           notes?: string | null
           notes_author_id?: string | null
+          notes_json?: Json | null
+          notes_version?: number
           notes_written_at?: string | null
           number?: number
           project_id?: string
@@ -1374,9 +1389,13 @@ export type Database = {
           deadline: string | null
           deleted_at: string | null
           description: string | null
+          description_json: Json | null
+          description_version: number
           estimate_minutes: number | null
           grouping: number | null
           highlight: string | null
+          highlight_json: Json | null
+          highlight_version: number
           id: string
           key: string
           minutes_logged: number
@@ -1399,9 +1418,13 @@ export type Database = {
           deadline?: string | null
           deleted_at?: string | null
           description?: string | null
+          description_json?: Json | null
+          description_version?: number
           estimate_minutes?: number | null
           grouping?: number | null
           highlight?: string | null
+          highlight_json?: Json | null
+          highlight_version?: number
           id?: string
           key?: string
           minutes_logged?: number
@@ -1424,9 +1447,13 @@ export type Database = {
           deadline?: string | null
           deleted_at?: string | null
           description?: string | null
+          description_json?: Json | null
+          description_version?: number
           estimate_minutes?: number | null
           grouping?: number | null
           highlight?: string | null
+          highlight_json?: Json | null
+          highlight_version?: number
           id?: string
           key?: string
           minutes_logged?: number

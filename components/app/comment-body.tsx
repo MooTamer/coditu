@@ -10,7 +10,7 @@ import {
   isSafeImageSrc,
   parseNode,
   type ProseMirrorNode,
-} from "@/lib/comments/schema";
+} from "@/lib/blocks/schema";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,6 +27,34 @@ import { cn } from "@/lib/utils";
  */
 
 const lowlight = createLowlight(common);
+
+/**
+ * Callout tones, as an allowlist — the value reaches a `style` attribute, and
+ * `var(--anything)` would otherwise be an author's choice.
+ *
+ * Three, not the prototype's five. `01-DESIGN-SYSTEM.md` §2 defines tone pairs
+ * for amber, jade and slate only, and those are the `--tone-*-fg` / `--tone-*-bg`
+ * variables that exist. A `rose` callout would have resolved to
+ * `var(--tone-rose-fg)`, which is not defined, which is not an error — the
+ * declaration is simply dropped and the callout renders with no edge at all.
+ * Checked against `app/globals.css` rather than against the prototype.
+ */
+const CALLOUT_TONES = ["amber", "jade", "slate"] as const;
+type CalloutTone = (typeof CALLOUT_TONES)[number];
+
+/**
+ * A table span, or undefined.
+ *
+ * `colspan` is a number in a jsonb column, which means it can be 0, -1,
+ * 1e9, or the string "2". A span of a million is a browser hang, and React
+ * passes whatever it is given straight to the DOM. Two is almost always the
+ * answer; sixty-four is more columns than anybody puts in a comment.
+ */
+function spanOf(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value)) return undefined;
+  if (value < 2 || value > 64) return undefined;
+  return value;
+}
 
 export function CommentBody({ doc }: { doc: unknown }) {
   const root = parseNode(doc);
@@ -123,6 +151,136 @@ function renderNode(node: ProseMirrorNode, key: string, depth: number): ReactNod
 
     case "mention":
       return <MentionNode key={key} node={node} />;
+
+    /* ── The design's remaining block types ────────────────────────────────
+       Every one of them renders through the same walker, with the same rule:
+       attributes are read one at a time and coerced, never spread. A spread
+       would put whatever the document says onto a DOM element, which is how a
+       stored `onClick` becomes a stored handler. */
+
+    case "taskList":
+      return (
+        <ul key={key} className="ml-1 list-none">
+          {renderChildren(node, key, depth)}
+        </ul>
+      );
+
+    case "taskItem": {
+      // Rendered, not interactive. This is a stored document being READ — the
+      // checkbox is `disabled` so a reader cannot tick something that has no
+      // write path behind it, and `aria-hidden` because the state is already in
+      // the text for a screen reader.
+      const checked = node.attrs?.checked === true;
+      return (
+        <li key={key} className="my-[2px] flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={checked}
+            disabled
+            aria-hidden="true"
+            tabIndex={-1}
+            className="mt-[4px] size-[13px] shrink-0 accent-[var(--accent)]"
+          />
+          <span className={cn("min-w-0", checked && "text-[var(--ink-faint)] line-through")}>
+            {renderChildren(node, key, depth)}
+          </span>
+        </li>
+      );
+    }
+
+    case "details":
+      // `open` is honoured on first paint and then belongs to the reader — a
+      // stored document does not get to keep re-collapsing something somebody
+      // opened.
+      return (
+        <details
+          key={key}
+          open={node.attrs?.open === true}
+          className="rounded-panel border border-[var(--hairline)] px-3 py-2"
+        >
+          {renderChildren(node, key, depth)}
+        </details>
+      );
+
+    case "detailsSummary":
+      return (
+        <summary key={key} className="cursor-pointer font-medium marker:text-[var(--ink-faint)]">
+          {renderChildren(node, key, depth)}
+        </summary>
+      );
+
+    case "detailsContent":
+      return (
+        <div key={key} className="mt-2 flex flex-col gap-2 text-[var(--ink-muted)]">
+          {renderChildren(node, key, depth)}
+        </div>
+      );
+
+    case "callout": {
+      // The tone is an allowlist of its own, and it has to be: it reaches a
+      // `style` attribute, and `var(--anything)` is a value an author could
+      // otherwise choose. Unknown tones fall back to amber rather than
+      // rendering nothing, because a callout nobody can see is worse than one
+      // in the wrong colour.
+      const tone = CALLOUT_TONES.includes(node.attrs?.tone as CalloutTone)
+        ? (node.attrs?.tone as CalloutTone)
+        : "amber";
+      return (
+        <div
+          key={key}
+          className="flex flex-col gap-1 rounded-panel border-l-2 px-3 py-2"
+          style={{
+            borderColor: `var(--tone-${tone}-fg)`,
+            background: `var(--tone-${tone}-bg)`,
+          }}
+        >
+          {renderChildren(node, key, depth)}
+        </div>
+      );
+    }
+
+    case "table":
+      // Scrolls INSIDE its own box. A wide table in a comment must not make the
+      // thread scroll sideways — the same rule the code block already follows.
+      return (
+        <div key={key} className="max-w-full overflow-x-auto">
+          <table className="w-full border-collapse text-[13px]">
+            <tbody>{renderChildren(node, key, depth)}</tbody>
+          </table>
+        </div>
+      );
+
+    case "tableRow":
+      return (
+        <tr key={key} className="border-b border-[var(--hairline)] last:border-b-0">
+          {renderChildren(node, key, depth)}
+        </tr>
+      );
+
+    case "tableHeader":
+      return (
+        <th
+          key={key}
+          scope="col"
+          colSpan={spanOf(node.attrs?.colspan)}
+          rowSpan={spanOf(node.attrs?.rowspan)}
+          className="border-r border-[var(--hairline)] px-[10px] py-[6px] text-left font-semibold last:border-r-0"
+        >
+          {renderChildren(node, key, depth)}
+        </th>
+      );
+
+    case "tableCell":
+      return (
+        <td
+          key={key}
+          colSpan={spanOf(node.attrs?.colspan)}
+          rowSpan={spanOf(node.attrs?.rowspan)}
+          className="border-r border-[var(--hairline)] px-[10px] py-[6px] align-top text-[var(--ink-muted)] last:border-r-0"
+        >
+          {renderChildren(node, key, depth)}
+        </td>
+      );
 
     default:
       // Fail closed. An unknown node contributes its text content and nothing

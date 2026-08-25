@@ -5,7 +5,7 @@ import { useOptimistic, type ReactNode } from "react";
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { CommentComposer } from "@/components/app/comment-composer.client";
 import { Mono } from "@/components/coditu/mono";
-import { flattenToText } from "@/lib/comments/schema";
+import { flattenToText } from "@/lib/blocks/schema";
 import type { ProfileRef } from "@/lib/data/profiles";
 
 /**

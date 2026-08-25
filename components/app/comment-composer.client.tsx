@@ -12,7 +12,7 @@ import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
 import { postComment } from "@/lib/actions/comments";
 import type { ProfileRef } from "@/lib/data/profiles";
-import { isEmptyDocument } from "@/lib/comments/schema";
+import { isEmptyDocument } from "@/lib/blocks/schema";
 
 /**
  * TipTap and ProseMirror are a large dependency, so they are loaded only when

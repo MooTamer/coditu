@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { normaliseHref } from "@/lib/links";
-import { isSafeHref } from "@/lib/comments/schema";
+import { isSafeHref } from "@/lib/blocks/schema";
 
 /**
  * The link box, corner by corner.

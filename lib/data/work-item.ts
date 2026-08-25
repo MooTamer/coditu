@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
-import { pruneToDepth } from "@/lib/comments/schema";
+import { pruneToDepth } from "@/lib/blocks/schema";
 import { createClient } from "@/lib/supabase/server";
 import {
   COMPONENT_TAGS_SELECT,

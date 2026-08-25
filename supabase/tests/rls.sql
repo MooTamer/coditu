@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(257);
+select plan(260);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -962,6 +962,36 @@ select throws_ok(
   '42501',
   null,
   'negative: an engineer cannot retag even their own item'
+);
+select pg_temp.act_as_owner();
+
+-- The block documents beside the text columns. A new column on `work_items` is
+-- writable by any assignee until it is NAMED in `guard_work_item_columns`, so
+-- the assertion is that the refusal happens, not that the name appears.
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select throws_ok(
+  $$update public.work_items
+       set description_json = '{"type":"doc","content":[]}'::jsonb
+     where id = '60000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: an engineer cannot rewrite a story body through the document column either'
+);
+select throws_ok(
+  $$update public.work_items
+       set highlight_json = '{"type":"doc","content":[]}'::jsonb
+     where id = '60000000-0000-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'negative: nor the discuss-before-implementing note'
+);
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select lives_ok(
+  $$update public.work_items
+       set description_json = '{"type":"doc","content":[]}'::jsonb,
+           description      = ''
+     where id = '60000000-0000-0000-0000-000000000001'$$,
+  'positive: a lead writes the document and its projection together'
 );
 select pg_temp.act_as_owner();
 

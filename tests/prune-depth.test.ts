@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MAX_DEPTH, flattenToText, pruneToDepth } from "@/lib/comments/schema";
+import { MAX_DEPTH, flattenToText, pruneToDepth } from "@/lib/blocks/schema";
 
 /**
  * The bound that exists because the renderer stopped being the only reader of a

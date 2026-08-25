@@ -16,7 +16,7 @@ import { Mono } from "@/components/coditu/mono";
 import { uploadImage } from "@/lib/upload-image";
 import { IMAGE_ACCEPT } from "@/lib/images";
 import type { ProfileRef } from "@/lib/data/profiles";
-import { CODE_LANGUAGES } from "@/lib/comments/schema";
+import { CODE_LANGUAGES } from "@/lib/blocks/schema";
 import { normaliseHref } from "@/lib/links";
 import { cn } from "@/lib/utils";
 

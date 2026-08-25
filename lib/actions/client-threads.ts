@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { documentSchema, flattenToText, isEmptyDocument } from "@/lib/comments/schema";
+import { documentSchema, flattenToText, isEmptyDocument } from "@/lib/blocks/schema";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient, getClientContact, getCurrentProfile } from "@/lib/supabase/server";
 
@@ -16,7 +16,7 @@ import { createClient, getClientContact, getCurrentProfile } from "@/lib/supabas
  * that gets stored as `body_json` — exactly as `postComment` does, and for the
  * same reason: accepting a client-supplied `body_text` would let the searchable
  * projection of a message say something different from the message. The schema,
- * the flattener and the emptiness check are `lib/comments/schema.ts` unchanged,
+ * the flattener and the emptiness check are `lib/blocks/schema.ts` unchanged,
  * so a hostile document is refused by the code that has already been attacked
  * by ten specs rather than by a second parser written for this feature.
  *

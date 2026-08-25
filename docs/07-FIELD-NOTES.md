@@ -93,6 +93,39 @@ So the check is three-way, in this order, and the last one is cheap:
 
 Any spec that reads a seeded row by POSITION rather than by name has this failure mode latent in it.
 
+### `auditA11y` at a phone WIDTH is not an audit at a phone POINTER
+
+`criteria.spec.ts` → *"it works on a phone, and axe finds nothing while editing"*
+sets a 390px viewport in the **chromium** project and then runs `auditA11y`. It
+reports seven `target-size` violations on the editor toolbar:
+
+```
+target-size @ button[aria-label="Bold"]
+target-size @ button[aria-label="Italic"]
+…
+```
+
+**They are invented.** Those buttons reach 44px through
+`@media (pointer: coarse)` in `app/globals.css`, and chromium reports
+`pointer: fine` however narrow the viewport is — the note above about measuring
+touch targets, arriving through axe instead of through a hand-rolled measurement.
+`auditA11y` includes `wcag22aa`, which is where `target-size` lives, and it does
+not replay the coarse rules. `e2e/mobile.spec.ts` → *"every toolbar target clears
+44px on a coarse pointer"* asserts the real property in the `mobile-chrome` and
+`mobile-safari` projects, and passes.
+
+Confirmed pre-existing on 2026-08-25 by stashing a working tree and re-running
+against the parent commit: same seven, same buttons.
+
+**Two ways out, and the second is better.** Either replay the coarse rules into
+an injected `<style>` before auditing, or move the assertion into a project that
+actually has a coarse pointer — the second needs no harness at all and audits
+what a phone really renders.
+
+It hides in a full run: `criteria.spec.ts` is `serial`, so when anything earlier
+in the describe fails this one is reported as "did not run" rather than as a
+failure. Absence from a red summary is not evidence it passed.
+
 ### A loaded machine fails the suite as timeouts
 The suite is ~6 minutes at 12 workers on an idle machine. Under load (a browser, a VM, another build)
 the same run takes 30+ and fails 20 tests, all of them `Test timeout of 30000ms exceeded` — including

@@ -6,7 +6,7 @@
  * function with sharp corners, and the corners are only testable if importing
  * it does not drag TipTap and ProseMirror into the test runner.
  *
- * It is the FIRST of two gates. `isSafeHref` in `lib/comments/schema.ts` is the
+ * It is the FIRST of two gates. `isSafeHref` in `lib/blocks/schema.ts` is the
  * second, and it is the one that matters — the renderer re-checks every href it
  * is about to make clickable, so nothing here is load-bearing for safety. This
  * exists to turn what a person meant into what a link needs, and to return null

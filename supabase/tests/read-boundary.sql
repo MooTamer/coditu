@@ -221,7 +221,12 @@ select is(
      from unnest(array['client_published_at', 'client_title', 'client_summary',
                        'component_id', 'title', 'description', 'highlight',
                        'assignee_id', 'reviewer_id', 'deadline', 'estimate_minutes',
-                       'grouping', 'sprint_id', 'key', 'type']) as guarded(col)
+                       'grouping', 'sprint_id', 'key', 'type',
+                       -- The block documents and their version stamps. Same rule
+                       -- as the text columns they sit beside: what a story SAYS
+                       -- is an admin-and-lead decision, in either shape.
+                       'description_json', 'description_version',
+                       'highlight_json', 'highlight_version']) as guarded(col)
     where (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'public' and p.proname = 'guard_work_item_columns')
           not like '%' || guarded.col || '%'),

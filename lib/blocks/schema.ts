@@ -1,9 +1,14 @@
 import { z } from "zod";
 
 /**
- * The comment document schema.
+ * The block document schema — one format, every writing surface.
  *
- * This is the security boundary, and it is an ALLOWLIST. `comments.body_json`
+ * Comments, acceptance criteria, client thread messages, story descriptions,
+ * highlights and sprint notes are all the same shape. It lived at
+ * `lib/comments/schema.ts` while comments were the only surface with a
+ * document in them; the name stopped being true some time before it moved.
+ *
+ * This is the security boundary, and it is an ALLOWLIST. Every `*_json` column
  * is user-supplied and stored verbatim; anything not named here is not rendered.
  * A hostile document does not have to be rejected at write time to be safe —
  * the renderer walks known node types only, so an unknown node has nothing to
@@ -11,6 +16,22 @@ import { z } from "zod";
  *
  * See docs/05-DECISIONS.md — "Comment rendering: walk the JSON, never inject HTML".
  */
+
+/**
+ * The stored format's version, written beside every document as `*_version`.
+ *
+ * It is 1 and has never been anything else, which is exactly when a version
+ * number is worth adding: the moment a second value exists, every row written
+ * before it is indistinguishable from one written after, and the migration that
+ * needs to tell them apart is the one that cannot.
+ *
+ * Adding a node type does NOT bump this. The renderer is fail-closed — an
+ * unknown node renders its text content or nothing — so an old reader meeting a
+ * new block degrades rather than breaks, and that is a property worth keeping
+ * rather than versioning away. A bump is for a change that would make an old
+ * document render WRONGLY: a different attribute meaning, a restructured tree.
+ */
+export const DOC_VERSION = 1;
 
 /** Marks we render. Anything else on a text node is dropped. */
 export const ALLOWED_MARKS = ["bold", "italic", "strike", "code", "link"] as const;
@@ -31,6 +52,31 @@ export const ALLOWED_NODES = [
   "codeBlock",
   "image",
   "mention",
+
+  // ── The design's remaining block types ────────────────────────────────────
+  // A checklist. `taskItem.checked` is the only attribute that carries meaning,
+  // and it is a boolean, so `pruneToDepth`'s primitives-only rule keeps it.
+  "taskList",
+  "taskItem",
+
+  // A toggle. Three nodes rather than one because that is what the editor
+  // produces: the summary is always visible and the content is what folds.
+  "details",
+  "detailsSummary",
+  "detailsContent",
+
+  // "Discuss before implementing", as a block anybody can write rather than a
+  // convention only `work_items.highlight` could express.
+  "callout",
+
+  // Tables. `colwidth` is an ARRAY of numbers and is therefore dropped by
+  // `pruneToDepth`, which reduces attributes to primitives — deliberately. It
+  // is a cosmetic hint; losing it costs a column width and keeps the guarantee
+  // that no attribute can carry a nested structure across the boundary.
+  "table",
+  "tableRow",
+  "tableHeader",
+  "tableCell",
 ] as const;
 export type AllowedNode = (typeof ALLOWED_NODES)[number];
 
@@ -205,7 +251,23 @@ export function flattenToText(node: unknown, depth = 0): string {
 
   // Block-level nodes get a trailing newline, so the flattened text still reads
   // as paragraphs inside a CSV cell or a Markdown export.
-  const blocks = ["paragraph", "heading", "listItem", "blockquote", "codeBlock", "horizontalRule"];
+  // Block-level nodes get a trailing newline so the flattened text still reads
+  // as paragraphs inside a CSV cell or a Markdown export. `taskItem` and the
+  // table cells are here for the same reason a `listItem` is: without them a
+  // three-item checklist flattens to one run-on line in the export a client
+  // reads.
+  const blocks = [
+    "paragraph",
+    "heading",
+    "listItem",
+    "blockquote",
+    "codeBlock",
+    "horizontalRule",
+    "taskItem",
+    "detailsSummary",
+    "callout",
+    "tableRow",
+  ];
   return blocks.includes(current.type) ? `${inner}\n` : inner;
 }
 

@@ -43,7 +43,7 @@ import {
   reorderCriteria,
   setCriterionDone,
 } from "@/lib/actions/work-items";
-import { flattenToText, isEmptyDocument } from "@/lib/comments/schema";
+import { flattenToText, isEmptyDocument } from "@/lib/blocks/schema";
 import type { ProfileRef } from "@/lib/data/profiles";
 import type { Criterion } from "@/lib/data/work-item";
 import { cn } from "@/lib/utils";

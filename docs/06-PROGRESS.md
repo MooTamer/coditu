@@ -1535,8 +1535,8 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 |---|---|---|---|---|
 | W0 | **Baseline and characterisation** — branch, real gate numbers, two stale docs corrected, the read boundary pinned by shape | `done` | `6ff7cb8` | `lint` + `typecheck` clean · `npm run test` **237** · `npm run db:test` **283** (was 263) · `npm run budgets` **FAILS 116.5/110, pre-existing** · `npx playwright test` **466 passed**, 4 skipped, 4 contention failures each of which passes alone |
 | W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | pending | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
-| W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `done` | pending | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. `test` **245** · `db:test` **303** · components 12/12 incl. axe with the panel open · sprint-table, new-item, inline-edit 33/33 · rendered at 320/375/390/430/1280 |
-| W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `todo` | | hostile-JSON vitest per node type · `e2e editor + composer + mobile` |
+| W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `done` | `4df9a48` | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. `test` **245** · `db:test` **303** · components 12/12 incl. axe with the panel open · sprint-table, new-item, inline-edit 33/33 · rendered at 320/375/390/430/1280 |
+| W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `wip` | | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **Open: 3b** editor produces them, **3c** sprint notes, **3d** story body |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `todo` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `todo` | | one `aria-current` · zero overflow at 8 widths + 200% · axe · budgets |
@@ -1768,6 +1768,50 @@ new-item and inline-edit 33/33; the table read at 320/375/390/430/1280.
 The **full** e2e sweep was started and abandoned at a load average of 18 — the
 condition `07-FIELD-NOTES.md` names as producing twenty timeout failures that mean
 nothing. It is owed at `--workers=3`.
+
+## W3a — one document format, and the name finally says so
+
+`lib/comments/schema.ts` had been the schema for acceptance criteria and client
+thread messages for a while; it is `lib/blocks/schema.ts` now, which is what it
+has actually been. Twelve imports, mechanical, proven by `typecheck`.
+
+Ten node types join the allowlist — `taskList`/`taskItem`, `details` and its two
+children, `callout`, and the four table nodes — with a renderer case for each and
+`flattenToText` reaching all of them. That last part is the half no screenshot
+shows: a checklist that flattens to one run-on line is what a client reads in
+the CSV.
+
+`DOC_VERSION` is 1 and stored as `*_version` beside every document. **Adding a
+node type does not bump it** — the renderer is fail-closed, so an old reader
+meeting a new block degrades rather than breaks, and that is a property worth
+keeping rather than versioning away. A bump is for a change that would make an
+old document render *wrongly*.
+
+`work_items.description_json`/`highlight_json` and `sprints.notes_json` arrive
+BESIDE their text columns, which stay as the flattened projection written in the
+same statement — the `comments.body_text` precedent, and the reason
+`04-EXPORT-SPEC.md`'s contracts keep working untouched. Nothing is rewritten in
+bulk: 58 imported descriptions stay as they are until somebody edits them.
+
+**Two things checked rather than assumed.**
+
+The callout's tone reaches a `style` attribute, so it is an allowlist — and it is
+**three** tones, not the prototype's five. `01-DESIGN-SYSTEM.md` §2 defines pairs
+for amber, jade and slate; a `rose` callout would have resolved to
+`var(--tone-rose-fg)`, which is undefined, which is not an error — the
+declaration is dropped and the callout renders with no edge at all. Checked
+against `app/globals.css`, not against the prototype.
+
+And `guard_criteria_columns` was NOT touched. The first draft rewrote it from
+memory, which is how a rule gets silently dropped; reading the live function
+showed the rewrite was equivalent and therefore pure risk. `body_version` travels
+with the body an engineer may already write, so leaving it unnamed is the correct
+answer rather than an oversight — recorded in the migration so the next reader
+does not have to re-derive it.
+
+The new work-item columns ARE named in `guard_work_item_columns`, in the
+migration that creates them, with assertions that an engineer is refused rather
+than merely that the name appears.
 
 ## W1 — the shell gets under its own gate, and the reason it was over is one import
 

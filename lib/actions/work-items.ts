@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { documentSchema, flattenToText, isEmptyDocument } from "@/lib/comments/schema";
+import { documentSchema, flattenToText, isEmptyDocument } from "@/lib/blocks/schema";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { WORK_ITEM_STATUSES, WORK_ITEM_TYPES } from "@/lib/work-items";
