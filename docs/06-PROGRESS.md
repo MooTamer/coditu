@@ -2394,6 +2394,45 @@ by two new specs — the only tests that can catch a pure-CSS layout breaking.
 `test` **270** · `lint`, `typecheck` clean · `budgets` **OK 74.0/110** · rail
 6/6, navigation 10/10, home 8/8.
 
+## W6c — the trail is built, tested, and deliberately not mounted
+
+⌘K turned out to need nothing: the palette and its `Meta+K`/`Control+K` binding
+already existed, with `aria-keyshortcuts` on the trigger. So W6c is breadcrumbs.
+
+`crumbsFor(pathname, projects)` is a pure function — the topbar already holds
+every project, with slugs, names and sprint numbers, so the trail needs no
+fetch, no context and no per-route plumbing to forget on the seventh screen.
+Eleven tests assert **every route this app has**: names rather than slugs, the
+last crumb inert because you are already there, the slug as a fallback rather
+than a gap in the trail, and nothing at all outside `/app`.
+
+### And then it did not fit
+
+Mounted in the topbar at 1400px, measured:
+
+```
+Coditu             22px  truncated
+MEINEvim           73px  truncated
+Sprint — Week 17   68px  truncated
+COD-241            40px  truncated
+```
+
+Not a styling problem. The topbar already carries the **project switcher**,
+which names the same project and sprint as crumbs two and three — two controls
+saying one thing, neither fitting. The design has no switcher in its topbar
+because project spaces live in its sidebar.
+
+So the trail is un-mounted, and the order of work is recorded instead: the
+sidebar takes over project switching, the switcher leaves the topbar, the trail
+mounts into the room that makes. It is one line. Shipping it now would mean a
+bar where the workspace's own name is twenty-two pixels wide.
+
+`test` **281** (11 new) · `budgets` **OK 74.0/110** · rail 6/6, navigation
+10/10, home 8/8.
+
+**Next:** project spaces in the sidebar — favourites and recents with it — which
+is what unblocks both the breadcrumb trail and the topbar the design draws.
+
 ## W3d — the story's own words, and two imports that cost 60KB each
 
 `work_items.description` and `highlight` are block documents, edited with the

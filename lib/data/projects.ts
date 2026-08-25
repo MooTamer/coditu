@@ -19,6 +19,15 @@ export interface ProjectSummary {
   slug: string;
   scope: string | null;
   accentHex: string | null;
+  /**
+   * The prefix every story key in this project carries — `COD`.
+   *
+   * Read for the breadcrumb, where it sits as a chip beside the project's name
+   * and connects the project to the keys people actually say out loud. Nullable
+   * because the column is: a project created before keys were introduced has
+   * none.
+   */
+  keyPrefix: string | null;
   clientName: string;
   clientUrl: string | null;
   clientLogoPath: string | null;
@@ -38,7 +47,7 @@ export const listProjects = cache(async (): Promise<ProjectSummary[]> => {
   const { data, error } = await supabase
     .from("projects")
     .select(
-      `id, name, slug, scope, accent_hex, is_archived,
+      `id, name, slug, scope, accent_hex, is_archived, key_prefix,
        clients ( name, website_url, logo_path ),
        sprints ( id, number, name, status,
                  work_items ( minutes_logged ) )`
@@ -67,6 +76,7 @@ export const listProjects = cache(async (): Promise<ProjectSummary[]> => {
           total + (sprint.work_items ?? []).reduce((n, item) => n + (item.minutes_logged ?? 0), 0),
         0
       ),
+      keyPrefix: project.key_prefix ?? null,
       activeSprint: active ? { number: active.number, name: active.name } : null,
       sprints: [...sprints]
         .sort((a, b) => b.number - a.number)

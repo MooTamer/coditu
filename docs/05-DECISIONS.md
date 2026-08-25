@@ -3226,3 +3226,27 @@ stacking, no named group, nothing to compile wrongly, and a selector anybody can
 *Also decided:* widths are CSS rather than a `useMediaQuery`, so the server renders the right sidebar
 at every viewport with no hydration mismatch and no jump. JavaScript contributes the preference, not
 the layout.
+
+## Breadcrumbs wait for the sidebar to take over project switching
+
+**Decided 2026-08-25, W6c.** `lib/breadcrumbs.ts` and `components/app/breadcrumbs.client.tsx` are
+written and tested. The trail is **not mounted**, and that is the decision rather than an omission.
+
+Measured at 1400px with it in the topbar: `Coditu` 22px, `MEINEvim` 73px, `Sprint — Week 17` 68px,
+`COD-241` 40px — every crumb truncated, including a six-letter word.
+
+The cause is not styling. The topbar already carries the **project switcher**, which names the same
+project and the same sprint as crumbs two and three. Two controls saying one thing, and neither
+fitting. The design has no such problem because its topbar has no switcher: project spaces live in
+its sidebar, leaving the bar for breadcrumbs, presence, save state, search and New.
+
+So the order of work is: the sidebar takes over project switching, the switcher leaves the topbar,
+and the trail mounts into the room that makes. Mounting it early would ship a bar where the workspace
+is twenty-two pixels wide, which is worse than no trail.
+
+*What is done and proved:* every route this application has is asserted in
+`tests/breadcrumbs.test.ts` — names not slugs, the last crumb inert, the slug as a fallback rather
+than a gap, and nothing at all outside `/app`. Mounting is one line.
+
+*Also settled in W6c:* ⌘K needed no work. The palette and its `Meta+K`/`Control+K` binding already
+existed in `topbar.client.tsx`, with `aria-keyshortcuts` on the trigger.
