@@ -343,3 +343,59 @@ test.describe("realtime", () => {
       .toBe(true);
   });
 });
+
+/**
+ * The token realtime subscribes with.
+ *
+ * This endpoint exists so the browser does not have to ship the whole Supabase
+ * client to read one cookie — 65 KB gzipped, 55% of the app shell's budget. It
+ * hands back the caller's own access token, which `@supabase/ssr` already keeps
+ * in a non-`httpOnly` cookie, so it grants nothing the page could not already
+ * read.
+ *
+ * That argument only holds while three things stay true, and none of them is
+ * visible from reading the route: it refuses an anonymous caller, it never
+ * caches, and it never returns the refresh token. The last one is the sharp
+ * edge — the access token expires in an hour, the refresh token is the
+ * long-lived credential, and returning it would turn a convenience into a
+ * genuine escalation.
+ */
+test.describe("the realtime token endpoint", () => {
+  test("refuses an anonymous caller, with no body and no cache", async ({ page }) => {
+    const response = await page.request.get("/api/realtime-token");
+
+    expect(response.status()).toBe(401);
+    expect(await response.text()).toBe("");
+    expect(response.headers()["cache-control"]).toContain("no-store");
+  });
+
+  test("hands a signed-in caller their own access token, and nothing else", async ({
+    adminPage: page,
+  }) => {
+    const response = await page.request.get("/api/realtime-token");
+    expect(response.status()).toBe(200);
+    expect(response.headers()["cache-control"]).toContain("no-store");
+
+    const body = (await response.json()) as Record<string, unknown>;
+
+    // Exactly two keys. A response that grows a field is a response somebody
+    // should have to think about.
+    expect(Object.keys(body).sort()).toEqual(["expiresAt", "token"]);
+
+    // A JWT, and one that really is this session's — the subject claim has to
+    // be a uuid, so an empty string or a placeholder cannot pass.
+    expect(typeof body.token).toBe("string");
+    const [, claims] = String(body.token).split(".");
+    const decoded = JSON.parse(Buffer.from(claims, "base64").toString("utf8")) as {
+      sub?: string;
+      role?: string;
+    };
+    expect(decoded.sub).toMatch(/^[0-9a-f-]{36}$/);
+    expect(decoded.role).toBe("authenticated");
+
+    // The refresh token is the credential that outlives the tab. It must not be
+    // here under any name.
+    const raw = await response.text();
+    expect(raw).not.toContain("refresh");
+  });
+});

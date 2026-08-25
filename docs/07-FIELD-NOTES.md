@@ -76,6 +76,23 @@ Before trusting an e2e failure: `ps aux | grep playwright`, then re-run the fail
 `--workers=1`. Contention shows up as *different* specs failing each run; a real regression fails the
 same one every time.
 
+**And a third case that looks like neither: the suite leaves the seed changed.** `item-detail.spec.ts`
+→ *"tapping the words opens the editor and does not tick the box"* reads
+`getByRole("checkbox").first()`. On the seeded database COD-231's three criteria are all unticked, so
+the first one is unticked and the assertion holds. A previous run that ticked two of them and did not
+put them back makes **done sink**, so `.first()` is now a *ticked* criterion and the test fails on all
+three engines, in isolation, repeatably — which is exactly what a real regression looks like. It cost
+a full diagnosis on 2026-08-25.
+
+So the check is three-way, in this order, and the last one is cheap:
+
+1. different specs each run → the machine
+2. same spec, passes alone → contention
+3. same spec, fails alone → **`npm run db:reset`, then run it again.** Only if it still fails is it
+   the code.
+
+Any spec that reads a seeded row by POSITION rather than by name has this failure mode latent in it.
+
 ### A loaded machine fails the suite as timeouts
 The suite is ~6 minutes at 12 workers on an idle machine. Under load (a browser, a VM, another build)
 the same run takes 30+ and fails 20 tests, all of them `Test timeout of 30000ms exceeded` — including
@@ -415,6 +432,39 @@ It ends with `select public.rebalance_project_keys();`, which arrives in
 it means the seed **cannot** be loaded onto a database held at an older migration state. To rehearse
 against production's state, comment that one line out for the rehearsal copy — do not stub the
 function, or the migration under test will replace a fake and you will have proved nothing.
+
+### Finding out what is actually in a chunk
+
+`npm run budgets` names the six biggest chunks of a route that is over, but content-hashed filenames
+say nothing about what is inside them. Two greps answer it without a bundle analyzer, and both work on
+the production build that is already on disk:
+
+```bash
+# which library — package paths survive minification in import specifiers and error strings
+grep -oE "@supabase/[a-z-]+|@tiptap/[a-z-]+|dnd-kit|lowlight|prosemirror-[a-z]+" \
+  .next/static/chunks/<hash>.js | sort | uniq -c | sort -rn
+
+# which of OUR components — pick a string literal that only one file contains
+grep -c "Half an hour more" .next/static/chunks/<hash>.js   # log-time.client.tsx
+```
+
+The second is the useful one and it needs a *distinctive* literal — user-facing copy works, identifier
+names do not, because they are mangled. `grep -oE '"[A-Z][a-z][^"]{12,40}"' <file>` over the source
+finds candidates.
+
+This is how the sprint page was shown to be shipping `log-time.client.tsx`, which only the item
+detail renders: one chunk contained both the sprint table's strings and `"Half an hour more"`. A
+parallel route's `@modal` slot contributes its client references to the segment's chunk group even
+on a render where the slot returns `null`.
+
+### `@supabase/supabase-js` does not export `RealtimeClient`
+
+It inlines it. `sideEffects` on the package is narrow enough that tree-shaking *should* work, but
+there is nothing to shake: `dist/index.mjs` exports `createClient`, `SupabaseClient` and the error
+classes, and nothing else. Realtime without auth-js means depending on `@supabase/realtime-js`
+directly — it is already in the tree as a transitive dependency, so promote it at the **same version
+range** as `supabase-js` and check `package-lock.json` afterwards for a single entry. Two copies of a
+websocket client in one bundle is worse than the 65 KB it was meant to save.
 
 ### `supabase gen types` needs Docker even with `--db-url`
 It spins up `postgres-meta` in a container regardless, so `npm run db:types` fails with

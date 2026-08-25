@@ -11,19 +11,22 @@ import { useEffect } from "react";
  *   - **The active sprint only.** A subscription per sprint the person can see
  *     is a channel per row of the projects list, and every one of them wakes
  *     React for work nobody is looking at.
- *   - **Unsubscribe on unmount.** A Supabase channel outlives a route change
- *     otherwise, so moving between sprints leaves the old one connected and the
- *     leak stays invisible until the socket limit is hit.
+ *   - **Unsubscribe on unmount.** A channel outlives a route change otherwise,
+ *     so moving between sprints leaves the old one connected and the leak stays
+ *     invisible until the socket limit is hit.
  *   - **Coalesce through a 120ms buffer.** A Notion import writes a batch of
  *     rows in a few milliseconds. One `router.refresh()` per row would refetch
  *     the whole server tree a dozen times over for the same final state.
  *
- * The client is imported INSIDE the effect, not at the top of the file. This is
- * the only module in the app that touches `@supabase/supabase-js`, and a static
- * import puts it — plus the zod-based env validator it pulls with it — into the
- * first chunk of every page in `/app`. That is ~130KB gzipped, on the critical
- * path, so that a subscription can start a moment later. Loading it when the
- * effect runs costs nothing anybody waits for.
+ * The socket module is imported INSIDE the effect, not at the top of the file.
+ * A static import puts it into the first chunk of every page in `/app`, on the
+ * critical path, so that a subscription can start a moment later. Loading it
+ * when the effect runs costs nothing anybody waits for.
+ *
+ * It used to be `@supabase/ssr`'s browser client, which built auth, postgrest,
+ * storage and functions to read one cookie and open one websocket — 65 KB
+ * gzipped, 55% of the app shell's JS budget. It is `@supabase/realtime-js` and
+ * a token endpoint now; see `lib/realtime/socket.ts`.
  *
  * The refresh IS the update path. There is deliberately no client-side merge of
  * the payload into a local cache: a merge is a second implementation of every
@@ -44,30 +47,15 @@ function useRealtime(channelName: string, table: "work_items" | "comments", filt
     let cancelled = false;
 
     void (async () => {
-      const { createClient } = await import("@/lib/supabase/client");
+      const { subscribeToTable } = await import("@/lib/realtime/socket");
       // The route may already have changed while the chunk was in flight.
       if (cancelled) return;
 
-      const supabase = createClient();
-
-      // Hand realtime the caller's JWT BEFORE subscribing.
-      //
-      // supabase-js sets this itself when the auth client settles, but that is
-      // a race with `subscribe()` — and losing it is silent. Realtime validates
-      // a filter with `has_column_privilege(claims->>'role', ...)`, so a channel
-      // that joins as `anon` sees a table it has no grants on and the server
-      // replies "invalid column for filter sprint_id". The subscription then
-      // sits there, connected and receiving nothing.
-      //
-      // Local timing happened to win that race every time; production lost it
-      // every time. Awaiting the session removes it.
-      const { data } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (data.session?.access_token) supabase.realtime.setAuth(data.session.access_token);
-
-      const channel = supabase
-        .channel(channelName)
-        .on("postgres_changes", { event: "*", schema: "public", table, filter }, () => {
+      const stop = await subscribeToTable({
+        channelName,
+        table,
+        filter,
+        onChange: () => {
           // The leading event schedules the refresh; everything that lands
           // inside the window is absorbed into that one call.
           if (timer) return;
@@ -75,10 +63,17 @@ function useRealtime(channelName: string, table: "work_items" | "comments", filt
             timer = null;
             router.refresh();
           }, BUFFER_MS);
-        })
-        .subscribe();
+        },
+      });
 
-      teardown = () => void supabase.removeChannel(channel);
+      // Awaiting the token means the route can change twice over before this
+      // resolves. Tear down immediately rather than leaving a channel nobody
+      // will ever remove.
+      if (cancelled) {
+        stop();
+        return;
+      }
+      teardown = stop;
     })();
 
     return () => {

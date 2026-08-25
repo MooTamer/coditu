@@ -2811,3 +2811,70 @@ refuses, or one hidden from somebody it would have allowed.
 **Marking a thread read is an action, not a render side effect.** A GET that writes is a GET a
 prefetch, a crawler or a link preview can fire, and this repository has already measured a prefetch
 rendering twenty-eight dynamic routes nobody visited.
+
+## 2026-08-25 · Realtime gets a websocket and a token, not the whole Supabase client
+
+The app shell had been over its own JS budget since before the client-portal brief — 116.5 KB against
+110 KB — and the workspace redesign adds a sidebar, a command surface, a block editor, presence,
+sort and filter panels and saved views to it. Paying the budget down first was the only order that
+leaves the gate meaning anything.
+
+**One chunk was 65 KB gzipped of the 116.5, and it was `@supabase/supabase-js`.** The browser used it
+for exactly two things: read the session JWT out of a cookie, and open a websocket. To do that it
+built `SupabaseClient` — auth-js, postgrest-js, storage-js, functions-js — because `createClient` has
+no narrower shape. `@supabase/supabase-js` does not export `RealtimeClient`; it inlines it. So there
+was no import to narrow, only a dependency to replace.
+
+**`@supabase/realtime-js` is the websocket half on its own,** already present as a transitive
+dependency at the same version, so promoting it to a direct one dedupes rather than duplicates (one
+entry in the lock file — worth checking, because two copies of a websocket client in one bundle would
+have been a worse outcome than the problem).
+
+**The token comes from `/api/realtime-token`,** a route handler that returns the caller's own access
+token. That is the part worth arguing rather than asserting: `@supabase/ssr` deliberately does not set
+`httpOnly` on the auth cookie, because `createBrowserClient` has to read it from `document.cookie`.
+Every line of JavaScript on the page could already see this token. The endpoint returns the same
+string, to the same session, derived from the same cookie — so it is not an escalation, it is the same
+read performed 65 KB more cheaply. It returns **`expiresAt` and nothing else besides the token**, and
+specifically never the refresh token, which is the credential that outlives the tab. There is an
+assertion for exactly that, and one for the anonymous 401, and one for `no-store` on both.
+
+`getSession()` rather than `getUser()`, deliberately: nothing is being authorized here. The response
+is the caller's own token echoed back, a forged cookie earns a forged token that realtime rejects on
+its own, and `getUser()` would put a network round trip on every reconnect for no decision.
+
+**The construction is copied from `supabase-js` verbatim, and that is not laziness.**
+
+```js
+realtimeUrl = new URL("realtime/v1", baseUrl);
+realtimeUrl.protocol = realtimeUrl.protocol.replace("http", "ws");
+new RealtimeClient(realtimeUrl.href, { params: { apikey }, accessToken })
+```
+
+Every clause fails silently if it is wrong. Omit `apikey` and the socket connects and delivers
+nothing. Omit the `http`→`ws` swap and it never connects. And `setAuth` is still awaited **before**
+`subscribe`, even though `accessToken` is supplied — supabase-js sets the initial token explicitly for
+the same reason, and this repository has already paid for that race once: realtime validates a filter
+with `has_column_privilege(claims->>'role', …)`, so a channel that joins as `anon` is told "invalid
+column for filter sprint_id" and then sits there, connected and receiving nothing. Local timing won
+that race every time; production lost it every time.
+
+**One socket instead of two.** Every `createClient()` call built its own `RealtimeClient`, so a sprint
+page with an item open held two websockets to the same server. A module-level client multiplexes both
+topics over one connection, which is what realtime-js is for. It disconnects itself when its last
+channel is removed and reconnects when the next subscribes, so nothing has to ref-count it — and
+`removeChannel` still sends `phx_leave`, which is what the teardown spec watches for.
+
+**`lib/supabase/client.ts` is deleted.** It was the only browser-side Supabase client and nothing
+imports it any more. Removing it makes the saving structural rather than incidental: there is no
+longer a module through which `@supabase/ssr` can reach a browser bundle at all.
+
+**Measured: 116.5 KB → 68.3 KB own, a 48.2 KB saving.** The §5 total came down with it, 256.5 KB →
+208.3 KB against a 220 KB budget, so both numbers pass for the first time. That leaves 41.7 KB of
+headroom for the six client surfaces the redesign adds.
+
+**What proves it works, because the failure mode is silence.** `e2e/palette-realtime.spec.ts` watches
+the wire: it waits for the server's `Subscribed to PostgreSQL` system frame — not the `phx_reply` that
+merely acknowledges the topic — makes a write outside the browser, and asserts it reaches the table.
+A board that never updates looks exactly like a board where nothing has happened, so this was never
+going to be verified by looking at it.

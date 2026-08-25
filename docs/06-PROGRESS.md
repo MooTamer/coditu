@@ -1533,8 +1533,8 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 
 | # | Phase | Status | Commit | Verification |
 |---|---|---|---|---|
-| W0 | **Baseline and characterisation** — branch, real gate numbers, two stale docs corrected, the read boundary pinned by shape | `done` | pending | `lint` + `typecheck` clean · `npm run test` **237** · `npm run db:test` **283** (was 263) · `npm run budgets` **FAILS 116.5/110, pre-existing** · `npx playwright test` **466 passed**, 4 skipped, 4 contention failures each of which passes alone |
-| W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `todo` | | `npm run budgets` passes |
+| W0 | **Baseline and characterisation** — branch, real gate numbers, two stale docs corrected, the read boundary pinned by shape | `done` | `6ff7cb8` | `lint` + `typecheck` clean · `npm run test` **237** · `npm run db:test` **283** (was 263) · `npm run budgets` **FAILS 116.5/110, pre-existing** · `npx playwright test` **466 passed**, 4 skipped, 4 contention failures each of which passes alone |
+| W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | pending | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
 | W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `todo` | | `npm run db:test` · `npm run test` · `e2e components + sprint-table` |
 | W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `todo` | | hostile-JSON vitest per node type · `e2e editor + composer + mobile` |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `todo` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
@@ -1611,3 +1611,41 @@ alone. That is the shared-database and loaded-machine pattern already recorded, 
 anything under test. `export.spec.ts`'s "its numbers match the database" is the tell: it is the
 assertion that coordinates through the `sprintTotals` advisory lock, which only orders specs inside
 one run.
+
+## W1 — the shell gets under its own gate, and the reason it was over is one import
+
+`npm run budgets` had been failing since before the client-portal brief: **116.5 KB against a 110 KB**
+own-code budget for the app shell. The redesign adds a sidebar, a command surface, a block editor,
+presence, sort and filter panels and saved views to that same shell, so paying it down first was the
+only order in which the gate keeps meaning anything.
+
+**One chunk was 65 KB gzipped of the 116.5, and it was the whole Supabase client.** The browser needed
+two things from it — the session JWT out of a cookie, and a websocket — and got auth-js, postgrest-js,
+storage-js and functions-js as well, because `createClient` has no narrower shape and `supabase-js`
+does not export `RealtimeClient` to import instead.
+
+`@supabase/realtime-js` is the websocket half alone, and `/api/realtime-token` is where the JWT comes
+from now. The full argument, including why handing that token back is not an escalation and why the
+construction is copied from `supabase-js` clause by clause, is in `05-DECISIONS.md`.
+
+**Measured: 68.3 KB own (was 116.5), 208.3 KB total (was 256.5, budget 220).** Both numbers pass for
+the first time, and there is 41.7 KB of headroom for what the redesign adds. `lib/supabase/client.ts`
+is deleted — nothing imported it any more, and removing it means there is no module left through which
+`@supabase/ssr` can reach a browser bundle at all.
+
+**The verification had to be on the wire, because the failure mode is silence.** A realtime handshake
+that is subtly wrong connects, joins the topic, and delivers nothing — indistinguishable from a sprint
+where nothing has happened. `e2e/palette-realtime.spec.ts` already waited for the server's
+`Subscribed to PostgreSQL` frame rather than the `phx_reply` that merely acknowledges the topic, then
+wrote outside the browser and asserted the table moved. That spec is the reason this change was
+safe to make at all; without it the honest answer would have been to leave the 65 KB alone.
+
+Two assertions were added beside it for the new endpoint: an anonymous caller gets 401, empty, with
+`no-store`; a signed-in caller gets exactly `{ token, expiresAt }`, a JWT whose `sub` is a real uuid,
+and **no refresh token under any name** — that last one is what separates a convenience from a
+genuine escalation.
+
+The item-detail code sharing the sprint page's chunk group is real and was measured — one chunk holds
+both the sprint table's strings and `log-time.client.tsx`'s — but it is 8.7 KB against the 48.2 KB
+this bought, so it stays on the list rather than in this commit. The technique for finding it is in
+`07-FIELD-NOTES.md`.
