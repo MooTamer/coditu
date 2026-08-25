@@ -69,8 +69,16 @@ test.describe("an item's own words", () => {
       ]);
       await adminPage.goto(ITEM);
       await adminPage.getByRole("button", { name: "Edit the description" }).click();
-      await adminPage.getByLabel("Description").fill("   ");
-      await adminPage.getByLabel("Description").blur();
+
+      // A contenteditable, not a textarea — `fill` cannot set it. And the commit
+      // is an explicit Save rather than a blur: this editor has a toolbar, and
+      // pressing Bold blurs the surface, so blur-to-save would commit on every
+      // formatting click.
+      const field = adminPage.getByRole("textbox", { name: "Description" });
+      await field.click();
+      await adminPage.keyboard.press("ControlOrMeta+a");
+      await adminPage.keyboard.press("Backspace");
+      await adminPage.getByRole("button", { name: "Save", exact: true }).click();
 
       await expect
         .poll(async () =>
@@ -89,6 +97,67 @@ test.describe("an item's own words", () => {
       ]);
     }
   });
+
+  test("a description keeps its line breaks, and takes a block", async ({ adminPage }) => {
+    const [before] = await query<{ description: string | null }>(
+      `select description from public.work_items where key = $1`,
+      [SEED.unstarted]
+    );
+
+    try {
+      // The shape 58 imported items are in: one paragraph, several lines. The
+      // newlines are the requirement list, and collapsing them turned those
+      // items into one unreadable run once already.
+      await query(
+        `update public.work_items set description = $1, description_json = null where key = $2`,
+        ["First requirement\nSecond requirement", SEED.unstarted]
+      );
+      await adminPage.goto(ITEM);
+
+      // Converted on read, not rewritten: the row is still plain text.
+      await expect(adminPage.getByText("First requirement")).toBeVisible();
+      await expect(adminPage.getByText("Second requirement")).toBeVisible();
+
+      await adminPage.getByRole("button", { name: "Edit the description" }).click();
+      const field = adminPage.getByRole("textbox", { name: "Description" });
+      await field.click();
+      await adminPage.keyboard.press("ControlOrMeta+a");
+      await adminPage.keyboard.press("Backspace");
+      await adminPage.keyboard.type("[ ] ship the toggle");
+      await expect(field.locator("input[type=checkbox]")).toHaveCount(1);
+
+      await adminPage.getByRole("button", { name: "Save", exact: true }).click();
+
+      await expect
+        .poll(async () => {
+          const [row] = await query<{ doc: string | null; description: string | null }>(
+            `select description_json::text as doc, description
+               from public.work_items where key = $1`,
+            [SEED.unstarted]
+          );
+          return { doc: row.doc, text: row.description };
+        })
+        .toEqual(
+          expect.objectContaining({ text: expect.stringContaining("ship the toggle") })
+        );
+
+      // Both halves, written in the same statement — `description` is what the
+      // CSV, the Markdown export and the PDF read, and a projection that lagged
+      // the document would be an export saying something the story does not.
+      const [row] = await query<{ doc: string | null }>(
+        `select description_json::text as doc from public.work_items where key = $1`,
+        [SEED.unstarted]
+      );
+      expect(row.doc).not.toBeNull();
+      expect(JSON.stringify(JSON.parse(row.doc!))).toContain('"type":"taskItem"');
+    } finally {
+      await query(
+        `update public.work_items set description = $1, description_json = null where key = $2`,
+        [before.description, SEED.unstarted]
+      );
+    }
+  });
+
 
   test("an engineer sees the words and no way to change them", async ({ page }) => {
     await signIn(page, SEED_ENGINEER);

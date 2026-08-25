@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 /**
  * The block document schema — one format, every writing surface.
  *
@@ -119,46 +117,67 @@ export interface ProseMirrorNode {
   content?: ProseMirrorNode[];
 }
 
-const markSchema = z.object({
-  type: z.string(),
-  attrs: z.record(z.string(), z.unknown()).optional(),
-});
-
 /**
- * Validates ONE node, not the tree.
+ * Validates ONE node, not the tree — and **without zod**.
  *
- * This is deliberately shallow. A recursive `z.lazy` schema walks the entire
- * document during `safeParse`, so a deeply nested `body_json` overflows the
- * stack *inside zod* — before any depth guard of ours gets a chance to run.
- * `body_json` is a jsonb column that will happily store 5,000 nested
- * paragraphs, so that is a denial of service anybody with a comment box can
- * trigger.
+ * Deliberately shallow, for the reason this has always been shallow: a
+ * recursive schema walks the whole document while validating, so a deeply
+ * nested `body_json` overflows the stack *inside the validator*, before any
+ * depth guard of ours gets a chance to run. `body_json` is a jsonb column that
+ * will happily store 5,000 nested paragraphs, so that is a denial of service
+ * anybody with a comment box can trigger. Every walker below parses one level
+ * and recurses itself, counting depth as it goes.
  *
- * Every walker below parses one level and recurses itself, counting depth as it
- * goes. Cheaper, and the guard actually guards.
+ * **Hand-written rather than `z.object`, and that is a bundle decision.** This
+ * module is reachable from the browser — the sprint notes panel, the item
+ * fields and the composer all ask it whether a document is empty — and zod is
+ * ~63KB gzipped. It arrived in the app shell exactly that way and took the
+ * route from 69KB to 136KB against a 110KB budget. `lib/supabase/env.ts` avoids
+ * zod for the same reason and says so.
+ *
+ * The semantics are the ones `z.object` gave: unknown keys are STRIPPED rather
+ * than carried, so what a caller stores is only ever the five fields named here.
  */
-const nodeSchema = z.object({
-  type: z.string(),
-  text: z.string().optional(),
-  attrs: z.record(z.string(), z.unknown()).optional(),
-  marks: z.array(markSchema).optional(),
-  content: z.array(z.unknown()).optional(),
-});
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
-export const documentSchema = nodeSchema;
+export function parseNode(value: unknown): ProseMirrorNode | null {
+  if (!isPlainObject(value)) return null;
+  if (typeof value.type !== "string") return null;
+
+  const node: ProseMirrorNode = { type: value.type };
+
+  if (value.text !== undefined) {
+    if (typeof value.text !== "string") return null;
+    node.text = value.text;
+  }
+  if (value.attrs !== undefined) {
+    if (!isPlainObject(value.attrs)) return null;
+    node.attrs = value.attrs;
+  }
+  if (value.marks !== undefined) {
+    if (!Array.isArray(value.marks)) return null;
+    const marks: NonNullable<ProseMirrorNode["marks"]> = [];
+    for (const mark of value.marks) {
+      if (!isPlainObject(mark) || typeof mark.type !== "string") return null;
+      marks.push(
+        isPlainObject(mark.attrs) ? { type: mark.type, attrs: mark.attrs } : { type: mark.type }
+      );
+    }
+    node.marks = marks;
+  }
+  if (value.content !== undefined) {
+    if (!Array.isArray(value.content)) return null;
+    node.content = value.content as ProseMirrorNode[];
+  }
+
+  return node;
+}
 
 /** Depth limit. A deeply nested document is a denial of service, not a comment. */
 export const MAX_DEPTH = 24;
 
-/**
- * Parse a single node. Returns null when the value is not node-shaped at all,
- * which every caller treats as "render nothing" rather than as an error.
- */
-export function parseNode(value: unknown): ProseMirrorNode | null {
-  const parsed = nodeSchema.safeParse(value);
-  if (!parsed.success) return null;
-  return parsed.data as ProseMirrorNode;
-}
+
 
 /**
  * A copy of the document with everything past `maxDepth` cut off.
@@ -338,4 +357,62 @@ export function isSafeImageSrc(value: unknown): value is string {
   const trimmed = value.trim();
   if (UNSAFE_URL_CHARS.test(trimmed)) return false;
   return /^\//.test(trimmed) || /^https?:\/\//i.test(trimmed);
+}
+
+
+/**
+ * A plain-text field, as the document it always meant.
+ *
+ * Every writing surface in this app predates the editor, and their rows are
+ * still prose: 58 imported descriptions are multi-line requirement lists, and
+ * fifteen sprints of notes are bullet lines somebody typed into a textarea.
+ *
+ * They are converted **on read** rather than rewritten. A bulk migration would
+ * touch every row in two tables to produce paragraphs this function produces for
+ * free, and it would invent a block structure for prose nobody wrote as blocks.
+ *
+ * `starsAreCallouts` is the sprint-notes convention: a whole paragraph wrapped in
+ * `**` meant "discuss this before implementing", drawn by hand as an amber left
+ * rule. It becomes the callout it always was. Descriptions never used it — they
+ * have `highlight`, a column of their own — so it is off by default rather than
+ * applied hopefully everywhere.
+ */
+export function documentFromText(
+  text: string,
+  options: { starsAreCallouts?: boolean } = {}
+): ProseMirrorNode {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  return {
+    type: "doc",
+    content: paragraphs.map((paragraph) => {
+      // `[\s\S]` rather than the `s` flag: tsconfig targets ES2017.
+      const starred = options.starsAreCallouts
+        ? /^\*\*([\s\S]+)\*\*$/.exec(paragraph)
+        : null;
+      const body: ProseMirrorNode = {
+        type: "paragraph",
+        // Single newlines inside a paragraph are line breaks, not paragraph
+        // breaks. Collapsing them turned 58 requirement lists into one
+        // unreadable run of text once already.
+        content: withHardBreaks(starred ? starred[1] : paragraph),
+      };
+      return starred
+        ? { type: "callout", attrs: { tone: "amber" }, content: [body] }
+        : body;
+    }),
+  };
+}
+
+function withHardBreaks(paragraph: string): ProseMirrorNode[] {
+  const lines = paragraph.split("\n");
+  const nodes: ProseMirrorNode[] = [];
+  lines.forEach((line, index) => {
+    if (index > 0) nodes.push({ type: "hardBreak" });
+    if (line) nodes.push({ type: "text", text: line });
+  });
+  return nodes;
 }

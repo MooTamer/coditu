@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 
-import { documentSchema, flattenToText, isEmptyDocument } from "@/lib/blocks/schema";
+import { flattenToText, isEmptyDocument } from "@/lib/blocks/schema";
+import { documentSchema } from "@/lib/blocks/validate";
 import { mentionPayload } from "@/lib/push/payload";
 import { notifyMentioned } from "@/lib/push/notify";
 import type { Json } from "@/lib/supabase/database.types";

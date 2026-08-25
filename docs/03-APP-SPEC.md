@@ -160,7 +160,7 @@ unfinished CRUD.
 | Field | Who | Notes |
 |---|---|---|
 | Title | admin, lead | An editable heading. ⏎ saves, Esc abandons. |
-| Description, highlight | admin, lead | Multi-line plain text edited where it is read; `whitespace-pre-line`, because 58 imported descriptions are requirement lists. Clicking away **saves**. An emptied field is null, never `""`. |
+| Description, highlight | admin, lead | **Block documents**, edited where they are read with the universal editor. `⌘⏎` or **Save** commits; Escape abandons. An emptied field is null, never `""`. Text written before the editor converts on read — single newlines become hard breaks, because 58 imported descriptions are requirement lists and collapsing them turned those items into one run-on paragraph once already. |
 | A criterion's body | assignee, reviewer, admin, lead | The same rich editor as a comment. Widened at the team's request — see `05-DECISIONS.md`. |
 | Add / remove / reorder a criterion | admin, lead | The shape of the scope is a lead's call. Removing offers an undo toast. |
 | A comment | its author | The same editor, pre-filled. `edited_at` is stamped and the badge finally means something. |
@@ -168,6 +168,14 @@ unfinished CRUD.
 | A time entry | the person who logged it | Minutes and date. An admin may **delete** anyone's; nobody rewrites anyone else's record of what they did. |
 | Moving the item | admin, lead | Within the project only. A cross-project move is refused in the action and again in a trigger — the key already names the project, so a moved item would carry a key that lies. |
 | Deleting the item | admin, lead | Soft. The confirm names the hours it takes out of the sprint; the toast offers them straight back. |
+
+> **Clicking away no longer saves these, and that is a change.** A textarea has
+> nothing to click except away, so committing on blur was right for it. The
+> editor has a **toolbar**, and pressing Bold blurs the contenteditable — so
+> blur-to-save would commit on every formatting click, once per round trip, with
+> the text half-formatted. `criteria-list.client.tsx` met the same constraint and
+> answered it with explicit Save and Cancel; both writing surfaces keep one set
+> of habits. Recorded in `05-DECISIONS.md`, 2026-08-25.
 
 ### Acceptance criteria
 

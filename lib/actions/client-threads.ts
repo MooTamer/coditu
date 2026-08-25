@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { documentSchema, flattenToText, isEmptyDocument } from "@/lib/blocks/schema";
+import { flattenToText, isEmptyDocument } from "@/lib/blocks/schema";
+import { documentSchema } from "@/lib/blocks/validate";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient, getClientContact, getCurrentProfile } from "@/lib/supabase/server";
 

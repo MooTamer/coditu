@@ -1,6 +1,8 @@
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { ClientMark } from "@/components/app/client-mark";
+import { CommentBody } from "@/components/app/comment-body";
 import { SprintNotes } from "@/components/app/sprint-notes.client";
+import { documentFromText } from "@/lib/blocks/schema";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { Mono } from "@/components/coditu/mono";
 import { ToneChip } from "@/components/coditu/status-chip";
@@ -235,6 +237,17 @@ export function SprintHeader({
           sprintId={sprint.id}
           notes={sprint.notes ?? ""}
           notesDoc={sprint.notesDoc}
+          // Server-rendered, for the same reason the item detail's is.
+          body={
+            <CommentBody
+              doc={
+                sprint.notesDoc ??
+                (sprint.notes?.trim()
+                  ? documentFromText(sprint.notes, { starsAreCallouts: true })
+                  : null)
+              }
+            />
+          }
           author={sprint.notesAuthor?.fullName.split(" ")[0] ?? null}
           writtenOn={sprint.notesWrittenOn}
           canEdit={canEdit}

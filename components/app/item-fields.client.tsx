@@ -1,15 +1,42 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import { useEffect, useOptimistic, useState, useTransition } from "react";
 import { CornerUpRight, Loader2, Pencil, Trash2, X } from "lucide-react";
+
+import dynamic from "next/dynamic";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
+import { documentFromText, isEmptyDocument } from "@/lib/blocks/schema";
+import type { ProfileRef } from "@/lib/data/profiles";
 import { deleteWorkItem, moveWorkItem, restoreWorkItem, setWorkItemFields } from "@/lib/actions/work-items";
 import { hoursLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+/**
+ * The same editor every other writing surface uses, loaded the same way — only
+ * when somebody intends to write. An item page that is being read, which is
+ * almost all of them, must not pay for TipTap.
+ */
+const RichTextEditor = dynamic(
+  () => import("./rich-text-editor.client").then((module) => module.RichTextEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-[74px] rounded-control border border-[var(--hairline)] bg-[var(--raised)] p-3">
+        <Mono size="meta" className="text-[var(--ink-faint)]">
+          loading the editor…
+        </Mono>
+      </div>
+    ),
+  }
+);
+
+/** What an empty field is, so "nothing written" is one shape and not three. */
+const EMPTY_PROSE_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 
 /**
  * An item's own words, editable in place.
@@ -186,51 +213,82 @@ export function EditableProse({
   itemId,
   field,
   value,
+  doc,
+  body,
   canEdit,
   label,
   placeholder,
   accent,
+  people,
+  maxImageBatch,
 }: {
   itemId: string;
   field: "description" | "highlight";
+  /** The flattened projection. What every export reads, and the legacy source. */
   value: string | null;
+  /**
+   * The block document — the editor's starting content, and how emptiness is
+   * decided. Plain JSON, so it costs the client nothing.
+   */
+  doc: unknown;
+  /**
+   * The READ state, rendered on the server and handed down.
+   *
+   * `CommentBody` walks stored JSON and pulls in lowlight with every common
+   * language. Importing it here would ship that to the sprint page — the item
+   * detail's client refs land in the sprint route's chunk group — and it
+   * measured **+114 KB**, taking the shell from 69 KB to 184 KB against a
+   * 110 KB budget. `criteria-list.client.tsx` says so in its own header; this
+   * prop is that lesson, learned twice.
+   */
+  body: ReactNode;
   canEdit: boolean;
   label: string;
   placeholder: string;
   /** The highlight renders as a rule in `--amber`; the description has none. */
   accent?: string;
+  /** For the `@` list. A story body is written to the team like anything else. */
+  people: ProfileRef[];
+  /** From `app_settings`. Optional for the same reason the editor's own is: a
+   *  caller without it gets the editor's default rather than a crash. */
+  maxImageBatch?: number;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value ?? "");
-  const [shown, showOptimistic] = useOptimistic(value, (_current, next: string | null) => next);
-  // Same as the title above: adjusted during render, not in an effect.
+
+  // A story written before the editor existed reads as the document it always
+  // meant. `starsAreCallouts` is off: a description never used that convention —
+  // it has `highlight`, a column of its own.
+  const stored = doc ?? (value?.trim() ? documentFromText(value) : null);
+  const [draft, setDraft] = useState<unknown>(stored ?? EMPTY_PROSE_DOC);
+
+  // Adjusted during render, not in an effect — the same rule the title above
+  // follows.
   const [lastValue, setLastValue] = useState(value);
   if (value !== lastValue) {
     setLastValue(value);
-    setDraft(value ?? "");
+    setDraft(stored ?? EMPTY_PROSE_DOC);
   }
 
-  function save() {
-    const next = draft.trim();
-    if (next === (value ?? "")) {
-      setEditing(false);
-      return;
-    }
+  const [shownDoc, showOptimistic] = useOptimistic<unknown>(stored);
+  const empty = shownDoc === null || isEmptyDocument(shownDoc);
+
+  function save(next: unknown) {
     setEditing(false);
     startTransition(async () => {
-      showOptimistic(next || null);
+      const cleared = next === null || isEmptyDocument(next);
+      showOptimistic(cleared ? null : next);
       const result = await settle(
-        () => setWorkItemFields({ itemId, [field]: next || null }),
+        () => setWorkItemFields({ itemId, [`${field}Doc`]: cleared ? null : next }),
         `That ${label.toLowerCase()} did not save — check your connection.`
       );
       if (result.ok) {
         router.refresh();
         return;
       }
-      setDraft(value ?? "");
+      setDraft(stored ?? EMPTY_PROSE_DOC);
       toast(result.error ?? `That ${label.toLowerCase()} did not save.`);
     });
   }
@@ -238,43 +296,59 @@ export function EditableProse({
   if (editing) {
     return (
       <div className="flex flex-col gap-2">
-        <label className="sr-only" htmlFor={`${field}-${itemId}`}>
-          {label}
-        </label>
-        <textarea
-          id={`${field}-${itemId}`}
-          autoFocus
-          rows={Math.min(16, Math.max(4, draft.split("\n").length + 1))}
-          maxLength={field === "description" ? 4000 : 2000}
-          value={draft}
-          placeholder={placeholder}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              event.stopPropagation();
-              setDraft(value ?? "");
-              setEditing(false);
-            }
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-              event.preventDefault();
-              save();
-            }
+        <RichTextEditor
+          initialDoc={draft}
+          onChange={setDraft}
+          onSubmit={() => save(draft)}
+          onEscape={() => {
+            setDraft(stored ?? EMPTY_PROSE_DOC);
+            setEditing(false);
           }}
-          // Clicking away commits, never silently discards — the same rule the
-          // criteria editor follows, and the one that stops a half-written
-          // paragraph vanishing because somebody scrolled.
-          onBlur={save}
-          className={cn(FIELD, "text-[14.5px] leading-[1.6]")}
+          onToast={toast}
+          autoFocus
+          placeholder={placeholder}
+          ariaLabel={label}
+          people={people}
+          images
+          workItemId={itemId}
+          minHeight={field === "description" ? 120 : 74}
+          density={field === "highlight" ? "compact" : "comfortable"}
+          maxBatch={maxImageBatch}
         />
-        <Mono size="meta" className="text-[var(--ink-faint)]">
-          ⌘⏎ to save · Esc to abandon · clicking away saves
-        </Mono>
+        <div className="flex items-center gap-2">
+          <Mono size="meta" className="mr-auto text-[var(--ink-faint)]">
+            ⌘⏎ to save · Esc to abandon
+          </Mono>
+          {/* Explicit Save, and it replaces blur-to-save deliberately.
+              A textarea has nothing to click except away, so committing on blur
+              was right for it. This editor has a TOOLBAR, and pressing Bold
+              blurs the contenteditable — so blur-to-save would commit on every
+              formatting click, once per round trip, half-formatted. The criteria
+              editor met the same constraint and answered it the same way, so the
+              two writing surfaces keep one set of habits. */}
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(stored ?? EMPTY_PROSE_DOC);
+              setEditing(false);
+            }}
+            className="h-[30px] rounded-control border border-[var(--hairline)] px-3 text-[12.5px] text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => save(draft)}
+            className="signal-gradient h-[30px] rounded-control px-3 text-[12.5px] font-semibold text-[#07090E]"
+          >
+            Save
+          </button>
+        </div>
       </div>
     );
   }
 
-  if (!shown) {
+  if (empty) {
     if (!canEdit) return null;
     return (
       <button
@@ -287,25 +361,29 @@ export function EditableProse({
     );
   }
 
-  const body = (
-    <p
+  const read = (
+    <div
       className={cn(
-        "whitespace-pre-line text-[14.5px] leading-[1.6]",
+        "coditu-prose-read text-[14.5px] leading-[1.6]",
         accent ? "border-l-2 pl-[14px] text-[var(--ink)]" : "text-[var(--ink-muted)]",
         pending && "opacity-70"
       )}
       style={accent ? { borderColor: accent } : undefined}
     >
       {field === "highlight" ? <span className="sr-only">Discuss before implementing: </span> : null}
-      {shown}
-    </p>
+      {/* Rendered upstairs by the same server-side walker the thread, the
+          criteria and the sprint notes use — one renderer, one allowlist, one
+          shape for a callout wherever it was written. It is a frame behind after
+          a save; the `pending` opacity says so until the refresh lands. */}
+      {body}
+    </div>
   );
 
-  if (!canEdit) return body;
+  if (!canEdit) return read;
 
   return (
     <div className="group flex items-start gap-2">
-      <div className="min-w-0 flex-1">{body}</div>
+      <div className="min-w-0 flex-1">{read}</div>
       <button
         type="button"
         onClick={() => setEditing(true)}

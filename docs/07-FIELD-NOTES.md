@@ -522,6 +522,33 @@ detail renders: one chunk contained both the sprint table's strings and `"Half a
 parallel route's `@modal` slot contributes its client references to the segment's chunk group even
 on a render where the slot returns `null`.
 
+### Two imports that look free and cost 60KB each
+
+Both were found by `npm run budgets` on the same afternoon, both in client
+components, and neither is visible at the call site. The app shell went 69KB →
+184KB, and getting back under 110 took untangling them one at a time.
+
+**`CommentBody` pulls in lowlight.** It highlights code blocks server-side with
+every common language, so importing it into a `"use client"` file ships the whole
+highlighter: **+114KB**. `criteria-list.client.tsx` had already met this and says
+so in its own header — *"the bodies are rendered ON THE SERVER and handed down"* —
+and the fix is always the same shape: render the body in a Server Component and
+pass it down as a `ReactNode` prop.
+
+**`lib/blocks/schema.ts` used to pull in zod.** A client component that only
+wanted `isEmptyDocument` got the validator too: **+63KB**. Split now —
+`lib/blocks/schema.ts` is the pure vocabulary with a hand-written shallow node
+parser, `lib/blocks/validate.ts` holds the zod `documentSchema` and is imported
+only by Server Actions. `lib/supabase/env.ts` made the same split years earlier
+and explains why in its header.
+
+**The general rule:** a module reachable from the browser must not import a
+validation library or a syntax highlighter, and neither dependency is visible in
+the import that drags it in. `import { isEmptyDocument }` says nothing about zod.
+The tell is a route's own KB jumping by ~60 in one commit; the technique for
+finding which chunk is the note above about grepping built chunks — zod is
+identifiable by `invalid_type` / `too_small`, lowlight by its language names.
+
 ### `@supabase/supabase-js` does not export `RealtimeClient`
 
 It inlines it. `sideEffects` on the package is narrow enough that tree-shaking *should* work, but

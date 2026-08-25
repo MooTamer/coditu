@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { CommentActions } from "@/components/app/comment-actions.client";
 import { CommentBody } from "@/components/app/comment-body";
+import { documentFromText } from "@/lib/blocks/schema";
 import { CommentThread } from "@/components/app/comment-thread.client";
 import { CriteriaList } from "@/components/app/criteria-list.client";
 import {
@@ -102,19 +103,33 @@ export function ItemDetailBody({
       <div data-image-scope className="flex min-w-0 flex-col gap-6 p-6">
         <EditableTitle itemId={item.id} title={item.title} canEdit={canManage} />
 
-        {/* `whitespace-pre-line` on both: a description written as a list of
-            requirements is a list of requirements, and collapsing its newlines
-            turns fifty-eight of the imported items into one unreadable run-on
-            paragraph. Only line breaks are preserved — runs of spaces still
-            collapse, so nothing else about the type changes. */}
+        {/* Both are block documents now, read through the same server-side
+            walker as the thread. A story written before the editor existed has
+            text and no document, and converts on read — 58 imported items are
+            multi-line requirement lists, and their single newlines become hard
+            breaks rather than collapsing into one run-on paragraph. */}
         <div className="flex flex-col gap-3">
           <EditableProse
             itemId={item.id}
             field="description"
             value={item.description}
+            doc={item.descriptionDoc}
+            // Rendered HERE, in a Server Component. `CommentBody` pulls in
+            // lowlight, and handing it to a client component put 114KB of
+            // syntax highlighting on every sprint page.
+            body={
+              <CommentBody
+                doc={
+                  item.descriptionDoc ??
+                  (item.description?.trim() ? documentFromText(item.description) : null)
+                }
+              />
+            }
             canEdit={canManage}
             label="Description"
             placeholder="Add a description"
+            people={people}
+            maxImageBatch={maxImageBatch}
           />
 
           {/* The highlight is a first-class column, and it renders as a rule
@@ -123,10 +138,21 @@ export function ItemDetailBody({
             itemId={item.id}
             field="highlight"
             value={item.highlight}
+            doc={item.highlightDoc}
+            body={
+              <CommentBody
+                doc={
+                  item.highlightDoc ??
+                  (item.highlight?.trim() ? documentFromText(item.highlight) : null)
+                }
+              />
+            }
             canEdit={canManage}
             label="Highlight"
             placeholder="Add something to discuss before implementing"
             accent="var(--amber)"
+            people={people}
+            maxImageBatch={maxImageBatch}
           />
         </div>
 

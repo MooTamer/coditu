@@ -2925,3 +2925,35 @@ one component with nothing is a control that cannot do anything, which is worse 
 Slugs, not ids, so the URL says what it is looking at — and validated twice: shape-checked by
 `parseComponentFilter`, then resolved against **this project's** registry, so a hand-edited string
 naming another client's component resolves to nothing rather than to something.
+
+## 2026-08-25 · A toolbar and blur-to-save cannot both be right
+
+`work_items.description` and `work_items.highlight` were multi-line plain text in a textarea, and
+`03-APP-SPEC.md` said *"Clicking away **saves**"*. That was the correct rule for a textarea: there is
+nothing to click except away, so blur is unambiguously "I have finished".
+
+They are block documents now, edited with the universal editor — and the editor has a toolbar.
+**Pressing Bold blurs the contenteditable.** Kept as it was, clicking Bold would have committed the
+document to the server, then clicking Italic would have committed it again, each time with the text
+half-formatted, once per round trip. The rule that protected a half-written paragraph would have
+become the thing generating garbage.
+
+So these fields get explicit **Save** and **Cancel**, alongside `⌘⏎` and Escape. That is not a new
+pattern: `criteria-list.client.tsx` met the same constraint when criteria became documents and
+answered it the same way, so the two writing surfaces keep one set of habits rather than two.
+
+**What is preserved is the property blur-to-save existed for**: nothing is silently discarded. Escape
+reverts explicitly, the draft survives until the reader chooses, and a failed save keeps the document
+in the editor with the reason said out loud.
+
+**And what was nearly lost.** The first version of this change simply dropped `onBlur` and offered
+only `⌘⏎`. Typecheck passed, lint passed, and the screen looked right — a reader who clicked away
+would have been stuck in an editor with no visible way out. `e2e/editable.spec.ts` caught it, because
+it asserts the write rather than the appearance: *"an emptied description is null, not an empty
+string"* went from passing to finding `"temporary"` still in the column.
+
+Legacy text converts on read rather than being rewritten. `documentFromText` turns single newlines
+into hard breaks — 58 imported descriptions are requirement lists, and collapsing them made one
+unreadable paragraph once before — and takes a `starsAreCallouts` option that only the sprint notes
+pass, because a `**wrapped**` paragraph was the notes' convention and a description never used it. It
+has `highlight`, a column of its own.

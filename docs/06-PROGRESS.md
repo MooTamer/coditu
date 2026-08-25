@@ -1534,9 +1534,9 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | # | Phase | Status | Commit | Verification |
 |---|---|---|---|---|
 | W0 | **Baseline and characterisation** — branch, real gate numbers, two stale docs corrected, the read boundary pinned by shape | `done` | `6ff7cb8` | `lint` + `typecheck` clean · `npm run test` **237** · `npm run db:test` **283** (was 263) · `npm run budgets` **FAILS 116.5/110, pre-existing** · `npx playwright test` **466 passed**, 4 skipped, 4 contention failures each of which passes alone |
-| W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | pending | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
+| W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | `c669851` | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
 | W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `done` | `4df9a48` | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. `test` **245** · `db:test` **303** · components 12/12 incl. axe with the panel open · sprint-table, new-item, inline-edit 33/33 · rendered at 320/375/390/430/1280 |
-| W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `wip` | | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. `/` menu, editor 16/16 incl. axe with the menu open, `budgets` **OK 69.2/110**. sprint notes on the editor, 7/7 incl. axe while editing. **Open: 3d** story body and highlight |
+| W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `done` | pending | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. `/` menu, editor 16/16 incl. axe with the menu open, `budgets` **OK 69.2/110**. **W3 done.** `test` **252** · `db:test` **306** · 49 document specs · `budgets` **OK 72.7/110** after finding two 60KB client-bundle regressions |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `todo` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `todo` | | one `aria-current` · zero overflow at 8 widths + 200% · axe · budgets |
@@ -1949,6 +1949,54 @@ to a missing column is the worse half of that bug. `isMissingColumn`, not a bare
 `42703`: a refused WRITE answers `PGRST204` from PostgREST's schema cache and
 never reaches Postgres, which is why the first version of that fallback did
 nothing at all.
+
+## W3d — the story's own words, and two imports that cost 60KB each
+
+`work_items.description` and `highlight` are block documents, edited with the
+universal editor and read through the same server-side walker as everything else.
+Legacy text converts on read — single newlines become hard breaks, because 58
+imported descriptions are requirement lists and collapsing them made one
+unreadable paragraph once already.
+
+### Clicking away no longer saves, and that is deliberate
+
+A textarea has nothing to click except away, so blur-to-save was right for it.
+The editor has a **toolbar**, and pressing Bold blurs the contenteditable — so
+the old rule would have committed on every formatting click, once per round trip,
+half-formatted. Explicit **Save** and **Cancel** now, matching
+`criteria-list.client.tsx`, which met the same constraint when criteria became
+documents. `03-APP-SPEC.md` and `05-DECISIONS.md` both updated.
+
+The first draft simply dropped `onBlur` and offered only `⌘⏎`. Typecheck passed,
+lint passed, the screen looked right, and a reader who clicked away would have
+been stuck in an editor with no visible way out. `e2e/editable.spec.ts` caught it
+because it asserts the WRITE rather than the appearance.
+
+### The budget caught two things reading could not
+
+`npm run budgets` went from OK at 69KB to **184KB against a 110KB cap**. Two
+separate imports, neither visible at its call site:
+
+**`CommentBody` pulls in lowlight** — every common language, +114KB — and I put it
+in two client components. `criteria-list.client.tsx`'s own header already warned
+about exactly this: *"the bodies are rendered ON THE SERVER and handed down."*
+Both now take a server-rendered `body` prop.
+
+**`lib/blocks/schema.ts` pulled in zod** — +63KB — so a client component that only
+wanted `isEmptyDocument` got the validator too. Split: the module is the pure
+vocabulary with a hand-written shallow node parser, and `lib/blocks/validate.ts`
+holds the zod `documentSchema` for the four Server Actions that need it.
+`lib/supabase/env.ts` made the same split long ago and explains why in its header.
+
+Rewriting `parseNode` by hand is a change to the security boundary, so the
+semantics `z.object` provided were kept deliberately: unknown keys are STRIPPED
+rather than carried, and validation stays one level deep because a recursive
+schema overflows the stack on the input it exists to survive. The hostile-JSON
+specs and `tests/comment-rendering.test.ts` both pass unchanged.
+
+**69KB → 184KB → 136KB → 72.7KB.** The gate is the only reason any of it was
+noticed; nothing about `import { isEmptyDocument }` suggests it drags a
+validation library along.
 
 ## W1 — the shell gets under its own gate, and the reason it was over is one import
 

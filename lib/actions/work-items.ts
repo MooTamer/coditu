@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { documentSchema, flattenToText, isEmptyDocument } from "@/lib/blocks/schema";
-import type { TablesUpdate } from "@/lib/supabase/database.types";
+import { DOC_VERSION, flattenToText, isEmptyDocument } from "@/lib/blocks/schema";
+import { documentSchema } from "@/lib/blocks/validate";
+import type { Json, TablesUpdate } from "@/lib/supabase/database.types";
+import { isMissingColumn } from "@/lib/supabase/schema";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { WORK_ITEM_STATUSES, WORK_ITEM_TYPES } from "@/lib/work-items";
 
@@ -585,6 +587,18 @@ const setFieldInput = z.object({
   // were missing. A title you cannot correct is not restraint, it is an
   // unfinished CRUD.
   title: z.string().trim().min(1, "An item needs a title.").max(200).optional(),
+  /**
+   * The block documents. `description` and `highlight` are derived from them
+   * here and never accepted from the client — the CSV, the Markdown export and
+   * the PDF read those columns, and a projection the caller supplies could say
+   * something the story does not.
+   *
+   * The plain-text fields below stay in the schema because the Notion importer
+   * and `createWorkItem` still write prose directly; a story that has never been
+   * edited has text and no document.
+   */
+  descriptionDoc: documentSchema.nullable().optional(),
+  highlightDoc: documentSchema.nullable().optional(),
   description: z.string().trim().max(4000).nullable().optional(),
   highlight: z.string().trim().max(2000).nullable().optional(),
   deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
@@ -606,20 +620,73 @@ export async function setWorkItemFields(input: unknown): Promise<ActionResult> {
     return { ok: false, error: "Only an admin or lead can change this field." };
   }
 
-  const { title, description, highlight, deadline, estimateMinutes, grouping, type } = parsed.data;
+  const {
+    title,
+    description,
+    highlight,
+    descriptionDoc,
+    highlightDoc,
+    deadline,
+    estimateMinutes,
+    grouping,
+    type,
+  } = parsed.data;
   const patch: TablesUpdate<"work_items"> = {};
+  // The columns a database that has not caught up may not have. Split out so
+  // the write can shed them and try again rather than losing the edit.
+  const documentPatch: TablesUpdate<"work_items"> = {};
+
   if (title !== undefined) patch.title = title;
   // An emptied field is null, not "". Every reader in this app asks "is there a
   // description?" and an empty string answers yes.
   if (description !== undefined) patch.description = description?.length ? description : null;
   if (highlight !== undefined) patch.highlight = highlight?.length ? highlight : null;
+
+  // A document sets BOTH halves, in one statement. The projection cannot lag the
+  // document if neither can be written without the other.
+  if (descriptionDoc !== undefined) {
+    const empty = descriptionDoc === null || isEmptyDocument(descriptionDoc);
+    const text = descriptionDoc === null ? "" : flattenToText(descriptionDoc).trim();
+    if (text.length > 4000) {
+      return { ok: false, error: "That description is longer than we can store." };
+    }
+    patch.description = empty ? null : text;
+    documentPatch.description_json = empty ? null : (descriptionDoc as unknown as Json);
+    documentPatch.description_version = DOC_VERSION;
+  }
+  if (highlightDoc !== undefined) {
+    const empty = highlightDoc === null || isEmptyDocument(highlightDoc);
+    const text = highlightDoc === null ? "" : flattenToText(highlightDoc).trim();
+    if (text.length > 2000) {
+      return { ok: false, error: "That note is longer than we can store." };
+    }
+    patch.highlight = empty ? null : text;
+    documentPatch.highlight_json = empty ? null : (highlightDoc as unknown as Json);
+    documentPatch.highlight_version = DOC_VERSION;
+  }
   if (deadline !== undefined) patch.deadline = deadline;
   if (estimateMinutes !== undefined) patch.estimate_minutes = estimateMinutes;
   if (grouping !== undefined) patch.grouping = grouping;
   if (type !== undefined) patch.type = type;
-  if (Object.keys(patch).length === 0) return { ok: true };
+  if (Object.keys(patch).length === 0 && Object.keys(documentPatch).length === 0) {
+    return { ok: true };
+  }
 
-  const { error } = await scope.supabase.from("work_items").update(patch).eq("id", scope.itemId);
+  // Widest first, then without the document columns. Migrations here are pushed
+  // by hand and the app deploys separately, so a write can reach a database that
+  // has `description` and not `description_json` — and losing the edit to a
+  // missing column is the worse half of that bug. `isMissingColumn` rather than
+  // a bare `42703`: a refused WRITE answers `PGRST204` from PostgREST's schema
+  // cache and never reaches Postgres.
+  let { error } = await scope.supabase
+    .from("work_items")
+    .update({ ...patch, ...documentPatch })
+    .eq("id", scope.itemId);
+
+  if (error && isMissingColumn(error.code) && Object.keys(patch).length > 0) {
+    ({ error } = await scope.supabase.from("work_items").update(patch).eq("id", scope.itemId));
+  }
+
   if (error) return { ok: false, error: "That change did not save. Nothing was lost — try again." };
 
   revalidatePath(sprintPath(scope.slug, scope.sprintNumber));

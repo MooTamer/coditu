@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { pruneToDepth } from "@/lib/blocks/schema";
+import { isMissingColumn } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import {
   COMPONENT_TAGS_SELECT,
@@ -65,6 +66,14 @@ export interface WorkItemDetail {
   grouping: number | null;
   /** In `primary_component_of()` order. Empty means not attributed yet. */
   components: ComponentRef[];
+  /**
+   * The body and the note as block documents, or null for a story written
+   * before the editor existed — and for one read from a database still waiting
+   * for the column. `description` and `highlight` are the flattened projections
+   * either way, so the page always has something to render.
+   */
+  descriptionDoc: unknown;
+  highlightDoc: unknown;
   assignee: PersonRef | null;
   reviewer: PersonRef | null;
   criteria: Criterion[];
@@ -87,10 +96,12 @@ export const getWorkItem = cache(
   async (slug: string, sprintNumber: number, key: string): Promise<WorkItemDetail | null> => {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
-      .from("work_items")
-      .select(
-        `id, key, title, description, highlight, status, type, deadline,
+    // Two shapes, differing by exactly the columns a database that has not
+    // caught up may not have. Separate literals rather than one built at
+    // runtime: supabase-js infers the row type from the LITERAL type of the
+    // select string, and a computed one comes back as `GenericStringError` on
+    // every field. Same reason `lib/data/sprint.ts` has two.
+    const ITEM_TAIL = `status, type, deadline,
          estimate_minutes, minutes_logged, grouping,
          ${COMPONENT_TAGS_SELECT},
          assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials, avatar_url ),
@@ -103,14 +114,39 @@ export const getWorkItem = cache(
          time_entries ( id, minutes, worked_on, note,
                         profiles ( id, full_name, initials, avatar_url ) ),
          sprints!inner ( id, number, name,
-                         projects!inner ( slug, name, clients ( name ) ) )`
-      )
-      .eq("key", key)
-      .eq("sprints.number", sprintNumber)
-      .eq("sprints.projects.slug", slug)
-      .maybeSingle();
+                         projects!inner ( slug, name, clients ( name ) ) )` as const;
 
-    if (error) throw error;
+    const ITEM_RICH =
+      `id, key, title, description, description_json, highlight, highlight_json, ${ITEM_TAIL}` as const;
+    const ITEM_PLAIN = `id, key, title, description, highlight, ${ITEM_TAIL}` as const;
+
+    const find = <T extends string>(columns: T) =>
+      supabase
+        .from("work_items")
+        .select(columns)
+        .eq("key", key)
+        .eq("sprints.number", sprintNumber)
+        .eq("sprints.projects.slug", slug)
+        .maybeSingle();
+
+    const rich = await find(ITEM_RICH);
+    if (rich.error && !isMissingColumn(rich.error.code)) throw rich.error;
+
+    let descriptionDoc: unknown = rich.data?.description_json ?? null;
+    let highlightDoc: unknown = rich.data?.highlight_json ?? null;
+    let data = rich.data as Omit<
+      NonNullable<typeof rich.data>,
+      "description_json" | "highlight_json"
+    > | null;
+
+    if (rich.error) {
+      const plain = await find(ITEM_PLAIN);
+      if (plain.error) throw plain.error;
+      data = plain.data;
+      descriptionDoc = null;
+      highlightDoc = null;
+    }
+
     if (!data) return null;
 
     const person = (
@@ -133,6 +169,8 @@ export const getWorkItem = cache(
       minutesLogged: data.minutes_logged ?? 0,
       grouping: data.grouping,
       components: toComponentTags(data.work_item_components),
+      descriptionDoc,
+      highlightDoc,
       assignee: person(data.assignee),
       reviewer: person(data.reviewer),
       criteria: (data.acceptance_criteria ?? [])

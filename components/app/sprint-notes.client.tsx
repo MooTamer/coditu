@@ -2,15 +2,14 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronRight, Pencil } from "lucide-react";
 
-import { CommentBody } from "@/components/app/comment-body";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { setSprintNotes } from "@/lib/actions/sprints";
 import { settle } from "@/lib/action-result";
-import { isEmptyDocument } from "@/lib/blocks/schema";
+import { documentFromText, isEmptyDocument } from "@/lib/blocks/schema";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { calendarDate } from "@/lib/format";
 
@@ -36,55 +35,11 @@ const RichTextEditor = dynamic(
 /** What an empty note is, so "nothing written yet" is one shape and not three. */
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 
-/**
- * A legacy note, as a document.
- *
- * Notes written before the editor existed are plain text with a `**wrapped**`
- * paragraph meaning "discuss this first". Converting them on read rather than
- * rewriting the rows keeps 15 sprints of history exactly as it was written, and
- * turns the old convention into the callout it always meant — which is the same
- * thing the amber left rule was drawing by hand.
- */
-function documentFromText(text: string): unknown {
-  const paragraphs = text
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
-
-  return {
-    type: "doc",
-    content: paragraphs.map((paragraph) => {
-      // [\s\S] rather than the `s` flag: tsconfig targets ES2017.
-      const highlighted = /^\*\*([\s\S]+)\*\*$/.exec(paragraph);
-      const body = {
-        type: "paragraph",
-        content: [{ type: "text", text: highlighted ? highlighted[1] : paragraph }],
-      };
-      return highlighted ? { type: "callout", attrs: { tone: "amber" }, content: [body] } : body;
-    }),
-  };
-}
-
-/**
- * The sprint notes panel.
- *
- * It has to read as a written note, never as a form field — so: prose at
- * 15px/1.65, no border box, no label, and the "discuss before implementing"
- * convention rendered as a 2px amber left rule rather than a callout component.
- *
- * Markdown here is deliberately minimal. The notes are one or two paragraphs
- * with at most a bolded line, and pulling in a markdown pipeline to render that
- * would ship a parser to every sprint page for no gain. Anything richer belongs
- * in a comment, which has a real editor.
- *
- * Editing keeps that shape. Clicking the prose swaps it for a textarea holding
- * the same text at the same size in the same place — not a modal, not a
- * separate "edit sprint" screen. What you see is what you are editing.
- */
 export function SprintNotes({
   sprintId,
   notes,
   notesDoc,
+  body,
   author,
   writtenOn,
   canEdit,
@@ -94,8 +49,15 @@ export function SprintNotes({
   sprintId: string;
   /** The flattened projection. Still what the export and the report read. */
   notes: string;
-  /** The block document, or null for a note written before the editor existed. */
+  /** The block document — the editor's starting content, and how emptiness is decided. */
   notesDoc: unknown;
+  /**
+   * The READ state, rendered on the server.
+   *
+   * `CommentBody` pulls in lowlight; importing it into this client component put
+   * it on every sprint page. See `item-fields.client.tsx` for the measurement.
+   */
+  body: ReactNode;
   author: string | null;
   writtenOn: string | null;
   /** Admin or lead. RLS refuses everyone else's update. */
@@ -112,7 +74,7 @@ export function SprintNotes({
 
   // A note written before the editor existed renders as the document it always
   // meant — including the `**paragraph**` convention as a real callout.
-  const stored = notesDoc ?? (notes.trim() ? documentFromText(notes) : null);
+  const stored = notesDoc ?? (notes.trim() ? documentFromText(notes, { starsAreCallouts: true }) : null);
   const empty = stored === null || isEmptyDocument(stored);
 
   const [draft, setDraft] = useState<unknown>(stored ?? EMPTY_DOC);
@@ -229,7 +191,7 @@ export function SprintNotes({
               </div>
             </div>
           ) : (
-            <NotesBody doc={stored} onEdit={canEdit ? begin : null} empty={empty} />
+            <NotesBody body={body} onEdit={canEdit ? begin : null} empty={empty} />
           )}
         </div>
       ) : null}
@@ -251,11 +213,11 @@ export function SprintNotes({
  * is enforced in one place rather than three.
  */
 function NotesBody({
-  doc,
+  body: rendered,
   onEdit,
   empty,
 }: {
-  doc: unknown;
+  body: ReactNode;
   onEdit: (() => void) | null;
   empty: boolean;
 }) {
@@ -264,9 +226,7 @@ function NotesBody({
       {onEdit ? "No notes yet — click to write them." : "No notes for this sprint."}
     </p>
   ) : (
-    <div className="coditu-notes text-[15px] leading-[1.65]">
-      <CommentBody doc={doc} />
-    </div>
+    <div className="coditu-notes text-[15px] leading-[1.65]">{rendered}</div>
   );
 
   if (!onEdit) return body;
