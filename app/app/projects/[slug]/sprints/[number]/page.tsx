@@ -139,6 +139,13 @@ export default async function SprintPage({
         canEdit={canAssign}
         people={people}
         maxImageBatch={settings.maxImageBatch}
+        me={{
+          id: profile.id,
+          fullName: profile.full_name,
+          initials: profile.initials,
+          avatarUrl: profile.avatar_url,
+          role: profile.role,
+        }}
       />
 
       <Reveal tier="section" delay={0.06}>

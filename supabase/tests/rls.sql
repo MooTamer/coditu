@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(267);
+select plan(272);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -2585,6 +2585,56 @@ select is(
 );
 
 select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- Private realtime channels.
+--
+-- Asserted as SHAPE, and the reason is worth stating: a browser test proves
+-- that presence works, and presence works just as well with `private: false` —
+-- which bypasses these policies entirely. So "two people can see each other"
+-- can never prove the policy is enforced. What can be proved here is that the
+-- policies exist, that they are gated on `is_active_member()` (which excludes
+-- every client contact), and that they are confined to the `coditu:` prefix so
+-- a session cannot open an arbitrary private topic and use the workspace as a
+-- message bus.
+--
+-- `e2e/presence.spec.ts` covers the other half: that the client really does ask
+-- for `private: true` on a `coditu:`-prefixed topic.
+-- ---------------------------------------------------------------------------
+
+select is(
+  (select count(*)::int from pg_policies
+    where schemaname = 'realtime' and tablename = 'messages'),
+  2,
+  'realtime.messages carries exactly the two policies this app adds'
+);
+
+select ok(
+  (select relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'realtime' and c.relname = 'messages'),
+  'RLS is on for realtime.messages — without it the policies below decide nothing'
+);
+
+select alike(
+  (select qual from pg_policies
+    where schemaname = 'realtime' and tablename = 'messages' and cmd = 'SELECT'),
+  '%is_active_member%',
+  'joining a private channel requires an active INTERNAL member — no client contact'
+);
+
+select alike(
+  (select qual from pg_policies
+    where schemaname = 'realtime' and tablename = 'messages' and cmd = 'SELECT'),
+  '%coditu:%',
+  'and only topics this application owns — not any private topic a caller picks'
+);
+
+select alike(
+  (select with_check from pg_policies
+    where schemaname = 'realtime' and tablename = 'messages' and cmd = 'INSERT'),
+  '%is_active_member%',
+  'sending on one carries the same requirement as joining'
+);
 
 select * from finish();
 rollback;

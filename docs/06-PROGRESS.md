@@ -1538,7 +1538,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `done` | `4df9a48` | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. `test` **245** · `db:test` **303** · components 12/12 incl. axe with the panel open · sprint-table, new-item, inline-edit 33/33 · rendered at 320/375/390/430/1280 |
 | W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `done` | pending | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. `/` menu, editor 16/16 incl. axe with the menu open, `budgets` **OK 69.2/110**. **W3 done.** `test` **252** · `db:test` **306** · 49 document specs · `budgets` **OK 72.7/110** after finding two 60KB client-bundle regressions |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, revisions, version history, `/app/trash` | `done` | pending | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
-| W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
+| W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `wip` | | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `todo` | | one `aria-current` · zero overflow at 8 widths + 200% · axe · budgets |
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `todo` | | comparator vitest · e2e desktop + mobile sheets |
 | W8 | **Projects and project home** | `todo` | | e2e search/filter/archived · axe |
@@ -2171,6 +2171,61 @@ five phases. Deferred, not dropped — recorded in `05-DECISIONS.md`.
 
 `db:test` **331** · `test` **264** · 6 trash e2e incl. axe and the no-words
 assertion · `budgets` **OK 72.9/110**.
+
+## W5a — the spike answered yes, so the channels are private
+
+The plan made this phase's first task a question, and the answer decides the
+rest of it. Measured against realtime **v2.112.6** and `@supabase/realtime-js`
+**2.112.3**: `realtime.messages` exists, partitioned by day, `relrowsecurity =
+true`, **zero policies** — so a private channel was denied to everyone, because
+RLS with no policy denies. `authenticated` has the grants and the client
+supports `config: { private: true }`.
+
+So yes: private channels, authorized in SQL, and the only missing piece was the
+policy. **That answer is a property of those versions**, not of the idea, and it
+is written down that way in `05-DECISIONS.md`.
+
+The policy checks `is_active_member()` rather than the specific entity, because
+`sprints`, `work_items` and `comments` are all gated on exactly that and nothing
+narrower — a per-entity check would do a lookup to reach the answer we already
+have and give the visibility rule a second home. What it does exclude is what
+matters: `account_kind = 'internal'`, so no client contact and no anon. Every
+private topic begins `coditu:`, or the policy would authorize any topic a caller
+invented and turn the workspace into a message bus.
+
+### No test can prove the policy is enforced, so two half-tests do
+
+Presence works. It works identically with `private: false`, which skips the
+policy entirely — so *"two people can see each other"* would stay green if
+somebody deleted both policies. `rls.sql` pins their shape instead (they exist,
+they name `is_active_member()`, they are confined to the prefix) and the browser
+spec asserts the client really sends `"private":true` on a prefixed topic.
+Neither half is sufficient alone, and the general form of that trap is now in
+`07-FIELD-NOTES.md`.
+
+### The one thing that leaves the browser unsupervised
+
+Presence is the only place in this application where something reaches the
+network without a Server Action having read it. So the spec captures the actual
+WebSocket frames and asserts that typed text is not in any of them — a guard
+against the obvious future change, not against the current code.
+
+### The design had already solved the state indicator, and better
+
+My first draft showed idle by fading the avatar. That is off-design and it is
+the exact failure `01-DESIGN-SYSTEM.md` names — colour as the sole carrier, and
+nothing at all to a screen reader. The design specifies a corner **dot**, and
+its two hex values turned out to be `--jade` and `--amber` exactly. It also
+supplies the caption — `2 here now` — which does a second job I had not
+considered: it tells this avatar row apart from the sprint-member row a few
+lines below, which looks identical and means who is *assigned work*.
+
+Also fixed while wiring: `joinPresence` returned a bare teardown, so the idle
+timer had nothing to call and the whole 60-second mechanism was dead code that
+typechecked.
+
+`db:test` **336** · 4 presence e2e incl. the frame assertion · 29 sprint e2e ·
+`budgets` **OK 74.6/110**.
 
 ## W3d — the story's own words, and two imports that cost 60KB each
 

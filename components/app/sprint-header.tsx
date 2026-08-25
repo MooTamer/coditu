@@ -3,6 +3,7 @@ import { ClientMark } from "@/components/app/client-mark";
 import { CommentBody } from "@/components/app/comment-body";
 import { SprintNotes } from "@/components/app/sprint-notes.client";
 import { documentFromText } from "@/lib/blocks/schema";
+import { Presence } from "@/components/app/presence.client";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { Mono } from "@/components/coditu/mono";
 import { ToneChip } from "@/components/coditu/status-chip";
@@ -40,6 +41,7 @@ export function SprintHeader({
   canEdit,
   people,
   maxImageBatch,
+  me,
 }: {
   project: ProjectSummary;
   sprint: SprintDetail;
@@ -52,6 +54,8 @@ export function SprintHeader({
   people: ProfileRef[];
   /** From `app_settings` — never a constant. */
   maxImageBatch: number;
+  /** The signed-in reader, so presence can leave them out of their own stack. */
+  me: ProfileRef;
 }) {
   const slices = statusDistribution(sprint.items);
   const logged = sprint.items.reduce((total, item) => total + item.minutesLogged, 0);
@@ -101,6 +105,16 @@ export function SprintHeader({
             <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
               sprint {sprint.number} · {sprint.status}
             </Mono>
+            {/* Beside the sprint's name rather than in the top bar: it is
+                presence ON THIS SPRINT, and a stack in the shell would imply
+                it means presence in the workspace. Renders nothing when
+                nobody else is here, so it costs no space on most days. */}
+            <Presence
+              channelName={`coditu:presence:sprint:${sprint.id}`}
+              me={me}
+              surface="sprint"
+              people={people}
+            />
           </div>
 
           <h1 className="mt-[10px] text-[26px] font-bold tracking-[-0.024em]">{sprint.name}</h1>

@@ -3083,3 +3083,34 @@ is purely additive and depends on nothing built here. Nothing is gained by hurry
 in W4 through W8 would write to it.
 
 *This is a scheduling change, not a scope cut.* `access_events` remains in the plan.
+
+## Presence channels are private, and RLS is what authorizes a join
+
+**Decided 2026-08-25, W5a.** The plan made this phase's first task a question rather than a decision:
+does this Supabase expose `realtime.messages` RLS — private channels authorized in SQL — or must
+channels stay token-authenticated and carry nothing RLS would otherwise protect?
+
+Measured against realtime **v2.112.6** and `@supabase/realtime-js` **2.112.3**: `realtime.messages`
+exists, partitioned by day, with `relrowsecurity = true` and **zero policies** — so a private channel
+was denied to everyone, because RLS with no policy denies. `authenticated` holds the grants, and the
+client supports `config: { private: true }`. So the answer is yes, and the only missing piece was the
+policy. **This answer is a property of those versions**, and a hosted project on an older realtime
+would not have it; check before assuming it holds elsewhere.
+
+**The check is `is_active_member()`, not per-entity.** A topic-scoped policy — "you may join
+`presence:sprint:X` if you can read sprint X" — looks stricter and is not: `sprints`, `work_items`
+and `comments` are all gated on `is_active_member()` and nothing narrower, so per-entity scoping
+would do a lookup to reach the answer we already have, and give the visibility rule a second home.
+What it does exclude is the thing that matters — `account_kind = 'internal'`, so no client contact
+and no `anon` can join.
+
+**Every private topic begins `coditu:`.** Without a prefix the policy would authorize *any* private
+topic, including one an attacker chose, turning the workspace into a general-purpose message bus for
+anybody with a session. The prefix is not a secret and is not security by itself; it is what makes
+the policy answerable.
+
+*A limit worth writing down:* a browser test can prove presence works, and presence works just as
+well with `private: false`, which bypasses these policies entirely. So no end-to-end test can prove
+the policy is enforced. `rls.sql` pins the policies' shape instead — they exist, they require
+`is_active_member()`, they are confined to the prefix — and `e2e/presence.spec.ts` asserts the client
+really does ask for `private: true` on a prefixed topic. Two halves, neither sufficient alone.

@@ -231,6 +231,34 @@ database refuses the rest, and it is the database that decides.
 Expansion is a `<details>` element and the diffs are server-rendered, so the only client JavaScript on
 this panel is the restore button.
 
+## Presence
+
+Beside the sprint's name in the header eyebrow, never in the shell: this is presence **on this
+sprint**, and a stack in the top bar would imply it means presence in the workspace.
+
+An avatar per person, capped at four, each with a **dot** in its corner — `--jade` for online,
+`--amber` for idle, the design's own two hex values — and a caption reading `2 here now`. The caption
+is what tells this row apart from the sprint-member avatars a few lines below, which look identical
+and mean something entirely different: who is assigned work, not who is looking at the page.
+
+State never travels by colour alone. Each avatar carries a `title` and a visually hidden
+`Name — online` / `Name — idle`.
+
+**You are not in your own stack**, and the whole row renders nothing when nobody else is here, so it
+costs no space on most days. Two windows signed in as the same person are one member — presence is
+keyed by profile.
+
+**Idle after 60 seconds** without a key, pointer move or scroll — long enough not to flicker while
+somebody reads, short enough that a forgotten tab on a second monitor fades within a minute. Hiding
+the tab is immediate, because switching away is unambiguous.
+
+Presence touches no table. The roster lives in the socket and dies with it, so somebody who closes a
+laptop mid-sprint disappears when their connection does — no heartbeat, no sweeper, no row to leak.
+An avatar arriving never re-renders the server tree; only `postgres_changes` does that.
+
+**What crosses the wire is a profile id, a surface name and a state.** Never text anybody has typed.
+`e2e/presence.spec.ts` reads the socket frames and asserts it.
+
 ## Trash
 
 `/app/trash`, reached from the account menu and the phone's "More" sheet — not the rail. A bin on

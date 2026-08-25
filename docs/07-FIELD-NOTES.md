@@ -182,6 +182,26 @@ docker exec -i supabase_db_coditu psql -U postgres -d postgres -f - < supabase/t
 in a bare psql session gets `function plan(integer) does not exist` — that is the
 session, not the database.)
 
+### A working feature is not evidence that its policy is enforced
+
+Presence on the sprint header works. It works identically with
+`config: { private: false }`, which skips `realtime.messages` RLS altogether. So
+`e2e/presence.spec.ts` → *"two people on the same sprint can see each other"*
+would stay green if somebody removed the policies, removed the prefix, or set
+`private: false` — the feature is not the guarantee.
+
+The shape of the problem is general: **when a security control is a gate the
+happy path never touches, the happy path cannot test it.** Look for a test that
+fails when the control is removed. If there isn't one and there cannot be one,
+say so and pin the control's shape directly, as `supabase/tests/read-boundary.sql`
+does for the client RPC projections and `rls.sql` now does for these two
+policies.
+
+Concretely, for realtime: assert the policies exist, that they name
+`is_active_member()`, and that they are confined to the `coditu:` topic prefix —
+plus a browser assertion that the client really sends `"private":true`. Neither
+half is sufficient alone.
+
 ### A loaded machine fails the suite as timeouts
 The suite is ~6 minutes at 12 workers on an idle machine. Under load (a browser, a VM, another build)
 the same run takes 30+ and fails 20 tests, all of them `Test timeout of 30000ms exceeded` — including

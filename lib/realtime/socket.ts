@@ -169,3 +169,132 @@ export async function subscribeToTable({
     void realtime.removeChannel(channel);
   };
 }
+
+/* -------------------------------------------------------------------------- */
+
+export interface PresenceMember {
+  profileId: string;
+  /** Which part of the screen they are on: `sprint`, `item`, `notes`. */
+  surface: string;
+  /** `online` until 60s without input, then `idle`. */
+  state: "online" | "idle";
+}
+
+export interface PresenceSubscription {
+  /** Must begin `coditu:` — see `20260825170000_private_realtime_channels.sql`. */
+  channelName: string;
+  me: PresenceMember;
+  onSync: (members: PresenceMember[]) => void;
+}
+
+/**
+ * Join a presence channel and announce yourself on it.
+ *
+ * ## Private, and what that changes
+ *
+ * `config: { private: true }` makes realtime authorize the join against
+ * `realtime.messages` RLS rather than accepting any authenticated socket. The
+ * policy requires `is_active_member()`, so a client contact is refused by the
+ * database — not by this code, and not by the absence of a link to the page.
+ *
+ * A refused join surfaces as a `CHANNEL_ERROR` status rather than an exception,
+ * which is why `subscribe` takes a callback here. Presence failing is not worth
+ * an error to the reader — the page is entirely usable without knowing who else
+ * is on it — so a refusal reports an empty roster and stops.
+ *
+ * ## Presence never touches a table
+ *
+ * The roster lives in the socket's own state and dies with the connection.
+ * There is no `presence` table, no cleanup job, and no row to leak: somebody
+ * who closes a laptop mid-sprint disappears when their socket does, which is
+ * the behaviour a table would have to reimplement badly with heartbeats and a
+ * sweeper.
+ *
+ * ## What is on the wire
+ *
+ * A profile id, a surface name, and a state. **Never text anybody has typed.**
+ * `e2e/presence.spec.ts` reads the socket frames and asserts it, because this
+ * is the one place in the application where content could leave the browser
+ * without a Server Action having looked at it.
+ */
+export interface PresenceHandle {
+  /** Announce a new state for yourself — a fresh `track` replaces your entry. */
+  setState: (state: "online" | "idle") => void;
+  /** Untrack, then leave. Call on unmount and on navigation. */
+  stop: () => void;
+}
+
+export async function joinPresence({
+  channelName,
+  me,
+  onSync,
+}: PresenceSubscription): Promise<PresenceHandle> {
+  if (!channelName.startsWith("coditu:")) {
+    // Fail here rather than at the server. A topic without the prefix is
+    // refused by the policy, and a refusal looks exactly like a quiet network
+    // problem — this makes the mistake obvious at the call site instead.
+    throw new Error(`presence topic must begin "coditu:" — got "${channelName}"`);
+  }
+
+  const realtime = socket();
+
+  const token = await realtimeToken();
+  if (!token) return { setState: () => {}, stop: () => {} };
+  // Before `subscribe`, always. The same race the table subscription documents
+  // at length: a channel that joins before the JWT lands is evaluated as anon,
+  // and anon is not an active member, so the policy refuses it. Local timing
+  // wins that race; production loses it.
+  await realtime.setAuth(token);
+
+  const channel = realtime.channel(channelName, {
+    config: { private: true, presence: { key: me.profileId } },
+  });
+
+  const publish = () => {
+    const state = channel.presenceState<PresenceMember>();
+    // One entry per profile, not one per tab. Somebody with the sprint open in
+    // two windows is one person, and an avatar stack that shows them twice
+    // reads as a bug.
+    const byProfile = new Map<string, PresenceMember>();
+    Object.values(state)
+      .flat()
+      .forEach((entry) => {
+        const member = entry as unknown as PresenceMember;
+        if (!member?.profileId) return;
+        const existing = byProfile.get(member.profileId);
+        // Online beats idle when the same person is on two surfaces.
+        if (!existing || existing.state === "idle") byProfile.set(member.profileId, member);
+      });
+    onSync([...byProfile.values()]);
+  };
+
+  channel
+    .on("presence", { event: "sync" }, publish)
+    .on("presence", { event: "join" }, publish)
+    .on("presence", { event: "leave" }, publish)
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        void channel.track(me);
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        // Refused, or the socket gave up. The page works without a roster; an
+        // error toast for "we could not tell you who else is here" would be
+        // noise about something nobody asked for.
+        onSync([]);
+      }
+    });
+
+  return {
+    // `track` again with the same presence key, which REPLACES this member's
+    // entry rather than adding a second one. That is what makes going idle a
+    // one-line operation instead of a leave and a rejoin.
+    setState: (state) => {
+      void channel.track({ ...me, state });
+    },
+    stop: () => {
+      // `untrack` before `removeChannel`, so the people still on the channel
+      // see the leave immediately rather than when the server times the socket
+      // out.
+      void channel.untrack().then(() => realtime.removeChannel(channel));
+    },
+  };
+}
