@@ -5,13 +5,13 @@ import { useOptimistic, useState, useTransition } from "react";
 
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { CellPopover, optionListKeyDown } from "@/components/app/cell-popover.client";
-import { ComponentPicker } from "@/components/app/component-picker.client";
+import { ComponentMultiPicker } from "@/components/app/component-picker.client";
 import { Mono } from "@/components/coditu/mono";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { settle } from "@/lib/action-result";
 import {
   logTime,
-  setWorkItemComponent,
+  setWorkItemComponents,
   setWorkItemFields,
   setWorkItemPerson,
   setWorkItemStatus,
@@ -230,17 +230,15 @@ function PersonFace({
  */
 export function ComponentCell({
   itemId,
-  component,
-  alsoTagged,
+  tagged,
   components,
   projectSlug,
   editable,
   onToast,
 }: {
   itemId: string;
-  component: ComponentRef | null;
-  /** The item's other tags. Displayed, not edited — see `ComponentPicker`. */
-  alsoTagged?: readonly ComponentRef[];
+  /** Every component this item is about, in render order. */
+  tagged: readonly ComponentRef[];
   /** The project's registry. Archived entries included — see `offerable`. */
   components: ComponentRef[];
   projectSlug: string;
@@ -249,31 +247,30 @@ export function ComponentCell({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [shown, showOptimistic] = useOptimistic(component);
+  const [shown, showOptimistic] = useOptimistic<readonly ComponentRef[]>(tagged);
 
-  function choose(next: ComponentRef | null) {
+  function choose(next: ComponentRef[]) {
     startTransition(async () => {
       showOptimistic(next);
       const result = await settle(
-        () => setWorkItemComponent({ itemId, componentId: next?.id ?? null }),
+        () => setWorkItemComponents({ itemId, componentIds: next.map((component) => component.id) }),
         "That change did not save — check your connection."
       );
-      // The registry page counts this item under a different component now.
+      // Every component page counts this item differently now, and it may have
+      // just entered or left the sprint's component filter.
       if (result.ok) router.refresh();
       else onToast(result.error ?? "That change did not save.");
     });
   }
 
   return (
-    <ComponentPicker
+    <ComponentMultiPicker
       components={components}
-      value={shown}
-      alsoTagged={alsoTagged}
+      selected={shown}
       projectSlug={projectSlug}
       canEdit={editable}
       onChange={choose}
       busy={pending}
-      emptyLabel="—"
     />
   );
 }

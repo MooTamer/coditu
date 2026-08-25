@@ -2878,3 +2878,50 @@ the wire: it waits for the server's `Subscribed to PostgreSQL` system frame — 
 merely acknowledges the topic — makes a write outside the browser, and asserts it reaches the table.
 A board that never updates looks exactly like a board where nothing has happened, so this was never
 going to be verified by looking at it.
+
+## 2026-08-25 · A story is about several components, and the picker sends one decision
+
+Ticking three components is **one** decision. A control that dismisses itself after each tick turns it
+into three, each with its own round trip, its own optimistic update and its own chance to be
+interrupted half way — and it makes "add the Newspart as well" a different gesture from "these three",
+which it is not.
+
+So `ComponentMultiPicker` accumulates while it is open and sends the whole set on the way out.
+`CellPopover` gained an `onClose` for it, and that callback is deliberately hung off **close**, not off
+the pick handler: Escape is how a keyboard user finishes, and a commit that only fired on a click
+would silently discard their work. There is an assertion that closes with Escape for exactly that
+reason.
+
+**`onClose` is in `close`'s dependency array rather than held in a ref.** A ref keeps `close`
+referentially stable and lets the Escape and outside-click effects subscribe once — but it also lets
+`close` call a **stale** callback, and for a panel whose whole job is accumulating state that is the
+one thing it must not do. Re-subscribing two listeners on a keystroke is cheap; sending last
+keystroke's selection is not.
+
+**The action takes the whole set and computes the difference.** Not delete-then-insert: clearing first
+would write a `cleared` and a `set` row into `activity` for every component that did not actually
+change, so re-ticking a box nobody touched would fill an item's history with events that never
+happened. It also does not report "nothing was lost" when the additions landed and the removals did
+not — it says *"Some of that saved and some did not"*, because the other sentence would be false.
+
+**The tick box is drawn, not a real `<input type="checkbox">`.** The row is already a listbox option
+and `aria-selected` announces its state; a nested checkbox would be a second, contradictory
+announcement of the same fact. `aria-multiselectable` on the listbox is what tells a screen reader
+that ticking is additive.
+
+### `Match any` and `Match all`
+
+`?component=link-kachel,newspart&match=all`. The distinction earns its place on the responsiveness
+work: *Link Kachel OR Tabs with Cards* is forty items across the project's history, *Link Kachel AND
+Tabs with Cards* is the three that touch both, and those are different questions.
+
+**`any` is the widening default, and an unrecognised `match` is `any`.** A filter that quietly narrows
+hides work; one that shows too much is merely unhelpful. A link written before this parameter existed
+has no `match` at all, which is the same case.
+
+**The toggle only appears once two components are selected.** A pair of buttons offering to intersect
+one component with nothing is a control that cannot do anything, which is worse than no control.
+
+Slugs, not ids, so the URL says what it is looking at — and validated twice: shape-checked by
+`parseComponentFilter`, then resolved against **this project's** registry, so a hand-edited string
+naming another client's component resolves to nothing rather than to something.

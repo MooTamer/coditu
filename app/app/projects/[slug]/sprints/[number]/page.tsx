@@ -8,6 +8,11 @@ import { SprintHeader } from "@/components/app/sprint-header";
 import { SprintRealtime } from "@/components/app/realtime.client";
 import { SprintTable } from "@/components/app/sprint-table.client";
 import { Reveal } from "@/components/motion/reveal";
+import {
+  matchesComponentFilter,
+  parseComponentFilter,
+  parseComponentMatch,
+} from "@/lib/components";
 import { listComponents } from "@/lib/data/components";
 import { listActiveProfiles } from "@/lib/data/profiles";
 import { getProjectBySlug } from "@/lib/data/projects";
@@ -36,7 +41,13 @@ export default async function SprintPage({
   searchParams,
 }: {
   params: Promise<{ slug: string; number: string }>;
-  searchParams: Promise<{ status?: string; view?: string; density?: string; component?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    view?: string;
+    density?: string;
+    component?: string;
+    match?: string;
+  }>;
 }) {
   const [{ slug, number }, query] = await Promise.all([params, searchParams]);
 
@@ -68,25 +79,33 @@ export default async function SprintPage({
   // shared before it still filters instead of quietly showing the whole sprint.
   const requested = parseStatusFilter(query.status);
 
-  // The component filter is a slug, validated against THIS project's registry —
-  // a hand-edited query string naming another client's component resolves to
-  // nothing and the filter is simply not applied, rather than silently matching.
-  const activeComponent = query.component
-    ? (components.find((component) => component.slug === query.component) ?? null)
-    : null;
+  // The component filter is a list of SLUGS, each validated against THIS
+  // project's registry — a hand-edited query string naming another client's
+  // component resolves to nothing and is simply not applied, rather than
+  // silently matching. `match` says whether a story needs one of them or all.
+  const requestedComponents = parseComponentFilter(query.component);
+  const activeComponents = requestedComponents
+    .map((slug) => components.find((component) => component.slug === slug))
+    .filter((component): component is (typeof components)[number] => component !== undefined);
+  const match = parseComponentMatch(query.match);
+
+  const activeSlugs = activeComponents.map((component) => component.slug);
 
   const visible = sprint.items.filter(
     (item) =>
       (requested.length === 0 || requested.includes(item.status)) &&
-      (activeComponent === null ||
-        item.components.some((component) => component.id === activeComponent.id))
+      matchesComponentFilter(
+        item.components.map((component) => component.slug),
+        activeSlugs,
+        match
+      )
   );
 
   // Only what this sprint actually touches, plus whatever is being filtered on
   // — so the menu cannot offer a component that would empty the table.
   const sprintComponents = components.filter(
     (component) =>
-      component.id === activeComponent?.id ||
+      activeSlugs.includes(component.slug) ||
       sprint.items.some((item) =>
         item.components.some((tagged) => tagged.id === component.id)
       )
@@ -120,7 +139,8 @@ export default async function SprintPage({
         <FilterBar
           availableStatuses={[...new Set(sprint.items.map((item) => item.status))]}
           components={sprintComponents}
-          activeComponent={activeComponent}
+          activeComponents={activeComponents}
+          match={match}
           projectSlug={slug}
         />
       </Reveal>

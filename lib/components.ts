@@ -213,3 +213,69 @@ export function toComponent(row: {
     icon: row.icon,
   };
 }
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How a multi-component filter combines.
+ *
+ * `any` — the story names at least one of the chosen components.
+ * `all` — it names every one of them.
+ *
+ * The distinction earns its place on the responsiveness work: "Link Kachel OR
+ * Tabs with Cards" is forty items across the project's history, "Link Kachel AND
+ * Tabs with Cards" is the three that touch both, and those are different
+ * questions with different answers.
+ */
+export const COMPONENT_MATCHES = ["any", "all"] as const;
+export type ComponentMatch = (typeof COMPONENT_MATCHES)[number];
+
+/**
+ * `?match=` — anything unrecognised is `any`.
+ *
+ * `any` is the widening default on purpose: a filter that quietly narrows is a
+ * filter that hides work, and a link written before this parameter existed has
+ * no `match` at all.
+ */
+export function parseComponentMatch(value: string | null | undefined): ComponentMatch {
+  return value === "all" ? "all" : "any";
+}
+
+/** The column's own constraint, restated — the only legal producer is `componentSlug`. */
+const SLUG_SHAPE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/**
+ * `?component=a,b,c` — deduplicated, order preserved, garbage dropped.
+ *
+ * Shape-checked here and checked AGAIN against the project's own registry by the
+ * caller, which is the guard that matters: a hand-edited query string naming
+ * another client's component must resolve to nothing rather than to something.
+ * This step only keeps the obvious rubbish out of the URL.
+ */
+export function parseComponentFilter(value: string | null | undefined): string[] {
+  const seen = new Set<string>();
+  for (const raw of (value ?? "").split(",")) {
+    const slug = raw.trim();
+    if (slug && SLUG_SHAPE.test(slug)) seen.add(slug);
+  }
+  return [...seen];
+}
+
+/**
+ * Does this item pass the filter?
+ *
+ * An empty filter passes everything — that is what "no filter" means, and it is
+ * the case a `.every()` on an empty array gets right by accident and a hand
+ * written loop usually gets wrong.
+ */
+export function matchesComponentFilter(
+  itemSlugs: readonly string[],
+  filterSlugs: readonly string[],
+  match: ComponentMatch
+): boolean {
+  if (filterSlugs.length === 0) return true;
+  const held = new Set(itemSlugs);
+  return match === "all"
+    ? filterSlugs.every((slug) => held.has(slug))
+    : filterSlugs.some((slug) => held.has(slug));
+}

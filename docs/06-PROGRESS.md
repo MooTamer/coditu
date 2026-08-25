@@ -1535,7 +1535,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 |---|---|---|---|---|
 | W0 | **Baseline and characterisation** — branch, real gate numbers, two stale docs corrected, the read boundary pinned by shape | `done` | `6ff7cb8` | `lint` + `typecheck` clean · `npm run test` **237** · `npm run db:test` **283** (was 263) · `npm run budgets` **FAILS 116.5/110, pre-existing** · `npx playwright test` **466 passed**, 4 skipped, 4 contention failures each of which passes alone |
 | W1 | **Budget paydown** — get the app shell under its own 110 KB gate before anything is added to it | `done` | pending | `npm run budgets` **OK — 68.3 KB / 110 KB own, 208.3 / 220 total**, both for the first time · `e2e/palette-realtime.spec.ts` 11 specs incl. a live write reaching the table and two new token-endpoint assertions |
-| W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `wip` | | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. **2c exports done. Still open: 2c** — the searchable multi-select picker and `Match any`/`Match all` in the URL |
+| W2 | **Multi-component** — `work_item_components`, backfill, client RPCs re-pointed, chips, `any`/`all` | `done` | pending | **2a schema + 2b read model done:** `db:test` **298** · `test` **241** · `lint`/`typecheck` clean · 73 specs across components, sprint-table, item-detail, new-item. **2c client RPCs done:** `db:test` **303** · 34 portal specs. `test` **245** · `db:test` **303** · components 12/12 incl. axe with the panel open · sprint-table, new-item, inline-edit 33/33 · rendered at 320/375/390/430/1280 |
 | W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `todo` | | hostile-JSON vitest per node type · `e2e editor + composer + mobile` |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, base-revision checks, `/app/history`, `/app/trash` | `todo` | | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `todo` | | two browser contexts · socket frames carry no text · channel gone on unmount |
@@ -1721,6 +1721,53 @@ and the Markdown are internal ("for an AI agent", "detailed").
 The golden files were read before they were updated, not regenerated on faith:
 the diff is the header gaining one name, one row gaining two component names, one
 row gaining an empty cell, and two Markdown table rows. Nothing else moved.
+
+## W2c — the picker sends one decision, and the filter can say `all`
+
+`ComponentMultiPicker` accumulates while it is open and sends the whole set on
+the way out. Ticking three components is **one** decision; a control that
+dismisses itself after each tick makes it three, each with its own round trip and
+its own chance to be interrupted half way.
+
+The commit hangs off **close**, not off the pick handler — Escape is how a
+keyboard user finishes, and a commit wired to clicks would silently discard their
+work. The spec closes with Escape for that reason. `onClose` sits in `close`'s
+dependency array rather than in a ref: a ref keeps the identity stable and lets
+`close` fire a **stale** callback, which for a panel that accumulates state is
+the one failure it cannot have.
+
+The action takes the whole set and computes the difference. Delete-then-insert
+would write a `cleared` and a `set` row into `activity` for every component that
+did not change, so re-ticking a box nobody touched would fill an item's history
+with events that never happened.
+
+`?component=a,b&match=all`. `any` is the widening default and an unrecognised
+`match` falls back to it — a filter that quietly narrows hides work, and a link
+written before the parameter existed has no `match` at all. The toggle only
+appears once two components are selected, because intersecting one component with
+nothing is a control that cannot do anything.
+
+### The cleanup that stopped cleaning up
+
+`components.spec.ts`'s `afterEach` reset attribution by nulling `component_id`.
+That now removes only the **primary** tag — the column-to-join trigger promotes
+and keeps, which is the whole point of it — so extras ticked by a multi-select
+test survived into the next test and quietly changed what it was looking at. It
+deletes from `work_item_components` directly now.
+
+The same shape is worth watching for anywhere else: **a cleanup written against
+the old single-valued column now under-cleans rather than failing**, which is the
+quiet kind of wrong.
+
+### What was verified, and what was not
+
+`lint`, `typecheck`, `test` **245**, `db:test` **303**; `components.spec.ts`
+12/12 including an axe audit with the multi-select panel open; sprint-table,
+new-item and inline-edit 33/33; the table read at 320/375/390/430/1280.
+
+The **full** e2e sweep was started and abandoned at a load average of 18 — the
+condition `07-FIELD-NOTES.md` names as producing twenty timeout failures that mean
+nothing. It is owed at `--workers=3`.
 
 ## W1 — the shell gets under its own gate, and the reason it was over is one import
 

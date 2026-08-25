@@ -30,6 +30,16 @@ test.describe("components", () => {
   test.afterEach(async () => {
     await query(`delete from work_items where title like 'E2E component%'`);
     await query(`delete from components where slug like 'e2e-%'`);
+    // Clear the TAGS, not the mirror column. Nulling `component_id` removes only
+    // the first tag — the column-to-join trigger promotes and keeps, which is
+    // the whole point of it — so the extras a multi-select test ticked would
+    // survive into the next test and quietly change what it is looking at.
+    await query(
+      `delete from work_item_components wc
+        using work_items w
+        where w.id = wc.work_item_id and w.key = any($1)`,
+      [[SEED.item, SEED.otherItem]]
+    );
     await query(`update work_items set component_id = null where key = any($1)`, [
       [SEED.item, SEED.otherItem],
     ]);
@@ -61,14 +71,14 @@ test.describe("components", () => {
     expect(await icons.count()).toBeGreaterThanOrEqual(Number(withIcon));
   });
 
-  test("a row's component is picked from the registry, and the pick is recorded", async ({
+  test("a row's components are ticked in the registry, and the change is recorded", async ({
     adminPage: page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(SPRINT);
 
     const row = page.locator("tbody tr", { hasText: SEED.item });
-    await row.getByRole("button", { name: /^Component:/ }).click();
+    await row.getByRole("button", { name: /^Components:/ }).click();
 
     // Forty options need a filter, which is the reason this is a listbox and
     // not a <select>.
@@ -77,22 +87,35 @@ test.describe("components", () => {
     await expect(options).toHaveCount(1);
     await options.first().click();
 
-    await expect(row.getByRole("button", { name: /^Component: EVIM Themen Kachel/ })).toBeVisible();
+    // Ticking does NOT close the panel — choosing several components is one
+    // decision, so the whole set is sent on the way out. The option reports its
+    // own state in the meantime.
+    await expect(options.first()).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByLabel("Filter components")).toBeVisible();
+
+    // Escape is how a keyboard user finishes, so it is the exit worth testing:
+    // if the commit hung off the click handler instead, this would write nothing.
+    await page.keyboard.press("Escape");
+    await expect(page.getByLabel("Filter components")).toHaveCount(0);
+
+    await expect(row.getByRole("button", { name: /^Components:.*EVIM Themen Kachel/ })).toBeVisible();
 
     // Polled, not read once: the cell writes OPTIMISTICALLY, so the name is on
     // screen before the server has answered. Reading the row the instant the
     // label appears is a race this suite would lose about half the time.
     await expect
       .poll(async () => {
-        const [stored] = await query<{ slug: string }>(
+        // Through the join table: the mirror column holds only the first tag.
+        const stored = await query<{ slug: string }>(
           `select c.slug from work_items w
-           join components c on c.id = w.component_id
-           where w.key = $1`,
+           join work_item_components wc on wc.work_item_id = w.id
+           join components c on c.id = wc.component_id
+           where w.key = $1 order by c.slug`,
           [SEED.item]
         );
-        return stored?.slug ?? null;
+        return stored.map((row) => row.slug).join(",");
       })
-      .toBe("evim-themen-kachel");
+      .toContain("evim-themen-kachel");
 
     // The change is history, not just state: the activity trigger names the
     // component rather than its id.
@@ -112,7 +135,7 @@ test.describe("components", () => {
 
     await page
       .locator("tbody tr", { hasText: SEED.item })
-      .getByRole("button", { name: /^Component:/ })
+      .getByRole("button", { name: /^Components:/ })
       .click();
 
     const filter = page.getByLabel("Filter components");
@@ -128,20 +151,28 @@ test.describe("components", () => {
     await expect(page.getByRole("option").nth(1)).toBeFocused();
   });
 
-  test("Enter picks the only match", async ({ adminPage: page }) => {
+  test("Enter ticks the only match", async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(SPRINT);
 
     const row = page.locator("tbody tr", { hasText: SEED.otherItem });
-    await row.getByRole("button", { name: /^Component:/ }).click();
+    await row.getByRole("button", { name: /^Components:/ }).click();
 
     const filter = page.getByLabel("Filter components");
     await filter.fill("dokumentenbibliothek");
     await filter.press("Enter");
 
+    // Ticked, panel still open, and only then committed.
+    await expect(page.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("Escape");
+
+    // ADDED, not swapped: the seed already attributed this row, and a
+    // multi-select that silently drops what it did not name would be the same
+    // data loss the single column caused.
     await expect(
-      row.getByRole("button", { name: /^Component: EVIM Dokumentenbibliothek/ })
+      row.getByRole("button", { name: /^Components:.*EVIM Dokumentenbibliothek/ })
     ).toBeVisible();
+    await expect(row).toContainText("EVIM Themen Kachel");
   });
 
   test("the sprint reads one component at a time", async ({ adminPage: page }) => {
@@ -236,7 +267,7 @@ test.describe("components", () => {
 
     await expect(row).toContainText("EVIM Themen Kachel");
     // Not a hidden control — a visible value with a reason attached.
-    await expect(row.getByRole("button", { name: /^Component:/ })).toHaveCount(0);
+    await expect(row.getByRole("button", { name: /^Components:/ })).toHaveCount(0);
     await expect(row.locator('[aria-disabled="true"]', { hasText: "EVIM Themen Kachel" })).toBeVisible();
   });
 
@@ -315,6 +346,77 @@ test.describe("components", () => {
     expect(noise).toEqual([]);
   });
 
+  test("match any is at least one, match all is every one", async ({ adminPage: page }) => {
+    // Two components this sprint actually uses, discovered rather than written
+    // down: `npm run components:sync` and a re-import both change which is which.
+    const [pair] = await query<{ a: string; b: string }>(
+      `select a.slug as a, b.slug as b
+         from (select distinct c.slug, c.id from work_items w
+                 join sprints s on s.id = w.sprint_id
+                 join projects p on p.id = s.project_id
+                 join work_item_components wc on wc.work_item_id = w.id
+                 join components c on c.id = wc.component_id
+                where p.slug = 'meinevim' and s.number = 17) a
+         cross join lateral (select c.slug from work_items w
+                 join sprints s on s.id = w.sprint_id
+                 join projects p on p.id = s.project_id
+                 join work_item_components wc on wc.work_item_id = w.id
+                 join components c on c.id = wc.component_id
+                where p.slug = 'meinevim' and s.number = 17 and c.slug <> a.slug
+                limit 1) b
+        limit 1`
+    );
+    expect(pair, "the sprint needs two distinct components for this to mean anything").toBeTruthy();
+
+    // Give ONE story both of them, so `all` has an answer that `any` does not.
+    await query(
+      `insert into work_item_components (work_item_id, component_id)
+       select w.id, c.id from work_items w, components c
+        where w.key = $1 and c.slug = any($2)
+       on conflict do nothing`,
+      [SEED.item, [pair.a, pair.b]]
+    );
+
+    const expected = async (mode: "any" | "all") => {
+      const [{ count }] = await query<{ count: string }>(
+        `select count(*)::text from work_items w
+           join sprints s on s.id = w.sprint_id
+           join projects p on p.id = s.project_id
+          where p.slug = 'meinevim' and s.number = 17
+            and (select count(distinct c.slug) from work_item_components wc
+                   join components c on c.id = wc.component_id
+                  where wc.work_item_id = w.id and c.slug = any($1)) ${mode === "all" ? "= 2" : ">= 1"}`,
+        [[pair.a, pair.b]]
+      );
+      return Number(count);
+    };
+
+    const anyCount = await expected("any");
+    const allCount = await expected("all");
+    // If these were equal the test could pass with the two modes wired together.
+    expect(anyCount).toBeGreaterThan(allCount);
+    expect(allCount).toBeGreaterThan(0);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    await page.goto(`${SPRINT}?component=${pair.a},${pair.b}`);
+    await expect(page.locator("tbody tr")).toHaveCount(anyCount);
+
+    await page.goto(`${SPRINT}?component=${pair.a},${pair.b}&match=all`);
+    await expect(page.locator("tbody tr")).toHaveCount(allCount);
+
+    // An unrecognised mode widens rather than narrows: a link written before
+    // `match` existed has none, and a filter that quietly hides work is worse
+    // than one that shows too much.
+    await page.goto(`${SPRINT}?component=${pair.a},${pair.b}&match=nonsense`);
+    await expect(page.locator("tbody tr")).toHaveCount(anyCount);
+
+    // The toggle only exists once there is something to combine.
+    await expect(page.getByRole("button", { name: "match all" })).toBeVisible();
+    await page.goto(`${SPRINT}?component=${pair.a}`);
+    await expect(page.getByRole("button", { name: "match all" })).toHaveCount(0);
+  });
+
   test("the registry and a component's page are clean to axe", async ({ adminPage: page }) => {
     await page.goto(REGISTRY);
     expect(await auditA11y(page)).toEqual([]);
@@ -326,7 +428,7 @@ test.describe("components", () => {
     // covered by an audit of the page that opened it.
     await page.goto(SPRINT);
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.locator("tbody tr").first().getByRole("button", { name: /^Component:/ }).click();
+    await page.locator("tbody tr").first().getByRole("button", { name: /^Components:/ }).click();
     await expect(page.getByLabel("Filter components")).toBeVisible();
     expect(await auditA11y(page)).toEqual([]);
   });

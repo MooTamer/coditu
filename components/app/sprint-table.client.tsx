@@ -421,13 +421,7 @@ function Row({
       <td className={EDIT_CELL} style={{ height: rowHeight }}>
         <ComponentCell
           itemId={row.id}
-          // The PRIMARY tag. Choosing here still writes `work_items.component_id`,
-          // and the migration's column-to-join trigger promotes the choice
-          // without dropping the item's other tags — so a single-select control
-          // cannot destroy a multi-component attribution while the searchable
-          // multi-select is still being built.
-          component={row.components[0] ?? null}
-          alsoTagged={row.components.slice(1)}
+          tagged={row.components}
           components={components}
           projectSlug={projectSlug}
           editable={canAssign}

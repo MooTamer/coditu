@@ -11,7 +11,10 @@ import {
   COMPONENT_TAG_ORDER,
   componentSlug,
   componentsFromTags,
+  matchesComponentFilter,
   orderComponentTags,
+  parseComponentFilter,
+  parseComponentMatch,
   type ComponentKind,
   type ComponentTag,
 } from "@/lib/components";
@@ -194,5 +197,47 @@ describe("component tag ordering", () => {
     ];
     expect(componentsFromTags(tags)).toEqual([]);
     expect(componentsFromTags(null)).toEqual([]);
+  });
+});
+
+describe("the component filter", () => {
+  it("defaults to any, including for a link written before match existed", () => {
+    expect(parseComponentMatch(null)).toBe("any");
+    expect(parseComponentMatch(undefined)).toBe("any");
+    expect(parseComponentMatch("")).toBe("any");
+    expect(parseComponentMatch("nonsense")).toBe("any");
+    expect(parseComponentMatch("all")).toBe("all");
+  });
+
+  it("keeps order, drops duplicates, and refuses anything that is not a slug", () => {
+    expect(parseComponentFilter("banner,link-kachel,banner")).toEqual(["banner", "link-kachel"]);
+    expect(parseComponentFilter(" banner , link-kachel ")).toEqual(["banner", "link-kachel"]);
+    expect(parseComponentFilter("Banner")).toEqual([]);
+    expect(parseComponentFilter("../../etc/passwd")).toEqual([]);
+    expect(parseComponentFilter("a b,c;d")).toEqual([]);
+    expect(parseComponentFilter(null)).toEqual([]);
+  });
+
+  it("passes everything when nothing is selected", () => {
+    // The case a `.every()` over an empty array gets right by accident and a
+    // hand-written loop usually gets wrong.
+    expect(matchesComponentFilter([], [], "any")).toBe(true);
+    expect(matchesComponentFilter([], [], "all")).toBe(true);
+    expect(matchesComponentFilter(["banner"], [], "all")).toBe(true);
+  });
+
+  it("any is at least one, all is every one", () => {
+    const item = ["link-kachel", "tabs-with-cards", "newspart"];
+
+    expect(matchesComponentFilter(item, ["link-kachel"], "any")).toBe(true);
+    expect(matchesComponentFilter(item, ["link-kachel", "banner"], "any")).toBe(true);
+    expect(matchesComponentFilter(item, ["banner"], "any")).toBe(false);
+
+    expect(matchesComponentFilter(item, ["link-kachel", "tabs-with-cards"], "all")).toBe(true);
+    expect(matchesComponentFilter(item, ["link-kachel", "banner"], "all")).toBe(false);
+
+    // An untagged story is in no filtered view but is still in the unfiltered one.
+    expect(matchesComponentFilter([], ["link-kachel"], "any")).toBe(false);
+    expect(matchesComponentFilter([], ["link-kachel"], "all")).toBe(false);
   });
 });

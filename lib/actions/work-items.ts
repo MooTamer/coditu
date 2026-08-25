@@ -821,6 +821,96 @@ export async function setWorkItemComponent(input: unknown): Promise<ActionResult
 
 /* -------------------------------------------------------------------------- */
 
+const setComponentsInput = z.object({
+  itemId: uuid,
+  /**
+   * The complete set the item should end up with. Not a delta.
+   *
+   * A picker that stays open while several boxes are ticked has no natural
+   * moment to send "added X" and then "removed Y", and two round trips would
+   * leave a window where the item is in a state nobody chose. The client sends
+   * what it is looking at; the server works out the difference.
+   */
+  componentIds: z.array(uuid).max(24),
+});
+
+/**
+ * Set every component an item is about, in one call.
+ *
+ * Written as a difference rather than delete-then-insert, and that matters:
+ * clearing the whole set first would write a `cleared` and a `set` row into
+ * `activity` for every component that did not actually change, so re-ticking a
+ * box nobody touched would fill the item's history with events that never
+ * happened.
+ *
+ * The project is re-derived from the item's own sprint by `resolveScope`, and
+ * `guard_work_item_component_scope` re-checks the same thing in the database.
+ * Neither is handed a project id by the caller.
+ */
+export async function setWorkItemComponents(input: unknown): Promise<ActionResult> {
+  const parsed = setComponentsInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Those are not components we can store." };
+
+  const scope = await resolveScope(parsed.data.itemId);
+  if (!scope) return { ok: false, error: "You are not signed in, or that item no longer exists." };
+
+  if (scope.profile.role === "engineer") {
+    return { ok: false, error: "Only an admin or lead can change an item's components." };
+  }
+
+  const wanted = [...new Set(parsed.data.componentIds)];
+
+  const { data: current, error: readError } = await scope.supabase
+    .from("work_item_components")
+    .select("component_id")
+    .eq("work_item_id", scope.itemId);
+
+  if (readError) {
+    return { ok: false, error: "That change did not save. Nothing was lost — try again." };
+  }
+
+  const held = new Set((current ?? []).map((row) => row.component_id));
+  const toAdd = wanted.filter((id) => !held.has(id));
+  const toRemove = [...held].filter((id) => !wanted.includes(id));
+
+  if (toAdd.length === 0 && toRemove.length === 0) return { ok: true };
+
+  if (toAdd.length > 0) {
+    const { error } = await scope.supabase
+      .from("work_item_components")
+      .insert(toAdd.map((componentId) => ({ work_item_id: scope.itemId, component_id: componentId })));
+
+    if (error) {
+      // `guard_work_item_component_scope` refusing a component from another
+      // project. Nothing was written — the insert is one statement.
+      if (error.code === CHECK_VIOLATION) {
+        return { ok: false, error: "That component belongs to another project." };
+      }
+      return { ok: false, error: "That change did not save. Nothing was lost — try again." };
+    }
+  }
+
+  if (toRemove.length > 0) {
+    const { error } = await scope.supabase
+      .from("work_item_components")
+      .delete()
+      .eq("work_item_id", scope.itemId)
+      .in("component_id", toRemove);
+
+    if (error) {
+      // The additions above already landed. Saying "nothing was lost" here
+      // would be false, so it says what is true instead.
+      return { ok: false, error: "Some of that saved and some did not — reload and check." };
+    }
+  }
+
+  revalidatePath(sprintPath(scope.slug, scope.sprintNumber));
+  revalidatePath(`/app/projects/${scope.slug}/components`);
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+
 const createInput = z.object({
   /** The sprint the item is created in. Everything else is derived FROM it. */
   sprintId: uuid,

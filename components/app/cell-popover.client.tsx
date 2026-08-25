@@ -49,6 +49,7 @@ const TRIGGER: Record<"cell" | "field", string> = {
 };
 
 export function CellPopover({
+  onClose,
   label,
   value,
   disabled,
@@ -60,6 +61,16 @@ export function CellPopover({
   className,
   children,
 }: {
+  /**
+   * Fired once, after the panel has closed, however it closed — a pick, Escape,
+   * a click outside, or a scroll that dismissed it.
+   *
+   * A multi-select panel accumulates while it is open and sends the whole set
+   * on the way out, so it needs the ONE exit that every dismissal goes through.
+   * Hanging it off the pick handler would miss Escape, which is the way a
+   * keyboard user finishes.
+   */
+  onClose?: () => void;
   /** Announced on the trigger: "Status: peer review. Change status." */
   label: string;
   /** What the cell shows when it is not being edited. */
@@ -80,7 +91,18 @@ export function CellPopover({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const close = useCallback(() => setOpen(false), []);
+  // `onClose` is in the dependency array rather than held in a ref. A ref would
+  // keep `close` referentially stable and let the Escape and outside-click
+  // effects subscribe once — but it would also let `close` commit a STALE
+  // callback, which for a panel that accumulates state while open is the one
+  // thing it must not do. Re-subscribing two listeners is cheap; sending last
+  // keystroke's selection is not.
+  const close = useCallback(() => {
+    setOpen((was) => {
+      if (was) onClose?.();
+      return false;
+    });
+  }, [onClose]);
 
   const place = useCallback(() => {
     const trigger = triggerRef.current;
@@ -153,14 +175,14 @@ export function CellPopover({
     function onPointerDown(event: MouseEvent) {
       const target = event.target as Node;
       if (panelRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
-      setOpen(false);
+      close();
     }
     function onKey(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       // The item modal listens for Escape on the document. Without this, one
       // press closes the menu AND the dialog behind it.
       event.stopPropagation();
-      setOpen(false);
+      close();
       triggerRef.current?.focus();
     }
 
@@ -177,7 +199,11 @@ export function CellPopover({
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition, true);
     };
-  }, [open, place]);
+    // `close` belongs here now that it depends on `onClose`: the listeners must
+    // call the CURRENT one. Before this the array was honest — `close` never
+    // changed — and leaving it out now would mean Escape committing whatever
+    // selection the panel was holding when it opened.
+  }, [open, place, close]);
 
   if (disabled) {
     return (

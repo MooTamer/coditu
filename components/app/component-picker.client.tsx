@@ -158,6 +158,128 @@ export function ComponentPicker({
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The same picker, for a story that is about more than one thing.
+ *
+ * Ticking does not close the panel. That is the whole difference and it is the
+ * point: choosing three components is one decision, and a control that dismisses
+ * itself after each tick turns it into three, each with its own round trip and
+ * its own chance to be interrupted half way.
+ *
+ * So the panel accumulates and the WHOLE set is sent when it closes. `onChange`
+ * fires once, with what the reader is looking at.
+ */
+export function ComponentMultiPicker({
+  components,
+  selected,
+  projectSlug,
+  canEdit,
+  onChange,
+  variant = "cell",
+  align = "start",
+  busy,
+  className,
+  emptyLabel = "not attributed",
+  allowCreate = true,
+  disabledReason = "Only an admin or lead can change an item's components",
+}: {
+  components: ComponentRef[];
+  selected: readonly ComponentRef[];
+  projectSlug: string;
+  canEdit: boolean;
+  /** Called once, on close, and only when the set actually changed. */
+  onChange: (next: ComponentRef[]) => void;
+  variant?: "cell" | "field";
+  align?: "start" | "end";
+  busy?: boolean;
+  className?: string;
+  emptyLabel?: string;
+  allowCreate?: boolean;
+  disabledReason?: string;
+}) {
+  const router = useRouter();
+  const [created, setCreated] = useState<ComponentRef[]>([]);
+
+  // What the panel is holding while it is open. Seeded from the props each time
+  // it opens, so a realtime refresh underneath a closed picker is not fought.
+  const [draft, setDraft] = useState<ComponentRef[] | null>(null);
+  const working = draft ?? [...selected];
+
+  const all = useMemo(() => {
+    const merged = [...components];
+    for (const component of created) {
+      if (!merged.some((existing) => existing.id === component.id)) merged.push(component);
+    }
+    return merged.sort((a, b) => a.name.localeCompare(b.name));
+  }, [components, created]);
+
+  const sameAsProps = (next: readonly ComponentRef[]) => {
+    if (next.length !== selected.length) return false;
+    const held = new Set(selected.map((component) => component.id));
+    return next.every((component) => held.has(component.id));
+  };
+
+  function commit() {
+    const next = draft;
+    setDraft(null);
+    if (next && !sameAsProps(next)) onChange(next);
+  }
+
+  return (
+    <CellPopover
+      variant={variant}
+      align={align}
+      width={340}
+      busy={busy}
+      disabled={!canEdit}
+      disabledReason={disabledReason}
+      label={
+        selected.length
+          ? `Components: ${selected.map((component) => component.name).join(", ")}. Change components.`
+          : "Components: none. Change components."
+      }
+      className={className}
+      onClose={commit}
+      value={
+        <ComponentTags
+          components={selected}
+          itemClassName="text-[13.5px]"
+          className="text-[13.5px]"
+          emptyLabel={emptyLabel}
+        />
+      }
+    >
+      {(close) => (
+        <PickerPanel
+          components={all}
+          value={null}
+          selectedIds={working.map((component) => component.id)}
+          projectSlug={projectSlug}
+          emptyLabel={emptyLabel}
+          allowCreate={allowCreate}
+          onChoose={() => close()}
+          onToggle={(component) =>
+            setDraft(
+              working.some((held) => held.id === component.id)
+                ? working.filter((held) => held.id !== component.id)
+                : [...working, component]
+            )
+          }
+          onCreated={(component) => {
+            setCreated((was) => [...was, component]);
+            setDraft([...working, component]);
+            // The registry page and every other picker on the screen are stale
+            // the moment this returns.
+            router.refresh();
+          }}
+        />
+      )}
+    </CellPopover>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
 const OPTION =
   "flex w-full items-center gap-2 rounded-chip px-2 py-[7px] text-left text-[13.5px] hover:bg-[var(--canvas)]";
 const FIELD =
@@ -166,20 +288,35 @@ const FIELD =
 function PickerPanel({
   components,
   value,
+  selectedIds,
   projectSlug,
   emptyLabel,
   allowCreate,
   onChoose,
+  onToggle,
   onCreated,
 }: {
   components: ComponentRef[];
+  /** Single-select: the current answer. Null in multi-select. */
   value: ComponentRef | null;
+  /**
+   * Multi-select: every component currently ticked.
+   *
+   * Its presence is what switches the panel's behaviour — ticking does not
+   * close it, there is no "none" option because unticking everything IS none,
+   * and the listbox announces itself as multi-selectable.
+   */
+  selectedIds?: readonly string[];
   projectSlug: string;
   emptyLabel: string;
   allowCreate: boolean;
   onChoose: (next: ComponentRef | null) => void;
+  onToggle?: (component: ComponentRef) => void;
   onCreated: (component: ComponentRef) => void;
 }) {
+  const multi = selectedIds !== undefined;
+  const isPicked = (component: ComponentRef) =>
+    multi ? selectedIds!.includes(component.id) : component.id === value?.id;
   const [adding, setAdding] = useState(false);
   const [filter, setFilter] = useState("");
 
@@ -199,7 +336,10 @@ function PickerPanel({
     // An archived component stays visible only while it is the current answer:
     // it must not be offered as a new choice, and it must not disappear from
     // the item already carrying it.
-    if (component.isArchived && component.id !== value?.id) return false;
+    // An archived component stays visible only while it is a current answer:
+    // it must not be offered as a NEW choice, and it must not disappear from an
+    // item already carrying it.
+    if (component.isArchived && !isPicked(component)) return false;
     return !needle || component.name.toLowerCase().includes(needle);
   });
 
@@ -217,7 +357,9 @@ function PickerPanel({
           // name and typed four letters of it.
           if (event.key === "Enter") {
             event.preventDefault();
-            if (shown.length === 1) onChoose(shown[0]);
+            if (shown.length !== 1) return;
+            if (multi) onToggle?.(shown[0]);
+            else onChoose(shown[0]);
             return;
           }
           // ArrowDown hands over to the list.
@@ -237,11 +379,12 @@ function PickerPanel({
 
       <div
         role="listbox"
-        aria-label="Component"
+        aria-label={multi ? "Components" : "Component"}
+        aria-multiselectable={multi || undefined}
         onKeyDown={optionListKeyDown}
         className="max-h-[280px] overflow-y-auto"
       >
-        {!needle ? (
+        {!needle && !multi ? (
           <button
             type="button"
             role="option"
@@ -258,11 +401,31 @@ function PickerPanel({
             key={component.id}
             type="button"
             role="option"
-            aria-selected={component.id === value?.id}
+            aria-selected={isPicked(component)}
             title={component.name}
-            onClick={() => onChoose(component)}
-            className={cn(OPTION, component.id === value?.id && "bg-[var(--canvas)]")}
+            onClick={() => (multi ? onToggle?.(component) : onChoose(component))}
+            className={cn(OPTION, isPicked(component) && "bg-[var(--canvas)]")}
           >
+            {multi ? (
+              // A tick box, drawn rather than a real checkbox: the row is
+              // already a listbox option and `aria-selected` is what announces
+              // its state. A nested input would be a second, contradictory one.
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "flex size-[15px] shrink-0 items-center justify-center rounded-[4px] border",
+                  isPicked(component)
+                    ? "border-transparent bg-[var(--accent)] text-[var(--canvas)]"
+                    : "border-[var(--hairline-strong)]"
+                )}
+              >
+                {isPicked(component) ? (
+                  <svg viewBox="0 0 24 24" className="size-[11px]" fill="none" stroke="currentColor" strokeWidth={3.2}>
+                    <path d="M5 12l4 4L19 6" />
+                  </svg>
+                ) : null}
+              </span>
+            ) : null}
             <ComponentIcon icon={component.icon} kind={component.kind} size={15} />
             <span className="min-w-0 flex-1 truncate">{component.name}</span>
             <Mono size="eyebrow" className="shrink-0 normal-case tracking-normal text-[var(--ink-faint)]">

@@ -3,8 +3,9 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 
-import { ComponentPicker } from "@/components/app/component-picker.client";
+import { ComponentMultiPicker } from "@/components/app/component-picker.client";
 import { Mono } from "@/components/coditu/mono";
+import { COMPONENT_MATCHES, type ComponentMatch } from "@/lib/components";
 import type { ComponentRef } from "@/lib/data/components";
 import {
   STATUS_DISPLAY_ORDER,
@@ -36,14 +37,17 @@ const DOT: Partial<Record<WorkItemStatus, string>> = {
 export function FilterBar({
   availableStatuses,
   components,
-  activeComponent,
+  activeComponents,
+  match,
   projectSlug,
 }: {
   availableStatuses: WorkItemStatus[];
   /** Only the components this sprint actually touches. A menu of forty when
    *  twelve are on the board is a menu of twenty-eight dead ends. */
   components: ComponentRef[];
-  activeComponent: ComponentRef | null;
+  /** Resolved from the URL against this project's registry, in URL order. */
+  activeComponents: ComponentRef[];
+  match: ComponentMatch;
   projectSlug: string;
 }) {
   const router = useRouter();
@@ -75,12 +79,24 @@ export function FilterBar({
     write(next);
   }
 
-  function setComponent(component: ComponentRef | null) {
+  function setComponents(chosen: ComponentRef[]) {
     const next = new URLSearchParams(params);
-    // The SLUG, not the id: a filtered view is a link somebody pastes into a
-    // comment, and `?component=evim-themen-kachel` says what it is looking at.
-    if (component) next.set("component", component.slug);
-    else next.delete("component");
+    // SLUGS, not ids: a filtered view is a link somebody pastes into a comment,
+    // and `?component=link-kachel,newspart&match=all` says what it is looking at.
+    if (chosen.length) next.set("component", chosen.map((component) => component.slug).join(","));
+    else {
+      next.delete("component");
+      // `match` on its own is noise in a URL nobody can act on.
+      next.delete("match");
+    }
+    write(next);
+  }
+
+  function setMatch(mode: ComponentMatch) {
+    const next = new URLSearchParams(params);
+    // `any` is the default, so it does not need saying.
+    if (mode === "all") next.set("match", "all");
+    else next.delete("match");
     write(next);
   }
 
@@ -120,20 +136,47 @@ export function FilterBar({
       {/* Reading the sprint one component at a time. The same picker the table
           cells and the New item dialog use, minus the ability to add one —
           filtering by something that does not exist yet is not a thing. */}
-      <div className="w-[200px] shrink-0">
-        <ComponentPicker
+      <div className="w-[220px] shrink-0">
+        <ComponentMultiPicker
           variant="field"
-          label="Component filter"
           components={components}
-          value={activeComponent}
+          selected={activeComponents}
           projectSlug={projectSlug}
           canEdit
           allowCreate={false}
-          onChange={setComponent}
+          onChange={setComponents}
           emptyLabel="all components"
           className="h-[32px]"
         />
       </div>
+
+      {/* Only once there is something to combine. A pair of toggles offering to
+          intersect one component with nothing is a control that cannot do
+          anything, which is worse than no control. */}
+      {activeComponents.length > 1 ? (
+        <div className="flex rounded-control border border-[var(--hairline)] bg-[var(--raised)] p-[3px]">
+          {COMPONENT_MATCHES.map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setMatch(mode)}
+              aria-pressed={match === mode}
+              title={
+                mode === "any"
+                  ? "Stories naming at least one of these components"
+                  : "Stories naming every one of these components"
+              }
+              className={cn(
+                "h-[26px] rounded-[6px] px-[10px] text-[12.5px] font-semibold",
+                "transition-[background-color,color] duration-[var(--dur-micro)] ease-[var(--ease-entrance)]",
+                match === mode ? "bg-[var(--canvas)] text-[var(--ink)]" : "text-[var(--ink-muted)]"
+              )}
+            >
+              match {mode}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <span aria-hidden className="h-6 w-px bg-[var(--hairline)]" />
 
@@ -163,7 +206,10 @@ export function FilterBar({
         {(() => {
           const parts = [
             active.length ? `status=${active.join(",")}` : null,
-            activeComponent ? `component=${activeComponent.slug}` : null,
+            activeComponents.length
+              ? `component=${activeComponents.map((component) => component.slug).join(",")}`
+              : null,
+            activeComponents.length > 1 && match === "all" ? "match=all" : null,
           ].filter(Boolean);
           return parts.length ? `?${parts.join("&")}` : "?sort=order_index";
         })()}
