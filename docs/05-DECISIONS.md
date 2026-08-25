@@ -2535,3 +2535,60 @@ until her token refreshed. For a revocation path that is the wrong trade, and it
 client contact reaches no internal route, that `COD-`, `Log time` and `Earnings` appear nowhere in
 the returned HTML, that `/api/attachments/*` refuses her, and that an admin's own path is unchanged.
 Zero horizontal overflow at 320, 375, 390, 430 and 1280.
+
+---
+
+## 2026-08-25 · Client access is an intersection of four things, computed in one place
+
+**Decision.** A client contact's access is the intersection of: the account is a client contact and
+not revoked; the contact belongs to the company that owns the project; a live grant exists for that
+project; and the grant carries the capability being asked for. `client_has_capability()` computes all
+four, and every client-facing read calls it.
+
+**One function, no contact parameter.** `client_has_capability(project_id, capability)` reads
+`auth.uid()` and takes no "which contact" argument — deliberately. A function that took one would be
+a way to ask about somebody else's access, and every caller would have to be trusted to pass its own
+id. There is nothing to pass wrongly. It is `security definer` with `search_path = ''`, revoked from
+`public` and `anon` and granted only to `authenticated`, because a definer function in `public` is
+granted EXECUTE to PUBLIC by default — the trap `allowlist_claimed()` already documents.
+
+**Capabilities are an enum, not text.** A typo becomes a type error at the point of writing rather
+than a capability that stores cleanly and matches nothing. `lib/client-access.ts` mirrors it and
+`tests/client-access.test.ts` reads the migration to prove they agree. The drift that would hurt is
+an EXTRA capability in TypeScript: offered by the UI, unknown to the database, stored, never matched,
+and indistinguishable from a toggle that does not work.
+
+**Grants, not a `clients.client_user_id` column.** A company has more than one person who talks to
+us, and a contact may be given some of that company's projects and not others. One column expresses
+neither. `client_contacts` is keyed on the profile, so a person represents exactly one company —
+somebody who works for two clients needs two accounts, which is honest rather than a join table
+nobody can reason about.
+
+**`guard_client_grant_company` is invariant 1 applied to access.** A grant may only name a project
+belonging to the contact's own company, enforced by trigger with `23514`. Without it the whole model
+rests on the application remembering, and "the admin picked the wrong row out of a dropdown" is a
+cross-client data breach rather than a validation error. Same shape as
+`guard_work_item_component_project`, for the same reason: the join between two tables is where scope
+quietly gets lost.
+
+**Revocation is stamped, never deleted**, at three independent levels — the contact's `status`, the
+grant's `revoked_at`, and the profile's `is_active`. Each is sufficient on its own, and the test
+asserts each separately, because "we revoked her but she could still see it" must not be reachable by
+forgetting one of them. Nothing is cached in a claim, so revocation bites the very next request from
+an already-open session; there is a pgTAP assertion that does exactly that, from inside a session
+opened before the revocation.
+
+**Hours, files and starting threads are in no preset.** Observer reads; Collaborator reads and
+answers, and is a strict superset of Observer so "upgrade her" can never silently take something
+away. `view_effort`, `view_attachments` and `start_questions` are explicit opt-ins: hours imply what
+the work cost, files can carry anything, and a client who can open threads turns the portal into a
+support inbox nobody agreed to staff. All three carry a "this reveals…" sentence shown beside the
+toggle rather than behind a tooltip.
+
+**One test corrected rather than one behaviour bent.** The first draft asserted that a contact
+updating her own grant raises `42501`. It does not: a row-filtering policy denies by matching
+nothing, so the statement succeeds and reports zero rows — which this repository already documents
+elsewhere. Asserting a failure mode Postgres does not have would have been a test that passes for the
+wrong reason. It now asserts that the stored capabilities did not move, checked from the owner's
+session, which is the stronger claim anyway. The INSERT case genuinely does raise, because a
+`with check` violation is an error rather than a filter, and it is still asserted that way.

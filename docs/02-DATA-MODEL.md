@@ -242,6 +242,57 @@ through ten tables and the standing answer is "merge duplicates, never delete th
 record of money owed to a person and must not become the eleventh thing that quietly disappears with
 them.
 
+### Client access — `client_contacts`, `client_invitations`, `client_project_grants`
+
+Access for a client contact is the **intersection of four things**, and all four must hold:
+the account is a client contact and not revoked; the contact belongs to the company that owns the
+project; a live grant exists for that specific project; and the grant carries the specific capability
+being asked for. `client_has_capability(project_id, capability)` is the one place that intersection
+is computed, and every client-facing read calls it.
+
+`client_contacts` — `profile_id pk fk profiles`, `client_id fk clients on delete restrict`,
+`status client_contact_status` (`invited` | `active` | `revoked`), `invited_by`, `invited_at`,
+`accepted_at`, `revoked_at`. The primary key is the profile, so **a person represents exactly one
+company**; someone who works for two clients needs two accounts, which is the honest answer rather
+than a join table nobody can reason about. `on delete restrict` on `client_id` so deleting a company
+that still has contacts fails loudly instead of orphaning them. **No delete policy** — revocation is
+what withdrawal means, and `client_messages.author_id` is `on delete restrict`, so deleting a contact
+would take her name off her own words.
+
+`client_invitations` — `email`, `client_id`, `capabilities client_capability[]`, `status`
+(`pending` | `accepted` | `revoked` | `expired`), `expires_at` (14 days), `created_by`,
+`accepted_profile_id`. Plus `client_invitation_projects (invitation_id, project_id)`.
+**This table exists so `handle_new_user` has something server-side to read.**
+`20260821180000_role_is_not_client_supplied.sql` is the precedent: reading `raw_user_meta_data` let a
+sign-up choose its own role, because that field is `options.data` on a public endpoint taking the
+anon key. An account *kind* chosen the same way is the same bug with a larger blast radius. A partial
+unique index allows one `pending` invitation per address while keeping the history of revoked ones.
+Admin-only in all four verbs — a contact reads nothing here, not even her own invitation, which names
+capabilities she was not given.
+
+`client_project_grants` — `(contact_profile_id, project_id) pk`, `capabilities`, `granted_by`,
+`granted_at`, `revoked_at`. Revoked by stamping, never deleting, so "who could see this in March"
+stays answerable. `client_project_grants_live_idx` is partial on `where revoked_at is null`, which is
+the only shape the hot path asks for.
+
+`guard_client_grant_company` is **invariant 1 applied to access**: a `before insert or update`
+trigger raising `23514` unless the project's `client_id` equals the contact's. Without it the model
+rests on the application remembering, and "the admin picked the wrong row out of a dropdown" is a
+cross-client breach rather than a validation error. Same shape as
+`guard_work_item_component_project`.
+
+`client_has_capability` takes **no contact parameter** and never will. A function that took one would
+be a way to ask about somebody else's access, and every caller would have to be trusted to pass its
+own id. It reads `auth.uid()`, so there is nothing to pass wrongly. It returns `false`, never null,
+and it is revoked from `public` and `anon` — a `security definer` function in `public` is granted
+EXECUTE to PUBLIC by default, which is the trap `allowlist_claimed()` documents.
+
+The capability vocabulary is `client_capability`, mirrored by `lib/client-access.ts`;
+`tests/client-access.test.ts` reads the migration to prove they agree. **`view_effort`,
+`view_attachments` and `start_questions` are in no preset** — hours imply what the work cost, files
+can carry anything, and a client who can open threads turns the portal into a support inbox nobody
+agreed to staff.
+
 ### `time_entries`
 `id`, `work_item_id fk`, `profile_id fk`,
 `minutes int not null check (minutes > 0 and minutes <= 1440)`,

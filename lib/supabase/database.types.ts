@@ -281,6 +281,230 @@ export type Database = {
           },
         ]
       }
+      client_contacts: {
+        Row: {
+          accepted_at: string | null
+          client_id: string
+          invited_at: string
+          invited_by: string | null
+          profile_id: string
+          revoked_at: string | null
+          status: Database["public"]["Enums"]["client_contact_status"]
+        }
+        Insert: {
+          accepted_at?: string | null
+          client_id: string
+          invited_at?: string
+          invited_by?: string | null
+          profile_id: string
+          revoked_at?: string | null
+          status?: Database["public"]["Enums"]["client_contact_status"]
+        }
+        Update: {
+          accepted_at?: string | null
+          client_id?: string
+          invited_at?: string
+          invited_by?: string | null
+          profile_id?: string
+          revoked_at?: string | null
+          status?: Database["public"]["Enums"]["client_contact_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_contacts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_contacts_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_contacts_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "client_contacts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_contacts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      client_invitation_projects: {
+        Row: {
+          invitation_id: string
+          project_id: string
+        }
+        Insert: {
+          invitation_id: string
+          project_id: string
+        }
+        Update: {
+          invitation_id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_invitation_projects_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "client_invitations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_invitation_projects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_invitations: {
+        Row: {
+          accepted_profile_id: string | null
+          capabilities: Database["public"]["Enums"]["client_capability"][]
+          client_id: string
+          created_at: string
+          created_by: string | null
+          email: string
+          expires_at: string
+          id: string
+          status: string
+        }
+        Insert: {
+          accepted_profile_id?: string | null
+          capabilities?: Database["public"]["Enums"]["client_capability"][]
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          status?: string
+        }
+        Update: {
+          accepted_profile_id?: string | null
+          capabilities?: Database["public"]["Enums"]["client_capability"][]
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_invitations_accepted_profile_id_fkey"
+            columns: ["accepted_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_invitations_accepted_profile_id_fkey"
+            columns: ["accepted_profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "client_invitations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_invitations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_invitations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      client_project_grants: {
+        Row: {
+          capabilities: Database["public"]["Enums"]["client_capability"][]
+          contact_profile_id: string
+          granted_at: string
+          granted_by: string | null
+          project_id: string
+          revoked_at: string | null
+        }
+        Insert: {
+          capabilities?: Database["public"]["Enums"]["client_capability"][]
+          contact_profile_id: string
+          granted_at?: string
+          granted_by?: string | null
+          project_id: string
+          revoked_at?: string | null
+        }
+        Update: {
+          capabilities?: Database["public"]["Enums"]["client_capability"][]
+          contact_profile_id?: string
+          granted_at?: string
+          granted_by?: string | null
+          project_id?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_project_grants_contact_profile_id_fkey"
+            columns: ["contact_profile_id"]
+            isOneToOne: false
+            referencedRelation: "client_contacts"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "client_project_grants_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_project_grants_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "client_project_grants_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           accent_hex: string | null
@@ -1154,6 +1378,13 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      client_has_capability: {
+        Args: {
+          p_capability: Database["public"]["Enums"]["client_capability"]
+          p_project_id: string
+        }
+        Returns: boolean
+      }
       derive_key_prefix: {
         Args: { p_exclude?: string; p_slug: string }
         Returns: string
@@ -1196,6 +1427,19 @@ export type Database = {
     Enums: {
       account_kind: "internal" | "client"
       app_role: "admin" | "lead" | "engineer"
+      client_capability:
+        | "view_project"
+        | "view_components"
+        | "view_work"
+        | "view_current_sprint"
+        | "view_past_sprints"
+        | "view_criteria"
+        | "view_effort"
+        | "read_questions"
+        | "reply_questions"
+        | "start_questions"
+        | "view_attachments"
+      client_contact_status: "invited" | "active" | "revoked"
       component_kind: "react" | "spfx"
       sprint_status: "planned" | "active" | "closed"
       work_item_status:
@@ -1337,6 +1581,20 @@ export const Constants = {
     Enums: {
       account_kind: ["internal", "client"],
       app_role: ["admin", "lead", "engineer"],
+      client_capability: [
+        "view_project",
+        "view_components",
+        "view_work",
+        "view_current_sprint",
+        "view_past_sprints",
+        "view_criteria",
+        "view_effort",
+        "read_questions",
+        "reply_questions",
+        "start_questions",
+        "view_attachments",
+      ],
+      client_contact_status: ["invited", "active", "revoked"],
       component_kind: ["react", "spfx"],
       sprint_status: ["planned", "active", "closed"],
       work_item_status: [

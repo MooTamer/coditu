@@ -1265,7 +1265,7 @@ Worked in slices, each with its failing test observed before the code. Newest at
 | # | Slice | Status | Commit | Verification |
 |---|---|---|---|---|
 | C1 | **The account boundary** — `profiles.account_kind`, `is_active_member()`/`auth_role()` mean *internal*, `is_admin_or_lead()` stops being three-valued, `"own profile read"` | `done` | `bbd19d8` | `npm run db:test` — **186** assertions (was 162). 24 new, 15 of which were observed failing first |
-| C2 | **The application boundary** — `getCurrentProfile()` answers for internal accounts only, `getClientContact()` is its mirror, `/client` is its own route tree with its own shell, both layouts redirect to the other's home | `done` | pending | `npm run e2e` — **462 passed, 4 skipped, 0 failed**, including 5 new boundary specs. Zero horizontal overflow at 320/375/390/430/1280 |
+| C2 | **The application boundary** — `getCurrentProfile()` answers for internal accounts only, `getClientContact()` is its mirror, `/client` is its own route tree with its own shell, both layouts redirect to the other's home | `done` | `4203645` | `npm run e2e` — **462 passed, 4 skipped, 0 failed**, including 5 new boundary specs. Zero horizontal overflow at 320/375/390/430/1280 |
 
 ### C1 — what the test found before the code existed
 
@@ -1343,8 +1343,36 @@ overflow at any of them, and the returned HTML contains none of `COD-`, `Log tim
 verification out of git unless asked. `e2e/client-*.spec.ts` and `e2e/client-fixtures.local.ts` are
 gitignored. They run, they gate the work, and they are not committed — say the word and they go in.
 
+| C3 | **Access** — `client_contacts`, `client_invitations` (+ projects), `client_project_grants`, `guard_client_grant_company`, `client_has_capability()` | `done` | pending | `npm run db:test` — **210** assertions (was 186) |
+| C4 | **Capabilities** — `lib/client-access.ts`: the enum mirror, Observer/Collaborator/Custom, resolution, the "this reveals…" sentences | `done` | pending | `npm run test` — **237** (was 220) |
+
+### C3/C4 — three revocations, each sufficient on its own
+
+Access can be withdrawn at three independent levels: the profile's `is_active`, the contact's
+`status`, and the grant's `revoked_at`. Each is asserted separately, because "we revoked her and she
+could still see it" must not be reachable by forgetting one of them. The revocation assertion is made
+from inside a session opened **before** the revocation, which is the case that actually matters —
+nothing is cached in a claim, so the next request sees it.
+
+`client_has_capability(project_id, capability)` takes no contact parameter and never will. One that
+did would be a way to ask about somebody else's access, with every caller trusted to pass its own id.
+
+**A test was corrected rather than a behaviour bent.** The first draft asserted that a contact
+updating her own grant raises `42501`. It does not — a row-filtering policy denies by matching
+nothing, so the statement succeeds and reports zero rows, which this repo documents elsewhere.
+Asserting a failure mode Postgres does not have is a test that passes for the wrong reason. It now
+asserts the stored capabilities did not move, checked from the owner's session. The INSERT case does
+genuinely raise, because a `with check` violation is an error rather than a filter, and is still
+asserted that way.
+
+**The seed suite failed twice for a reason that was not the code.** `db:test` reported
+"95 of them were already ticked in Notion" and "104 attachments" failing, immediately after a full
+`npm run e2e`. Both are absolute counts over seeded rows, and the e2e suite ticks criteria and
+uploads images against the same local database. A `db:reset` cleared both. This is the shared-database
+note in `07-FIELD-NOTES.md` arriving in a new place: **`db:test` after `e2e` is not a clean run**, and
+the two failures name the seed, not the change under test.
+
 ### Still to come in this brief
 
-C3 access tables and grants, C4 capabilities and presets, C5 publication, C6 the client-safe read
-model, C7–C8 the portal itself, C9 questions, C10 the internal access manager, C11 attachments,
-C12 notifications.
+C5 publication, C6 the client-safe read model, C7–C8 the portal itself, C9 questions, C10 the
+internal access manager, C11 attachments, C12 notifications.

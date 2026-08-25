@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(160);
+select plan(184);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -1523,6 +1523,163 @@ select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
 select isnt_empty($$select 1 from public.work_items$$, 'positive: an internal engineer still reads the whole board');
 select isnt_empty($$select 1 from public.comments$$,   'positive: and the whole thread — full transparency is unchanged');
 select is(public.is_active_member(), true, 'positive: an internal account is still an active member');
+
+select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- Client access — company membership, project grants, and capabilities.
+--
+-- Access is the intersection of four things, and every one of them has to be
+-- true at once:
+--
+--   1. the account is a client contact at all, and not revoked
+--   2. the contact belongs to the client company that owns the project
+--   3. a live grant exists for that specific project
+--   4. the grant carries the specific capability being asked for
+--
+-- `client_has_capability()` is the ONE place that intersection is computed.
+-- Every client-facing RPC calls it, so these assertions are the whole access
+-- model rather than one policy's worth of it.
+-- ---------------------------------------------------------------------------
+
+select has_type('public', 'client_capability',     'the capability vocabulary is an enum, so a typo is a type error');
+select has_type('public', 'client_contact_status', 'a contact is invited, active or revoked');
+select has_table('public', 'client_contacts',          'a contact belongs to exactly one client company');
+select has_table('public', 'client_invitations',       'an invitation is a server-side record, never sign-up metadata');
+select has_table('public', 'client_project_grants',    'and access is granted per project, not per company');
+select has_function('public', 'client_has_capability', 'the one place the intersection is computed');
+
+-- Dana represents the OTHER company, so "one client cannot see another" has
+-- something real to leak rather than an empty set that would pass either way.
+select pg_temp.make_user('77777777-7777-7777-7777-777777777777', 'dana@nile.test', 'Dana Contact', 'engineer');
+update public.profiles set account_kind = 'client' where id = '77777777-7777-7777-7777-777777777777';
+
+insert into public.client_contacts (profile_id, client_id, status, invited_by) values
+  ('66666666-6666-6666-6666-666666666666', 'c1000000-0000-0000-0000-000000000001', 'active', '11111111-1111-1111-1111-111111111111'),
+  ('77777777-7777-7777-7777-777777777777', 'c2000000-0000-0000-0000-000000000002', 'active', '11111111-1111-1111-1111-111111111111');
+
+insert into public.client_project_grants (contact_profile_id, project_id, capabilities, granted_by) values
+  ('66666666-6666-6666-6666-666666666666', '40000000-0000-0000-0000-000000000001',
+   '{view_project,view_components,read_questions}'::public.client_capability[], '11111111-1111-1111-1111-111111111111'),
+  ('77777777-7777-7777-7777-777777777777', '40000000-0000-0000-0000-000000000002',
+   '{view_project}'::public.client_capability[], '11111111-1111-1111-1111-111111111111');
+
+-- Invariant 1, applied to access: a grant may only name a project that belongs
+-- to the contact's OWN company. Without this the whole model rests on the
+-- application remembering, and "the admin picked the wrong row from a dropdown"
+-- becomes a cross-client data breach.
+select throws_ok(
+  $$insert into public.client_project_grants (contact_profile_id, project_id, capabilities)
+    values ('66666666-6666-6666-6666-666666666666', '40000000-0000-0000-0000-000000000002',
+            '{view_project}'::public.client_capability[])$$,
+  '23514',
+  null,
+  'negative: a contact cannot be granted a project belonging to another company'
+);
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+
+select is(public.client_has_capability('40000000-0000-0000-0000-000000000001', 'view_project'),   true,
+  'positive: a live grant carrying the capability says yes');
+select is(public.client_has_capability('40000000-0000-0000-0000-000000000001', 'view_effort'),    false,
+  'negative: a capability the grant does not carry says no — hours are not implied by access');
+select is(public.client_has_capability('40000000-0000-0000-0000-000000000002', 'view_project'),   false,
+  'negative: the other company''s project says no, whatever the capability');
+
+-- The tables themselves, from her session.
+select is(
+  (select count(*) from public.client_contacts)::int, 1,
+  'a contact reads exactly one client_contacts row: her own'
+);
+select is(
+  (select count(*) from public.client_project_grants)::int, 1,
+  'and exactly her own grants — another contact''s access is not enumerable'
+);
+select is_empty(
+  $$select 1 from public.client_invitations$$,
+  'a contact reads no invitations at all, including the one that created her'
+);
+
+-- She must not be able to widen her own access, which is the obvious attack.
+--
+-- The UPDATE does not RAISE, and that is worth being exact about: a row-filtering
+-- policy denies by matching nothing, so the statement succeeds and reports zero
+-- rows. Asserting a 42501 here would be asserting a failure mode Postgres does
+-- not have. What matters is that the stored capabilities did not move, so that
+-- is what is checked — from the owner's session, because hers cannot see the
+-- row it failed to change.
+select lives_ok(
+  $$update public.client_project_grants
+       set capabilities = '{view_effort}'::public.client_capability[]
+     where contact_profile_id = '66666666-6666-6666-6666-666666666666'$$,
+  'a contact''s UPDATE against her own grant runs — RLS filters rather than raises'
+);
+
+select pg_temp.act_as_owner();
+select is(
+  (select capabilities from public.client_project_grants
+    where contact_profile_id = '66666666-6666-6666-6666-666666666666'),
+  '{view_project,view_components,read_questions}'::public.client_capability[],
+  'negative: and it changed nothing — she cannot grant herself a capability'
+);
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+select throws_ok(
+  $$insert into public.client_project_grants (contact_profile_id, project_id, capabilities)
+    values ('66666666-6666-6666-6666-666666666666', '40000000-0000-0000-0000-000000000001',
+            '{view_effort}'::public.client_capability[])$$,
+  '42501',
+  null,
+  'negative: nor write herself a second grant'
+);
+
+-- Revocation has to bite an ALREADY-OPEN session, so it is asserted from inside
+-- one rather than by signing in again.
+select pg_temp.act_as_owner();
+update public.client_project_grants set revoked_at = now()
+ where contact_profile_id = '66666666-6666-6666-6666-666666666666';
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+select is(public.client_has_capability('40000000-0000-0000-0000-000000000001', 'view_project'), false,
+  'negative: a revoked grant stops answering immediately — no cached claim to expire');
+
+select pg_temp.act_as_owner();
+update public.client_project_grants set revoked_at = null
+ where contact_profile_id = '66666666-6666-6666-6666-666666666666';
+update public.client_contacts set status = 'revoked'
+ where profile_id = '66666666-6666-6666-6666-666666666666';
+
+select pg_temp.act_as('66666666-6666-6666-6666-666666666666');
+select is(public.client_has_capability('40000000-0000-0000-0000-000000000001', 'view_project'), false,
+  'negative: revoking the CONTACT is enough on its own — the grants need not be touched');
+
+select pg_temp.act_as_owner();
+update public.client_contacts set status = 'active'
+ where profile_id = '66666666-6666-6666-6666-666666666666';
+
+-- Dana's side of the wall, so the negative above is not merely an empty database.
+select pg_temp.act_as('77777777-7777-7777-7777-777777777777');
+select is(public.client_has_capability('40000000-0000-0000-0000-000000000002', 'view_project'), true,
+  'positive: the other contact still reaches her own company''s project');
+select is(public.client_has_capability('40000000-0000-0000-0000-000000000001', 'view_project'), false,
+  'negative: and not the first contact''s, which is the cross-client case stated the other way round');
+
+-- Internal side.
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+select isnt_empty($$select 1 from public.client_contacts$$,     'positive: an admin sees who has access');
+select isnt_empty($$select 1 from public.client_project_grants$$, 'positive: and what they may do with it');
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select throws_ok(
+  $$insert into public.client_contacts (profile_id, client_id)
+    values ('77777777-7777-7777-7777-777777777777', 'c1000000-0000-0000-0000-000000000001')$$,
+  '42501',
+  null,
+  'negative: an engineer does not decide who gets client access'
+);
+select is(public.client_has_capability('40000000-0000-0000-0000-000000000001', 'view_project'), false,
+  'negative: and an internal account has no client capabilities — it reads through its own policies, not these'
+);
 
 select pg_temp.act_as_owner();
 
