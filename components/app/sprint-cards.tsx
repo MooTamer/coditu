@@ -41,6 +41,18 @@ export function SprintCards({
 
   return (
     <section className="hidden flex-col gap-[10px] @max-[900px]:flex">
+      {/* The same answer the table gives, because a phone can reach the same
+          empty state and a screen with nothing on it explains nothing. No
+          "clear the filters" here: the control that set them is a sheet the
+          reader just closed, and it is one tap away. */}
+      {rows.length === 0 ? (
+        <p className="rounded-card border border-[var(--hairline)] bg-[var(--raised)] px-4 py-8 text-center text-[13.5px] text-[var(--ink-muted)]">
+          {allRows.length === 0
+            ? "No stories in this sprint yet."
+            : `No story here matches these filters — ${allRows.length} in the sprint.`}
+        </p>
+      ) : null}
+
       {rows.map((row) => {
         const hue = groupingHue(row.grouping);
         return (

@@ -1540,7 +1540,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, revisions, version history, `/app/trash` | `done` | `72853ed` | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `done` | `34b7d7e` | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `done` | `f491856` | one `aria-current` **per navigation** (the trail's last crumb is the ARIA breadcrumb pattern — see `05-DECISIONS.md`) · zero overflow at 13 widths + 200% · axe · `budgets` **OK 74.6/110, 214.6/220** · `test` **293** · `db:test` **338** · full e2e `--workers=1` **550 passed**, 1 contention failure that passes alone · rail 12/12, navigation 15/15, home 8/8. **Favourites and recents deferred** to W7/W9, recorded rather than faked |
-| W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `wip` | | **W7a comparator + W7b the table sorts done:** `test` **315** (22 new) · `db:test` **338** · `budgets` **OK 76.5/110** · sprint-table **15/15** incl. axe with a two-key sort · a11y 15/15 · inline-edit 8/8. **Outstanding:** the remaining filters (type, assignee, reviewer, grouping, free text) and saved views |
+| W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `wip` | | **W7a comparator + W7b sorting + W7c filters done:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **Outstanding:** saved views |
 | W8 | **Projects and project home** | `todo` | | e2e search/filter/archived · axe |
 | W9 | **People & Access** — six sections, safety states, the per-project client grant editor | `todo` | | pgTAP self-demote / self-deactivate / last-admin · e2e disabled-and-explained |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `todo` | | `tests/earnings-boundary.test.ts` extended, both ways |
@@ -2755,3 +2755,60 @@ incl. axe with a two-key sort applied · a11y 15/15 · inline-edit 8/8.
 
 **Next:** W7c — the remaining filters (type, assignee, reviewer, grouping, free
 text over title and description), then W7d saved views.
+
+## W7c — the rest of the filters, and a dialog that was a grey stripe
+
+Type, assignee, reviewer, grouping and free text, in `lib/sprint-filters.ts`
+with 16 tests. They live in a **panel** rather than in the bar: status is
+already eight chips, and four more dimensions inline wrap the toolbar to three
+rows at 1180px. `DialogShell` makes it a centred dialog above `md` and a bottom
+sheet below, which is the phone half of this phase's verification.
+
+`?assignee=MT` filters **by initials**, and the module says so out loud:
+`profiles.initials` has no unique constraint, so `MT` is two letters rather than
+a person. Initials nobody has are kept, not dropped — they match nothing, the
+table goes empty, and that is visibly wrong, which is the right way round.
+`none` is reserved for an empty seat. Free text is **terms, not a phrase**:
+`kachel height` has to find a story with both words anywhere in its title or
+description.
+
+**An empty table now explains itself.** It could already be emptied by the
+status and component filters and said nothing — a header row, a sum of nothing,
+no explanation. Free text makes that easy to reach, so the design's empty state
+is built: what happened, how many are in the sprint, and `clear the filters`,
+which clears everything that can *hide* a row and deliberately not `sort`.
+
+### The bug worth remembering: `fixed` is not fixed inside a `<Reveal>`
+
+The panel rendered with `role="dialog"`, a label, a focus trap and a clean axe
+run — and on screen it was a **grey stripe across the toolbar**. The scrim
+measured **1046×65** instead of the viewport.
+
+`position: fixed` resolves against the nearest ancestor with a `filter` or a
+`transform`, and `<Reveal>` sets both — settling on `filter: blur(0px)`, which is
+a filter *value* and not `none`, so the containing block never goes away.
+Anything `position: fixed` mounted inside a revealed section is trapped,
+permanently, and every static check passes.
+
+Fixed in `DialogShell` rather than at the call site: a modal an ancestor can clip
+is wrong whoever mounts it. `cell-popover.client.tsx` already portals for the
+same class of reason. Verified across **198 specs** on three devices covering
+every dialog in the app.
+
+### Two more the environment produced rather than the code
+
+The console reported a `TypeError` in `<FilterBar>` that was from an earlier
+build in the same tab — `read_console_messages` returns everything a tab has
+accumulated, so a fresh tab is the honest read. And `playwright.config.ts`
+honoured `E2E_BASE_URL` for `baseURL` but hard-coded 3000 for `webServer.url`,
+so pointing the tests elsewhere made Playwright start a second `next dev` that
+died on `.next/dev/lock`. Both are in `07-FIELD-NOTES.md`.
+
+`test` **331** (16 new) · `lint`, `typecheck` clean · `db:test` **338** ·
+`budgets` **OK 77.9 / 110 own, 217.9 / 220 total** (76.5 at W7b) · sprint-table
+**24/24** · every dialog-bearing suite **198/198** on chromium, mobile-safari and
+mobile-chrome.
+
+**Next:** W7d — saved views. The table `…_saved_views.sql` from §5.5, a zod'd
+`spec` holding filter/sort/mode and never a row set, and the favourites that
+W6 deferred until this existed.

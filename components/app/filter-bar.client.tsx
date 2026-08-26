@@ -1,12 +1,15 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
+import { SlidersHorizontal } from "lucide-react";
 
 import { ComponentMultiPicker } from "@/components/app/component-picker.client";
+import { FilterPanel } from "@/components/app/filter-panel.client";
 import { Mono } from "@/components/coditu/mono";
 import { COMPONENT_MATCHES, type ComponentMatch } from "@/lib/components";
 import type { ComponentRef } from "@/lib/data/components";
+import { activeFilterCount, type FilterSpec } from "@/lib/sprint-filters";
 import {
   STATUS_DISPLAY_ORDER,
   STATUS_LABEL,
@@ -40,6 +43,9 @@ export function FilterBar({
   activeComponents,
   match,
   projectSlug,
+  filters,
+  people,
+  groupings,
 }: {
   availableStatuses: WorkItemStatus[];
   /** Only the components this sprint actually touches. A menu of forty when
@@ -49,8 +55,15 @@ export function FilterBar({
   activeComponents: ComponentRef[];
   match: ComponentMatch;
   projectSlug: string;
+  /** Type, assignee, reviewer, grouping and free text, from the URL. */
+  filters: FilterSpec;
+  /** Everybody this sprint could be filtered by, from its own rows. */
+  people: { initials: string; fullName: string }[];
+  /** The groupings this sprint actually uses. */
+  groupings: number[];
 }) {
   const router = useRouter();
+  const [panelOpen, setPanelOpen] = useState(false);
   const pathname = usePathname();
   const params = useSearchParams();
 
@@ -108,6 +121,7 @@ export function FilterBar({
   }
 
   const ordered = STATUS_DISPLAY_ORDER.filter((status) => availableStatuses.includes(status));
+  const count = activeFilterCount(filters);
 
   return (
     <section className="flex flex-wrap items-center gap-[10px]">
@@ -201,6 +215,45 @@ export function FilterBar({
           </button>
         );
       })}
+
+      {/* Type, assignee, reviewer, grouping and free text. Behind a button with
+          a count, because four more dimensions inline wrap this bar to three
+          rows at 1180px and push the table below the fold. */}
+      <button
+        type="button"
+        onClick={() => setPanelOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={panelOpen}
+        data-filter-button
+        className={cn(
+          "inline-flex h-[34px] cursor-pointer items-center gap-2 rounded-control border px-3 text-[12.5px]",
+          "transition-[border-color,color] duration-[var(--dur-micro)]",
+          count > 0
+            ? "border-[var(--hairline-strong)] font-medium text-[var(--ink)]"
+            : "border-[var(--hairline)] text-[var(--ink-muted)] hover:border-[var(--hairline-strong)]"
+        )}
+      >
+        <SlidersHorizontal size={13} strokeWidth={1.8} aria-hidden />
+        Filter
+        {/* The count is dimensions, not values — one button, one number. The
+            `sr-only` half is what makes it mean something out loud. */}
+        {count > 0 ? (
+          <>
+            <Mono size="meta" aria-hidden className="text-[10px] text-[var(--accent)]">
+              {count}
+            </Mono>
+            <span className="sr-only">{` — ${count} active`}</span>
+          </>
+        ) : null}
+      </button>
+
+      <FilterPanel
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        spec={filters}
+        people={people}
+        groupings={groupings}
+      />
 
       {/* The link this view IS, read from the URL rather than rebuilt from the
           controls above it.

@@ -24,6 +24,7 @@ import {
   todayInCairo,
 } from "@/lib/data/sprint";
 import { getAppSettings } from "@/lib/settings";
+import { matchesFilters, parseFilters } from "@/lib/sprint-filters";
 import { parseSort, sortRows } from "@/lib/sprint-sort";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { parseStatusFilter } from "@/lib/work-items";
@@ -50,6 +51,11 @@ export default async function SprintPage({
     component?: string;
     match?: string;
     sort?: string;
+    type?: string;
+    assignee?: string;
+    reviewer?: string;
+    grouping?: string;
+    q?: string;
   }>;
 }) {
   const [{ slug, number }, query] = await Promise.all([params, searchParams]);
@@ -97,6 +103,14 @@ export default async function SprintPage({
 
   const activeSlugs = activeComponents.map((component) => component.slug);
 
+  /**
+   * Type, assignee, reviewer, grouping and free text. One predicate for all of
+   * them, beside the two that were already here — a row the table shows and the
+   * footer's sum excludes is the bug this screen is judged on, and two places
+   * that decide what is visible is how that happens.
+   */
+  const filters = parseFilters(query);
+
   const filtered = sprint.items.filter(
     (item) =>
       (requested.length === 0 || requested.includes(item.status)) &&
@@ -104,7 +118,8 @@ export default async function SprintPage({
         item.components.map((component) => component.slug),
         activeSlugs,
         match
-      )
+      ) &&
+      matchesFilters(item, filters)
   );
 
   /**
@@ -172,6 +187,27 @@ export default async function SprintPage({
           activeComponents={activeComponents}
           match={match}
           projectSlug={slug}
+          filters={filters}
+          /* From the sprint's own rows, not from the whole team: a menu of
+             people who have nothing here is a menu of empty tables. Sorted by
+             initials so the order does not depend on the row order. */
+          people={[
+            ...new Map(
+              sprint.items
+                .flatMap((item) => [item.assignee, item.reviewer])
+                .filter((person) => person !== null)
+                .map((person) => [person.initials.toUpperCase(), person])
+            ).values(),
+          ]
+            .map((person) => ({ initials: person.initials, fullName: person.fullName }))
+            .sort((a, b) => a.initials.localeCompare(b.initials))}
+          groupings={[
+            ...new Set(
+              sprint.items
+                .map((item) => item.grouping)
+                .filter((grouping): grouping is number => grouping !== null)
+            ),
+          ].sort((a, b) => a - b)}
         />
       </Reveal>
 

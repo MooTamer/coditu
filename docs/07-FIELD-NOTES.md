@@ -1323,3 +1323,76 @@ render from the server's value, so nothing on screen is optimistic and there is 
 
 **Any control that computes its next state from a URL it just wrote has this bug.** Filters that
 toggle one value at a time do not (each click is independent); anything that *accumulates* does.
+
+### `position: fixed` inside a `<Reveal>` is not fixed — and `blur(0px)` is why
+
+The filter panel rendered with `role="dialog"`, an `aria-label`, a focus trap and a clean axe run,
+and on screen it was a **grey stripe across the toolbar**. Measured:
+
+```js
+document.querySelector('[data-scrim]').getBoundingClientRect()   // 1046 × 65, not the viewport
+```
+
+`position: fixed` resolves against the nearest ancestor with a `filter`, a `transform`,
+`backdrop-filter`, `contain`, or a `will-change` naming one of them. `<Reveal>` animates **both** a
+transform and a blur — and it settles on `filter: blur(0px)`, which is a filter *value*, not `none`.
+The containing block therefore survives the animation and never goes away.
+
+So **anything `position: fixed` mounted inside a revealed section is trapped**, permanently, and
+every static check passes. `DialogShell` portals to `document.body` now, guarded by `useMounted()`,
+which fixes it for every dialog rather than for the one that found it.
+
+To check whether an element is trapped:
+
+```js
+let el = node.parentElement;
+while (el) {
+  const cs = getComputedStyle(el);
+  if (cs.filter !== 'none' || cs.transform !== 'none' || cs.backdropFilter !== 'none') console.log(el, cs.filter, cs.transform);
+  el = el.parentElement;
+}
+```
+
+### `read_console_messages` is a buffer, not a snapshot
+
+Chasing the above, the console reported
+`TypeError: Cannot read properties of undefined (reading 'types') … in <FilterBar>` — a component
+that was, at that moment, rendering perfectly. The entry was from an earlier build in the same tab:
+the reader returns everything the tab has accumulated across navigations, including errors from code
+that no longer exists.
+
+**Open a fresh tab before believing a console error**, or check that the thing it names is actually
+broken on screen. A new tab on the same page reported nothing at all.
+
+### Playwright's `webServer.url` and `baseURL` have to agree
+
+`playwright.config.ts` honoured `E2E_BASE_URL` for `baseURL` and hard-coded `http://localhost:3000/login`
+for `webServer.url`. Point the tests at another port — which is necessary when a second session on
+this machine holds 3000 — and Playwright probes 3000, finds nothing, starts its own `npm run dev`,
+and that dies on:
+
+```
+Unable to acquire lock at .next/dev/lock, is another instance of next dev running?
+```
+
+Two dev servers cannot share one checkout. Both now read one `BASE_URL` constant.
+
+**And check who owns port 3000 before trusting an e2e run**, because the default points there:
+
+```bash
+lsof -nP -iTCP:3000 -sTCP:LISTEN -t | head -1 | xargs -I{} lsof -p {} -a -d cwd
+```
+
+A run against another worktree's server passes or fails for reasons that have nothing to do with your
+code.
+
+### The Browser pane's viewport emulation makes pointer clicks land elsewhere
+
+With an emulated viewport (`resize_window` to 1400×880 in an 800px pane), `computer` clicks at
+coordinates taken from the returned screenshot did nothing — twice, on two different buttons — while
+`element.click()` on the same node worked immediately and Playwright's own clicks were reliable
+throughout. The emulation also intermittently rendered the page at ~38% scale until it was cleared
+with `preset: "desktop"` and re-applied.
+
+**Use the pane to look, and Playwright or `element.click()` to drive.** A click that appears to do
+nothing there is not evidence of a broken handler.

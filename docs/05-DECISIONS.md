@@ -3451,3 +3451,70 @@ The table keeps the stack the last click *asked* for and toggles from that, reco
 when the URL catches up. It is only ever the input to the next toggle: the headers and the rows both
 still come from the server's `sort`, so nothing on screen is optimistic and there is nothing to roll
 back.
+
+## The other five filters live in a panel, and people are named by their initials
+
+**Decided 2026-08-26, W7c.** Type, assignee, reviewer, grouping and free text join the status chips
+and the component picker. `lib/sprint-filters.ts` owns the vocabulary and **one** predicate, because a
+row the table shows and the footer's sum excludes is the bug this screen is judged on.
+
+*Why a panel rather than more chips:* status is already eight chips and the component picker is a
+control; four more dimensions inline wrap the toolbar to three rows at 1180px and push the table below
+the fold. The design draws a `Filter` button with a count, and `DialogShell` is a centred dialog above
+`md` and a **bottom sheet below it** — so the phone behaviour the plan's verification asks for costs
+nothing.
+
+*Why the text box is in the panel and not the bar:* ⌘K is how you *find* a story; `?q=` is how you
+narrow the table you are already looking at. Two search boxes six inches apart meaning different
+things is worse than one extra click. It is **submitted, not typed** — a URL write per keystroke is a
+server render per keystroke, and the back button would hold every prefix of what somebody typed.
+
+### `?assignee=MT` filters by initials, and says so
+
+`profiles.initials` carries no unique constraint, so `MT` is not a person — it is two letters that may
+in principle belong to two people. Rather than pretend otherwise, the filter **is** by initials: it
+matches everybody whose initials are `MT`, which is exactly what the URL says and what the avatars in
+the table show. A profile id would be unambiguous and unreadable, and a link nobody can read is a link
+nobody pastes.
+
+Initials belonging to nobody are kept rather than dropped: they match nothing, the table goes empty,
+and that is visibly wrong — which is the right way round. The failure worth preventing is the
+opposite one, a filter that quietly matches *more* than it says.
+
+`none` is reserved and means the seat is empty. "What has no reviewer" is a question about a sprint.
+
+*Free text is terms, not a phrase:* every word has to appear somewhere in the title or the
+description, in any order. `kachel height` is a real search somebody types and a substring match on
+the whole phrase finds nothing.
+
+### An empty table has to explain itself
+
+The table could already be emptied by the status and component filters and said nothing — a header
+row, a sum of nothing, and no explanation, which reads as a broken page. Free text makes that state
+easy to reach, so the design's empty state is built now: what happened, how many are in the sprint,
+and a way back.
+
+`clear the filters` clears every parameter that can **hide** a row and deliberately not `sort`, which
+reorders and never hides. Clearing somebody's sort while saying "filters" would be doing something it
+did not say.
+
+## `DialogShell` portals to `document.body`, because `fixed` is not fixed
+
+**Decided 2026-08-26, W7c.** `position: fixed` resolves against the nearest ancestor carrying a
+`filter`, a `transform`, `backdrop-filter`, `contain` or a `will-change` naming one of them — not
+against the viewport. `<Reveal>` sets **both** a transform and `filter: blur(0px)`, and `blur(0px)` is
+a filter *value* rather than `none`, so that containing block survives the animation and never goes
+away.
+
+Mounting the filter panel inside the revealed toolbar therefore produced a scrim of **1046×65 pinned
+to the filter bar** instead of one covering the screen. It rendered, it had `role="dialog"`, an
+`aria-label` and a focus trap, axe was happy, and on screen it was a grey stripe. Every static check
+passed.
+
+Fixed in the primitive rather than at the call site: a modal that an ancestor can clip is always
+wrong, whoever mounts it. `cell-popover.client.tsx` already portals for the same class of reason —
+escaping the table's own scroll box — so this is the house answer applied one level up. Guarded by
+`useMounted()` so the portal is never attempted on the server.
+
+Verified against every dialog in the app: 198 specs across `new-item`, `export`, `components`,
+`item-detail`, `trash`, `team`, `settings`, `mobile` and `a11y`, on three devices.

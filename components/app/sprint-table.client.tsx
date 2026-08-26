@@ -41,6 +41,7 @@ import { reorderWorkItems } from "@/lib/actions/work-items";
 import type { ComponentRef } from "@/lib/data/components";
 import type { PersonRef, WorkItemRow } from "@/lib/data/sprint";
 import { hours } from "@/lib/format";
+import { FILTER_PARAMS } from "@/lib/sprint-filters";
 import {
   ariaSortFor,
   serializeSort,
@@ -181,6 +182,18 @@ export function SprintTable({
   const [asked, setAsked] = useState<SortKey[] | null>(null);
   if (asked && serializeSort(asked) === serializeSort(sort)) setAsked(null);
 
+  /**
+   * Everything that can hide a row, gone — but not the sort, which reorders
+   * rather than hides. Offered from the empty state, where somebody has just
+   * discovered that their filters agree on nothing.
+   */
+  const clearFilters = useCallback(() => {
+    const next = new URLSearchParams(params);
+    for (const key of FILTER_PARAMS) next.delete(key);
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [params, pathname, router]);
+
   const onSort = useCallback(
     (column: SortColumn, shift: boolean) => {
       const next = toggleSort(asked ?? sort, column, shift);
@@ -308,6 +321,36 @@ export function SprintTable({
         </thead>
 
         <tbody>
+          {/* A filter that empties the table has to say so. Without this the
+              screen is a header, a sum of nothing, and no explanation — which
+              reads as a broken page rather than as an answer. The caption says
+              "0 of 14 shown" but only to a screen reader. */}
+          {ordered.length === 0 ? (
+            <tr>
+              <td colSpan={9} className="px-5 py-[34px] text-center">
+                <p className="text-[13.5px] text-[var(--ink-muted)]">
+                  {allRows.length === 0
+                    ? "No stories in this sprint yet."
+                    : "No story here matches these filters."}
+                </p>
+                {allRows.length > 0 ? (
+                  <p className="mt-[6px]">
+                    <Mono size="meta" className="text-[10.5px] text-[var(--ink-faint)]">
+                      {`${allRows.length} in the sprint · `}
+                    </Mono>
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="cursor-pointer font-mono text-[10.5px] text-[var(--accent)] underline-offset-2 hover:underline"
+                    >
+                      clear the filters
+                    </button>
+                  </p>
+                ) : null}
+              </td>
+            </tr>
+          ) : null}
+
           {ordered.map((row) => (
             <Row
               key={row.id}

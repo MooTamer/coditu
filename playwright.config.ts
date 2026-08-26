@@ -61,6 +61,9 @@ const ON_A_PHONE = [
  * `reuseExistingServer` locally so a run does not fight the server you already
  * have open; CI always starts its own.
  */
+/** One answer for both `use.baseURL` and `webServer.url`. */
+const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -69,7 +72,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? "line" : [["list"]],
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
+    baseURL: BASE_URL,
     trace: "on-first-retry",
   },
   /**
@@ -94,7 +97,16 @@ export default defineConfig({
   ],
   webServer: {
     command: "npm run dev",
-    url: "http://localhost:3000/login",
+    /**
+     * The server the tests are actually pointed at, not a fixed 3000.
+     *
+     * These disagreed: `baseURL` honoured `E2E_BASE_URL` and this did not, so
+     * with the tests aimed at another port Playwright probed 3000, found
+     * nothing, and started its own `next dev` — which then died on
+     * `.next/dev/lock` because the server the tests were using already held it.
+     * Two dev servers on one checkout is not a thing that can work.
+     */
+    url: `${BASE_URL}/login`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

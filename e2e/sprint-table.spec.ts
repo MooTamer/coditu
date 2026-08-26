@@ -469,3 +469,148 @@ test.describe("sorting the sprint table", () => {
     expect(fromCards).toEqual(fromTable);
   });
 });
+
+/**
+ * The filters that do not fit in the bar.
+ *
+ * `tests/sprint-filters.test.ts` owns the predicate. What a browser has to
+ * answer is that the panel is a dialog on a desktop and a sheet on a phone,
+ * that the footer's sum narrows with the table it sums, and that a filter which
+ * matches nothing says so instead of leaving an empty screen.
+ */
+test.describe("filtering the sprint table", () => {
+  const openPanel = async (page: import("@playwright/test").Page) => {
+    await page.locator("[data-filter-button]").click();
+    await expect(page.getByRole("dialog", { name: "Filter" })).toBeVisible();
+  };
+
+  test("the panel offers every dimension the bar does not", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto(SPRINT);
+    await openPanel(page);
+
+    const panel = page.getByRole("dialog", { name: "Filter" });
+    for (const group of ["Type", "Assignee", "Reviewer", "Grouping"]) {
+      await expect(panel.getByRole("group", { name: group }), group).toBeVisible();
+    }
+    await expect(panel.getByLabel("Filter by words in the title or description")).toBeVisible();
+  });
+
+  test("a type narrows the table and the sum with it", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto(SPRINT);
+
+    const before = await page.locator("tbody tr").count();
+    await openPanel(page);
+    await page.getByRole("dialog", { name: "Filter" }).getByRole("button", { name: "bug fix", exact: true }).click();
+
+    await expect(page).toHaveURL(/[?&]type=bug_fix/);
+    const after = page.locator("tbody tr");
+    await expect(after).not.toHaveCount(before);
+    const rows = await after.count();
+
+    // The footer sums what is on screen and says it is filtered. A table and a
+    // sum that disagree is the one bug this screen cannot have.
+    await expect(page.locator("tfoot")).toContainText(`${rows} item`);
+    await expect(page.locator("tfoot")).toContainText("(filtered)");
+    await expect(page.locator("[data-filter-button]")).toContainText("1 active");
+  });
+
+  /**
+   * Asserted against the database rather than against the cell's text, for the
+   * same reason the footer's sum is: what the filter claims has to be what the
+   * table actually holds, and a cell's placeholder is a rendering decision that
+   * can change without the filter being wrong.
+   */
+  test("none finds exactly the rows with nobody in that seat", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto(`${SPRINT}?reviewer=none`);
+
+    const shown = await page
+      .locator("tbody tr td:first-child")
+      .evaluateAll((cells) =>
+        cells.map((cell) => (cell.textContent ?? "").trim().match(/^[A-Z]+-\d+/)?.[0] ?? "")
+      );
+
+    const unreviewed = await query<{ key: string }>(
+      `select w.key from public.work_items w
+         join public.sprints s on s.id = w.sprint_id
+        where s.number = 17 and w.reviewer_id is null`
+    );
+
+    expect(unreviewed.length, "the seed has rows with no reviewer").toBeGreaterThan(0);
+    expect(new Set(shown.filter(Boolean))).toEqual(new Set(unreviewed.map((row) => row.key)));
+  });
+
+  test("free text needs every word, and says so when nothing has them all", async ({
+    adminPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+
+    // One term the seed does have.
+    await page.goto(`${SPRINT}?q=kachel`);
+    const some = await page.locator("tbody tr").count();
+    expect(some).toBeGreaterThan(0);
+
+    // Two terms no single story has. An empty table has to explain itself —
+    // otherwise it reads as a broken page rather than as an answer.
+    await page.goto(`${SPRINT}?q=kachel+height`);
+    await expect(page.locator("tbody")).toContainText("No story here matches these filters");
+    await expect(page.locator("tbody")).toContainText("14 in the sprint");
+
+    await page.locator("tbody").getByRole("button", { name: "clear the filters" }).click();
+    await expect(page).not.toHaveURL(/[?&]q=/);
+    await expect(page.locator("tbody tr").first()).toBeVisible();
+  });
+
+  /**
+   * `sort` is not a filter: it reorders, it never hides. Clearing the filters
+   * from an empty table must not quietly throw away somebody's sort as well.
+   */
+  test("clearing the filters keeps the sort", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto(`${SPRINT}?q=kachel+height&sort=deadline%3Adesc`);
+
+    await page.locator("tbody").getByRole("button", { name: "clear the filters" }).click();
+    await expect(page).toHaveURL(/sort=deadline%3Adesc/);
+    await expect(page).not.toHaveURL(/[?&]q=/);
+  });
+
+  test("an unrecognised value is dropped rather than widening the view", async ({
+    adminPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto(`${SPRINT}?type=epic&grouping=0`);
+
+    // Nothing was applied, so the table is whole and the button says nothing.
+    await expect(page.locator("[data-filter-button]")).not.toContainText("active");
+    await expect(page.locator("tfoot")).not.toContainText("(filtered)");
+  });
+
+  test("axe finds nothing with the panel open", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto(SPRINT);
+    await openPanel(page);
+    expect(await auditA11y(page), "the filter panel").toEqual([]);
+  });
+
+  /**
+   * The phone half of the W7 verification. `DialogShell` is a centred dialog
+   * above `md` and a bottom sheet below it, so the panel is against the bottom
+   * edge and full width — which is also why it is not a popover.
+   */
+  test("it is a sheet on a phone, against the bottom edge", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto(SPRINT);
+    await openPanel(page);
+
+    const panel = page.getByRole("dialog", { name: "Filter" });
+    const box = (await panel.boundingBox())!;
+    expect(box.width, "full width on a phone").toBeGreaterThan(370);
+    expect(box.y + box.height, "against the bottom edge").toBeGreaterThan(780);
+
+    // And it filters from there, which is the point of the sheet.
+    await panel.getByRole("button", { name: "bug fix", exact: true }).click();
+    await expect(page).toHaveURL(/[?&]type=bug_fix/);
+  });
+});

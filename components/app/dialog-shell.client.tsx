@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
+import { useMounted } from "@/lib/hooks/use-client-state";
 import { cn } from "@/lib/utils";
 
 /**
@@ -157,7 +159,28 @@ export function DialogShell({
     };
   }, [close]);
 
-  return (
+  /**
+   * ── Portalled to `document.body`, and it is not optional ───────────────────
+   *
+   * `position: fixed` resolves against the nearest ancestor with a `filter`, a
+   * `transform`, `backdrop-filter`, `contain` or a `will-change` that names one
+   * of them — not against the viewport. `<Reveal>` sets **both** a transform and
+   * `filter: blur(0px)`, and `blur(0px)` is a filter value rather than `none`,
+   * so the containing block survives the animation and never goes away.
+   *
+   * Mounting a dialog anywhere inside a revealed section therefore gave a scrim
+   * of 1046×65 pinned to the filter bar instead of one covering the screen. It
+   * rendered, it was in the accessibility tree, it had a role and a label, and
+   * on screen it was a grey stripe. Every static check passed.
+   *
+   * `cell-popover.client.tsx` already portals for the same class of reason —
+   * escaping the table's scroll box — so this is the house answer, applied to
+   * the primitive rather than to each caller.
+   */
+  const mounted = useMounted();
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       onClick={close}
       data-scrim
@@ -234,6 +257,7 @@ export function DialogShell({
           </div>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
