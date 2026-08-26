@@ -1545,7 +1545,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W9 | **People & Access** — the access log, the roles matrix, safety states made visible | `done` | `pending` | `access_events` written by triggers and writable by nobody · 12 new pgTAP incl. three write refusals · e2e **disabled-and-explained** on all three self controls · `test` **382** · `db:test` **376** · `budgets` **OK 75.7/110, 215.7/220**. Client contacts stay on `/app/clients` — see `05-DECISIONS.md` |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `done` | `8904f20` | `lib/earnings.ts` untouched — the three functions are the bytes they were at W0. **W10a:** the boundary asserted both ways, the outward list widened from 11 paths to 27 incl. the client portal, which nothing had ever checked. **W10b:** `/app/profile` split out; `/app/settings` is admin-only and redirects everybody else. **W10c:** Team payouts on `/app/settings/payouts`, read by every internal member and confirmed only by an admin — the team's own §E5 rule, kept. `test` **387** · `db:test` **376** after a `db:reset` · `budgets` **OK 75.9/110 own, 215.9/220 total** · every spec W10 touched green together — **227 passed, 6 skipped, 0 failed** across eleven files, from a `db:reset` · full `e2e --workers=1` reached **606 passed, 0 failed** once and a rotating 2-3 contention failures on four other runs, each passing alone and none naming a file this phase changed — see the note below |
 | W11 | **Version history UI and Trash** | `done` | `971ee17` | **W11a** the restore promise asserted · **W11b** `/app/history` built, filters in the URL and in the query · **W11c** the bin searches, and cannot be made to print a withdrawn comment. `test` **404** (17 new) · `db:test` **376** · `budgets` **OK 76.0/110 own, 216.0/220 total** · the six spec files W11 touches **167 passed, 3 skipped, 0 failed** from a `db:reset` |
-| W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `done` | `pending` | `rehearse_recovery()` copies into a schema it creates and drops and writes nothing to `public` · `db:test` **392** (16 new incl. a checksum over every live table around a passing AND a failing run) · recovery **7/7** incl. axe · `budgets` **OK 76.1/110 own, 216.1/220 total** · PITR read from the hosted project and stated as a fact; no schedule, retention or snapshot id invented |
+| W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `done` | `pending` | `rehearse_recovery()` copies into a schema it creates and drops and writes nothing to `public` · `db:test` **392** (16 new incl. a checksum over every live table around a passing AND a failing run) · recovery **7/7** incl. axe · `budgets` **OK 76.1/110 own, 216.1/220 total** · full `e2e --workers=1` from a reset database **622 passed, 0 failed** · PITR read from the hosted project and stated as a fact; no schedule, retention or snapshot id invented |
 | W13 | **Responsive, a11y, security, performance hardening** | `todo` | | full `e2e` · `budgets` · `lighthouse` · `degraded` |
 
 ## W0 — the baseline, measured rather than remembered
@@ -3725,7 +3725,9 @@ duplicate-submission bug in the file whose whole subject is duplicate
 submissions.
 
 Counted as `article` elements filtered by text now, which is stable against any
-amount of wrapping. Three consecutive clean runs of the file.
+amount of wrapping. Three consecutive clean runs of the file, and then a full
+`e2e --workers=1` from a `db:reset`: **622 passed, 7 skipped, 0 failed** — the
+branch's second fully green full run, and the first one that includes W12.
 
 **And it corrected a note written earlier the same session.** The
 streaming-buffer note claimed "Playwright is not affected — its locators ignore
