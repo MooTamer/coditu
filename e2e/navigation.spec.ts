@@ -40,6 +40,9 @@ test.describe("navigation feedback", () => {
       "app/app/people",
       "app/app/import",
       "app/app/settings",
+      "app/app/settings/payouts",
+      "app/app/profile",
+      "app/app/earnings",
     ];
 
     const missing = segments.filter((segment) => !existsSync(`${segment}/loading.tsx`));
@@ -113,7 +116,9 @@ test.describe("navigation feedback", () => {
       ["/app/my-work", "Loading your work"],
       ["/app/projects", "Loading projects"],
       ["/app/import", "Loading the importer"],
-      ["/app/settings", "Loading your settings"],
+      ["/app/settings", "Loading workspace settings"],
+      ["/app/profile", "Loading your profile"],
+      ["/app/settings/payouts", "Loading team payouts"],
     ];
 
     for (const [path, label] of shapes) {
@@ -230,9 +235,12 @@ test.describe("the account menu", () => {
       await expect(page.getByRole("menu", { name: "Account" })).toBeVisible({ timeout: 1000 });
     }).toPass();
 
-    await page.getByRole("menuitem", { name: "Settings" }).click();
-    await expect(page).toHaveURL(/\/app\/settings$/);
-    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+    await page.getByRole("menuitem", { name: "Profile" }).click();
+    await expect(page).toHaveURL(/\/app\/profile$/);
+    // The heading is the person's own name — W10 split the personal half of
+    // Settings onto its own route, and the page is about them rather than
+    // about a screen.
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 
   test("it opens, traverses and closes on the keyboard, and returns focus", async ({
@@ -245,29 +253,34 @@ test.describe("the account menu", () => {
     await page.keyboard.press("ArrowDown");
     await expect(page.getByRole("menu", { name: "Account" })).toBeVisible();
 
-    // Four items now. Earnings and Trash are both here rather than in the rail
-    // for the same reason — E5 keeps money off any screen shared with a client,
-    // and a bin on every screen is noise most days and a small invitation on the
-    // rest — which leaves the account menu as their only home.
+    // Five items now, and this fixture is the admin — a lead or an engineer
+    // gets four, because Workspace settings is theirs to read and not to
+    // change, and the route redirects them.
     //
-    // This test has now grown twice: it once stepped Settings → Sign out, then
-    // Settings → Earnings → Sign out. Each time the menu gained an item, not a
-    // bug. If it fails again, check what was added before assuming the
-    // traversal broke.
-    await expect(page.getByRole("menuitem", { name: "Settings" })).toBeFocused();
+    // My earnings and Trash are here rather than in the rail for the same
+    // reason: E5 keeps money off any screen shared with a client, and a bin on
+    // every screen is noise most days and a small invitation on the rest.
+    //
+    // This test has now grown three times: Settings → Sign out, then
+    // Settings → Earnings → Sign out, and now Profile first. Each time the menu
+    // gained an item, not a bug. If it fails again, check what was added before
+    // assuming the traversal broke.
+    await expect(page.getByRole("menuitem", { name: "Profile" })).toBeFocused();
     await page.keyboard.press("ArrowDown");
-    await expect(page.getByRole("menuitem", { name: "Earnings" })).toBeFocused();
+    await expect(page.getByRole("menuitem", { name: "My earnings" })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByRole("menuitem", { name: "Workspace settings" })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(page.getByRole("menuitem", { name: "Trash" })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeFocused();
     // And it wraps.
     await page.keyboard.press("ArrowDown");
-    await expect(page.getByRole("menuitem", { name: "Settings" })).toBeFocused();
+    await expect(page.getByRole("menuitem", { name: "Profile" })).toBeFocused();
     await page.keyboard.press("End");
     await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeFocused();
     await page.keyboard.press("Home");
-    await expect(page.getByRole("menuitem", { name: "Settings" })).toBeFocused();
+    await expect(page.getByRole("menuitem", { name: "Profile" })).toBeFocused();
 
     await page.keyboard.press("Escape");
     await expect(page.getByRole("menu", { name: "Account" })).toHaveCount(0);

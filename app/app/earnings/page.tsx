@@ -1,30 +1,43 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
+import { ArrowRight } from "lucide-react";
 
-import { EarningsBoard } from "@/components/app/earnings-board.client";
 import { MyEarnings } from "@/components/app/my-earnings";
+import { MyEarningsHistory } from "@/components/app/my-earnings-history";
 import { Mono } from "@/components/coditu/mono";
 import { Reveal } from "@/components/motion/reveal";
-import { getMyEarnings, listSprintEarnings } from "@/lib/data/earnings";
+import { getMyEarnings, listMyEarningsHistory } from "@/lib/data/earnings";
 import { refreshStoredRate } from "@/lib/exchange-rate";
 import { createSnapshotClient, getCurrentProfile } from "@/lib/supabase/server";
 
 export const metadata = { title: "My earnings" };
 
 /**
- * What every sprint pays, and what has been agreed.
+ * Your own money, and nobody else's.
  *
- * **This is one of exactly two screens where money may appear** — the other is
- * `/app/settings`. Nothing under `/app/projects/**` renders a figure, and
- * neither does any export: those are the screens that get shared with a client,
- * and a leak there costs a relationship. `e2e/earnings.spec.ts` asserts it two
- * ways, once against the rendered markup of every shared screen and once as a
- * source-level grep, because a rendered assertion proves today and the grep
- * proves the next person cannot add it by accident.
+ * **This is one of exactly three screens where money may appear** — the others
+ * are `/app/settings/payouts`, which is the team's, and `/app/settings`, which
+ * carries the rate that produces both. Nothing under `/app/projects/**`
+ * renders a figure, and neither does any export or the client portal: those are
+ * the screens that get shared, and a leak there costs a relationship.
+ * `tests/earnings-boundary.test.ts` asserts it two ways — a denylist over every
+ * shared surface, and an allowlist over the whole application, so a screen
+ * added next year is covered without anybody remembering it.
  *
  * It is deliberately **not** linked from the top bar or the desktop rail. It
- * lives in the account menu and the mobile "More" sheet, where a shared screen
+ * lives in the account menu and the phone's "More" sheet, where a shared screen
  * does not advertise it.
+ *
+ * ## Why Team payouts is linked from here
+ *
+ * The design reaches `/app/settings/payouts` from Workspace settings, and
+ * Workspace settings is an admin's screen that redirects everybody else. Every
+ * active internal member may **read** the team's payouts — that is the team's
+ * own rule, recorded in `docs/coditu-thread-and-earnings-prompt.md` §E5 — so
+ * without a link here a lead or an engineer would have a screen they are
+ * allowed to read and no route to it. Only confirming is an admin's, and RLS
+ * is what enforces that.
  *
  * ## Why the rate refresh is in `after()`
  *
@@ -40,10 +53,9 @@ export default async function EarningsPage() {
   const profile = await getCurrentProfile();
   if (!profile) notFound();
 
-  const { settings, sprints, nonParticipants } = await listSprintEarnings();
-  // Reads the same `listSprintEarnings()` through React's per-request `cache`,
-  // so this is a second view of one query rather than a second query.
-  const mine = await getMyEarnings();
+  // Both read `listSprintEarnings()` through React's per-request `cache`, so
+  // this is two views of one query rather than two queries.
+  const [mine, history] = await Promise.all([getMyEarnings(), listMyEarningsHistory()]);
 
   // Both arguments are prepared HERE, on the request, and the callback only
   // uses them. `after()` may not touch `cookies()`, so a client built the
@@ -51,7 +63,7 @@ export default async function EarningsPage() {
   // takes the refresh with it. That is not hypothetical: it is what production
   // was doing, silently, on every visit to this page.
   const supabase = await createSnapshotClient();
-  after(() => refreshStoredRate(supabase, settings));
+  if (mine) after(() => refreshStoredRate(supabase, mine.settings));
 
   return (
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
@@ -77,25 +89,21 @@ export default async function EarningsPage() {
         </Reveal>
       ) : null}
 
-      <Reveal tier="section" delay={0.12} as="section" aria-labelledby="every-sprint">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="every-sprint" className="text-[16px] font-bold tracking-[-0.015em]">
-            Every sprint
-          </h2>
-          <Mono size="meta" className="text-[var(--ink-faint)]">
-            provisional rows move · confirmed rows never do
-          </Mono>
-        </div>
+      <Reveal tier="section" delay={0.12}>
+        <MyEarningsHistory rows={history} rateMicros={mine?.settings.usdEgpRateMicros ?? null} />
       </Reveal>
 
-      <Reveal tier="section" delay={0.16}>
-        <EarningsBoard
-          sprints={sprints}
-          settings={settings}
-          nonParticipants={Object.fromEntries(nonParticipants)}
-          isAdmin={profile.role === "admin"}
-          meId={profile.id}
-        />
+      <Reveal tier="section" delay={0.18}>
+        <Link
+          href="/app/settings/payouts"
+          className="inline-flex h-11 items-center gap-2 rounded-control border border-[var(--hairline-strong)] px-4 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
+        >
+          Team payouts
+          <ArrowRight size={14} strokeWidth={2} aria-hidden />
+        </Link>
+        <Mono size="meta" className="mt-2 block text-[var(--ink-faint)]">
+          everyone on the team reads it · only an admin confirms one
+        </Mono>
       </Reveal>
     </main>
   );

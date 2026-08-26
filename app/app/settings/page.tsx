@@ -120,7 +120,7 @@ export default async function Page() {
       >
         <div className="flex flex-wrap items-baseline gap-3">
           <h2 id="elsewhere" className="text-[16px] font-bold tracking-[-0.015em]">
-            Access and recovery
+            Earnings, access and recovery
           </h2>
           <Mono size="meta" className="text-[var(--ink-faint)]">
             each one has its own rules
@@ -128,6 +128,11 @@ export default async function Page() {
         </div>
 
         <div className="mt-4 flex flex-col gap-2">
+          <SettingsLink
+            href="/app/settings/payouts"
+            label="Team payouts"
+            hint="Participants, exclusions, and the confirmation that turns a provisional figure into a record. Everyone on the team reads it; only an admin confirms one."
+          />
           <SettingsLink
             href="/app/people"
             label="People &amp; Access"

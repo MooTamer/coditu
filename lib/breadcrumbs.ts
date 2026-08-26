@@ -77,6 +77,13 @@ export function crumbsFor(pathname: string, projects: CrumbProject[]): Crumb[] {
     // present and inert.
     if (first === "earnings") return [root, { label: "Account" }, { label: "My earnings" }];
     if (first === "profile") return [root, { label: "Account" }, { label: "Profile" }];
+    // The one flat route with a child. `Workspace settings` links, unlike the
+    // inert `Account` above it, because it is a real screen — for an admin.
+    // A lead or an engineer following it is redirected to their profile, which
+    // is the same answer typing the URL gives them.
+    if (first === "settings" && rest[1] === "payouts") {
+      return [root, { label: "Workspace settings", href: "/app/settings" }, { label: "Team payouts" }];
+    }
     const label = FLAT[first];
     return label ? [root, { label }] : [root];
   }

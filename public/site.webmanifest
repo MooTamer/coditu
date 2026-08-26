@@ -27,10 +27,10 @@
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "name": "Settings",
-      "short_name": "Settings",
-      "description": "Your name, your picture, and your account",
-      "url": "/app/settings",
+      "name": "Profile",
+      "short_name": "Profile",
+      "description": "Your name, your picture, your theme and your password",
+      "url": "/app/profile",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]

@@ -112,7 +112,7 @@ test.describe("profile pictures", () => {
 
   test("a picture set in Settings is stored, served, and shown everywhere", async ({ page, request }) => {
     await signIn(page, SUBJECT);
-    await page.goto("/app/settings");
+    await page.goto("/app/profile");
 
     // Selected through the landmark rather than a CSS path: a `<section>` is
     // only a region if it has an accessible name, so finding it by role proves
@@ -170,7 +170,7 @@ test.describe("profile pictures", () => {
 
   test("removing it puts the initials back, and deletes the file", async ({ page }) => {
     await signIn(page, SUBJECT);
-    await page.goto("/app/settings");
+    await page.goto("/app/profile");
 
     await page.setInputFiles("input[type=file]", {
       name: "photograph.png",

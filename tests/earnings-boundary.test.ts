@@ -4,13 +4,17 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * Money appears on two screens, and nowhere else. This test is the half of that
- * promise a rendered assertion cannot make.
+ * Money appears on three screens, and nowhere else. This test is the half of
+ * that promise a rendered assertion cannot make.
  *
  * The team's requirement, verbatim: *everyone sees everyone's, but not on any
  * screen that gets shared with a client.* That is a hard boundary and it is the
  * most important thing in workstream E — a leak here costs a client
- * relationship, not a bug report.
+ * relationship, not a bug report. **It still stands after W10.** The screens
+ * split — `/app/earnings` is your own, `/app/settings/payouts` is the team's —
+ * and the second half of the sentence is what this file is about; the first
+ * half is unchanged, and `/app/settings/payouts` has no role guard because of
+ * it.
  *
  * `e2e/earnings.spec.ts` asserts the **rendered output**: load the sprint
  * table, the board, an item, the report route and the PDF route on a sprint
@@ -285,8 +289,15 @@ const MONEY_SURFACES = [
   // deliberately not any more: Workspace settings renders the rate through
   // `AdminSettings`, and the page around it stopped being able to reach a
   // figure the moment the personal earnings card moved to `/app/earnings`.
+  //
+  // Three of them, and each has a different reader. `/app/earnings` is one
+  // person's own money. `/app/settings/payouts` is the team's, which every
+  // active internal member reads and only an admin confirms. `AdminSettings` is
+  // the rate and the threshold that produce both.
   "app/app/earnings/page.tsx",
   "components/app/my-earnings.tsx",
+  "components/app/my-earnings-history.tsx",
+  "app/app/settings/payouts/page.tsx",
   "components/app/admin-settings.client.tsx",
   "components/app/earnings-board.client.tsx",
 ];

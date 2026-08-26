@@ -173,7 +173,16 @@ test.describe("a temporary password, and the change it forces", () => {
         // Typing a URL is the obvious way out, so it is the one worth checking.
         // Every route under /app, not one: the layout is the gate and it wraps
         // all of them.
-        for (const path of ["/app", "/app/people", "/app/my-work", "/app/settings"]) {
+        // `/app/settings` and `/app/profile` are both here on purpose: settings
+        // has a redirect of its own for a non-admin, and this proves the gate
+        // in the layout still wins — a layout renders before the page it wraps.
+        for (const path of [
+          "/app",
+          "/app/people",
+          "/app/my-work",
+          "/app/settings",
+          "/app/profile",
+        ]) {
           await them.goto(path);
           await expect(them, `${path} let them through`).toHaveURL(/\/auth\/update-password/);
         }

@@ -3888,3 +3888,39 @@ two counts is what says other people's minutes counted toward the pot and took n
 adds nothing to the explanation and turns a private screen into a roster of who worked how much. The
 confirmation screen names them, because that is the screen where an admin is deciding about those
 people, and E7 requires the exclusion to be visible there.
+
+## Team payouts moves to its own route, and everyone internal still reads it
+
+**Decided 2026-08-26, W10.** `/app/earnings` was one screen doing two jobs: your own provisional
+figure at the top of a board showing every participant of every sprint. The design splits them and so
+does this. `/app/earnings` is your money — three cards, the calculation, and every sprint from your
+side of it. `/app/settings/payouts` is the team's — the participant list, the exclusions and the
+confirmation.
+
+**Who may read the team's payouts did not change.** The team's own words, recorded in
+`docs/coditu-thread-and-earnings-prompt.md` §E5 before any of this was built: *everyone sees
+everyone's, but not on any screen that gets shared with a client.* The plan's §6 capability matrix
+reads `Team payouts: Admin ✔, Lead ✘, Engineer ✘`, which would reverse that. Asked, and the answer
+was to keep it: every active internal member reads it, only an admin confirms one. The design agrees —
+its own payout screen shows a non-admin the participants with the checkboxes locked and `Admin only`
+as the tooltip.
+
+So `/app/settings/payouts` has **no role guard**, while its parent `/app/settings` redirects a
+non-admin to their profile. The asymmetry is deliberate:
+
+- The path is the one the design and the plan both name, and a URL is neither a *number* nor a
+  *behaviour*, so `CLAUDE.md`'s tie-break does not apply — the named path wins by default.
+- `/app/earnings` links to it, and that link is what makes the read access real. A screen somebody is
+  allowed to read and cannot navigate to is a screen they do not have.
+- The refusal that matters was never the missing button. `sprint_payouts`' insert policy is
+  `auth_role() = 'admin'`, and `e2e/earnings.spec.ts` posts an engineer's own token straight at
+  PostgREST to prove it.
+
+**What is enforced where, stated plainly so nobody has to guess.** The screen split is about who is
+*shown* what. `sprint_payouts` and `sprint_payout_shares` are readable by `is_active_member()`, which
+is every internal member and no client — unchanged since the earnings model was built, and consistent
+with the rule above. Narrowing that to per-person reads would be an auth-model change nobody has
+asked for, and the docs do not claim a privacy the database does not enforce. Client isolation is
+untouched: `20260825110100_internal_only_reads.sql` closed the base tables to `account_kind =
+'client'`, and `tests/earnings-boundary.test.ts` walks the whole application to prove no client-facing
+surface can reach a figure at all.

@@ -271,8 +271,16 @@ export const listSprintEarnings = cache(async (): Promise<{
 
 export interface MyCurrentSprint {
   name: string;
-  /** What the equal split would hand you if it were confirmed as proposed. */
-  cents: number;
+  /**
+   * What the equal split would hand you if it were confirmed as proposed.
+   *
+   * **Null when you take no share, never zero.** A non-developer, or a
+   * developer below the threshold, is not in `proposedShares` at all — and
+   * `$0.00` claims the split was computed for you and came to nothing, which is
+   * a different statement from "you are not in it". Same rule as `tracked`
+   * further up this file, and the same rule the history rows follow.
+   */
+  cents: number | null;
   /** Your own minutes on it, and the team's. */
   minutesLogged: number;
   totalMinutes: number;
@@ -337,7 +345,7 @@ export const getMyEarnings = cache(async () => {
     current: current
       ? ({
           name: current.name,
-          cents: mine?.shareCents ?? 0,
+          cents: mine?.shareCents ?? null,
           minutesLogged: meOnCurrent?.minutesLogged ?? 0,
           totalMinutes: current.totalMinutes,
           sharePct: meOnCurrent?.sharePct ?? 0,
@@ -357,4 +365,80 @@ export const getMyEarnings = cache(async () => {
           } satisfies MyConfirmedPayout)
         : null,
   };
+});
+
+export type MyEarningsState = "provisional" | "confirmed" | "changed" | "not tracked";
+
+export interface MyEarningsRow {
+  sprintId: string;
+  name: string;
+  state: MyEarningsState;
+  /** Your minutes on that sprint. Null when it was never tracked. */
+  minutesLogged: number | null;
+  /** Your share, in cents. Null when there is nothing to show — never zero. */
+  cents: number | null;
+  /** Who confirmed it and when, for the rows that were. */
+  confirmedAt: string | null;
+  confirmedByName: string | null;
+}
+
+/**
+ * Every sprint, from one person's side of it.
+ *
+ * The same rows `listSprintEarnings` builds, narrowed to you: your minutes,
+ * your share, and which of the four states the sprint is in. Nothing is
+ * recomputed and nothing is re-queried — `listSprintEarnings` is `cache()`d per
+ * request, so this is a second reading of one answer.
+ *
+ * **Null, never zero, on a sprint that was not tracked.** Zero is a claim about
+ * money that was never counted; the column renders an em dash and the legend
+ * says what that means. Same rule the board has had since the earnings model
+ * was built.
+ */
+export const listMyEarningsHistory = cache(async (): Promise<MyEarningsRow[]> => {
+  const profile = await getCurrentProfile();
+  if (!profile) return [];
+
+  const { sprints } = await listSprintEarnings();
+
+  return sprints.map((sprint) => {
+    if (!sprint.tracked) {
+      return {
+        sprintId: sprint.sprintId,
+        name: sprint.name,
+        state: "not tracked" as const,
+        minutesLogged: null,
+        cents: null,
+        confirmedAt: null,
+        confirmedByName: null,
+      };
+    }
+
+    const mine = sprint.participants.find((p) => p.profileId === profile.id) ?? null;
+    const confirmedShare =
+      sprint.confirmed?.shares.find((s) => s.profileId === profile.id) ?? null;
+    const provisional =
+      sprint.proposedShares.find((s) => s.profileId === profile.id) ?? null;
+
+    // A confirmation whose minutes have moved keeps showing the figure it was
+    // taken at and says it has changed. The snapshot is what somebody agreed
+    // to; the drift is news, not a correction.
+    const state: MyEarningsState = sprint.confirmed
+      ? sprint.staleByMinutes !== null
+        ? "changed"
+        : "confirmed"
+      : "provisional";
+
+    return {
+      sprintId: sprint.sprintId,
+      name: sprint.name,
+      state,
+      minutesLogged: mine?.minutesLogged ?? 0,
+      cents: sprint.confirmed
+        ? (confirmedShare?.shareCents ?? null)
+        : (provisional?.shareCents ?? null),
+      confirmedAt: sprint.confirmed?.confirmedAt ?? null,
+      confirmedByName: sprint.confirmed?.confirmedByName ?? null,
+    };
+  });
 });

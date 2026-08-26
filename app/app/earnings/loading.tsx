@@ -1,8 +1,8 @@
 import { Bar, HeaderSkeleton, ListSkeleton, LoadingScreen } from "@/components/app/skeleton";
 
 /**
- * The shape of the earnings board before it arrives: the rate line, then a card
- * per sprint.
+ * The shape of the personal view before it arrives: three cards, the
+ * calculation, then a row per sprint.
  *
  * Painted rows rather than one element per row, for the reason recorded in
  * `06-PROGRESS.md`: a `loading.tsx` fallback rides in the flight payload of
@@ -10,11 +10,12 @@ import { Bar, HeaderSkeleton, ListSkeleton, LoadingScreen } from "@/components/a
  */
 export default function Loading() {
   return (
-    <LoadingScreen label="Reading what each sprint paid">
+    <LoadingScreen label="Reading what this sprint has paid you">
       <HeaderSkeleton wide />
+      <ListSkeleton rows={1} rowHeight={132} />
+      <ListSkeleton rows={1} rowHeight={220} />
       <Bar w={220} h={11} />
-      <ListSkeleton rows={3} rowHeight={92} />
-      <ListSkeleton rows={2} rowHeight={92} />
+      <ListSkeleton rows={4} rowHeight={44} />
     </LoadingScreen>
   );
 }

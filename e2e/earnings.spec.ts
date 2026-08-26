@@ -214,13 +214,26 @@ test.describe("the earnings board", () => {
   test("an admin reaches it from the account menu, not from the rail", async ({ adminPage }) => {
     await adminPage.goto("/app");
     await adminPage.getByRole("button", { name: /account/i }).click();
-    await adminPage.getByRole("menuitem", { name: "Earnings" }).click();
+    await adminPage.getByRole("menuitem", { name: "My earnings" }).click();
     await expect(adminPage).toHaveURL(/\/app\/earnings$/);
-    await expect(adminPage.getByRole("heading", { name: "Earnings", level: 1 })).toBeVisible();
+    await expect(adminPage.getByRole("heading", { name: "My earnings", level: 1 })).toBeVisible();
+  });
+
+  // W10 split the screen in two. `/app/earnings` is one person's own money; the
+  // board — every participant, every share, the confirmation — moved to
+  // `/app/settings/payouts`. Everything below that reads the board goes there.
+  test("Team payouts is reachable from My earnings, by everyone and not only an admin", async ({
+    page,
+  }) => {
+    await signIn(page, SEED_ENGINEER);
+    await page.goto("/app/earnings");
+    await page.getByRole("link", { name: "Team payouts" }).click();
+    await expect(page).toHaveURL(/\/app\/settings\/payouts$/);
+    await expect(page.getByRole("heading", { name: "Team payouts", level: 1 })).toBeVisible();
   });
 
   test("a confirmed sprint shows its snapshot, not a live recomputation", async ({ adminPage }) => {
-    await adminPage.goto("/app/earnings");
+    await adminPage.goto("/app/settings/payouts");
     const card = adminPage.getByRole("region", { name: /Earnings for Sprint — Week 17/ });
     await expect(card).toContainText("confirmed");
     // 1050 minutes at 1200 cents an hour is exactly $210.00.
@@ -248,7 +261,7 @@ test.describe("the earnings board", () => {
     );
 
     try {
-      await adminPage.goto("/app/earnings");
+      await adminPage.goto("/app/settings/payouts");
       const card = adminPage.getByRole("region", { name: /Earnings for Sprint — Week 17/ });
       await expect(card).toContainText("has changed since this was confirmed");
       await expect(card).toContainText("1.0 h added");
@@ -261,9 +274,11 @@ test.describe("the earnings board", () => {
 
   test("an engineer reads it and cannot confirm anything", async ({ page }) => {
     await signIn(page, SEED_ENGINEER);
-    await page.goto("/app/earnings");
-    await expect(page.getByRole("heading", { name: "Earnings", level: 1 })).toBeVisible();
-    // Everyone sees everyone's — that is the team's rule.
+    await page.goto("/app/settings/payouts");
+    await expect(page.getByRole("heading", { name: "Team payouts", level: 1 })).toBeVisible();
+    // Everyone sees everyone's — that is the team's rule, and W10 did not
+    // change it. `/app/settings` redirects a non-admin to their profile; this
+    // child deliberately does not, and this assertion is what says so.
     //
     // `.first()`, because the figure legitimately appears twice: the fixture
     // has one participant, so the pot and that person's share are the same
@@ -277,7 +292,7 @@ test.describe("the earnings board", () => {
     page,
   }) => {
     await signIn(page, SEED_ENGINEER);
-    await page.goto("/app/earnings");
+    await page.goto("/app/settings/payouts");
     const [sprint] = await query<{ id: string }>(SPRINT_ID_SQL);
 
     // The engineer's OWN token, against Supabase directly — the same shape as
@@ -319,7 +334,7 @@ test.describe("the earnings board", () => {
   });
 
   test("axe is clean, including the confirmation panel", async ({ adminPage }) => {
-    await adminPage.goto("/app/earnings");
+    await adminPage.goto("/app/settings/payouts");
     expect(await auditA11y(adminPage, "main")).toEqual([]);
   });
 });
@@ -346,7 +361,7 @@ test.describe("confirming a distribution", () => {
     page,
   }) => {
     await signIn(page, SEED_ADMIN);
-    await page.goto("/app/earnings");
+    await page.goto("/app/settings/payouts");
 
     const panel = page.getByRole("region", { name: /Earnings for Sprint — Week 17/ });
     await expect(panel).toContainText("Confirm distribution");
@@ -374,7 +389,7 @@ test.describe("confirming a distribution", () => {
 
   test("confirming twice with nothing changed writes one row, not two", async ({ page }) => {
     await signIn(page, SEED_ADMIN);
-    await page.goto("/app/earnings");
+    await page.goto("/app/settings/payouts");
     const panel = page.getByRole("region", { name: /Earnings for Sprint — Week 17/ });
     await panel.getByRole("button", { name: /^Re-confirm|^Confirm \$/ }).click();
     await expect(panel).toContainText("confirmed");

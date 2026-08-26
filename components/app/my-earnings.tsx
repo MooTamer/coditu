@@ -57,6 +57,10 @@ export function MyEarnings({
           tone="amber"
           usdCents={current && isDeveloper ? current.cents : null}
           rateMicros={rate}
+          // `no share` rather than an em dash when the reason is known, and
+          // never `$0.00`: zero claims a split was computed for you and came to
+          // nothing. You are simply not in it.
+          plain={current && isDeveloper && current.cents === null ? "no share" : undefined}
           note={
             !isDeveloper
               ? "Your hours count toward the pot; you do not take a share of it."
@@ -123,7 +127,7 @@ export function MyEarnings({
             />
             <Line
               label="Equal split · your share"
-              value={usdFromCents(current.cents)}
+              value={current.cents === null ? "no share" : usdFromCents(current.cents)}
               emphasis
             />
           </dl>
@@ -138,9 +142,10 @@ export function MyEarnings({
 
           {!current.proposed ? (
             <p className="mt-3 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--tone-amber-fg)]">
-              You are below the {settings.payoutShareThresholdPct}% threshold on this sprint, so the
-              figure above is what an equal split would give you if that changes before it is
-              confirmed. Nothing is decided until an admin confirms it.
+              You are below the {settings.payoutShareThresholdPct}% threshold on this sprint, so no
+              share is proposed for you. Your minutes still count toward the pot. Nothing is decided
+              until an admin confirms it — and if your share of the hours passes{" "}
+              {settings.payoutShareThresholdPct}% before then, you are in.
             </p>
           ) : null}
         </section>

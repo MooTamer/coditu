@@ -68,7 +68,7 @@ test.describe("the service worker", () => {
   });
 
   test("it registers when Settings is opened", async ({ adminPage: page }) => {
-    await page.goto("/app/settings");
+    await page.goto("/app/profile");
     await expect(page.getByRole("region", { name: "Notifications" })).toBeVisible();
 
     // Registration happens on this screen and not in the app shell, so that a
@@ -89,7 +89,7 @@ test.describe("the service worker", () => {
 
 test.describe("the permission control", () => {
   test("says what state this device is actually in", async ({ adminPage: page }) => {
-    await page.goto("/app/settings");
+    await page.goto("/app/profile");
     const section = page.getByRole("region", { name: "Notifications" });
     await expect(section).toBeVisible();
 
@@ -135,7 +135,7 @@ test.describe("the permission control", () => {
       const { signIn, SEED_ADMIN, instrumentPage } = await import("./fixtures");
       instrumentPage(page);
       await signIn(page, SEED_ADMIN);
-      await page.goto("/app/settings");
+      await page.goto("/app/profile");
 
       const control = page.locator("[data-push-settings]");
       await expect
@@ -167,7 +167,7 @@ test.describe("the permission control", () => {
     );
     await query(`delete from public.push_subscriptions where profile_id = $1`, [me.id]);
 
-    await page.goto("/app/settings");
+    await page.goto("/app/profile");
     const control = page.locator("[data-push-settings]");
     await expect
       .poll(async () => control.getAttribute("data-state"), { timeout: 10_000 })
@@ -199,7 +199,7 @@ test.describe("the permission control", () => {
 
   test("axe finds nothing on the notifications section", async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/app/settings");
+    await page.goto("/app/profile");
     await expect
       .poll(async () => page.locator("[data-push-settings]").getAttribute("data-state"), {
         timeout: 10_000,

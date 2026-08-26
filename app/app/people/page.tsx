@@ -181,8 +181,21 @@ export default async function PeoplePage() {
         </p>
 
         {/* Its own scroll container. A five-column table has no phone layout,
-            and the page body must not scroll sideways. */}
-        <div className="mt-5 -mx-2 overflow-x-auto px-2">
+            and the page body must not scroll sideways.
+
+            `tabIndex` and a name on the container, not decoration: a region
+            that scrolls and cannot be focused is unreachable by keyboard, and
+            axe says so as `scrollable-region-focusable`. It shipped in W9 and
+            W10's first full `--workers=1` run is what found it — the W9 gate
+            ran the a11y and access specs, and this table only overflows at
+            390px, which is `mobile.spec.ts`. Confirmed at `aa33663` before
+            being called a regression. */}
+        <div
+          className="mt-5 -mx-2 overflow-x-auto px-2"
+          tabIndex={0}
+          role="group"
+          aria-labelledby="roles"
+        >
           <table className="w-full min-w-[640px] border-collapse text-left">
             <thead>
               <tr className="border-b border-[var(--hairline)]">

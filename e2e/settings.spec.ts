@@ -10,7 +10,7 @@ import {
 } from "./fixtures";
 
 /**
- * Settings, as a profile page rather than a picture uploader.
+ * Your profile — `/app/profile` since W10, and `/app/settings` before it.
  *
  * It rendered, it worked, and nothing linked to it — and once you got there the
  * only thing it could do was change a photograph. There was no way to correct
@@ -60,7 +60,7 @@ test.describe("your own profile", () => {
     await createThrowawayAccount(me);
     try {
       await signIn(page, me);
-      await page.goto("/app/settings");
+      await page.goto("/app/profile");
 
       const section = page.getByRole("region", { name: "Your name" });
       await expect(section).toBeVisible();
@@ -93,7 +93,7 @@ test.describe("your own profile", () => {
     await createThrowawayAccount(me);
     try {
       await signIn(page, me);
-      await page.goto("/app/settings");
+      await page.goto("/app/profile");
       await page.getByLabel("Display name").fill(AWKWARD);
       await page.getByRole("button", { name: "Save name" }).click();
       await expect(page.getByText("saved", { exact: false })).toBeVisible();
@@ -138,7 +138,7 @@ test.describe("your own profile", () => {
     await createThrowawayAccount(me);
     try {
       await signIn(page, me);
-      await page.goto("/app/settings");
+      await page.goto("/app/profile");
 
       const rail = page.getByRole("complementary");
       await expect(rail).toContainText("Probe");
@@ -160,22 +160,33 @@ test.describe("your own profile", () => {
     await createThrowawayAccount(me);
     try {
       await signIn(page, me);
-      await page.goto("/app/settings");
+      await page.goto("/app/profile");
 
-      const account = page.getByRole("region", { name: "Your account" });
-      await expect(account).toContainText(me.email);
+      // W10 moved these out of a `Your account` section and into the identity
+      // header, which is what the design does: your picture, your name, your
+      // address and what you hold, in one place at the top. The assertion is
+      // the same one — facts, not fields — scoped to where they live now.
+      const identity = page.locator("[data-identity]");
+      await expect(identity).toContainText(me.email);
       // Every throwaway arrives an engineer: `handle_new_user` never reads a
-      // role from the sign-up request.
-      await expect(account).toContainText("engineer");
+      // role from the sign-up request. The chip is capitalised for display and
+      // the summary beside it says what the role can reach.
+      await expect(identity).toContainText("Engineer");
+      await expect(identity).toContainText("the work assigned to you");
 
       // Not a disabled input — a disabled input reads as "not right now", and
-      // these are not this person's to change at any time. (Counted by ROLE:
-      // the sign-out form carries Next's hidden action-id input, which is not
-      // a field anybody can type in.)
-      await expect(account.getByRole("textbox")).toHaveCount(0);
-      await expect(account.getByRole("combobox")).toHaveCount(0);
-      await expect(account.getByRole("link", { name: "Open People" })).toBeVisible();
-      await expect(account.getByRole("button", { name: "Sign out" })).toBeVisible();
+      // these are not this person's to change at any time.
+      await expect(identity.getByRole("textbox")).toHaveCount(0);
+      await expect(identity.getByRole("combobox")).toHaveCount(0);
+
+      // Where they ARE changed, and the way out. Both left the header for the
+      // section at the foot of the page; neither left the screen.
+      await expect(page.getByRole("link", { name: /set on People/ })).toBeVisible();
+      // `exact`, because Security two sections up offers "Sign out everywhere
+      // else" and Playwright's accessible-name match is a substring by
+      // default. Same class as `getByText("EVIM")` matching
+      // "MEINEvim components" — `07-FIELD-NOTES.md` has both.
+      await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
     } finally {
       await removeThrowawayAccount(me.email);
     }
@@ -186,7 +197,7 @@ test.describe("your own profile", () => {
     await createThrowawayAccount(me);
     try {
       await signIn(page, me);
-      await page.goto("/app/settings");
+      await page.goto("/app/profile");
 
       // Settings can now write `full_name`, so the question worth asking is
       // whether the same session can reach past it to `role`. It cannot, and
@@ -227,13 +238,13 @@ test.describe("your own profile", () => {
     }
   });
 
-  test("axe finds nothing on Settings", async ({ page }) => {
+  test("axe finds nothing on Profile", async ({ page }) => {
     const me = probe("axe");
     await createThrowawayAccount(me);
     try {
       await signIn(page, me);
       await page.setViewportSize({ width: 1440, height: 900 });
-      await page.goto("/app/settings");
+      await page.goto("/app/profile");
       expect(await auditA11y(page)).toEqual([]);
     } finally {
       await removeThrowawayAccount(me.email);

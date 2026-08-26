@@ -43,6 +43,7 @@ describe("crumbsFor", () => {
       "/app/trash",
       "/app/earnings",
       "/app/profile",
+      "/app/settings/payouts",
     ]) {
       const trail = crumbsFor(path, PROJECTS);
       expect(trail.at(-1)?.href, path).toBeUndefined();
@@ -73,6 +74,19 @@ describe("crumbsFor", () => {
     expect(hrefs("/app/earnings")).toEqual(["/app", null, null]);
     expect(labels("/app/profile")).toEqual(["Coditu", "Account", "Profile"]);
     expect(hrefs("/app/profile")).toEqual(["/app", null, null]);
+  });
+
+  it("puts Team payouts under a Workspace settings crumb that links", () => {
+    // The one flat route with a child. Unlike `Account`, this parent is a real
+    // screen, so its crumb carries an href — for the admin who can open it. A
+    // lead or an engineer following it is redirected to their profile, which is
+    // the same answer typing the URL gives them.
+    expect(labels("/app/settings/payouts")).toEqual([
+      "Coditu",
+      "Workspace settings",
+      "Team payouts",
+    ]);
+    expect(hrefs("/app/settings/payouts")).toEqual(["/app", "/app/settings", null]);
   });
 
   it("uses names, not slugs and numbers", () => {

@@ -55,31 +55,44 @@ export default async function ProfilePage() {
 
   return (
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
-      <Reveal tier="section" as="header" className="flex flex-wrap items-center gap-4">
-        <PersonAvatar
-          person={{
-            fullName: profile.full_name,
-            initials: profile.initials,
-            avatarUrl: profile.avatar_url,
-          }}
-          size={56}
-          fontSize={18}
-        />
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-bold tracking-[-0.022em]">{profile.full_name}</h1>
-          <p className="mt-0.5 break-all text-[13.5px] text-[var(--ink-muted)]">
-            {profile.email ?? "—"}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="rounded-chip bg-[var(--tone-slate-bg)] px-2 py-[3px] text-[11.5px] font-semibold text-[var(--tone-slate-fg)]">
-              {ROLE_LABEL[role] ?? profile.role}
-            </span>
-            <Mono size="meta" className="text-[var(--ink-faint)]">
-              {ROLE_SUMMARY[role] ?? "—"}
-            </Mono>
+      {/* `data-identity` so a spec can scope to this surface rather than to the
+          whole page — `07-FIELD-NOTES.md` records why that matters.
+
+          On the `<header>` and not on `<Reveal as="header">`: `Reveal` takes an
+          explicit prop list and forwards nothing it has not declared, and
+          TypeScript does not check a JSX attribute whose name is not a valid
+          identifier. `data-identity` passed to it compiles, type-checks, and
+          reaches no element at all. The comment on `RevealProps` says so; this
+          is the second time that has been worth reading. */}
+      <header data-identity>
+        <Reveal tier="section" className="flex flex-wrap items-center gap-4">
+          <PersonAvatar
+            person={{
+              fullName: profile.full_name,
+              initials: profile.initials,
+              avatarUrl: profile.avatar_url,
+            }}
+            size={56}
+            fontSize={18}
+          />
+          <div className="min-w-0">
+            <h1 className="text-[22px] font-bold tracking-[-0.022em]">
+              {profile.full_name}
+            </h1>
+            <p className="mt-0.5 break-all text-[13.5px] text-[var(--ink-muted)]">
+              {profile.email ?? "—"}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-chip bg-[var(--tone-slate-bg)] px-2 py-[3px] text-[11.5px] font-semibold text-[var(--tone-slate-fg)]">
+                {ROLE_LABEL[role] ?? profile.role}
+              </span>
+              <Mono size="meta" className="text-[var(--ink-faint)]">
+                {ROLE_SUMMARY[role] ?? "—"}
+              </Mono>
+            </div>
           </div>
-        </div>
-      </Reveal>
+        </Reveal>
+      </header>
 
       <Reveal
         tier="section"
@@ -98,12 +111,16 @@ export default async function ProfilePage() {
         </div>
 
         <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-          It is what appears on every item you are assigned, every hour you log and every comment
-          you write. Your initials are derived from it, by the same rule that ran when the account
-          was created — so a name corrected here and a name typed at sign-up agree.
+          It is what appears on every item you are assigned, every hour you log
+          and every comment you write. Your initials are derived from it, by the
+          same rule that ran when the account was created — so a name corrected
+          here and a name typed at sign-up agree.
         </p>
 
-        <NameSettings fullName={profile.full_name} avatarUrl={profile.avatar_url} />
+        <NameSettings
+          fullName={profile.full_name}
+          avatarUrl={profile.avatar_url}
+        />
       </Reveal>
 
       <Reveal
@@ -114,7 +131,10 @@ export default async function ProfilePage() {
         className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
       >
         <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="picture" className="text-[16px] font-bold tracking-[-0.015em]">
+          <h2
+            id="picture"
+            className="text-[16px] font-bold tracking-[-0.015em]"
+          >
             Your picture
           </h2>
           <Mono size="meta" className="text-[var(--ink-faint)]">
@@ -123,8 +143,9 @@ export default async function ProfilePage() {
         </div>
 
         <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-          It appears everywhere you do — the sprint board, the table, the team header, and beside
-          every comment you write. Without one, your initials are shown instead.
+          It appears everywhere you do — the sprint board, the table, the team
+          header, and beside every comment you write. Without one, your initials
+          are shown instead.
         </p>
 
         <AvatarSettings
@@ -144,7 +165,10 @@ export default async function ProfilePage() {
         className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
       >
         <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="appearance" className="text-[16px] font-bold tracking-[-0.015em]">
+          <h2
+            id="appearance"
+            className="text-[16px] font-bold tracking-[-0.015em]"
+          >
             Appearance
           </h2>
           <Mono size="meta" className="text-[var(--ink-faint)]">
@@ -153,9 +177,9 @@ export default async function ProfilePage() {
         </div>
 
         <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-          Cool paper is what this app opens in. The same choice is one click away in the top bar on
-          every screen — this is where it says which one you are in, rather than only offering you
-          the other.
+          Cool paper is what this app opens in. The same choice is one click
+          away in the top bar on every screen — this is where it says which one
+          you are in, rather than only offering you the other.
         </p>
 
         <AppearanceSettings />
@@ -169,7 +193,10 @@ export default async function ProfilePage() {
         className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
       >
         <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="notifications" className="text-[16px] font-bold tracking-[-0.015em]">
+          <h2
+            id="notifications"
+            className="text-[16px] font-bold tracking-[-0.015em]"
+          >
             Notifications
           </h2>
           <Mono size="meta" className="text-[var(--ink-faint)]">
@@ -178,10 +205,11 @@ export default async function ProfilePage() {
         </div>
 
         <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-          Being mentioned in a comment reaches your phone or your desktop, not just the dot on My
-          work. Turned on per device, because a subscription belongs to the browser it was made in —
-          your laptop and your phone are two separate answers. There is nothing to choose between:
-          a mention is the only thing this app sends.
+          Being mentioned in a comment reaches your phone or your desktop, not
+          just the dot on My work. Turned on per device, because a subscription
+          belongs to the browser it was made in — your laptop and your phone are
+          two separate answers. There is nothing to choose between: a mention is
+          the only thing this app sends.
         </p>
 
         <PushSettings />
@@ -195,7 +223,10 @@ export default async function ProfilePage() {
         className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
       >
         <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="security" className="text-[16px] font-bold tracking-[-0.015em]">
+          <h2
+            id="security"
+            className="text-[16px] font-bold tracking-[-0.015em]"
+          >
             Security
           </h2>
           <Mono size="meta" className="text-[var(--ink-faint)]">
@@ -204,9 +235,10 @@ export default async function ProfilePage() {
         </div>
 
         <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-          Coditu sends no mail, so there is no reset link — if you are locked out, an admin issues a
-          temporary password and you set your own on the way back in. Which is also why signing a
-          forgotten device out is worth having here.
+          Coditu sends no mail, so there is no reset link — if you are locked
+          out, an admin issues a temporary password and you set your own on the
+          way back in. Which is also why signing a forgotten device out is worth
+          having here.
         </p>
 
         <SecuritySettings />
@@ -220,7 +252,10 @@ export default async function ProfilePage() {
         className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
       >
         <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="private" className="text-[16px] font-bold tracking-[-0.015em]">
+          <h2
+            id="private"
+            className="text-[16px] font-bold tracking-[-0.015em]"
+          >
             Private to you
           </h2>
           <Mono size="meta" className="text-[var(--ink-faint)]">
@@ -232,9 +267,9 @@ export default async function ProfilePage() {
             may carry money — `tests/earnings-boundary.test.ts` walks every file
             in the app and would name this one the moment it imported a read. */}
         <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-          What each sprint has paid you, what is still provisional, and the arithmetic behind both.
-          It appears on no project page, no sprint screen, no export, no report and nowhere in the
-          client portal.
+          What each sprint has paid you, what is still provisional, and the
+          arithmetic behind both. It appears on no project page, no sprint
+          screen, no export, no report and nowhere in the client portal.
         </p>
 
         <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[var(--hairline)] pt-5">

@@ -1543,7 +1543,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `done` | `pending` | **W7a comparator + W7b sorting + W7c filters + W7d saved views:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **W7d:** `test` **345** · `db:test` **351** (13 new RLS) · `budgets` **OK 79.6/110 own, 219.7/220 total** · saved-views **6/6**. **Deferred to W8:** favourites, which this unblocks |
 | W8 | **Projects and project home**, the favourites W6 deferred, and the budget paid back | `done` | `pending` | the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px; favourites are a table, a star on three surfaces and a sidebar section · projects 7/7, project-home 8/8, favourites 5/5, all incl. axe · `test` **375** · `db:test` **364** · `budgets` **own OK 75.7/110; §5 total 215.7/220 after W8d** |
 | W9 | **People & Access** — the access log, the roles matrix, safety states made visible | `done` | `pending` | `access_events` written by triggers and writable by nobody · 12 new pgTAP incl. three write refusals · e2e **disabled-and-explained** on all three self controls · `test` **382** · `db:test` **376** · `budgets` **OK 75.7/110, 215.7/220**. Client contacts stay on `/app/clients` — see `05-DECISIONS.md` |
-| W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `wip` | | **W10a:** `tests/earnings-boundary.test.ts` extended both ways — `test` **386** (4 new), the outward list widened from 11 entries to 27 incl. the client portal itself. **W10b:** `/app/profile` split out, `/app/settings` is admin-only and redirects everyone else, `/app/earnings` grows the personal view · `test` **386** · `db:test` **376** · `budgets` **OK 75.9/110 own, 215.9/220 total** · opened as admin, lead and engineer, both themes, 375 and 1280 |
+| W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `done` | `pending` | `lib/earnings.ts` untouched — the three functions are the bytes they were at W0. **W10a:** the boundary asserted both ways, the outward list widened from 11 paths to 27 incl. the client portal, which nothing had ever checked. **W10b:** `/app/profile` split out; `/app/settings` is admin-only and redirects everybody else. **W10c:** Team payouts on `/app/settings/payouts`, read by every internal member and confirmed only by an admin — the team's own §E5 rule, kept. `test` **387** · `db:test` **376** after a `db:reset` · `budgets` **OK 75.9/110 own, 215.9/220 total** · full `e2e --workers=1` **606 passed, 7 skipped, 0 failed** — the first fully green full run this branch has had |
 | W11 | **Version history UI and Trash** | `todo` | | e2e restore returns comments and versions |
 | W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `todo` | | e2e rehearsal pass **and** fail, live rows untouched |
 | W13 | **Responsive, a11y, security, performance hardening** | `todo` | | full `e2e` · `budgets` · `lighthouse` · `degraded` |
@@ -3314,3 +3314,98 @@ overflow, console clean.
 
 **Next:** W10c — Team payouts moves to `/app/settings/payouts`, and `/app/earnings`
 becomes personal-only.
+
+## W10c — the earnings screen splits, and one rule is kept rather than reversed
+
+`/app/earnings` was one screen doing two jobs: your own provisional figure at
+the top of a board showing every participant of every sprint. `/app/earnings` is
+your money now — three cards, the arithmetic, and every sprint from your side of
+it. `/app/settings/payouts` is the team's.
+
+### The one thing that needed asking rather than deciding
+
+The plan's §6 matrix reads `Team payouts: Admin ✔, Lead ✘, Engineer ✘`. The
+team's own words, recorded in `coditu-thread-and-earnings-prompt.md` §E5 before
+any of this was built, read *everyone sees everyone's, but not on any screen
+that gets shared with a client* — and the app, its RLS and `e2e/earnings.spec.ts`
+all implement that. The design agrees with the older rule: its payout screen
+shows a non-admin the participants with the checkboxes locked and `Admin only`
+as the tooltip.
+
+Two defensible readings, and the difference is who can see whose money. **Asked,
+and the answer was to keep it.** So `/app/settings/payouts` has no role guard
+while its parent redirects a non-admin, `/app/earnings` links to it because a
+screen you may read and cannot navigate to is a screen you do not have, and
+nothing about RLS moved. What is enforced where is stated plainly in
+`05-DECISIONS.md` rather than implied: the split is about who is *shown* what,
+and the insert policy is what stops a confirmation.
+
+### `$0.00` is a claim, and only the browser said so
+
+The summary card read **`$0.00`** for a person below the threshold, because
+`getMyEarnings` fell back to zero when they were not in `proposedShares`. Every
+gate was green. This application has said *"not tracked, never zero — zero is a
+claim"* since the earnings model was built, and this was the same mistake in a
+different column: `$0.00` claims a split was computed for you and came to
+nothing, when you are simply not in it. `cents` is `number | null` now, the card
+says **no share**, the EGP line disappears with it, and the note underneath
+stopped saying "the figure above" about a figure that is no longer there.
+
+The history table already had this right — `provisional?.shareCents ?? null` —
+which is how the inconsistency was visible at all.
+
+### `Reveal` forwards nothing it has not declared
+
+`<Reveal as="header" data-identity>` compiles, type-checks, and reaches no
+element. The component takes an explicit prop list, and TypeScript does not
+check a JSX attribute whose name is not a valid identifier — the comment on
+`RevealProps` says exactly this about `aria-*`, and it is worth reading twice.
+The hook is on a real `<header>` now.
+
+### Three specs that were asserting the old shape, and one that was ambiguous
+
+Splitting a route moves every assertion pointed at it. `push`, `avatar`,
+`settings`, `navigation`, `mobile`, `pwa` and `password` all had `/app/settings`
+in them for personal reasons, and the PWA manifest's shortcut opened a screen
+that now redirects most people. All re-pointed at `/app/profile`.
+
+`settings.spec.ts` → *email and role are shown as facts* looked for a
+`Your account` region that the identity header replaced; rewritten against
+`[data-identity]`, which then surfaced a second one: `getByRole("button", {
+name: "Sign out" })` resolved to **two** elements, because Security's new
+"Sign out everywhere else" is a substring match. Same family as
+`getByText("EVIM")` matching `MEINEvim components`. `exact: true`.
+
+### A W9 defect this phase's first full run found
+
+`mobile.spec.ts` → *axe finds nothing at 390px* failed on **`/app/people`**, on
+an element W10 never touched: `scrollable-region-focusable @ .-mx-2`, the
+Roles & permissions table's scroll container. A region that scrolls and cannot
+be focused is unreachable by keyboard.
+
+Confirmed pre-existing before being called anything else — checked out `aa33663`
+and reproduced it there, identically, with the pre-W10 path list. W9's gate ran
+the a11y and access specs; this table only overflows at 390px, which is
+`mobile.spec.ts`, and no full `--workers=1` run had happened since W6.
+`tabIndex={0}` plus a name on the container, labelled in place as W9's.
+
+### Two red runs that were the database, not the code
+
+The second full run failed four different specs from the first. `item-detail`
+→ *tapping the words does not tick the box* expected `false` and got `true`:
+the seed sets that criterion `is_done = false` and the database held `true`,
+because an earlier spec ticked it and did not put it back. `db:reset`, and the
+whole file passes 24/24. Same for `access.spec.ts`.
+
+The rule this confirms, and it is already in `07-FIELD-NOTES.md`: **absolute
+counts and seeded booleans are residue-coupled.** `npm run db:test` failed
+`seed.sql` 16-17 (*95 ticked*, *104 attachments*) for exactly this reason after
+a browser session. Every number below was taken after a `db:reset`.
+
+`lint`, `typecheck` clean · `test` **387** · `db:test` **376** · `budgets`
+**own OK 75.9 / 110; §5 total 215.9 / 220** · full `e2e --workers=1`
+**606 passed, 7 skipped, 0 failed** · opened as admin and as an engineer, both
+themes, 375 and 1280, no horizontal overflow, console clean apart from the dev
+server's own HMR socket.
+
+**Next:** W11 — Version history UI and Trash.

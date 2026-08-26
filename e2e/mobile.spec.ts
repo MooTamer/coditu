@@ -72,10 +72,12 @@ test.describe("the shell on a phone", () => {
     await page.goto("/app/my-work");
     expect(await current()).toEqual(["My work"]);
 
-    // Projects, People, Import and Settings live behind More — which is what
+    // Projects, People, Import and Profile live behind More — which is what
     // carries the current marker for all of them, so there is still exactly
-    // one. Projects joined that list in W6, when Home took a tab.
-    for (const path of ["/app/projects", "/app/people", "/app/import", "/app/settings"]) {
+    // one. Projects joined that list in W6, when Home took a tab; Profile
+    // joined it in W10, when the personal half of Settings became its own
+    // route.
+    for (const path of ["/app/projects", "/app/people", "/app/import", "/app/profile"]) {
       await page.goto(path);
       expect(await current(), path).toEqual(["More"]);
     }
@@ -114,8 +116,8 @@ test.describe("the shell on a phone", () => {
     const box = (await sheet.boundingBox())!;
     expect(Math.round(box.width), "a sheet is full width").toBe(PHONE.width);
 
-    await sheet.getByRole("link", { name: "Settings" }).click();
-    await expect(page).toHaveURL(/\/app\/settings$/);
+    await sheet.getByRole("link", { name: "Profile" }).click();
+    await expect(page).toHaveURL(/\/app\/profile$/);
     await expect(page.getByRole("dialog", { name: "More" })).toHaveCount(0);
   });
 
@@ -337,7 +339,7 @@ test.describe("the composer, with a thumb", () => {
 test.describe("accessibility, on a phone", () => {
   test("axe finds nothing at 390px", async ({ adminPage: page }) => {
     await page.setViewportSize(PHONE);
-    for (const path of [SPRINT, "/app/my-work", "/app/people", "/app/settings"]) {
+    for (const path of [SPRINT, "/app/my-work", "/app/people", "/app/profile"]) {
       await page.goto(path);
       expect(await auditA11y(page), `axe on ${path} at 390px`).toEqual([]);
     }
@@ -367,7 +369,7 @@ test.describe("accessibility, on a phone", () => {
       const { signIn, SEED_ADMIN } = await import("./fixtures");
       await signIn(page, SEED_ADMIN);
 
-      for (const path of [SPRINT, "/app/my-work", "/app/people", "/app/settings"]) {
+      for (const path of [SPRINT, "/app/my-work", "/app/people", "/app/profile"]) {
         await page.goto(path);
         await page.waitForTimeout(250);
 
