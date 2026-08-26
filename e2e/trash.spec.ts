@@ -243,6 +243,52 @@ test.describe("trash", () => {
     expect(await page.content()).not.toContain("this sentence must never be rendered");
   });
 
+  test("searching narrows the bin, and cannot be made to print a withdrawn comment", async ({
+    adminPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    const secret = "TRASH SPEC searchable secret sentence";
+    const id = await itemId();
+    await query(
+      `insert into comments (work_item_id, author_id, body_text, body_json, deleted_at)
+       values ($1, $2, $3, $4, now())`,
+      [
+        id,
+        await profileId("mohamed@coditu.com"),
+        secret,
+        JSON.stringify({
+          type: "doc",
+          content: [{ type: "paragraph", content: [{ type: "text", text: secret }] }],
+        }),
+      ]
+    );
+    await query(`update work_items set deleted_at = now() where key = $1`, [ITEM_KEY]);
+
+    await page.goto("/app/trash");
+    await expect(page.getByRole("listitem")).not.toHaveCount(0);
+
+    // A story key narrows to that story. Scoped to the `search` landmark, not
+    // to the page: the topbar's palette trigger is also called "Search items,
+    // sprints, people", and a bare `name: "Search"` matches both — Playwright's
+    // accessible-name match is a substring. Fourth time in this repository.
+    const search = page.getByRole("search");
+    await search.getByRole("searchbox", { name: "Search the bin" }).fill(ITEM_KEY);
+    await search.getByRole("button", { name: "Search" }).click();
+    await expect(page).toHaveURL(new RegExp(`q=${ITEM_KEY}`));
+    await expect(page.getByRole("listitem").filter({ hasText: ITEM_KEY })).not.toHaveCount(0);
+
+    // **The assertion that matters.** A search box over a list is the obvious
+    // way for a withdrawn comment's words to start being printed — type them,
+    // and if the projection carried `body_text` the row would match and the
+    // box would echo them back. `trash_list()` does not return them at all,
+    // so this finds nothing, and `page.content()` proves the words are not in
+    // the markup rather than merely hidden by CSS.
+    await page.goto(`/app/trash?q=${encodeURIComponent("searchable secret sentence")}`);
+    await expect(page.getByText("Nothing in the bin matches that.")).toBeVisible();
+    expect(await page.content()).not.toContain(secret);
+  });
+
   test("a lead can see a withdrawn comment and is told why they cannot restore it", async ({
     page,
   }) => {

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { TrashRow } from "@/components/app/trash-row.client";
@@ -25,12 +26,39 @@ export const metadata = { title: "Trash" };
  * words are not in the projection at all — not hidden by this page, absent from
  * what it is given.
  */
-export default async function TrashPage() {
+export default async function TrashPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
   const profile = await getCurrentProfile();
   if (!profile) notFound();
 
-  const entries = await getTrash();
+  const raw = (await searchParams).q;
+  const q = (Array.isArray(raw) ? raw[0] : raw)?.trim() ?? "";
+
+  const all = await getTrash();
   const canPurge = profile.role === "admin";
+
+  // In memory, unlike `/app/history`, and the difference is not an oversight:
+  // `trash_list()` already returns everything deleted in one bounded read, so
+  // there is nothing to save by narrowing in SQL and a `q` in the query would
+  // be a second place for the projection to drift.
+  //
+  // **It searches what the screen shows, and the screen does not show a
+  // withdrawn comment's words.** `body_text` is not in the projection at all,
+  // so there is no way for a search box to become the thing that prints them —
+  // which is the failure this screen was careful about from the day it was
+  // built. `e2e/trash.spec.ts` asserts it.
+  const needle = q.toLowerCase();
+  const entries = needle
+    ? all.filter((entry) =>
+        [entry.title, entry.itemKey ?? "", entry.projectName]
+          .join(" ")
+          .toLowerCase()
+          .includes(needle)
+      )
+    : all;
 
   return (
     <div className="mx-auto flex w-full max-w-[880px] flex-col gap-5 px-4 py-6 sm:px-6">
@@ -43,6 +71,44 @@ export default async function TrashPage() {
             ? "until an admin removes it for good, one at a time."
             : "only an admin can remove something for good."}
         </p>
+
+        {/* A real GET form, so searching works before hydration and every
+            result is a URL somebody can paste. No `onChange`, no debounce, no
+            client component: the list is already loaded whole and the only
+            thing typing could buy is a round trip. */}
+        <form method="get" role="search" className="mt-4 flex flex-wrap items-center gap-2">
+          <label htmlFor="trash-q" className="sr-only">
+            Search the bin
+          </label>
+          <input
+            id="trash-q"
+            name="q"
+            type="search"
+            defaultValue={q}
+            placeholder="Search deleted stories and comments"
+            className="h-11 min-w-0 flex-1 rounded-control border border-[var(--hairline)] bg-[var(--raised)] px-3 text-[13.5px] placeholder:text-[var(--ink-faint)]"
+          />
+          <button
+            type="submit"
+            className="inline-flex h-11 items-center rounded-control border border-[var(--hairline-strong)] px-4 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
+          >
+            Search
+          </button>
+          {q ? (
+            <Link
+              href="/app/trash"
+              className="inline-flex h-11 items-center rounded-control px-3 text-[12.5px] font-medium text-[var(--ink-muted)] underline underline-offset-4 hover:text-[var(--ink)]"
+            >
+              Clear
+            </Link>
+          ) : null}
+        </form>
+
+        {q ? (
+          <Mono size="meta" className="mt-2 block text-[var(--ink-faint)]">
+            {entries.length} of {all.length} matching &ldquo;{q}&rdquo;
+          </Mono>
+        ) : null}
       </Reveal>
 
       <Reveal
@@ -52,7 +118,7 @@ export default async function TrashPage() {
       >
         {entries.length === 0 ? (
           <p className="px-5 py-8 text-center text-[13px] text-[var(--ink-faint)]">
-            Nothing has been deleted.
+            {q ? "Nothing in the bin matches that." : "Nothing has been deleted."}
           </p>
         ) : (
           <ul className="divide-y divide-[var(--hairline)]">

@@ -1544,7 +1544,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W8 | **Projects and project home**, the favourites W6 deferred, and the budget paid back | `done` | `pending` | the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px; favourites are a table, a star on three surfaces and a sidebar section · projects 7/7, project-home 8/8, favourites 5/5, all incl. axe · `test` **375** · `db:test` **364** · `budgets` **own OK 75.7/110; §5 total 215.7/220 after W8d** |
 | W9 | **People & Access** — the access log, the roles matrix, safety states made visible | `done` | `pending` | `access_events` written by triggers and writable by nobody · 12 new pgTAP incl. three write refusals · e2e **disabled-and-explained** on all three self controls · `test` **382** · `db:test` **376** · `budgets` **OK 75.7/110, 215.7/220**. Client contacts stay on `/app/clients` — see `05-DECISIONS.md` |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `done` | `8904f20` | `lib/earnings.ts` untouched — the three functions are the bytes they were at W0. **W10a:** the boundary asserted both ways, the outward list widened from 11 paths to 27 incl. the client portal, which nothing had ever checked. **W10b:** `/app/profile` split out; `/app/settings` is admin-only and redirects everybody else. **W10c:** Team payouts on `/app/settings/payouts`, read by every internal member and confirmed only by an admin — the team's own §E5 rule, kept. `test` **387** · `db:test` **376** after a `db:reset` · `budgets` **OK 75.9/110 own, 215.9/220 total** · every spec W10 touched green together — **227 passed, 6 skipped, 0 failed** across eleven files, from a `db:reset` · full `e2e --workers=1` reached **606 passed, 0 failed** once and a rotating 2-3 contention failures on four other runs, each passing alone and none naming a file this phase changed — see the note below |
-| W11 | **Version history UI and Trash** | `wip` | | **W11a:** the restore promise asserted — trash **7/7**. **W11b:** `/app/history` built — `test` **404** (17 new) · history **7/7** incl. axe · `budgets` **OK 76.0/110 own, 216.0/220 total** |
+| W11 | **Version history UI and Trash** | `done` | `pending` | **W11a** the restore promise asserted · **W11b** `/app/history` built, filters in the URL and in the query · **W11c** the bin searches, and cannot be made to print a withdrawn comment. `test` **404** (17 new) · `db:test` **376** · `budgets` **OK 76.0/110 own, 216.0/220 total** · the six spec files W11 touches **167 passed, 3 skipped, 0 failed** from a `db:reset` |
 | W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `todo` | | e2e rehearsal pass **and** fail, live rows untouched |
 | W13 | **Responsive, a11y, security, performance hardening** | `todo` | | full `e2e` · `budgets` · `lighthouse` · `degraded` |
 
@@ -3569,3 +3569,45 @@ in a browser" means here. `07-FIELD-NOTES.md` has it, with the one-line fix.
 `budgets` **OK 76.0 / 110 own, 216.0 / 220 total** (+0.1 KB, one lucide icon).
 
 **Next:** W11c — the trash search the design asks for.
+
+## W11c — the bin gets a search, and the search cannot become the leak
+
+The design puts *"Search deleted stories, notes, comments"* on Trash. A real
+`<form method="get">`: it works before hydration, every result is a URL somebody
+can paste, and there is no client component, no debounce and no round trip —
+the list is already loaded whole.
+
+**In memory, unlike `/app/history`, and the difference is not an oversight.**
+`trash_list()` returns everything deleted in one bounded read, so narrowing in
+SQL would save nothing and add a second place for the projection to drift.
+
+### The assertion that matters is that it finds nothing
+
+A search box over a list is the obvious way for a withdrawn comment's words to
+start being printed: type them, and a row that matched would echo them back.
+They are not in `trash_list()`'s projection at all — not hidden by the page,
+absent from what it is given — so the search cannot reach them. The spec types
+a withdrawn comment's exact sentence, expects *"Nothing in the bin matches
+that"*, and checks `page.content()` rather than `not.toBeVisible()`, because the
+bug being looked for is text that is present and hidden with CSS.
+
+That is the promise this screen has made since W4d, now made against the one
+feature most likely to break it.
+
+### Fourth substring collision of the session
+
+`getByRole("button", { name: "Search" })` matched the topbar's ⌘K trigger —
+*"Search items, sprints, people"* — as well as the form's own button. Scoped to
+the `search` landmark rather than reaching for `exact`, which also documents
+which search is meant.
+
+`lint`, `typecheck` clean · `test` **404** · `db:test` **376** after a
+`db:reset` · `budgets` **OK 76.0 / 110 own, 216.0 / 220 total** · trash **8/8**
+· the six spec files W11 touches **167 passed, 3 skipped, 0 failed** · opened at
+1280 and 390.
+
+**W11 is done.** Next: W12 — Backup & Recovery Center, which `05-DECISIONS.md`
+records as blocked on the hosting question: the hosted Supabase plan tier and
+PITR status, then RPO, RTO and retention. Until those are answered no schedule,
+retention period or snapshot id is written anywhere and the UI says coverage is
+unverified.
