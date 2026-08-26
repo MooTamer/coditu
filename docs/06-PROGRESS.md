@@ -3832,3 +3832,76 @@ pushed with `supabase db push` alongside the code, and retention, RPO and RTO
 are still undecided — until they are, the recovery screen states no schedule and
 no retention period, which is the honest rendering rather than a gap in the
 build.
+
+---
+
+## Independent audit of the workspace redesign
+
+Started 2026-08-27 against `workspace-redesign` at `0a7670e`, from the returned
+design handoff rather than from the report above. Every claim in this section
+was re-derived; nothing is carried over on trust.
+
+The baseline reverified exactly: `main` is an ancestor of `workspace-redesign`
+and 8 ahead of `origin/main`, the linked history ends at `20260825100000`, and
+**twenty-two** local migrations are unapplied remotely — not the thirteen the
+W13 note above says, which was already stale when it was written and is left
+standing as the record of what was believed at the time.
+
+### A local sign-in helper that could make a client account
+
+`scripts/add-local-user.mjs` was the uncommitted half of the worktree. Its
+`--role` flag names the three internal roles and it has no client option, which
+is not the same thing as being internal-only: `handle_new_user` decides the
+account KIND from a pending `client_invitations` row keyed on the address, and
+the script never looked. Asking for an address an admin had already invited
+produced a **client** account, consumed the invitation, created the contact and
+its project grants, and then wrote `role = admin` over the top — while printing
+`· admin`, which was not what it had made. Reproduced against the local stack.
+
+It now refuses a pending invitation before creating anything, refuses an address
+that already belongs to a client contact, and asserts `account_kind = 'internal'`
+on what it actually made. The loopback refusal was re-tested rather than
+believed: a hosted API URL, a hosted database URL, a hostname that merely
+*contains* `127.0.0.1`, and a string `new URL` cannot parse are all refused, and
+`.env.production.local` is named nowhere in it — the only file it reads is
+`.env.local`, and `node` loads no env file on its own.
+
+`tests/add-local-user.test.ts` holds that, spawning the script rather than
+importing it. Everything it asserts happens before the first database
+connection, so `npm run test` still needs nothing running. The version of that
+file which blanked both variables instead created a real account, because the
+script then falls back to `.env.local` — the account had to be deleted by hand,
+and the comment in the file says so.
+
+### An audit trigger that refused the delete it was auditing
+
+Found while cleaning up after the above, which is the only reason it was found.
+
+`record_client_contact_access_event` and `record_client_grant_access_event`
+resolve the person's name with `select coalesce(p.full_name, '…') into who` —
+a `coalesce` inside the select list, which defends against a NULL column and
+not against a missing ROW. On a cascade there is no row: Postgres deletes the
+parent first and fires the child's `after delete` trigger second, so
+`delete from auth.users` reaches the trigger with the profile already gone,
+`who` stays NULL, and `subject_label not null` refuses the whole statement.
+
+**A client contact's account could not be deleted at all** — not through the
+dashboard, not through the admin API, not by anything that removes the person
+rather than the row. Deleting `client_contacts` first always worked, which is
+exactly why nothing caught it: the client-portal fixture's teardown does that
+every time, so 622 passing specs walked around the hole.
+
+`20260826210518_audit_events_survive_a_cascade.sql` resolves the label and the
+id together and falls back on `not found` rather than on NULL. `subject_id` had
+the same problem one column over — it references `profiles (id)`, and writing
+the id of a row being deleted is a foreign-key violation — so it is recorded
+only when the profile is still there. A contact removed by cascade is audited
+as `a client contact`: unnamed, because nothing holds the name at that moment,
+and written, which is the half that matters.
+
+`supabase/tests/access-events.sql` is the regression, red-green verified against
+the original functions: 5 of its 7 assertions fail without the fix, and the two
+that pass are the control — an ordinary removal, made while the profile still
+exists, is still named and still points at them.
+
+`lint`, `typecheck` clean · `test` **416** (8 new).
