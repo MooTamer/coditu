@@ -85,6 +85,13 @@ export function crumbsFor(pathname: string, projects: CrumbProject[]): Crumb[] {
     if (first === "settings" && rest[1] === "payouts") {
       return [root, { label: "Workspace settings", href: "/app/settings" }, { label: "Team payouts" }];
     }
+    if (first === "settings" && rest[1] === "recovery") {
+      return [
+        root,
+        { label: "Workspace settings", href: "/app/settings" },
+        { label: "Backup & recovery" },
+      ];
+    }
     const label = FLAT[first];
     return label ? [root, { label }] : [root];
   }

@@ -144,6 +144,11 @@ export default async function Page() {
             hint="Which client contact exists, and what each of them may see."
           />
           <SettingsLink
+            href="/app/settings/recovery"
+            label="Backup &amp; recovery"
+            hint="Whether the work could actually be got back, and when anybody last checked. A rehearsal copies into an isolated schema and writes nothing back."
+          />
+          <SettingsLink
             href="/app/trash"
             label="Trash"
             hint="Recoverable stories, comments and documents. Emptying it is the one thing here that cannot be undone."

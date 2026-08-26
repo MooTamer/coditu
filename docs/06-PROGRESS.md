@@ -1544,8 +1544,8 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W8 | **Projects and project home**, the favourites W6 deferred, and the budget paid back | `done` | `pending` | the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px; favourites are a table, a star on three surfaces and a sidebar section · projects 7/7, project-home 8/8, favourites 5/5, all incl. axe · `test` **375** · `db:test` **364** · `budgets` **own OK 75.7/110; §5 total 215.7/220 after W8d** |
 | W9 | **People & Access** — the access log, the roles matrix, safety states made visible | `done` | `pending` | `access_events` written by triggers and writable by nobody · 12 new pgTAP incl. three write refusals · e2e **disabled-and-explained** on all three self controls · `test` **382** · `db:test` **376** · `budgets` **OK 75.7/110, 215.7/220**. Client contacts stay on `/app/clients` — see `05-DECISIONS.md` |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `done` | `8904f20` | `lib/earnings.ts` untouched — the three functions are the bytes they were at W0. **W10a:** the boundary asserted both ways, the outward list widened from 11 paths to 27 incl. the client portal, which nothing had ever checked. **W10b:** `/app/profile` split out; `/app/settings` is admin-only and redirects everybody else. **W10c:** Team payouts on `/app/settings/payouts`, read by every internal member and confirmed only by an admin — the team's own §E5 rule, kept. `test` **387** · `db:test` **376** after a `db:reset` · `budgets` **OK 75.9/110 own, 215.9/220 total** · every spec W10 touched green together — **227 passed, 6 skipped, 0 failed** across eleven files, from a `db:reset` · full `e2e --workers=1` reached **606 passed, 0 failed** once and a rotating 2-3 contention failures on four other runs, each passing alone and none naming a file this phase changed — see the note below |
-| W11 | **Version history UI and Trash** | `done` | `pending` | **W11a** the restore promise asserted · **W11b** `/app/history` built, filters in the URL and in the query · **W11c** the bin searches, and cannot be made to print a withdrawn comment. `test` **404** (17 new) · `db:test` **376** · `budgets` **OK 76.0/110 own, 216.0/220 total** · the six spec files W11 touches **167 passed, 3 skipped, 0 failed** from a `db:reset` |
-| W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `todo` | | e2e rehearsal pass **and** fail, live rows untouched |
+| W11 | **Version history UI and Trash** | `done` | `971ee17` | **W11a** the restore promise asserted · **W11b** `/app/history` built, filters in the URL and in the query · **W11c** the bin searches, and cannot be made to print a withdrawn comment. `test` **404** (17 new) · `db:test` **376** · `budgets` **OK 76.0/110 own, 216.0/220 total** · the six spec files W11 touches **167 passed, 3 skipped, 0 failed** from a `db:reset` |
+| W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `done` | `pending` | `rehearse_recovery()` copies into a schema it creates and drops and writes nothing to `public` · `db:test` **392** (16 new incl. a checksum over every live table around a passing AND a failing run) · recovery **7/7** incl. axe · `budgets` **OK 76.1/110 own, 216.1/220 total** · PITR read from the hosted project and stated as a fact; no schedule, retention or snapshot id invented |
 | W13 | **Responsive, a11y, security, performance hardening** | `todo` | | full `e2e` · `budgets` · `lighthouse` · `degraded` |
 
 ## W0 — the baseline, measured rather than remembered
@@ -3611,3 +3611,96 @@ records as blocked on the hosting question: the hosted Supabase plan tier and
 PITR status, then RPO, RTO and retention. Until those are answered no schedule,
 retention period or snapshot id is written anywhere and the UI says coverage is
 unverified.
+
+## W12 — a rehearsal that cannot damage what it is rehearsing
+
+### The question it answers, and the two halves it keeps apart
+
+*Could we actually get it back?* is not a question to first ask on the day the
+answer matters. `document_revisions`, the bin and the attachment rows are three
+features that each work, which is not the same as a recovery that works, and
+nothing had ever exercised them together.
+
+**Infrastructure** stays labelled, not claimed. The plan deferred one decision
+to the start of this phase — plan tier, and whether PITR is on — and it turned
+out to be answerable rather than only askable: `supabase backups list` against
+the linked project, read-only, reports `pitr_enabled: false`, `walg_enabled:
+true`, and no listed physical backups. So the card states **PITR is off** as a
+measured fact with the date it was read, says storage is not covered by database
+backups, and says retention, RPO and RTO are **not set** — because nobody has
+decided them and a number nobody chose would be believed, on the worst day.
+
+The prototype's `Nightly · 03:00 UTC`, `42 MB` and `snap-2026-08-25-03` are not
+on the screen, and a spec asserts each of the four strings is absent.
+
+### The safety property is enforced, not promised
+
+`rehearse_recovery()` is the most privileged function in this schema: `security
+definer`, dynamic SQL, and it creates schemas. Three things make it safe rather
+than careful:
+
+- The preview schema's name is generated from `gen_random_uuid()` inside the
+  function. The caller never supplies one, so there is no string to aim
+  somewhere else.
+- The only statement in the body that targets `public` is the single
+  `insert into public.recovery_runs`, and the schema is dropped before it runs
+  — so a recorded run is a run whose copies are already gone. An exception
+  handler drops it too.
+- **The rehearsal writes nothing back.** §9 ends "restore the selection as new
+  versions", and that step is deliberately not new code: restoring is
+  `restore_document_revision`, which W4a built and RLS already polices per
+  surface. Reimplementing it inside the function with the most privilege would
+  have put the one destructive operation in this app in the worst possible
+  place.
+
+`supabase/tests/recovery.sql` asserts it the only way worth asserting: a
+checksum over **every live table** before and after a passing run and a failing
+one, required to be identical. A targeted "the story is still there" passes
+while something else is quietly rewritten. `e2e/recovery.spec.ts` repeats it
+through the screen, because the Server Action is a different path to the same
+function.
+
+### The failing case needed no sabotage
+
+The seeded attachment rows point at objects nobody has uploaded to this database
+— `npm run db:attachments` is what puts them there — so the attachment check
+fails here by default: **104 of 105 unresolved**. A real finding about this
+database beats a fixture, and it means the failing path is exercised without any
+test breaking anything.
+
+### And the documents check is the answer to "does version control work"
+
+It rebuilds every story description from its newest revision, in the preview
+schema, and compares that to the live row. Not *are there versions* — *would
+replaying them give back what we have*. Run against the seed: **73 checked, 0
+failed.** A further spec restores an old version and re-runs it, because a
+restore that wrote the document without writing the version, or the reverse,
+would break the replay and nothing else would notice.
+
+### Three defects found on the way, two of them by opening the page
+
+**`server-only` is a bundler rule, and `typecheck` and `lint` both pass.** The
+rehearsal control is a client component and imported its vocabulary from the
+`server-only` data module, which took `lib/supabase/server` and `next/headers`
+into the browser bundle. Blank page, clean gate. The vocabulary lives in a plain
+`lib/recovery.ts` now, the same split `lib/work-items.ts` makes for statuses.
+
+**`<Reveal>` swallowed a `data-` attribute again.** Second time in three phases
+— W10 lost `data-identity`, this lost `data-infrastructure`, both silently, both
+found by a spec timing out on an element that was never rendered. The first fix
+declared `aria-labelledby` and `aria-label` by name and left the trap in place;
+`RevealProps` has an index signature for `data-${string}` now and the component
+spreads the rest, so there cannot be a third.
+
+**A definition list that axe refused.** `<dt>` and `<dd>` were grandchildren of
+the grouping `<div>` because a second wrapper was doing the layout. `flex-wrap`
+on the group itself needed no extra element.
+
+`lint`, `typecheck` clean · `test` **404** · `db:test` **392** (16 new) after a
+`db:reset` · `budgets` **OK 76.1 / 110 own, 216.1 / 220 total** · recovery
+**7/7** incl. axe with a run expanded and zero overflow at 390 · a real
+rehearsal driven from the browser: 177 checked, 104 failed, 50 findings capped,
+no leftover schema.
+
+**Next:** W13 — responsive, a11y, security and performance hardening, the last
+phase in the plan.

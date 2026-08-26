@@ -45,6 +45,7 @@ describe("crumbsFor", () => {
       "/app/earnings",
       "/app/profile",
       "/app/settings/payouts",
+      "/app/settings/recovery",
     ]) {
       const trail = crumbsFor(path, PROJECTS);
       expect(trail.at(-1)?.href, path).toBeUndefined();
@@ -89,6 +90,11 @@ describe("crumbsFor", () => {
       "Team payouts",
     ]);
     expect(hrefs("/app/settings/payouts")).toEqual(["/app", "/app/settings", null]);
+    expect(labels("/app/settings/recovery")).toEqual([
+      "Coditu",
+      "Workspace settings",
+      "Backup & recovery",
+    ]);
   });
 
   it("uses names, not slugs and numbers", () => {

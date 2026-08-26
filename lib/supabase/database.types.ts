@@ -1311,6 +1311,60 @@ export type Database = {
           },
         ]
       }
+      recovery_runs: {
+        Row: {
+          actor_id: string | null
+          checked: number
+          failed: number
+          findings: Json
+          finished_at: string
+          id: string
+          preview_schema: string
+          scope: string[]
+          started_at: string
+          status: Database["public"]["Enums"]["recovery_run_status"]
+        }
+        Insert: {
+          actor_id?: string | null
+          checked: number
+          failed: number
+          findings?: Json
+          finished_at?: string
+          id?: string
+          preview_schema: string
+          scope: string[]
+          started_at: string
+          status: Database["public"]["Enums"]["recovery_run_status"]
+        }
+        Update: {
+          actor_id?: string | null
+          checked?: number
+          failed?: number
+          findings?: Json
+          finished_at?: string
+          id?: string
+          preview_schema?: string
+          scope?: string[]
+          started_at?: string
+          status?: Database["public"]["Enums"]["recovery_run_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recovery_runs_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recovery_runs_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
       saved_views: {
         Row: {
           created_at: string
@@ -2060,6 +2114,7 @@ export type Database = {
         Returns: undefined
       }
       rebalance_project_keys: { Args: never; Returns: undefined }
+      rehearse_recovery: { Args: { p_scope: string[] }; Returns: string }
       reorder_criteria: {
         Args: { p_criterion_id: string; p_ordered_ids: string[] }
         Returns: string
@@ -2135,6 +2190,7 @@ export type Database = {
       client_contact_status: "invited" | "active" | "revoked"
       client_thread_state: "waiting_client" | "waiting_coditu" | "resolved"
       component_kind: "react" | "spfx"
+      recovery_run_status: "passed" | "failed"
       revision_surface:
         | "work_item_description"
         | "work_item_highlight"
@@ -2305,6 +2361,7 @@ export const Constants = {
       client_contact_status: ["invited", "active", "revoked"],
       client_thread_state: ["waiting_client", "waiting_coditu", "resolved"],
       component_kind: ["react", "spfx"],
+      recovery_run_status: ["passed", "failed"],
       revision_surface: [
         "work_item_description",
         "work_item_highlight",

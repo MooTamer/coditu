@@ -33,17 +33,23 @@ export interface RevealProps {
   children?: ReactNode;
 
   /**
-   * Forwarded, and declared rather than spread from a rest parameter, because
-   * neither of these arrived before.
+   * Every other `aria-*` and `data-*` attribute, forwarded.
    *
-   * `Reveal` takes an explicit prop list and TypeScript does not check JSX
-   * attributes whose names are not valid identifiers — every `aria-*` and
-   * `data-*` one. So `<Reveal as="section" aria-labelledby="team">` compiled,
-   * read as finished, and dropped the attribute on the floor: the `<section>`
-   * reached the DOM with no accessible name, which means it is not exposed as a
-   * landmark at all. Settings and People had been doing this since they were
-   * written.
+   * TypeScript does not check a JSX attribute whose name is not a valid
+   * identifier, so before this existed `<Reveal as="section"
+   * aria-labelledby="team">` compiled, type-checked, linted, read as finished —
+   * and dropped the attribute on the floor. The `<section>` reached the DOM
+   * with no accessible name, which means it was not exposed as a landmark at
+   * all, and Settings and People had been doing it since they were written.
+   *
+   * The first fix declared `aria-labelledby` and `aria-label` by name. That
+   * closed the two cases that had already happened and left the trap in place:
+   * W10 lost a `data-identity` hook to it and W12 lost a `data-infrastructure`
+   * one, each time silently, each time found only by a spec timing out on an
+   * element that was never rendered. An index signature is the fix that makes
+   * the next one impossible rather than merely documented.
    */
+  [attribute: `data-${string}`]: unknown;
   "aria-labelledby"?: string;
   "aria-label"?: string;
 }
@@ -84,6 +90,7 @@ export function Reveal({
   children,
   "aria-labelledby": ariaLabelledBy,
   "aria-label": ariaLabel,
+  ...rest
 }: RevealProps) {
   const Component = (as ?? "div") as ElementType;
 
@@ -97,6 +104,7 @@ export function Reveal({
       data-reveal-on-view={onView ? "" : undefined}
       aria-labelledby={ariaLabelledBy}
       aria-label={ariaLabel}
+      {...rest}
       className={cn(className)}
       style={computedDelay ? { animationDelay: `${computedDelay}s`, ...style } : style}
     >

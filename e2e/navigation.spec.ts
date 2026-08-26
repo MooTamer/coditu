@@ -44,6 +44,7 @@ test.describe("navigation feedback", () => {
       "app/app/profile",
       "app/app/earnings",
       "app/app/history",
+      "app/app/settings/recovery",
     ];
 
     const missing = segments.filter((segment) => !existsSync(`${segment}/loading.tsx`));
@@ -121,6 +122,7 @@ test.describe("navigation feedback", () => {
       ["/app/profile", "Loading your profile"],
       ["/app/settings/payouts", "Loading team payouts"],
       ["/app/history", "Loading version history"],
+      ["/app/settings/recovery", "Loading backup and recovery"],
     ];
 
     for (const [path, label] of shapes) {
