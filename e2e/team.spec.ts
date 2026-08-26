@@ -80,7 +80,13 @@ test.describe("the team", () => {
 
     await button.click();
     await expect.poll(async () => (await readSubject()).active, { timeout: 8000 }).toBe(false);
-    await expect(page.getByText("deactivated")).toBeVisible();
+    // Scoped to the row. Since W9 the safety notes on this page also contain
+    // the word — `getByText` matches substrings, so an unscoped assertion
+    // resolves to three elements and fails on strict mode rather than on
+    // anything being wrong.
+    await expect(
+      page.locator("[data-team-member]").filter({ hasText: NAME }).getByText("deactivated")
+    ).toBeVisible();
 
     // They are gone from the places that decide who can be given work.
     const [assignable] = await query<{ n: string }>(
@@ -113,21 +119,38 @@ test.describe("the team", () => {
     // ordinary controls.
     const self = page.locator("[data-team-member][data-self]");
     await expect(self).toHaveCount(1);
-    await expect(self).toContainText("· you");
-    await expect(self.locator("select")).toHaveCount(0);
-    // Named, not counted. This used to assert "no buttons at all", which held
-    // only while your own row had no controls of any kind — and then weekly
-    // capacity became editable and the row grew a stepper, so a passing test
-    // turned red over a control that is deliberately there. Capacity is not a
-    // way to lock yourself out of the tool; a role change and a deactivation
-    // are, and those are what this test is about.
-    await expect(self.getByRole("button", { name: /Deactivate/ })).toHaveCount(0);
-    await expect(self.getByRole("button", { name: /access again/ })).toHaveCount(0);
-    await expect(self.getByRole("combobox", { name: /Role for/ })).toHaveCount(0);
-    // The one control that IS expected, so this test fails if it disappears
-    // rather than silently passing on a row that has lost half its features.
+    await expect(self).toContainText("another admin has to change this");
+
+    /**
+     * **This assertion inverted in W9, deliberately.** It used to check the
+     * controls were ABSENT — no select, no Deactivate. They are present and
+     * disabled now, because absent is the one shape this app has said all along
+     * it does not do: a control that disappears reads as a bug, one that is
+     * there and says why reads as an answer. The design's own safety note is
+     * "both controls stay visible and say why".
+     *
+     * What the test is about has not changed: you cannot lock yourself out of
+     * the tool you run. `lib/actions/profiles.ts` still refuses the write; this
+     * is the half of the rule the reader can see.
+     */
+    const role = self.getByRole("combobox", { name: /Role for/ });
+    await expect(role).toBeDisabled();
+    await expect(role).toHaveAttribute("title", /cannot change your own role/);
+
+    const deactivate = self.getByRole("button", { name: /cannot deactivate yourself/ });
+    await expect(deactivate).toBeDisabled();
+    await expect(deactivate).toHaveAttribute("title", /Ask another admin/);
+
+    await expect(
+      self.getByRole("button", { name: /cannot set a temporary password for yourself/ })
+    ).toBeDisabled();
+
+    // Capacity is not a way to lock yourself out of the tool, so it stays
+    // editable — and naming it here means this test fails if the row quietly
+    // loses half its features rather than silently passing.
     await expect(self.getByRole("status", { name: /weekly capacity/ })).toHaveCount(1);
     await expect(self.getByRole("button", { name: /Half an hour (more|less) for/ })).toHaveCount(2);
+    await expect(self.getByRole("button", { name: /Half an hour more for/ })).toBeEnabled();
   });
 
   test("an engineer sees roles as text, with no controls", async ({ page }) => {

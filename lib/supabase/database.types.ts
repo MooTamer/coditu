@@ -50,6 +50,78 @@ export type Database = {
           },
         ]
       }
+      access_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          from_value: string | null
+          id: string
+          kind: Database["public"]["Enums"]["access_event_kind"]
+          project_id: string | null
+          subject_id: string | null
+          subject_label: string
+          to_value: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["access_event_kind"]
+          project_id?: string | null
+          subject_id?: string | null
+          subject_label: string
+          to_value?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          from_value?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["access_event_kind"]
+          project_id?: string | null
+          subject_id?: string | null
+          subject_label?: string
+          to_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "access_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_events_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_events_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
       activity: {
         Row: {
           actor_id: string | null
@@ -2039,6 +2111,13 @@ export type Database = {
       }
     }
     Enums: {
+      access_event_kind:
+        | "role"
+        | "activation"
+        | "allowlist"
+        | "client_contact"
+        | "client_grant"
+        | "temporary_password"
       account_kind: "internal" | "client"
       app_role: "admin" | "lead" | "engineer"
       client_capability:
@@ -2200,6 +2279,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      access_event_kind: [
+        "role",
+        "activation",
+        "allowlist",
+        "client_contact",
+        "client_grant",
+        "temporary_password",
+      ],
       account_kind: ["internal", "client"],
       app_role: ["admin", "lead", "engineer"],
       client_capability: [

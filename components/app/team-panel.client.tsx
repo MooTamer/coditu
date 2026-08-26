@@ -211,14 +211,25 @@ function PersonRow({
             </span>
             {!active ? <ToneChip tone="slate">deactivated</ToneChip> : null}
           </span>
-          {isAdmin && !isSelf ? (
+          {/* Your own row keeps the control and disables it. It used to render
+              the role as a word instead, which is the one shape this app has
+              said all along it does not do: a control that disappears reads as
+              a bug, and one that is present and says why reads as an answer.
+              `lib/actions/profiles.ts` refuses the write either way — this is
+              the half of the rule the reader can see. */}
+          {isAdmin ? (
             <label className="mt-1 block">
               <span className="sr-only">{`Role for ${person.fullName}`}</span>
               <select
                 value={role}
-                disabled={pending}
+                disabled={pending || isSelf}
+                title={
+                  isSelf
+                    ? "You cannot change your own role. Ask another admin — it takes a second person to undo."
+                    : undefined
+                }
                 onChange={(event) => changeRole(event.target.value as AppRole)}
-                className="h-[28px] rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-2 font-mono text-[11px] text-[var(--ink)] disabled:opacity-60"
+                className="h-[28px] rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-2 font-mono text-[11px] text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {APP_ROLES.map((option) => (
                   <option key={option} value={option}>
@@ -226,6 +237,11 @@ function PersonRow({
                   </option>
                 ))}
               </select>
+              {isSelf ? (
+                <Mono size="meta" className="mt-1 block text-[var(--ink-faint)]">
+                  you — another admin has to change this
+                </Mono>
+              ) : null}
             </label>
           ) : (
             <Mono
@@ -309,16 +325,21 @@ function PersonRow({
           everyone else's. */}
       {isAdmin ? (
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {isSelf ? null : (
-            <button
-              type="button"
-              onClick={issueTemporaryPassword}
-              disabled={pending || !active}
-              aria-label={`Set a temporary password for ${person.fullName}`}
+          <button
+            type="button"
+            onClick={issueTemporaryPassword}
+              disabled={pending || !active || isSelf}
+              aria-label={
+                isSelf
+                  ? "You cannot set a temporary password for yourself"
+                  : `Set a temporary password for ${person.fullName}`
+              }
               title={
-                active
-                  ? "Generates a password, shows it once, and requires them to choose their own before the app opens."
-                  : "They have no access at all while deactivated."
+                isSelf
+                  ? "Change your own password from your profile — a temporary one is what an admin issues to somebody else."
+                  : active
+                    ? "Generates a password, shows it once, and requires them to choose their own before the app opens."
+                    : "They have no access at all while deactivated."
               }
               className={cn(
                 "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-control border px-3 text-[12.5px]",
@@ -329,21 +350,23 @@ function PersonRow({
               <KeyRound size={13} strokeWidth={1.8} aria-hidden />
               Temporary password
             </button>
-          )}
-          {isSelf ? null : (
-            <button
-              type="button"
-              onClick={toggleActive}
-              disabled={pending}
+          <button
+            type="button"
+            onClick={toggleActive}
+              disabled={pending || isSelf}
               aria-label={
-                active
-                  ? `Deactivate ${person.fullName}`
-                  : `Give ${person.fullName} access again`
+                isSelf
+                  ? "You cannot deactivate yourself"
+                  : active
+                    ? `Deactivate ${person.fullName}`
+                    : `Give ${person.fullName} access again`
               }
               title={
-                active
-                  ? "They lose access immediately. Their hours and comments stay exactly where they are."
-                  : "They can sign in again, and reappear in the assignee and mention lists."
+                isSelf
+                  ? "You cannot deactivate yourself. Ask another admin — otherwise one misclick locks you out of the tool you administer."
+                  : active
+                    ? "They lose access immediately. Their hours and comments stay exactly where they are."
+                    : "They can sign in again, and reappear in the assignee and mention lists."
               }
               className={cn(
                 "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-control border px-3 text-[12.5px]",
@@ -360,7 +383,6 @@ function PersonRow({
               )}
               {active ? (confirming ? "Confirm?" : "Deactivate") : "Reactivate"}
             </button>
-          )}
         </div>
       ) : null}
 

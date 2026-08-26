@@ -1542,7 +1542,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `done` | `f491856` | one `aria-current` **per navigation** (the trail's last crumb is the ARIA breadcrumb pattern — see `05-DECISIONS.md`) · zero overflow at 13 widths + 200% · axe · `budgets` **OK 74.6/110, 214.6/220** · `test` **293** · `db:test` **338** · full e2e `--workers=1` **550 passed**, 1 contention failure that passes alone · rail 12/12, navigation 15/15, home 8/8. **Favourites and recents deferred** to W7/W9, recorded rather than faked |
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `done` | `pending` | **W7a comparator + W7b sorting + W7c filters + W7d saved views:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **W7d:** `test` **345** · `db:test` **351** (13 new RLS) · `budgets` **OK 79.6/110 own, 219.7/220 total** · saved-views **6/6**. **Deferred to W8:** favourites, which this unblocks |
 | W8 | **Projects and project home**, the favourites W6 deferred, and the budget paid back | `done` | `pending` | the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px; favourites are a table, a star on three surfaces and a sidebar section · projects 7/7, project-home 8/8, favourites 5/5, all incl. axe · `test` **375** · `db:test` **364** · `budgets` **own OK 75.7/110; §5 total 215.7/220 after W8d** |
-| W9 | **People & Access** — six sections, safety states, the per-project client grant editor | `todo` | | pgTAP self-demote / self-deactivate / last-admin · e2e disabled-and-explained |
+| W9 | **People & Access** — the access log, the roles matrix, safety states made visible | `done` | `pending` | `access_events` written by triggers and writable by nobody · 12 new pgTAP incl. three write refusals · e2e **disabled-and-explained** on all three self controls · `test` **382** · `db:test` **376** · `budgets` **OK 75.7/110, 215.7/220**. Client contacts stay on `/app/clients` — see `05-DECISIONS.md` |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `todo` | | `tests/earnings-boundary.test.ts` extended, both ways |
 | W11 | **Version history UI and Trash** | `todo` | | e2e restore returns comments and versions |
 | W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `todo` | | e2e rehearsal pass **and** fail, live rows untouched |
@@ -3076,3 +3076,74 @@ total 215.7 / 220, 4.3 under** · export, new-item and palette-realtime **29/29*
 which is what proves a lazily-imported dialog still opens.
 
 **Next:** W9 — People & Access.
+
+## W9 — the access log that was deferred five phases ago, and three controls that were hidden
+
+`access_events`, migration `20260826140000` — **the twelfth production has never
+seen.** Deferred from W4 to here in the order `05-DECISIONS.md` recorded, because
+until this screen existed it had no writer and no reader.
+
+**Written by triggers, not by the actions that cause the changes.** A line in an
+action can be forgotten by whoever adds the sixth way to grant access, and a log
+with a hole in it is worse than no log — the hole is invisible and the rest still
+looks complete. A trigger also catches a write from the SQL console, the
+service-role client or a migration, which are exactly the writes somebody comes
+to an audit trail asking about.
+
+**Nobody may write it, including an admin.** The trigger functions are
+`security definer`; there is no insert, update or delete grant. pgTAP asserts all
+three refusals, because an audit row an admin can forge is not evidence.
+
+### And one that was nearly true
+
+Reading the grants rather than assuming them: this project gives `authenticated`
+`REFERENCES, SELECT, TRIGGER, **TRUNCATE**` on **every** table by default — and
+`truncate` **bypasses row-level security entirely**, because policies filter rows
+and a truncate does not visit any. Not reachable through PostgREST, which cannot
+issue one, but "append-only" should be true rather than nearly true. Revoked on
+`access_events`; the general fact is in `07-FIELD-NOTES.md`, and it applies to
+`activity` and every other table here.
+
+### The safety states were hidden, and the design said they should not be
+
+Your own row rendered your role as a word and dropped the deactivate and
+temporary-password controls entirely. Absent is the one shape this app has said
+all along it does not do — Export and New item have carried "disabled with a
+tooltip, never hidden" since the shell was built. All three are present and
+disabled now, each with a `title` saying why. Nothing about the enforcement
+moved: `lib/actions/profiles.ts` refuses the write either way.
+
+`e2e/team.spec.ts`'s assertion **inverted** — it used to check the controls were
+absent — and says so in place, so the next reader knows it was a decision.
+
+### Four sections, not the design's six
+
+Client contacts stay on `/app/clients` (a decision on the record before the
+design arrived, and the design loses this one on behaviour). `Deactivated` is not
+a section because deactivated people are already in the team list with the
+control that brings them back. There is no `Invitations` state machine, because
+this app allowlists an address and the person signs up — inventing pending /
+expired / withdrawn to fill a tab would be inventing a feature.
+
+`Roles & permissions` is new and is documentation: fifteen capabilities × three
+roles, each row naming **where the rule is really enforced**, so a reader who
+suspects the table has gone stale knows which of the two to trust. Today the only
+way to learn what you may do is to try something and read the refusal.
+
+### Two tests that were asserting more than they meant
+
+`team.spec.ts` → *deactivating takes access away* used an unscoped
+`getByText("deactivated")`, which the new safety notes made match three
+elements. Scoped to the row. Same class as W8a's `getByText("EVIM")`.
+
+`db:seed` inserts four allowlist addresses, so a fresh database opens with four
+`system` entries in the history — the seed being honest about how the workspace
+came to exist. The e2e counts the difference a click makes rather than assuming
+a blank slate.
+
+`test` **382** (7 new) · `lint`, `typecheck` clean · `db:test` **376** (12 new)
+after a `db:reset` · `budgets` **own OK 75.7 / 110; §5 total 215.7 / 220** ·
+access **8/8** incl. axe, the grant assertion and two more browser contexts ·
+team 9/9 · a11y 15/15 · my-work-people-import green.
+
+**Next:** W10 — Profile, Workspace Settings, My Earnings, Team Payouts.

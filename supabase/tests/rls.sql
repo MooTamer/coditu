@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(300);
+select plan(312);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -2931,6 +2931,124 @@ select throws_ok(
   '42501',
   null,
   'negative: anonymous cannot read favourites'
+);
+
+select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- Access events — written only by triggers, readable only by admins and leads,
+-- and writable by nobody at all.
+--
+-- The negative assertions are most of the point: an audit row that an admin can
+-- forge or delete is not evidence of anything.
+--
+-- Every count below is scoped to ITS OWN subject. The first version counted
+-- `kind = 'role'` across the table and found three, because earlier blocks in
+-- this file change roles too and the trigger recorded every one of them — which
+-- is the trigger working, and a badly written assertion.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+
+-- A real access change, made the way the application makes it.
+update public.profiles set role = 'lead' where id = '33333333-3333-3333-3333-333333333333';
+
+select is(
+  (select count(*)::int from public.access_events
+    where kind = 'role' and subject_id = '33333333-3333-3333-3333-333333333333'
+      and from_value = 'engineer' and to_value = 'lead'),
+  1,
+  'changing a role wrote an access event without anybody asking it to'
+);
+
+select is(
+  (select actor_id from public.access_events
+    where kind = 'role' and subject_id = '33333333-3333-3333-3333-333333333333'
+      and from_value = 'engineer' and to_value = 'lead'),
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  'and the event names the admin who made it, from auth.uid()'
+);
+
+-- Deactivation is a second event, not the same one.
+update public.profiles set is_active = false where id = '33333333-3333-3333-3333-333333333333';
+select is(
+  (select count(*)::int from public.access_events
+    where kind = 'activation' and subject_id = '33333333-3333-3333-3333-333333333333'
+      and to_value = 'deactivated'),
+  1,
+  'deactivating writes its own event, because it is a different thing to read'
+);
+
+-- The allowlist has no profile behind it, which is the whole point of one.
+insert into public.allowed_emails (email, note) values ('rls-probe@coditu.test', 'pgTAP');
+select is(
+  (select count(*)::int from public.access_events
+    where kind = 'allowlist' and subject_label = 'rls-probe@coditu.test' and to_value = 'invited'),
+  1,
+  'an allowlist event names the address, since there is no account yet'
+);
+select is(
+  (select subject_id from public.access_events
+    where kind = 'allowlist' and subject_label = 'rls-probe@coditu.test' and to_value = 'invited'),
+  null,
+  'and has no subject profile'
+);
+
+delete from public.allowed_emails where email = 'rls-probe@coditu.test';
+select is(
+  (select count(*)::int from public.access_events
+    where kind = 'allowlist' and subject_label = 'rls-probe@coditu.test'),
+  2,
+  'withdrawing it writes a second event rather than removing the first'
+);
+
+-- Nobody may write this table through the application, including the admin who
+-- caused every row in it.
+select throws_ok(
+  $$insert into public.access_events (subject_label, kind, to_value)
+    values ('forged', 'role', 'admin')$$,
+  '42501',
+  null,
+  'negative: an admin cannot forge an access event'
+);
+
+select throws_ok(
+  $$update public.access_events set to_value = 'engineer'$$,
+  '42501',
+  null,
+  'negative: an admin cannot edit one'
+);
+
+select throws_ok(
+  $$delete from public.access_events$$,
+  '42501',
+  null,
+  'negative: an admin cannot delete one'
+);
+
+-- A lead reads it — they are the ones who notice when something is wrong.
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select ok(
+  (select count(*)::int from public.access_events) >= 4,
+  'a lead reads the access history'
+);
+
+-- An engineer does not. Rows, not an error: the policy returns nothing and the
+-- page says why, which is the same shape as every other refused read here.
+-- Eve was demoted to `lead` above, so this uses the engineer who was not.
+select pg_temp.act_as('44444444-4444-4444-4444-444444444444');
+select is(
+  (select count(*)::int from public.access_events),
+  0,
+  'negative: an engineer reads no access history'
+);
+
+select pg_temp.act_as_anon();
+select throws_ok(
+  'select count(*) from public.access_events',
+  '42501',
+  null,
+  'negative: anonymous cannot read access history'
 );
 
 select pg_temp.act_as_owner();

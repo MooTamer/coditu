@@ -1518,3 +1518,58 @@ route that passes, copy its `measure()` — a Playwright page with a
 built files with the string markers above. That is how the two numbers in the
 note above were taken. Keep the script out of git: `/scripts/.*.local.mjs` is
 already ignored.
+
+
+### `authenticated` may `truncate` every table, and `truncate` ignores RLS
+
+Reading the grants on a new table, expecting to see only what its migration
+added:
+
+```sql
+select table_name, string_agg(privilege_type, ',' order by privilege_type)
+  from information_schema.role_table_grants
+ where grantee = 'authenticated'
+ group by 1;
+```
+
+```
+access_events   REFERENCES,SELECT,TRIGGER,TRUNCATE
+activity        REFERENCES,SELECT,TRIGGER,TRUNCATE
+saved_views     DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE
+```
+
+`TRUNCATE` is there on **every** table, from this project's default privileges,
+and it is the one write that **row-level security cannot touch** — policies are
+row filters, and a truncate does not visit rows. A table whose migration says
+"no write grant" still has that one.
+
+Not reachable through PostgREST, which has no way to issue a truncate, so this
+is not an open door today. It matters for anything whose value is that it cannot
+be emptied: `access_events` revokes it explicitly, and any future audit or
+append-only table should too.
+
+**The general form: a `grant` line in a migration says what was ADDED, never
+what the role holds.** Read `information_schema.role_table_grants` when the
+answer matters, and assert it in a test — `e2e/access.spec.ts` checks the four
+write privileges are absent rather than checking the whole set equals `SELECT`,
+because `REFERENCES` and `TRIGGER` are there too and neither writes a row.
+
+### A trigger sees `auth.uid()` through PostgREST, and null everywhere else
+
+`access_events` is written by `security definer` triggers that record
+`(select auth.uid())` as the actor. Both halves of that are worth knowing:
+
+- Through the app it is the signed-in person. Verified end to end rather than
+  assumed — an invite added through the ordinary form on `/app/people` produced
+  *"Mohamed Tamer invited …"*, which is the assertion `e2e/access.spec.ts`
+  makes, because a trigger that could not see the session would write `system`
+  and still look like it worked.
+- From `psql`, a migration, or the service-role client it is **null**, and the
+  row reads `system`. That is not a gap to paper over: those are exactly the
+  writes an audit trail is asked about afterwards, and giving them an invented
+  author would be the one lie the table must not tell.
+
+*And a consequence:* `db:seed` inserts allowlist rows, so a freshly reset local
+database opens with `system` entries already in the history. A test that asserts
+an empty log will pass once and fail after the next `db:reset`; count the
+difference an action makes instead.

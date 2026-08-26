@@ -3774,3 +3774,66 @@ first press starts a download instead of opening a dialog is a worse thing than 
 *The general rule this leaves behind:* a client component that renders something conditionally should
 import it conditionally. `{open ? <Heavy /> : null}` with `import { Heavy }` at the top of the file
 ships `Heavy` to every page that renders the parent.
+
+## The access log is written by triggers, and nobody may write it
+
+**Decided 2026-08-26, W9.** `access_events` was deferred from W4 to here because it had no writer and
+no reader until this screen existed. It has both now.
+
+**Triggers, not Server Actions.** Every row could have been an `insert` beside the write it records.
+It is a trigger because of what an audit log is *for*: a line in an action can be forgotten by whoever
+adds the sixth way to grant access, and a log with a hole in it is worse than no log — the hole is
+invisible and the rest still looks complete. A trigger also catches what no action can: a write from
+the SQL console, the service-role client, or a migration, which are exactly the writes somebody comes
+to an audit trail asking about.
+
+**No write grant exists.** Not for an admin either. The trigger functions are `security definer` so
+they write regardless; every other route in is closed, and pgTAP asserts all three refusals. An audit
+row an admin can forge, edit or delete is not evidence of anything.
+
+*And one that was nearly true:* this project grants `REFERENCES, SELECT, TRIGGER, **TRUNCATE**` to
+`authenticated` on every table by default, and **`truncate` bypasses row-level security entirely** —
+no policy can stop one. It is not reachable through PostgREST, which cannot issue a `truncate`, but
+"append-only" should be true rather than nearly true, so the migration revokes it. `07-FIELD-NOTES.md`
+records that the default applies to every other table here too.
+
+*A consequence to expect rather than to fix:* `db:seed` inserts four allowlist addresses, so a fresh
+local database opens with four `system` entries in the history. That is the seed being honest about
+how the workspace came to exist, and the e2e counts the difference a click makes rather than assuming
+a blank slate.
+
+## The safety states are visible and disabled, not absent
+
+**Decided 2026-08-26, W9.** Your own row on `/app/people` used to render your role as a word and drop
+the deactivate and temporary-password controls entirely. All three are present and disabled now, each
+with a `title` saying why.
+
+Absent was the one shape this application has said all along it does not do — the topbar's Export and
+New item have carried "disabled with a tooltip, never hidden" since the shell was built, and the
+design's own safety note is *"both controls stay visible and say why"*. A control that disappears
+reads as a bug; one that is there and explains itself reads as an answer.
+
+Nothing about the enforcement changed: `lib/actions/profiles.ts` refuses the write either way, and it
+is still the only place the three rules live, because none of them is expressible as "which rows may
+this session touch". `e2e/team.spec.ts`'s assertion **inverted** — it used to check the controls were
+absent — and says so in place, so the next reader knows it was a decision rather than a slip.
+
+## The People screen has four sections, not the design's six
+
+**Decided 2026-08-26, W9.**
+
+- **Client contacts stay on `/app/clients`.** The design puts them in a tab here. `05-DECISIONS.md`
+  put them on their own route before the design arrived, with an argument that still holds: People is
+  about the team, that is about somebody who does not work here, and the email-and-note form here
+  grants nothing while the one there grants everything a client sees. The design loses this one on
+  **behaviour**, which is the rule `CLAUDE.md` states.
+- **`Deactivated` is not a section.** Deactivated people are already in the team list, ordered last,
+  with the control that brings them back. A second list of the same rows is a second place to keep in
+  step.
+- **There is no `Invitations` state machine.** This app allowlists an address and the person signs up.
+  Inventing pending / expired / withdrawn states to fill a tab would be inventing a feature — the same
+  refusal W6d made about favourites' sample data.
+- **`Roles & permissions` is new, and it is documentation.** Nothing reads it to make a decision;
+  every line names where the rule is really enforced, so when a policy changes and the table goes
+  stale, the note beside it says which to trust. Today the only way to learn what you may do is to try
+  something and read the refusal.
