@@ -1396,3 +1396,77 @@ with `preset: "desktop"` and re-applied.
 
 **Use the pane to look, and Playwright or `element.click()` to drive.** A click that appears to do
 nothing there is not evidence of a broken handler.
+
+### A `lib/` module that imports zod ships zod to the browser
+
+`lib/saved-views.ts` held the URL helpers **and** the zod schema. `view-menu.client.tsx` imports
+`searchFromSpec` from it, so the whole module — zod included — went into the client bundle:
+
+```
+app shell (sprint table)   own   143.1 KB / 110 KB      (was 77.9)
+           75.9 KB  ad48a3bd42e6d99c.js
+```
+
+Nothing else noticed. `lint`, `typecheck`, `test`, `db:test` and every e2e spec were green; the
+feature worked perfectly. **`npm run budgets` is the only gate that can see this**, which is the
+argument for running it on any phase that adds a client component.
+
+The fix is a file split, not a smaller import: `lib/saved-views.ts` is pure and dependency-free,
+`lib/saved-views-schema.ts` holds the zod and is imported only by the server action and the server
+read model.
+
+The rule generalises: **anything under `lib/` that imports a heavy dependency is one client import
+away from being in the browser bundle.** `lib/data/*` is safe because `import "server-only"` fails the
+build; a plain `lib/*.ts` has nothing stopping it.
+
+To find what a chunk actually contains:
+
+```bash
+grep -l "ZodObject\|zodError" .next/static/chunks/*.js | head
+```
+
+### PostgREST's `on_conflict` takes column names, not expressions
+
+A unique index on `lower(btrim(name))` expresses "one name per person, whatever its case" correctly
+and cannot be used as an upsert target:
+
+```
+{"code":"42703","message":"column \"lower\" does not exist"}
+```
+
+In the UI that arrives as a generic "could not be saved" and reads like an RLS problem, because that
+is where you look first when a write fails. A **stored generated column** holding the same fold —
+`name_key text generated always as (lower(btrim(name))) stored` — is a name PostgREST can point at.
+
+Worth checking directly rather than guessing, which takes one curl:
+
+```bash
+curl -s -X POST "$SUPABASE_URL/rest/v1/<table>?on_conflict=<cols>" \
+  -H "apikey: $ANON" -H "Authorization: Bearer $TOKEN" \
+  -H "Prefer: resolution=merge-duplicates" -d '{…}'
+```
+
+### RLS is not a grant, and the error says so in the wrong direction
+
+A new table with perfect policies still answers `42501 permission denied for table saved_views`,
+because a policy says which ROWS a role may touch and a grant says whether the role may touch the
+table at all. The hint even tells you:
+
+```
+HINT:  Grant the required privileges to the current role with: GRANT INSERT ON public.saved_views TO authenticated;
+```
+
+Every `create table` in this schema needs its `grant … to authenticated` line. And the corollary is
+worth keeping: `anon` deliberately has **no** grant, so an anonymous read fails with `42501` rather
+than returning zero rows — which is the stronger result, and the reason `rls.sql` asserts anonymous
+denial with `throws_ok` rather than a count.
+
+### An e2e that asserts the ABSENCE of a row is coupled to every row anybody made
+
+`saved-views.spec.ts` opened a filtered sprint and asserted the control read `Custom view` — that is,
+that **no saved view matched that URL**. It passed until a view saved by hand while testing matched
+it, and then failed on an assertion that had nothing to do with the change.
+
+Assert absence against something only this test could have created — a filter value nobody would
+save — rather than against the state of the whole table. Same family as the note above about reading
+a seeded row by position: a test that depends on what is *not* there depends on everything.

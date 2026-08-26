@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(274);
+select plan(287);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -2672,6 +2672,147 @@ select is(
   0,
   'and purging took the words with it, not only the row'
 );
+
+-- ---------------------------------------------------------------------------
+-- Saved views — a saved QUESTION about a sprint, never a saved row set.
+--
+-- Positive and negative for every policy, plus the two constraints that carry
+-- invariant 1 and the "one name per person per project" rule.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+
+insert into public.saved_views (id, project_id, sprint_id, owner_id, name, spec, is_shared)
+values ('7a000000-0000-4000-8000-000000000001',
+        '40000000-0000-0000-0000-000000000001',
+        '50000000-0000-0000-0000-000000000001',
+        '33333333-3333-3333-3333-333333333333',
+        'Eve private', '{"status":["ready"]}'::jsonb, false),
+       ('7a000000-0000-4000-8000-000000000002',
+        '40000000-0000-0000-0000-000000000001',
+        null,
+        '33333333-3333-3333-3333-333333333333',
+        'Eve shared', '{"sort":"deadline:asc"}'::jsonb, true);
+
+select is(
+  (select count(*)::int from public.saved_views),
+  2,
+  'an engineer reads both of her own views, shared or not'
+);
+
+-- She may not create one owned by somebody else.
+select throws_ok(
+  $$insert into public.saved_views (project_id, owner_id, name)
+    values ('40000000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'Not mine')$$,
+  '42501',
+  null,
+  'a member cannot create a view in somebody else''s name'
+);
+
+-- Two views with the same name in one project is a menu nobody can use.
+select throws_ok(
+  $$insert into public.saved_views (project_id, owner_id, name)
+    values ('40000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333', '  eve PRIVATE ')$$,
+  '23505',
+  null,
+  'the same name in the same project is refused, whatever its case or padding'
+);
+
+-- INVARIANT 1, and the composite foreign key is what enforces it: a view in the
+-- Nile project cannot name EVIM's sprint.
+select throws_ok(
+  $$insert into public.saved_views (project_id, sprint_id, owner_id, name)
+    values ('40000000-0000-0000-0000-000000000002',
+            '50000000-0000-0000-0000-000000000001',
+            '33333333-3333-3333-3333-333333333333', 'Cross-project')$$,
+  '23503',
+  null,
+  'a view cannot name a sprint belonging to another project'
+);
+
+select throws_ok(
+  $$insert into public.saved_views (project_id, owner_id, name, spec)
+    values ('40000000-0000-0000-0000-000000000001',
+            '33333333-3333-3333-3333-333333333333', 'Array spec', '[]'::jsonb)$$,
+  '23514',
+  null,
+  'a spec that is not an object is refused by the database as well as by zod'
+);
+
+-- Another engineer sees the shared one and NOT the private one.
+select pg_temp.act_as('44444444-4444-4444-4444-444444444444');
+
+select is(
+  (select count(*)::int from public.saved_views),
+  1,
+  'another member sees the shared view and not the private one'
+);
+
+select is(
+  (select name from public.saved_views),
+  'Eve shared',
+  'and it is the shared one'
+);
+
+select is(
+  (select count(*)::int from public.saved_views
+    where id = '7a000000-0000-4000-8000-000000000001'),
+  0,
+  'the private view is invisible to everybody but its owner'
+);
+
+-- He cannot rename or delete somebody else's.
+update public.saved_views set name = 'Stolen'
+  where id = '7a000000-0000-4000-8000-000000000002';
+
+select is(
+  (select name from public.saved_views where id = '7a000000-0000-4000-8000-000000000002'),
+  'Eve shared',
+  'another member cannot rename a shared view — the update matches no row'
+);
+
+delete from public.saved_views where id = '7a000000-0000-4000-8000-000000000002';
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select is(
+  (select count(*)::int from public.saved_views),
+  2,
+  'and cannot delete one either'
+);
+
+-- An admin can take a shared view down without asking its owner. Same rule as
+-- `edit own comment`: who may write is the author or an admin.
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+
+delete from public.saved_views where id = '7a000000-0000-4000-8000-000000000002';
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select is(
+  (select count(*)::int from public.saved_views),
+  1,
+  'an admin can remove a shared view that its owner is not around to remove'
+);
+
+-- A client contact reaches none of it, like every other internal table.
+select pg_temp.act_as('c0000000-0000-4000-8000-000000000001');
+select is(
+  (select count(*)::int from public.saved_views),
+  0,
+  'a client contact reads no saved view at all'
+);
+
+-- `42501` rather than politely returning zero rows: `anon` holds no grant on
+-- this table at all, which is the stronger result and the same one every other
+-- internal table gives. See the note at the anonymous block above.
+select pg_temp.act_as_anon();
+select throws_ok(
+  'select count(*) from public.saved_views',
+  '42501',
+  null,
+  'negative: anonymous cannot read saved views'
+);
+
+select pg_temp.act_as_owner();
 
 select * from finish();
 rollback;

@@ -3518,3 +3518,64 @@ escaping the table's own scroll box — so this is the house answer applied one 
 
 Verified against every dialog in the app: 198 specs across `new-item`, `export`, `components`,
 `item-detail`, `trash`, `team`, `settings`, `mobile` and `a11y`, on three devices.
+
+## A saved view stores the question, and the question is a query string
+
+**Decided 2026-08-26, W7d.** `saved_views` per §5.5, and `spec` is a flat record of the parameters
+the URL already carries — `status`, `component`, `match`, `type`, `assignee`, `reviewer`, `grouping`,
+`q`, `sort`, `view`, `density`. Applying a view is a navigation; saving one is
+`specFromSearch(location.search)`.
+
+*Why not a shape of its own:* a saved view could re-express all of that as its own object, and then
+there are two vocabularies to keep in step, two parsers, and a migration every time a filter is added.
+As it is, a filter added later is saved and restored the day it is added, by adding one word to
+`VIEW_PARAMS`.
+
+*Never a row set — and the allowlist is what guarantees it, not a convention.* There is no key that
+could hold a list of work items, so a view cannot be a stale snapshot of twelve stories and cannot
+leak a row somebody may not read. What a view returns is recomputed by the same filters and the same
+RLS as a URL typed by hand.
+
+*Validated on read as well as on write*, because rows outlive the code that wrote them: a value
+retired by a later rename, a key removed from the allowlist, a spec edited straight into the database.
+An unusable spec opens the unfiltered sprint rather than throwing — a recoverable disappointment
+beats a screen nobody can get past.
+
+### Invariant 1 is a composite foreign key, not a trigger
+
+A view belongs to a project and may also name a sprint. If it does, that sprint must belong to the
+same project — otherwise a Nile view could point at EVIM's Week 17, which is the shape of leak
+invariant 1 exists to prevent.
+
+`sprints` gained `unique (id, project_id)` — redundant on its own — so `(sprint_id, project_id)` has
+something to reference. A trigger could check the same thing; a foreign key cannot be forgotten.
+
+### Who may change one: the owner, or an admin
+
+The same rule as `edit own comment`, and for the same reason. A shared view sits in everybody's menu,
+and an admin has to be able to take one down without waiting for its author to come back from leave.
+Widening it further would let a lead rename somebody's private view, which is not a delivery decision.
+
+There is no `if (owner_id === me)` in the actions. The policy already says it, so a write that is not
+allowed matches **no row** — and the action reports that rather than re-deciding it.
+
+*Saving twice under one name is an overwrite*, and the button says `Update “…”` before it is pressed.
+The alternative is an error somebody resolves by inventing `Peer review queue 2`.
+
+### `name_key`, because PostgREST cannot upsert onto an expression
+
+The uniqueness rule is one name per person per project, case- and padding-insensitive. Expressed as a
+unique index on `lower(btrim(name))` it is correct and **unusable**: PostgREST's `on_conflict` takes
+column names, and an expression comes back as `42703 column "lower" does not exist` — which surfaces
+in the UI as "that view could not be saved" and looks like a policy problem. A stored generated column
+holds the same fold and can be named.
+
+### The view control is a panel, not the dropdown the design draws
+
+A `position: absolute` dropdown in the toolbar is trapped for the same reason the filter panel's scrim
+was: `<Reveal>` sets a transform, which creates a stacking context, and `z-50` inside one cannot paint
+above a *sibling* context later in the document — the table. The menu opened underneath the table.
+
+`DialogShell` is already portalled and is already what the Filter control beside it opens, so the
+toolbar's controls now open the same kind of surface — and it is a sheet on a phone, where a dropdown
+would have been unusable anyway.

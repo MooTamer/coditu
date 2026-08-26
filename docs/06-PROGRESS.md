@@ -1540,7 +1540,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, revisions, version history, `/app/trash` | `done` | `72853ed` | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `done` | `34b7d7e` | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `done` | `f491856` | one `aria-current` **per navigation** (the trail's last crumb is the ARIA breadcrumb pattern — see `05-DECISIONS.md`) · zero overflow at 13 widths + 200% · axe · `budgets` **OK 74.6/110, 214.6/220** · `test` **293** · `db:test` **338** · full e2e `--workers=1` **550 passed**, 1 contention failure that passes alone · rail 12/12, navigation 15/15, home 8/8. **Favourites and recents deferred** to W7/W9, recorded rather than faked |
-| W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `wip` | | **W7a comparator + W7b sorting + W7c filters done:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **Outstanding:** saved views |
+| W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `done` | `pending` | **W7a comparator + W7b sorting + W7c filters + W7d saved views:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **W7d:** `test` **345** · `db:test` **351** (13 new RLS) · `budgets` **OK 79.6/110 own, 219.7/220 total** · saved-views **6/6**. **Deferred to W8:** favourites, which this unblocks |
 | W8 | **Projects and project home** | `todo` | | e2e search/filter/archived · axe |
 | W9 | **People & Access** — six sections, safety states, the per-project client grant editor | `todo` | | pgTAP self-demote / self-deactivate / last-admin · e2e disabled-and-explained |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `todo` | | `tests/earnings-boundary.test.ts` extended, both ways |
@@ -2812,3 +2812,65 @@ mobile-chrome.
 **Next:** W7d — saved views. The table `…_saved_views.sql` from §5.5, a zod'd
 `spec` holding filter/sort/mode and never a row set, and the favourites that
 W6 deferred until this existed.
+
+## W7d — saved views, and the 65 KB only the budget could see
+
+`saved_views` per §5.5, migration `20260826090000`. **The spec is a query
+string** — the same parameters the URL already carries — so applying a view is a
+navigation and a filter added later is saved and restored the day it is added,
+by adding one word to `VIEW_PARAMS`. It holds **never a row set**, and that is
+the allowlist rather than a convention: there is no key that could name a story,
+so a view cannot be a stale snapshot and cannot leak a row somebody may not read.
+
+**Invariant 1 is a composite foreign key.** A view belongs to a project and may
+name a sprint; `sprints` gained `unique (id, project_id)` — redundant on its own
+— so `(sprint_id, project_id)` has something to reference. A trigger could check
+the same thing. A foreign key cannot be forgotten.
+
+**Who may change one: the owner, or an admin**, the same rule as `edit own
+comment`. There is no ownership branch in the actions — the policy already says
+it, so a refused write matches no row and the action reports that rather than
+re-deciding it. 13 new pgTAP assertions, positive and negative, including the
+cross-project sprint and the anonymous denial.
+
+### Four things found by running it rather than reading it
+
+**The budget caught a 65 KB regression nothing else could.**
+`lib/saved-views.ts` held the URL helpers *and* the zod schema, and
+`view-menu.client.tsx` imports one of those helpers — so zod went into the
+browser bundle. **143.1 KB against a 110 KB gate**, in a single 75.9 KB chunk,
+with `lint`, `typecheck`, `test`, `db:test` and every e2e spec green and the
+feature working perfectly. Split into `lib/saved-views.ts` (pure) and
+`lib/saved-views-schema.ts` (server-side only): **79.6 KB**.
+
+**PostgREST cannot upsert onto an expression.** The uniqueness rule is one name
+per person per project, case- and padding-insensitive; as a unique index on
+`lower(btrim(name))` it is correct and unusable — `on_conflict` takes column
+names and answers an expression with `42703 column "lower" does not exist`,
+which arrives in the UI as "that view could not be saved" and reads like a
+policy problem. A stored generated column holds the same fold.
+
+**RLS is not a grant.** Perfect policies still answered `42501 permission denied
+for table saved_views` until `grant … to authenticated` was added. The corollary
+is kept deliberately: `anon` has no grant at all, so `rls.sql` asserts anonymous
+denial with `throws_ok` rather than a count.
+
+**The dropdown opened underneath the table.** Same trap as W7c's scrim, one
+layer up: `<Reveal>` sets a transform, `z-50` inside one stacking context cannot
+paint above a sibling context later in the document. The view control is a
+`DialogShell` panel now — already portalled, already what the Filter button
+beside it opens, and a sheet on a phone where a dropdown would have been
+unusable anyway.
+
+*One thing to watch:* the §5 **total** budget is now **219.7 of 220 KB**. The own-code
+gate has 30 KB of room; the total has 0.3. W8 will need that measured before it
+adds anything to the shell.
+
+`test` **345** (14 new) · `lint`, `typecheck` clean · `db:test` **351** (13 new)
+after a `db:reset` · `budgets` **OK 79.6 / 110 own, 219.7 / 220 total** ·
+saved-views **6/6** incl. two contexts for a shared view and axe with the panel
+open · sprint-table 24/24 · a11y 15/15 · navigation 15/15.
+
+**W7 is done.** Next: W8 — projects and project home. **Favourites are now
+unblocked** — W6 deferred them until saved views existed, which they do; they
+are the first thing W8 should pick up, with the sidebar section W6d left out.

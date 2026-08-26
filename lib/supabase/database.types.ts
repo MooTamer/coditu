@@ -1176,6 +1176,88 @@ export type Database = {
           },
         ]
       }
+      saved_views: {
+        Row: {
+          created_at: string
+          id: string
+          is_shared: boolean
+          name: string
+          name_key: string | null
+          owner_id: string
+          project_id: string
+          spec: Json
+          sprint_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_shared?: boolean
+          name: string
+          name_key?: string | null
+          owner_id: string
+          project_id: string
+          spec?: Json
+          sprint_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_shared?: boolean
+          name?: string
+          name_key?: string | null
+          owner_id?: string
+          project_id?: string
+          spec?: Json
+          sprint_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_views_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_views_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "saved_views_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_views_sprint_in_project"
+            columns: ["sprint_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "sprints"
+            referencedColumns: ["id", "project_id"]
+          },
+          {
+            foreignKeyName: "saved_views_sprint_in_project"
+            columns: ["sprint_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["sprint_id", "project_id"]
+          },
+          {
+            foreignKeyName: "saved_views_sprint_in_project"
+            columns: ["sprint_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "v_sprint_summary"
+            referencedColumns: ["sprint_id", "project_id"]
+          },
+        ]
+      }
       sprint_payout_shares: {
         Row: {
           minutes_logged: number

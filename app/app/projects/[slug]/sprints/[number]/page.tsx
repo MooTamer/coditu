@@ -15,6 +15,7 @@ import {
 } from "@/lib/components";
 import { listComponents } from "@/lib/data/components";
 import { listActiveProfiles } from "@/lib/data/profiles";
+import { listSavedViews } from "@/lib/data/saved-views";
 import { getProjectBySlug } from "@/lib/data/projects";
 import {
   daysRemaining,
@@ -70,7 +71,7 @@ export default async function SprintPage({
   const profile = await getCurrentProfile();
   if (!profile) notFound();
 
-  const [burn, members, people, components, settings] = await Promise.all([
+  const [burn, members, people, components, settings, views] = await Promise.all([
     getBurnUp(sprint.id, sprint.startsOn, sprint.endsOn),
     getSprintMembers(sprint.id),
     // The assignee and reviewer menus. Request-cached, so the shell's copy and
@@ -83,6 +84,10 @@ export default async function SprintPage({
     // The image cap the notes editor enforces. From `app_settings`, because a
     // number in a `const` is a change request that needs a deploy.
     getAppSettings(),
+    // This project's saved views. RLS returns the reader's own plus everybody's
+    // shared ones, so the query says nothing about visibility and cannot
+    // disagree with the policy.
+    listSavedViews(project.id, profile.id),
   ]);
 
   // Filters are read from the URL and validated against the enum, so a
@@ -188,6 +193,8 @@ export default async function SprintPage({
           match={match}
           projectSlug={slug}
           filters={filters}
+          views={views}
+          sprintId={sprint.id}
           /* From the sprint's own rows, not from the whole team: a menu of
              people who have nothing here is a menu of empty tables. Sorted by
              initials so the order does not depend on the row order. */

@@ -6,9 +6,11 @@ import { SlidersHorizontal } from "lucide-react";
 
 import { ComponentMultiPicker } from "@/components/app/component-picker.client";
 import { FilterPanel } from "@/components/app/filter-panel.client";
+import { ViewMenu } from "@/components/app/view-menu.client";
 import { Mono } from "@/components/coditu/mono";
 import { COMPONENT_MATCHES, type ComponentMatch } from "@/lib/components";
 import type { ComponentRef } from "@/lib/data/components";
+import type { SavedView } from "@/lib/data/saved-views";
 import { activeFilterCount, type FilterSpec } from "@/lib/sprint-filters";
 import {
   STATUS_DISPLAY_ORDER,
@@ -46,6 +48,8 @@ export function FilterBar({
   filters,
   people,
   groupings,
+  views,
+  sprintId,
 }: {
   availableStatuses: WorkItemStatus[];
   /** Only the components this sprint actually touches. A menu of forty when
@@ -61,6 +65,10 @@ export function FilterBar({
   people: { initials: string; fullName: string }[];
   /** The groupings this sprint actually uses. */
   groupings: number[];
+  /** This project's saved views — the reader's own, plus everybody's shared. */
+  views: SavedView[];
+  /** The sprint on screen, for a view somebody pins to this week. */
+  sprintId: string;
 }) {
   const router = useRouter();
   const [panelOpen, setPanelOpen] = useState(false);
@@ -215,6 +223,10 @@ export function FilterBar({
           </button>
         );
       })}
+
+      {/* A view is a link, so this is the only control here that navigates
+          rather than rewriting one parameter. */}
+      <ViewMenu views={views} projectSlug={projectSlug} sprintId={sprintId} />
 
       {/* Type, assignee, reviewer, grouping and free text. Behind a button with
           a count, because four more dimensions inline wrap this bar to three
