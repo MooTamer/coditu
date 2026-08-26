@@ -176,11 +176,33 @@ async function main() {
     await sleep(250);
   }
 
+  /**
+   * Did this response reach the application, or get bounced to the door?
+   *
+   * Deliberately not "did it land on a particular screen". `/app` has been a
+   * redirect to the active sprint and is now a rendered Home, and it may be
+   * something else again — none of which changes what this script is asking,
+   * which is whether the dependency being down turned a signed-in reader away.
+   */
+  const reachedTheApp = (response) =>
+    response.status === 200 || !(response.location ?? "/login").includes("/login");
+
   // Healthy baseline, so a failure below is about the outage and not about the
   // server never having worked.
+  //
+  // "Reached the app" is `not bounced to /login`, and it has to be stated that
+  // way rather than as a destination. This check used to require a redirect
+  // whose location contained `/projects/`, which was correct while `/app` was a
+  // pure redirect to the active sprint — and silently wrong from the moment W6
+  // made `/app` the Workspace Home, which renders. It failed on the BASELINE,
+  // before anything had been paused, and `npm run degraded` is not in the
+  // routine gate so nothing noticed for seven phases.
+  //
+  // `07-FIELD-NOTES.md`: a route that stops redirecting leaves assertions
+  // elsewhere asserting the redirect.
   const healthy = await get(`${base}/app`, { cookie });
   check(
-    (healthy.location ?? "").includes("/projects/"),
+    reachedTheApp(healthy),
     "baseline: a signed-in request reaches the app while the dependency is up",
     `${healthy.status} -> ${healthy.location ?? "(rendered)"} in ${healthy.ms}ms`
   );
@@ -300,7 +322,7 @@ async function main() {
     await sleep(500);
   }
   check(
-    (recovered.location ?? "").includes("/projects/"),
+    reachedTheApp(recovered),
     "a signed-in request reaches the app again, with no restart",
     `${recovered.status} -> ${recovered.location ?? "(rendered)"} in ${recovered.ms}ms`
   );

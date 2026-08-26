@@ -14,6 +14,37 @@ import { expect, test } from "./fixtures";
 const SPRINT = "/app/projects/meinevim/sprints/17";
 const ITEM = `${SPRINT}/items/COD-229`;
 
+/**
+ * Every internal route an admin can reach, in one list.
+ *
+ * **W13 found the gap this closes.** Each phase audited the screen it built —
+ * W6 the home, W8 the projects, W10 the profile, W11 the history, W12 the
+ * recovery — and none of them ever joined the two sweeps that run here: the
+ * unscrolled whole-page audit at 1440, and the thirteen-width overflow check.
+ * So eight screens had an axe assertion taken with a panel open and no
+ * assertion at all about how they behave on a phone or at 2560.
+ *
+ * A list rather than five inline arrays, so the next route added is one line
+ * and cannot be forgotten by only one of them.
+ */
+const APP_ROUTES = [
+  "/app",
+  SPRINT,
+  ITEM,
+  "/app/my-work",
+  "/app/projects",
+  "/app/projects/meinevim",
+  "/app/people",
+  "/app/clients",
+  "/app/import",
+  "/app/trash",
+  "/app/history",
+  "/app/profile",
+  "/app/settings",
+  "/app/settings/payouts",
+  "/app/settings/recovery",
+] as const;
+
 /** Every failing node by selector, so a regression names itself. */
 async function audit(page: Page, only?: string): Promise<string[]> {
   await page.evaluate(async () => {
@@ -106,9 +137,14 @@ test.describe("accessibility", () => {
     expect(await audit(page)).toEqual([]);
   });
 
-  test("axe: my work, people, and import", async ({ adminPage: page }) => {
+  test("axe: every route an admin can reach, unscrolled", async ({ adminPage: page }) => {
+    // Unscrolled and untouched, which is the half the per-phase audits do not
+    // cover: those are taken after opening a panel or clicking a control, and
+    // `07-FIELD-NOTES.md` records why that is a different measurement — a
+    // sticky header genuinely overlaps whatever a click scrolled under it.
+    test.slow();
     await page.setViewportSize({ width: 1440, height: 900 });
-    for (const path of ["/app/my-work", "/app/people", "/app/import", "/app/projects"]) {
+    for (const path of APP_ROUTES) {
       await page.goto(path);
       expect(await audit(page), `axe on ${path}`).toEqual([]);
     }
@@ -154,12 +190,15 @@ test.describe("layout holds", () => {
   test("no horizontal scroll in the app, at any of the thirteen widths", async ({
     adminPage: page,
   }) => {
-    // Five routes at thirteen widths each, with a settle between every one.
+    // Every route at thirteen widths each, with a settle between every one.
     // The default 30s was always tight and stopped being enough once each
     // `goto` began waiting for hydration — which it has to, since `/app`
-    // started streaming.
+    // started streaming. Fifteen routes now rather than five, so this is
+    // deliberately the slowest test in the suite: it is also the one that
+    // would have caught W9's unreachable roles table at 390px five phases
+    // earlier.
     test.slow();
-    for (const path of [SPRINT, ITEM, "/app/my-work", "/app/people", "/app/import"]) {
+    for (const path of APP_ROUTES) {
       await page.goto(path);
       for (const width of WIDTHS) {
         await page.setViewportSize({ width, height: 900 });

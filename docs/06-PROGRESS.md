@@ -42,7 +42,7 @@ real work, which is what the rule is protecting against.
 - [x] Full keyboard traversal of site and app, including drag reorder and the mention list
 - [x] `prefers-reduced-motion` fully functional, no transforms, no blur
 - [x] Contrast verified with a tool for every text/background pair in both themes; §3 figures do not regress
-- [ ] Lighthouse ≥ 95 on all four categories for the marketing route; route JS within budget — **a11y/best-practices/SEO 100, Performance 93.** See the note under the table
+- [ ] Lighthouse ≥ 95 on all four categories for the marketing route; route JS within budget — **a11y/best-practices/SEO 100, Performance 92** (re-measured in W13; was 93). See the note under the table
 - [x] Every RLS policy has a passing positive **and** negative test
 - [x] The sprint footer sum equals the database in a test, including after an optimistic update rolls back
 - [x] Export scoping test proves one project's export can never contain another's items
@@ -1545,8 +1545,8 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W9 | **People & Access** — the access log, the roles matrix, safety states made visible | `done` | `pending` | `access_events` written by triggers and writable by nobody · 12 new pgTAP incl. three write refusals · e2e **disabled-and-explained** on all three self controls · `test` **382** · `db:test` **376** · `budgets` **OK 75.7/110, 215.7/220**. Client contacts stay on `/app/clients` — see `05-DECISIONS.md` |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `done` | `8904f20` | `lib/earnings.ts` untouched — the three functions are the bytes they were at W0. **W10a:** the boundary asserted both ways, the outward list widened from 11 paths to 27 incl. the client portal, which nothing had ever checked. **W10b:** `/app/profile` split out; `/app/settings` is admin-only and redirects everybody else. **W10c:** Team payouts on `/app/settings/payouts`, read by every internal member and confirmed only by an admin — the team's own §E5 rule, kept. `test` **387** · `db:test` **376** after a `db:reset` · `budgets` **OK 75.9/110 own, 215.9/220 total** · every spec W10 touched green together — **227 passed, 6 skipped, 0 failed** across eleven files, from a `db:reset` · full `e2e --workers=1` reached **606 passed, 0 failed** once and a rotating 2-3 contention failures on four other runs, each passing alone and none naming a file this phase changed — see the note below |
 | W11 | **Version history UI and Trash** | `done` | `971ee17` | **W11a** the restore promise asserted · **W11b** `/app/history` built, filters in the URL and in the query · **W11c** the bin searches, and cannot be made to print a withdrawn comment. `test` **404** (17 new) · `db:test` **376** · `budgets` **OK 76.0/110 own, 216.0/220 total** · the six spec files W11 touches **167 passed, 3 skipped, 0 failed** from a `db:reset` |
-| W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `done` | `pending` | `rehearse_recovery()` copies into a schema it creates and drops and writes nothing to `public` · `db:test` **392** (16 new incl. a checksum over every live table around a passing AND a failing run) · recovery **7/7** incl. axe · `budgets` **OK 76.1/110 own, 216.1/220 total** · full `e2e --workers=1` from a reset database **622 passed, 0 failed** · PITR read from the hosted project and stated as a fact; no schedule, retention or snapshot id invented |
-| W13 | **Responsive, a11y, security, performance hardening** | `todo` | | full `e2e` · `budgets` · `lighthouse` · `degraded` |
+| W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `done` | `d61c7eb` | `rehearse_recovery()` copies into a schema it creates and drops and writes nothing to `public` · `db:test` **392** (16 new incl. a checksum over every live table around a passing AND a failing run) · recovery **7/7** incl. axe · `budgets` **OK 76.1/110 own, 216.1/220 total** · full `e2e --workers=1` from a reset database **622 passed, 0 failed** · PITR read from the hosted project and stated as a fact; no schedule, retention or snapshot id invented |
+| W13 | **Responsive, a11y, security, performance hardening** | `done` | `pending` | the axe and thirteen-width sweeps widened from 5 routes to **15** · `truncate` revoked from `authenticated` on every relation and pinned by a sweep · the `server-only` boundary asserted by shape · `degraded` **OK** after a stale assertion was fixed · `test` **408** · `db:test` **395** · `budgets` **OK 76.1/110 own, 216.1/220 total** · `lighthouse` a11y/best-practices/SEO **100**, Performance **92** — measured LCP 1032 ms of a 2000 ms budget, simulated 3301 ms; the §14 note re-verified rather than inherited · full `e2e --workers=1` from a `db:reset` **622 passed, 7 skipped, 0 failed** |
 
 ## W0 — the baseline, measured rather than remembered
 
@@ -3734,3 +3734,101 @@ streaming-buffer note claimed "Playwright is not affected — its locators ignor
 hidden subtrees". Actionability and `toBeVisible` do; `toHaveCount` does not
 filter by visibility at all. Fixed in place, because a field note that is wrong
 is worse than no field note.
+
+## W13 — the sweeps that were never widened, and a grant nobody chose
+
+The last phase is a hardening pass, and the first thing it did was ask what the
+hardening actually covered. Not much of the redesign, as it turned out.
+
+### Five routes, thirteen widths, and eight screens that were in neither
+
+`a11y.spec.ts` swept the sprint, the item, my-work, people and import. Every
+phase since W6 audited the screen it built — home, projects, profile, payouts,
+history, recovery — and **not one of them joined the two sweeps that matter
+here**: the unscrolled whole-page audit at 1440, and the thirteen-width
+overflow check. Those per-phase audits are taken after opening a panel, which
+this file already records as a different measurement.
+
+`APP_ROUTES` is one list of fifteen now, read by both. It found nothing — every
+new screen is axe-clean unscrolled and none overflows at any width from 320 to
+2560 — which is the right outcome and a fact rather than an assumption. It is
+also the test that would have caught W9's keyboard-unreachable roles table five
+phases before W11 did.
+
+### `authenticated` could truncate thirty tables
+
+W9 found that this project grants `REFERENCES, SELECT, TRIGGER, **TRUNCATE**` to
+`authenticated` on every table it creates, and that **`truncate` bypasses row
+level security entirely** — policies filter rows and a truncate visits none. It
+revoked the grant on `access_events`. W12 did the same for `recovery_runs`. Both
+notes said, correctly, that it applied to everything else.
+
+Nobody had asked how many. **Thirty**, including `document_revisions` — the
+append-only history the whole version-control feature rests on — and
+`sprint_payouts`, which is money somebody has been paid against.
+
+It is not reachable today: PostgREST cannot issue a `truncate`. It is revoked
+anyway, on every relation and by `alter default privileges` on everything
+created later, because "append-only" is a claim this schema makes in six places
+and it should be true rather than nearly true — and because the grant is what a
+future path would inherit, silently, having never been given deliberately.
+
+`rls.sql` sweeps for it now, along with two assertions nothing was making:
+every table in `public` has RLS enabled, and every one has at least one policy.
+A policy suite tests the tables somebody wrote assertions for; a table shipped
+with RLS forgotten is invisible to all of it.
+
+### The `server-only` boundary, asserted before the build says so
+
+W12 shipped a client component importing a `server-only` module: `typecheck`,
+`lint` and every unit test stayed green while the page rendered blank, because
+**`server-only` is a bundler rule**. `npm run build` catches it and is not in
+the routine gate, for the reason this file has recorded since W0 — it points at
+production.
+
+`tests/server-boundary.test.ts` is the cheap half: the service-role key is named
+in exactly one module and that module is `server-only`, and no `"use client"`
+file can reach a `server-only` one — following imports through plain modules,
+stopping at `"use server"` (a real boundary, not a leak) and ignoring
+`import type` (erased). Proven to bite by reintroducing the W12 bug, which it
+named by file and by path.
+
+### `npm run degraded` had been asserting a redirect that stopped happening
+
+It failed on the **baseline**, before anything was paused: it required `/app` to
+redirect to a URL containing `/projects/`, which was correct while `/app` was a
+pure redirect and silently wrong from the moment W6 made it the Workspace Home.
+Seven phases, unnoticed, because `degraded` is not in the routine gate.
+
+*A route that stops redirecting leaves assertions elsewhere asserting the
+redirect* — the note this file already carries, in a script rather than a spec.
+It asks whether the request reached the app rather than where it landed now, and
+the whole check passes: fails fast at 2509 ms, fails closed to `/login`, the
+breaker refuses the next five in 2 ms, marketing is untouched throughout, and it
+recovers with no restart.
+
+### Lighthouse, re-verified rather than inherited
+
+**Performance 92** (median of 95, 92, 92), everything else 100. §14 has recorded
+this as a decision since step 14, and the diagnosis was re-checked rather than
+assumed: the LCP element is text, its reveal runs at `animationDelay: 0ms`
+(fixed when the hero was built), both fonts are `display: "swap"`, and the
+route's own code is 13.6 KB of a 153.6 KB total. Measured LCP is **1032 ms**
+against §5's 2000 ms budget; the failing number is Lantern's **simulated** 3301
+ms, which is the framework critical path. Reaching 95 still means changing the
+stack for `/`, not the code in it. The box stays unchecked with the number
+updated.
+
+`lint`, `typecheck` clean · `test` **408** (4 new) · `db:test` **395** (3 new)
+after a `db:reset` · `budgets` **OK 76.1 / 110 own, 216.1 / 220 total** ·
+`degraded` **OK** · `lighthouse` 100/100/100 and Performance 92 · a11y
+**14/14** with the widened sweeps · full `e2e --workers=1` from a `db:reset`
+**622 passed, 7 skipped, 0 failed**.
+
+**W13 is done, and with it every phase in `docs/coditu-implementation-prompt.md`
+§13 and every phase of the workspace redesign.** What remains is not
+engineering: the thirteen migrations production has never seen still have to be
+pushed with `supabase db push` alongside the code, and retention, RPO and RTO
+are still undecided — until they are, the recovery screen states no schedule and
+no retention period, which is the honest rendering rather than a gap in the
+build.

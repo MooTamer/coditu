@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(312);
+select plan(315);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -3052,6 +3052,59 @@ select throws_ok(
 );
 
 select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- The sweep. Everything above names a table and asserts what it allows; these
+-- three assert that no table is missing from the list at all.
+--
+-- **W13 added them, and the reason is the shape of every other file here.** A
+-- policy suite tests the tables somebody remembered to write assertions for. A
+-- table shipped with `enable row level security` forgotten is invisible to all
+-- of it and readable by everybody with an anon key — the one failure mode this
+-- whole file exists to prevent, and the one it could not see.
+--
+-- Written as a sweep over `pg_class` rather than a list, so a table added next
+-- year is covered by construction rather than by somebody remembering.
+-- ---------------------------------------------------------------------------
+
+select is(
+  (select coalesce(string_agg(c.relname, ', ' order by c.relname), '')
+     from pg_class c
+     join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity),
+  '',
+  'every table in public has row level security enabled'
+);
+
+select is(
+  (select coalesce(string_agg(c.relname, ', ' order by c.relname), '')
+     from pg_class c
+     join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind = 'r'
+      and not exists (
+        select 1 from pg_policies p
+         where p.schemaname = 'public' and p.tablename = c.relname)),
+  '',
+  'and at least one policy, because RLS with no policy denies everybody silently'
+);
+
+-- `truncate` ignores row-level security entirely: policies filter rows and a
+-- truncate visits none. PostgREST cannot issue one, so it is not reachable
+-- through the API — but the grant is handed out by default on every table this
+-- project creates, and "protected by RLS" should be true rather than nearly
+-- true. W9 revoked it on `access_events`, W12 on `recovery_runs`, and W13's
+-- sweep found the other thirty; `20260826180000_revoke_truncate.sql` takes it
+-- away everywhere and from anything created later. This is what stops it
+-- coming back.
+select is(
+  (select coalesce(string_agg(distinct table_name, ', ' order by table_name), '')
+     from information_schema.role_table_grants
+    where table_schema = 'public'
+      and grantee = 'authenticated'
+      and privilege_type = 'TRUNCATE'),
+  '',
+  'no table in public lets authenticated truncate it — truncate ignores RLS'
+);
 
 select * from finish();
 rollback;
