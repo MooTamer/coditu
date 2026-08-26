@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { OUTSIDE } from "@/lib/history-filters";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingColumn } from "@/lib/supabase/schema";
 import type { PersonRef } from "@/lib/data/sprint";
@@ -212,3 +213,208 @@ export const getWorkItemRevisions = cache(
     }));
   }
 );
+
+/**
+ * Where a revision happened, so a workspace-wide list can say so.
+ *
+ * The story panel never needed this — it already knew which story it was on.
+ * `/app/history` reads across everything, and a row that says *"Comment · v2 ·
+ * Mohamed"* without saying **on what** is a row nobody can act on.
+ */
+export interface RevisionTarget {
+  /** `COD-241`, or `Week 17` for a sprint note. */
+  label: string;
+  href: string;
+  projectSlug: string;
+  sprintNumber: number;
+  /** Null for a sprint note, which belongs to a sprint and not to a story. */
+  itemKey: string | null;
+}
+
+export interface RevisionListEntry extends RevisionEntry {
+  target: RevisionTarget | null;
+}
+
+interface ListRow extends RevisionRow {
+  work_item_id: string | null;
+  sprint_id: string | null;
+  work_item: {
+    key: string;
+    sprint: { number: number; project: { slug: string } | null } | null;
+  } | null;
+  sprint: { number: number; name: string; project: { slug: string } | null } | null;
+}
+
+const LIST_SELECT =
+  REVISION_SELECT +
+  ", work_item_id, sprint_id" +
+  ", work_item:work_items ( key, sprint:sprints ( number, project:projects ( slug ) ) )" +
+  ", sprint:sprints ( number, name, project:projects ( slug ) )";
+
+/**
+ * Every version of every document in the workspace, newest first.
+ *
+ * The sibling of `getWorkItemRevisions`, and deliberately a separate function
+ * rather than a parameter on it. That one is scoped to a story and is read on
+ * every story page; this one is scoped to nothing and is read on one screen.
+ * Merging them would put `/app/history`'s joins on the critical path of the
+ * item dialog.
+ *
+ * ## The filters run in the database, and the window is applied after them
+ *
+ * Filtering in memory would fetch the last sixty revisions of anything and then
+ * show the four that happened to be comments — a screen that empties out as the
+ * workspace gets busier, which is the opposite of what a history is for.
+ *
+ * ## Actors are matched by initials, in SQL
+ *
+ * `lib/history-filters.ts` explains why initials rather than ids. The lookup is
+ * a separate read of `profiles` rather than a filter on the embedded join,
+ * because PostgREST cannot filter a parent row by an embedded column without
+ * `!inner`, and `!inner` on `actor` would silently drop every revision written
+ * outside the app — which is a category this screen offers as a filter.
+ */
+export const listRevisions = cache(
+  async (
+    filters: { surfaces?: RevisionSurface[]; actors?: string[] } = {},
+    limit = 80
+  ): Promise<RevisionListEntry[]> => {
+    const supabase = await createClient();
+
+    let query = supabase.from("document_revisions").select(LIST_SELECT);
+
+    if (filters.surfaces?.length) {
+      query = query.in("surface", filters.surfaces);
+    }
+
+    if (filters.actors?.length) {
+      const initials = filters.actors.filter((value) => value !== OUTSIDE);
+      const wantsOutside = filters.actors.includes(OUTSIDE);
+
+      const ids: string[] = [];
+      if (initials.length) {
+        const { data: people } = await supabase
+          .from("profiles")
+          .select("id, initials")
+          .in("initials", initials);
+        ids.push(...(people ?? []).map((row) => row.id));
+      }
+
+      if (wantsOutside && ids.length) {
+        query = query.or(`actor_id.is.null,actor_id.in.(${ids.join(",")})`);
+      } else if (wantsOutside) {
+        query = query.is("actor_id", null);
+      } else if (ids.length) {
+        query = query.in("actor_id", ids);
+      } else {
+        // Initials nobody has. An empty result is the honest answer — the
+        // alternative is dropping the filter, which shows everything under a
+        // URL that says otherwise.
+        return [];
+      }
+    }
+
+    const { data, error } = await query
+      .order("created_at", { ascending: false })
+      .order("revision_no", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      if (error.code === "42P01" || isMissingColumn(error.code)) return [];
+      throw error;
+    }
+
+    let rows = (data ?? []) as unknown as ListRow[];
+
+    // The same forward-only allowlist `getWorkItemRevisions` applies, and for
+    // the same reason: a withdrawn comment's words do not come back through
+    // history, and a purged one's must not survive it. See the long note there.
+    const commentIds = [
+      ...new Set(rows.filter((row) => row.surface === "comment").map((row) => row.entity_id)),
+    ];
+    if (commentIds.length > 0) {
+      const { data: standing } = await supabase
+        .from("comments")
+        .select("id")
+        .in("id", commentIds)
+        .is("deleted_at", null);
+
+      const visible = new Set((standing ?? []).map((row) => row.id));
+      rows = rows.filter((row) => row.surface !== "comment" || visible.has(row.entity_id));
+    }
+
+    // `previousText` is stitched per document, exactly as the story panel does
+    // — but across a mixed window, so two revisions of the same document may be
+    // far apart in the list. Keyed by document, which handles both.
+    const previousByRow = new Map<string, { text: string | null; known: boolean }>();
+    const latestSeen = new Map<string, string | null>();
+    for (let i = rows.length - 1; i >= 0; i -= 1) {
+      const row = rows[i];
+      const document = `${row.surface}:${row.entity_id}`;
+      previousByRow.set(row.id, {
+        text: latestSeen.get(document) ?? null,
+        known: latestSeen.has(document) || row.revision_no === 1,
+      });
+      latestSeen.set(document, row.plain_text);
+    }
+
+    return rows.map((row) => ({
+      id: row.id,
+      surface: row.surface,
+      entityId: row.entity_id,
+      revisionNo: row.revision_no,
+      plainText: row.plain_text,
+      restoredFrom: row.restored_from,
+      createdAt: row.created_at,
+      previousText: previousByRow.get(row.id)?.text ?? null,
+      previousKnown: previousByRow.get(row.id)?.known ?? false,
+      actor: row.actor
+        ? {
+            id: row.actor.id,
+            fullName: row.actor.full_name,
+            initials: row.actor.initials,
+            avatarUrl: row.actor.avatar_url,
+          }
+        : null,
+      target: targetFor(row),
+    }));
+  }
+);
+
+/**
+ * A revision's target, from whichever of the two denormalised columns the
+ * trigger filled in.
+ *
+ * Null when neither resolves — a story whose project this reader cannot see,
+ * or a scope column an older trigger left empty. The row still renders; it
+ * simply says nothing it cannot prove, which is the same choice
+ * `previousKnown` makes about the diff.
+ */
+function targetFor(row: ListRow): RevisionTarget | null {
+  const item = row.work_item;
+  if (item?.sprint?.project?.slug) {
+    const slug = item.sprint.project.slug;
+    const number = item.sprint.number;
+    return {
+      label: item.key,
+      href: `/app/projects/${slug}/sprints/${number}/items/${item.key}`,
+      projectSlug: slug,
+      sprintNumber: number,
+      itemKey: item.key,
+    };
+  }
+
+  const sprint = row.sprint;
+  if (sprint?.project?.slug) {
+    const slug = sprint.project.slug;
+    return {
+      label: sprint.name,
+      href: `/app/projects/${slug}/sprints/${sprint.number}/notes`,
+      projectSlug: slug,
+      sprintNumber: sprint.number,
+      itemKey: null,
+    };
+  }
+
+  return null;
+}

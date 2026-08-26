@@ -1693,3 +1693,37 @@ The general shape: a fixture keyed to a constant is a fixture shared with every
 past and future run of the same file. `composer.spec.ts` hands out a per-project
 row for exactly this reason, and `e2e/earnings.spec.ts` is `mode: "serial"`
 because `app_settings` has only one row to hand out.
+
+### A DOM count on a streamed page counts React's hidden buffer too
+
+`document.querySelectorAll('[data-history-entry]').length` returned **6** on a
+page whose database held **3**, in dev *and* in a production build. The server
+HTML was correct — one list, three rows — so it read like hydration duplicating
+the tree, which is a real thing this file already describes.
+
+It was not. React streams late content into a `<div hidden>` appended to
+`<body>` and moves it into place as each boundary resolves; on a page with a
+`loading.tsx` there is a second, also-hidden container holding the resolved
+copy. `querySelectorAll` walks the whole document and finds both — so **every
+element on a streamed page appears twice** until those containers are consumed,
+and the duplicate is invisible to a person and identical to the real one in the
+markup.
+
+The tell is whitespace: `innerText` on the buffered copy collapses differently,
+so two "identical" rows read as `COD-231 Highlight · v1` and
+`COD-231Highlight · v1`. That is one tree rendered twice, not two trees.
+
+**Scope every DOM count on an app route:**
+
+```js
+[...document.querySelectorAll(SELECTOR)].filter((n) => !n.closest('[hidden]')).length
+```
+
+Playwright is not affected — its locators ignore hidden subtrees by default,
+which is why no spec ever saw this and an hour went into a page that was right
+all along. It only bites hand-measurement in a console, which is exactly what
+"open the page in a browser" means here.
+
+Related: the same buffering is why `get_page_text` and `querySelector`
+immediately after a navigation can return an *empty* main — the resolved copy
+has not been moved in yet. Measure after the page settles, in a call of its own.

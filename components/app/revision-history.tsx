@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Mono } from "@/components/coditu/mono";
 import { RestoreVersion } from "@/components/app/restore-version.client";
 import { collapseUnchanged, diffLines, summariseDiff } from "@/lib/diff";
@@ -68,7 +70,7 @@ export function RevisionHistory({
         <ul className="mt-3 flex flex-col gap-1">
           {entries.map((entry) => (
             <li key={entry.id}>
-              <Entry
+              <RevisionEntryDetails
                 entry={entry}
                 itemKey={itemKey}
                 projectSlug={projectSlug}
@@ -83,18 +85,40 @@ export function RevisionHistory({
   );
 }
 
-function Entry({
+/**
+ * One version, its diff, and its restore.
+ *
+ * Exported because `/app/history` renders the same thing across every story
+ * rather than within one. The two screens differ in what they already know:
+ * a story panel knows which story it is on, so its rows say
+ * *"Description · v4"*; the workspace list does not, so it passes `target` and
+ * the row says which story as well. Everything else — the diff, the collapse,
+ * the `+`/`−` marks, the restore — is one implementation, because a second copy
+ * is a second place for a diff to start lying.
+ */
+export function RevisionEntryDetails({
   entry,
   itemKey,
   projectSlug,
   sprintNumber,
   canRestore,
+  target,
 }: {
   entry: RevisionEntry;
-  itemKey: string;
-  projectSlug: string;
-  sprintNumber: number;
+  /**
+   * Where the document lives, for the restore's revalidation.
+   *
+   * Optional because `/app/history` reads across a workspace and a revision
+   * whose scope columns never resolved has no route to name — the row still
+   * renders, it simply says nothing it cannot prove. Same choice
+   * `previousKnown` makes about the diff.
+   */
+  itemKey?: string;
+  projectSlug?: string;
+  sprintNumber?: number;
   canRestore: boolean;
+  /** Shown before the surface label when the reader does not already know. */
+  target?: { label: string; href: string } | null;
 }) {
   const label = surfaceLabel(entry.surface);
   // A null actor is any write that had no signed-in session: the seed, the
@@ -125,6 +149,11 @@ function Entry({
   return (
     <details className="group rounded-inner border border-transparent open:border-[var(--hairline)] open:bg-[var(--raised)]">
       <summary className="flex cursor-pointer flex-wrap items-baseline gap-x-2 gap-y-1 rounded-inner px-2 py-[6px] marker:content-none">
+        {target ? (
+          <Mono size="meta" className="text-[11.5px] text-[var(--ink-muted)]">
+            {target.label}
+          </Mono>
+        ) : null}
         <Mono size="meta" className="text-[11.5px] text-[var(--ink)]">
           {label} · v{entry.revisionNo}
         </Mono>
@@ -172,6 +201,23 @@ function Entry({
             </pre>
           </>
         )}
+
+        {target ? (
+          // In the body, not in the summary. A link inside a `<summary>` fights
+          // the disclosure for the same click — activating it would toggle the
+          // details as well — and nesting an interactive element inside another
+          // is the kind of thing axe is right to complain about. The label
+          // stays up top so a reader can scan for it; getting there is one of
+          // the two things this expanded row offers.
+          <p className="mt-2">
+            <Link
+              href={target.href}
+              className="text-[12px] font-medium text-[var(--ink-muted)] underline underline-offset-4 hover:text-[var(--ink)]"
+            >
+              Open {target.label}
+            </Link>
+          </p>
+        ) : null}
 
         {offerRestore && entry.revisionNo > 0 ? (
           <div className="mt-2">

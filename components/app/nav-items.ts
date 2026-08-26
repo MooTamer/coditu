@@ -1,4 +1,4 @@
-import { Building2, CheckCheck, FolderOpen, House, Import, Rows3, Settings, Trash2, UserRound, Users, Wallet } from "lucide-react";
+import { Building2, CheckCheck, FolderOpen, History, House, Import, Rows3, Settings, Trash2, UserRound, Users, Wallet } from "lucide-react";
 
 /**
  * The application's destinations, and the rule for when each one is current.
@@ -175,6 +175,23 @@ export const EARNINGS_ITEM: NavItem = {
  * comments and no stories, so hiding the destination from them would hide
  * something that is genuinely theirs.
  */
+/**
+ * Every version of every document, workspace-wide.
+ *
+ * Not in `NAV` for the same reason as Trash: it is not a place the team works,
+ * it is where you go on the day you need to know what something used to say.
+ * Every internal member reads it — `document_revisions` is
+ * `is_active_member()` — and what each of them can restore is decided per
+ * surface by the database, not by this list.
+ */
+export const HISTORY_ITEM: NavItem = {
+  id: "history",
+  label: "Version history",
+  href: "/app/history",
+  Icon: History,
+  isActive: (path) => path.startsWith("/app/history"),
+};
+
 export const TRASH_ITEM: NavItem = {
   id: "trash",
   label: "Trash",
@@ -213,6 +230,7 @@ export const OVERFLOW: readonly NavItem[] = [
   ...NAV.filter((item) => !TAB_IDS.includes(item.id as (typeof TAB_IDS)[number])),
   PROFILE_ITEM,
   EARNINGS_ITEM,
+  HISTORY_ITEM,
   TRASH_ITEM,
   SETTINGS_ITEM,
 ];

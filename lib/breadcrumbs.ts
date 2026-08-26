@@ -52,6 +52,7 @@ const FLAT: Record<string, string> = {
   import: "Import",
   clients: "Clients",
   trash: "Trash",
+  history: "Version history",
   settings: "Workspace settings",
   profile: "Profile",
   earnings: "My earnings",

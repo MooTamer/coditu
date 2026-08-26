@@ -41,6 +41,7 @@ describe("crumbsFor", () => {
       "/app/projects/meinevim/sprints/17",
       "/app/projects/meinevim/sprints/17/items/COD-241",
       "/app/trash",
+      "/app/history",
       "/app/earnings",
       "/app/profile",
       "/app/settings/payouts",
@@ -64,6 +65,7 @@ describe("crumbsFor", () => {
     expect(labels("/app/import")).toEqual(["Coditu", "Import"]);
     expect(labels("/app/clients")).toEqual(["Coditu", "Clients"]);
     expect(labels("/app/trash")).toEqual(["Coditu", "Trash"]);
+    expect(labels("/app/history")).toEqual(["Coditu", "Version history"]);
     expect(labels("/app/settings")).toEqual(["Coditu", "Workspace settings"]);
   });
 

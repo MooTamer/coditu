@@ -1544,7 +1544,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W8 | **Projects and project home**, the favourites W6 deferred, and the budget paid back | `done` | `pending` | the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px; favourites are a table, a star on three surfaces and a sidebar section · projects 7/7, project-home 8/8, favourites 5/5, all incl. axe · `test` **375** · `db:test` **364** · `budgets` **own OK 75.7/110; §5 total 215.7/220 after W8d** |
 | W9 | **People & Access** — the access log, the roles matrix, safety states made visible | `done` | `pending` | `access_events` written by triggers and writable by nobody · 12 new pgTAP incl. three write refusals · e2e **disabled-and-explained** on all three self controls · `test` **382** · `db:test` **376** · `budgets` **OK 75.7/110, 215.7/220**. Client contacts stay on `/app/clients` — see `05-DECISIONS.md` |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `done` | `8904f20` | `lib/earnings.ts` untouched — the three functions are the bytes they were at W0. **W10a:** the boundary asserted both ways, the outward list widened from 11 paths to 27 incl. the client portal, which nothing had ever checked. **W10b:** `/app/profile` split out; `/app/settings` is admin-only and redirects everybody else. **W10c:** Team payouts on `/app/settings/payouts`, read by every internal member and confirmed only by an admin — the team's own §E5 rule, kept. `test` **387** · `db:test` **376** after a `db:reset` · `budgets` **OK 75.9/110 own, 215.9/220 total** · every spec W10 touched green together — **227 passed, 6 skipped, 0 failed** across eleven files, from a `db:reset` · full `e2e --workers=1` reached **606 passed, 0 failed** once and a rotating 2-3 contention failures on four other runs, each passing alone and none naming a file this phase changed — see the note below |
-| W11 | **Version history UI and Trash** | `wip` | | **W11a done:** the restore promise is asserted — `e2e/trash.spec.ts` **7/7**, and the file now leaves the database as it found it |
+| W11 | **Version history UI and Trash** | `wip` | | **W11a:** the restore promise asserted — trash **7/7**. **W11b:** `/app/history` built — `test` **404** (17 new) · history **7/7** incl. axe · `budgets` **OK 76.0/110 own, 216.0/220 total** |
 | W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `todo` | | e2e rehearsal pass **and** fail, live rows untouched |
 | W13 | **Responsive, a11y, security, performance hardening** | `todo` | | full `e2e` · `budgets` · `lighthouse` · `degraded` |
 
@@ -3499,3 +3499,73 @@ twice back to back, leaving the database as it found it.
 
 **Next:** W11b — `/app/history`, the workspace-wide version list the design asks
 for and the only route in the plan's traceability matrix that does not exist.
+
+## W11b — the screen that answers "what changed on the 19th"
+
+`/app/history` was the only route in the plan's traceability matrix with nothing
+behind it. History has been readable since W4c and only from a story's own
+panel, so every question that does not start from a story — *what happened on
+the 19th*, *what has Adam been rewriting*, *who touched the sprint notes* — had
+no screen.
+
+**The table was built for this.** `document_revisions` has carried
+`work_item_id` and `sprint_id` since W4a, denormalised by the capture trigger,
+and the migration's own comment names `/app/history` as their reader. Nothing
+schema-side was needed; `listRevisions` is a sibling of `getWorkItemRevisions`
+rather than a parameter on it, so the workspace screen's joins stay off the item
+dialog's critical path.
+
+### The filters run in the database, unlike the sprint table's
+
+The sprint's filters run in memory because the sprint is already loaded whole
+and a hidden row still counts toward the footer's sum. History is unbounded and
+read one window at a time, so filtering after the `limit` would fetch the last
+eighty revisions of anything and show the four that happened to be comments — a
+screen that empties out as the workspace gets busier.
+
+Chips are **links**, so the whole filter bar works with no JavaScript and every
+combination is somewhere a person can paste. An initials filter nobody matches
+returns nothing rather than dropping itself, because an empty filter means "show
+everything" and quietly widening a shared link is worse than showing nothing.
+
+### The prototype's side panel is not built, and the diff is not lost
+
+The design puts a `Diff preview` in a second column at ≥1180px, driven by a
+selected row. Every entry carries its own diff instead, inside the `<details>`
+W4c built — server-computed, no JavaScript, keyboard-operable and announced
+without anybody writing `aria-expanded`, and identical on a phone. Repeating the
+prototype would have meant selected-row state, a round trip per selection, and a
+second diff renderer to keep honest. `RevisionEntryDetails` is the W4c component,
+exported and given an optional target.
+
+### The target is a link in the body, not in the summary
+
+A link inside a `<summary>` fights the disclosure for the same click, and
+nesting interactive elements is what axe is right to complain about. The label
+scans in the summary; *"Open COD-235"* lives in the expanded row beside the
+restore.
+
+### An hour lost to a page that was correct
+
+`document.querySelectorAll('[data-history-entry]').length` said **6** where the
+database said **3** — in dev, and again in a production build, which ruled out
+the recompiling-dev-server artefact this repo already documents. The server HTML
+was right the whole time: one list, three rows.
+
+React streams late content into a `<div hidden>` on `<body>` and moves it into
+place as each boundary resolves, and a route with a `loading.tsx` keeps a second
+hidden container holding the resolved copy. `querySelectorAll` walks the whole
+document and counts both. **Every element on a streamed page appears twice** to
+a hand-measurement, and the duplicate is invisible to a person and identical in
+the markup — the only tell is that `innerText` collapses whitespace differently
+in the buffered copy.
+
+Playwright never saw it, because its locators ignore hidden subtrees. It bites
+exactly one thing: measuring by hand in a console, which is what "open the page
+in a browser" means here. `07-FIELD-NOTES.md` has it, with the one-line fix.
+
+`lint`, `typecheck` clean · `test` **404** (17 new filter tests) · history
+**7/7** incl. axe with a version expanded and zero overflow at 390 ·
+`budgets` **OK 76.0 / 110 own, 216.0 / 220 total** (+0.1 KB, one lucide icon).
+
+**Next:** W11c — the trash search the design asks for.
