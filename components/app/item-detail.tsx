@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { CommentActions } from "@/components/app/comment-actions.client";
 import { CommentBody } from "@/components/app/comment-body";
+import { describeActivity } from "@/lib/activity";
 import { documentFromText } from "@/lib/blocks/schema";
 import { CommentThread } from "@/components/app/comment-thread.client";
 import { CriteriaList } from "@/components/app/criteria-list.client";
@@ -391,16 +392,4 @@ export function ItemDetailBody({
     </div>
     </PresenceSurfaceProvider>
   );
-}
-
-/**
- * Activity rows are stored as verb/field/from/to rather than a sentence, so the
- * feed can be re-worded or translated without rewriting history.
- */
-function describeActivity(entry: WorkItemDetail["activity"][number]): string {
-  const who = entry.actor?.initials ?? "system";
-  if (entry.verb === "created") return `${who} created this item`;
-  if (entry.field === "status") return `${who} changed status ${entry.fromValue ?? "—"} → ${entry.toValue ?? "—"}`;
-  if (entry.field) return `${who} set ${entry.field} → ${entry.toValue ?? "—"}`;
-  return `${who} ${entry.verb}`;
 }

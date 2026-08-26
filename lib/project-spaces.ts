@@ -26,6 +26,8 @@
  * offers the page that has them all rather than silently dropping the tail.
  */
 
+import { PROJECT_STATE_LABEL, projectStateOf } from "@/lib/projects";
+
 export interface SpaceSprint {
   number: number;
   name: string;
@@ -119,12 +121,15 @@ export function spaceRowsFor(project: SpaceProject, componentCount: number): Spa
  * the design draws. It is derived from the sprints this schema already has
  * rather than from the `status` column the prototype implies and `projects`
  * does not have.
+ *
+ * **The rule itself lives in `lib/projects.ts` since W8a**, because the projects
+ * list draws the same chip and filters by it. Two copies would be two chances
+ * for this chip to disagree with the one six pixels to its right, on the same
+ * screen, about the same project.
  */
 export function spaceStateFor(project: SpaceProject): { label: string; active: boolean } {
-  if (project.activeSprint) return { label: "active", active: true };
-
-  const open = project.sprints.some((sprint) => sprint.status !== "closed");
-  return { label: open ? "planned" : "no sprint", active: false };
+  const state = projectStateOf(project);
+  return { label: PROJECT_STATE_LABEL[state], active: state === "active" };
 }
 
 /**

@@ -1541,7 +1541,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `done` | `34b7d7e` | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `done` | `f491856` | one `aria-current` **per navigation** (the trail's last crumb is the ARIA breadcrumb pattern — see `05-DECISIONS.md`) · zero overflow at 13 widths + 200% · axe · `budgets` **OK 74.6/110, 214.6/220** · `test` **293** · `db:test` **338** · full e2e `--workers=1` **550 passed**, 1 contention failure that passes alone · rail 12/12, navigation 15/15, home 8/8. **Favourites and recents deferred** to W7/W9, recorded rather than faked |
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `done` | `pending` | **W7a comparator + W7b sorting + W7c filters + W7d saved views:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **W7d:** `test` **345** · `db:test` **351** (13 new RLS) · `budgets` **OK 79.6/110 own, 219.7/220 total** · saved-views **6/6**. **Deferred to W8:** favourites, which this unblocks |
-| W8 | **Projects and project home** | `todo` | | e2e search/filter/archived · axe |
+| W8 | **Projects and project home** | `wip` | | **W8a done:** the list searches, filters by a derived state, and shows archived behind a toggle · projects 7/7 incl. axe and the archive round trip · `budgets` **OK 79.4/110, 219.4/220**. **W8b next:** project home, then favourites |
 | W9 | **People & Access** — six sections, safety states, the per-project client grant editor | `todo` | | pgTAP self-demote / self-deactivate / last-admin · e2e disabled-and-explained |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `todo` | | `tests/earnings-boundary.test.ts` extended, both ways |
 | W11 | **Version history UI and Trash** | `todo` | | e2e restore returns comments and versions |
@@ -2871,6 +2871,63 @@ after a `db:reset` · `budgets` **OK 79.6 / 110 own, 219.7 / 220 total** ·
 saved-views **6/6** incl. two contexts for a shared view and axe with the panel
 open · sprint-table 24/24 · a11y 15/15 · navigation 15/15.
 
+**Full suite, `--workers=1`: 577 passed, 4 skipped, 0 failed** — the first
+completely clean full run since W0, and the first ever to include the phone
+projects with no contention failure. Run with `E2E_BASE_URL` pointed at this
+session's own dev server, because another session held port 3000; see
+`07-FIELD-NOTES.md`.
+
 **W7 is done.** Next: W8 — projects and project home. **Favourites are now
 unblocked** — W6 deferred them until saved views existed, which they do; they
 are the first thing W8 should pick up, with the sidebar section W6d left out.
+
+## W8a — the projects list, searchable and filterable, and one rule in one place
+
+`?q=` over the name, the client and the slug; `?state=` over the three states
+this schema can actually answer; `?archived=1` for the ones that have been put
+away. Read on the server, so the rows that survive are the rows that render and
+the only JavaScript on the screen is the control bar — which matters with **0.6
+KB** of §5 total headroom.
+
+The state rule moved into `lib/projects.ts` and the sidebar's chip now calls it
+instead of carrying its own copy. `describeActivity` moved out of
+`item-detail.tsx` into `lib/activity.ts` for the same reason: both are things
+two screens say about the same fact, and two copies is two chances to disagree
+on screen.
+
+**Archived projects are rows in this list now**, behind the toggle, with the
+restore control on the row. They used to be a separate section inside the admin
+panel — a different place, a different shape, and invisible to the search and
+the chips.
+
+### Four things found by opening the page
+
+**`— components` and `1 sprints`.** A count of nothing is a sentence, not a dash
+with a plural after it. `no components`, `1 sprint`, `no hours`.
+
+**The name column lost to the activity column.** Both were `flex-1`, so the
+longest *content* won: `MEINEvim components` rendered at **102px** while a
+sentence about it rendered at **371**. The name is the thing somebody is looking
+for — `flex-[2]` with a 180px floor.
+
+**Then the row wrapped.** With `flex-wrap`, an `auto` basis on the trailing cell
+makes its hypothetical size the whole sentence, so MEINEvim's controls were
+pushed onto a second line at 1440 while every other row stayed on one.
+`lg:basis-0` — take what is left, truncate — and every row is 71px again.
+
+**Five projects were 1270px of scrolling on a phone.** Each row wrapped to 254px.
+The three counts and the four faces are gone below `sm`; what a phone has room
+to say about a project is its name, its state, and what happened last. 221px,
+and nothing overflows at 320.
+
+**And one the browser found that no test would have:** the admin panel's header
+read `5 live · 1 archived` with five projects in total, because it counted the
+list it was handed and that list had just started including archived projects.
+
+`test` **368** (23 new) · `lint`, `typecheck` clean · `db:test` **351** after a
+`db:reset` · `budgets` **OK 79.4 / 110 own, 219.4 / 220 total** · projects
+**7/7** incl. axe, the archive round trip and the 320px overflow check ·
+a11y 15/15 · rail 12/12 · navigation 15/15 · sprint-manage 9/9.
+
+**Next:** W8b — project home, and then favourites, which W6 deferred until saved
+views existed.

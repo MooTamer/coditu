@@ -3579,3 +3579,60 @@ above a *sibling* context later in the document — the table. The menu opened u
 `DialogShell` is already portalled and is already what the Filter control beside it opens, so the
 toolbar's controls now open the same kind of surface — and it is a sheet on a phone, where a dropdown
 would have been unusable anyway.
+
+## The projects list filters on the server, and by a state no column holds
+
+**Decided 2026-08-26, W8a.** `?q=evim&state=active,planned&archived=1`, read on the server, with the
+rows that survive being the rows that render. The controls are the only JavaScript on the screen.
+
+That is the **opposite** of the sprint table's split, and deliberately so. A sprint board re-sorts,
+re-tints and re-sums a live table between renders, so its predicate has to be in the browser. A
+project list is a page you arrive at, read once and click out of. It also matters beyond taste: §5's
+total budget had **0.3 KB** of headroom after W7, so a screen that could ship no row-rendering
+JavaScript should ship none. Measured after: **219.4 / 220**.
+
+### The state is `active` / `planned` / `no sprint`, and it is derived
+
+W6d settled this for the sidebar and W8a extends it to a *filter*: the design's `active` / `planning`
+/ `paused` is a column `projects` does not have, and `paused` in particular is a statement about an
+engagement — that a client has stopped paying attention — that no query can know. So:
+
+- **active** — a sprint is running
+- **planned** — no sprint is running, but one is scheduled
+- **no sprint** — every sprint is closed, or there are none
+
+`?state=paused` narrows by the states that *are* named rather than guessing at a fourth, which is the
+same rule the status filter has had since W7: an unrecognised value is dropped, never approximated,
+because an empty filter means "show everything" and quietly widening a shared link is worse than
+showing nothing.
+
+**The rule now lives in `lib/projects.ts`,** used by both the sidebar's chip and this list's. Two
+copies would be two chances for the chip on `/app/projects` to disagree with the one six pixels to
+its left in the sidebar, on the same screen, about the same project.
+
+### Archived projects are rows in this list, not a list underneath it
+
+They were a separate `Archived` section inside the admin panel, with their own shape and their own
+restore button — which meant the search and the state chips could not see them, and an archived
+project was somewhere else rather than somewhere later. It is one list behind `?archived=1` now, the
+row carries an `archived` chip, and the row's own control restores it.
+
+`is_archived` is deliberately **not** one of the state chips even though it is the only status column
+`projects` actually has. It answers a different question: not "what is happening here" but "is this
+still ours to look at".
+
+*Found by moving it:* the admin panel's header counted `projects.length` as "live", and the moment
+this page started passing it a list that included archived projects it read `5 live` with one of the
+five archived. It takes two numbers now, because counting was the only thing it ever did with the
+lists.
+
+### `Recent activity` is bounded by days, and the column's name is the honest part
+
+The obvious implementation — order every activity row by date, take the newest few hundred, group by
+project — is wrong invisibly: a quiet project whose last event falls outside the window renders as
+though nothing has ever happened on it. A window of **30 days** cannot do that. It can only ever mean
+"nothing in the last thirty days", which is what the column is called and what the empty cell says.
+
+`describeActivity` moved out of `item-detail.tsx` into `lib/activity.ts` for the same reason the state
+rule moved: the wording is the only part of an activity row a reader ever sees, so two copies would be
+two chances for this list to describe an event differently from the item it happened on.

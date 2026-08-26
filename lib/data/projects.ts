@@ -2,6 +2,8 @@ import "server-only";
 
 import { cache } from "react";
 
+import { describeActivity } from "@/lib/activity";
+import { listComponentsByProject } from "@/lib/data/components";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -176,6 +178,173 @@ export const listArchivedProjects = cache(async (): Promise<ArchivedProject[]> =
     slug: project.slug,
     clientName: project.clients?.name ?? "—",
   }));
+});
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The projects list's own read model: every project, archived ones included,
+ * with the three things the list shows that the shell's `listProjects` has no
+ * business fetching.
+ *
+ * ## Why this is separate from `listProjects`
+ *
+ * `listProjects` runs on **every page in the app** — the sidebar's spaces tree
+ * and the topbar both read it. Adding a team roll-up and an activity scan to it
+ * would put three more joins on every request in order to serve one screen.
+ * This one is called by `/app/projects` and nowhere else.
+ *
+ * ## `recentActivity` is bounded by TIME, and the column says so
+ *
+ * The obvious implementation — order every activity row by date and take the
+ * newest few hundred — is wrong in a way that is invisible: a quiet project
+ * whose last event falls outside the window renders as though nothing has ever
+ * happened on it. A window of days cannot do that. It can only ever mean
+ * "nothing in the last thirty days", which is exactly what the column is called
+ * and exactly what the empty cell says.
+ */
+export interface ProjectOverview extends ProjectSummary {
+  isArchived: boolean;
+  componentCount: number;
+  /** Everybody holding a seat on an item in this project, by initials. */
+  team: Array<{ id: string; fullName: string; initials: string; avatarUrl: string | null }>;
+  /** The newest event in the window, already worded. Null if the window is empty. */
+  recentActivity: { key: string; sentence: string; at: string } | null;
+}
+
+/** What "recent" means, in one place, so the column and the query agree. */
+export const RECENT_ACTIVITY_DAYS = 30;
+
+export const listProjectOverviews = cache(async (): Promise<ProjectOverview[]> => {
+  const supabase = await createClient();
+
+  const since = new Date(Date.now() - RECENT_ACTIVITY_DAYS * 86_400_000).toISOString();
+
+  const [live, archived, components, seats, events] = await Promise.all([
+    listProjects(),
+    // Archived projects are a filter on this screen rather than a separate
+    // list, so they arrive through the same shape rather than through
+    // `listArchivedProjects`, which answers a different question for the
+    // admin panel.
+    supabase
+      .from("projects")
+      .select(
+        `id, name, slug, scope, accent_hex, key_prefix,
+         clients ( name, website_url, logo_path ),
+         sprints ( id, number, name, status, work_items ( minutes_logged ) )`
+      )
+      .eq("is_archived", true)
+      .order("name"),
+    listComponentsByProject(),
+    supabase
+      .from("work_items")
+      .select(
+        `sprints!inner ( project_id ),
+         assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials, avatar_url ),
+         reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials, avatar_url )`
+      ),
+    supabase
+      .from("activity")
+      .select(
+        `verb, field, from_value, to_value, created_at,
+         actor:profiles!activity_actor_id_fkey ( initials ),
+         work_items!inner ( key, sprints!inner ( project_id ) )`
+      )
+      .gte("created_at", since)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (archived.error) throw archived.error;
+  if (seats.error) throw seats.error;
+  if (events.error) throw events.error;
+
+  const teams = new Map<string, Map<string, ProjectOverview["team"][number]>>();
+  for (const row of seats.data ?? []) {
+    const projectId = row.sprints?.project_id;
+    if (!projectId) continue;
+    const roster = teams.get(projectId) ?? new Map();
+    for (const person of [row.assignee, row.reviewer]) {
+      if (!person) continue;
+      roster.set(person.id, {
+        id: person.id,
+        fullName: person.full_name,
+        initials: person.initials,
+        avatarUrl: person.avatar_url,
+      });
+    }
+    teams.set(projectId, roster);
+  }
+
+  // Ordered newest first by the query, so the first row seen for a project is
+  // its latest — no comparison needed, and no second sort to get wrong.
+  const latest = new Map<string, ProjectOverview["recentActivity"]>();
+  for (const row of events.data ?? []) {
+    const projectId = row.work_items?.sprints?.project_id;
+    if (!projectId || latest.has(projectId)) continue;
+    latest.set(projectId, {
+      key: row.work_items?.key ?? "",
+      sentence: describeActivity({
+        verb: row.verb,
+        field: row.field,
+        fromValue: row.from_value,
+        toValue: row.to_value,
+        actor: row.actor,
+      }),
+      at: row.created_at,
+    });
+  }
+
+  const enrich = (project: ProjectSummary, isArchived: boolean): ProjectOverview => ({
+    ...project,
+    isArchived,
+    componentCount: (components[project.id] ?? []).filter((c) => !c.isArchived).length,
+    team: [...(teams.get(project.id)?.values() ?? [])].sort((a, b) =>
+      a.fullName.localeCompare(b.fullName)
+    ),
+    recentActivity: latest.get(project.id) ?? null,
+  });
+
+  const retired: ProjectSummary[] = (archived.data ?? []).map((project) => {
+    const sprints = project.sprints ?? [];
+    return {
+      id: project.id,
+      name: project.name,
+      slug: project.slug,
+      scope: project.scope,
+      accentHex: project.accent_hex,
+      keyPrefix: project.key_prefix ?? null,
+      clientName: project.clients?.name ?? "—",
+      clientUrl: project.clients?.website_url ?? null,
+      clientLogoPath: project.clients?.logo_path ?? null,
+      sprintCount: sprints.length,
+      minutesLogged: sprints.reduce(
+        (total, sprint) =>
+          total + (sprint.work_items ?? []).reduce((n, item) => n + (item.minutes_logged ?? 0), 0),
+        0
+      ),
+      // An archived project has no ACTIVE sprint by definition of what
+      // archiving is for — but read it rather than assert it, because the
+      // column is what decides and nothing stops a sprint being left open.
+      activeSprint: (() => {
+        const active = sprints.find((sprint) => sprint.status === "active");
+        return active ? { number: active.number, name: active.name } : null;
+      })(),
+      sprints: [...sprints]
+        .sort((a, b) => b.number - a.number)
+        .map((sprint) => ({
+          id: sprint.id,
+          number: sprint.number,
+          name: sprint.name,
+          status: sprint.status,
+          itemCount: (sprint.work_items ?? []).length,
+        })),
+    };
+  });
+
+  return [
+    ...live.map((project) => enrich(project, false)),
+    ...retired.map((project) => enrich(project, true)),
+  ];
 });
 
 export interface SprintSummary {

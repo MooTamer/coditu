@@ -14,7 +14,7 @@ import {
   updateClientRecord,
   updateProject,
 } from "@/lib/actions/projects";
-import type { ArchivedProject, ClientSummary, ProjectSummary } from "@/lib/data/projects";
+import type { ClientSummary, ProjectSummary } from "@/lib/data/projects";
 import { cn } from "@/lib/utils";
 
 const FIELD =
@@ -51,14 +51,20 @@ function slugify(name: string): string {
  *    built from.
  */
 export function ProjectAdmin({
-  projects,
+  liveCount,
+  archivedCount,
   clients,
-  archived,
   canManage,
 }: {
-  projects: ProjectSummary[];
+  /**
+   * Counts rather than the lists themselves, because counting was the only
+   * thing this panel ever did with them — and passing the list made the number
+   * wrong the moment `/app/projects` started including archived projects in it.
+   * It said `5 live` with one of the five archived.
+   */
+  liveCount: number;
+  archivedCount: number;
   clients: ClientSummary[];
-  archived: ArchivedProject[];
   /** Admin or lead. RLS refuses everyone else's write regardless. */
   canManage: boolean;
 }) {
@@ -91,8 +97,8 @@ export function ProjectAdmin({
 
         <Mono size="meta" className="text-[var(--ink-faint)]">
           {clients.length} {clients.length === 1 ? "client" : "clients"} ·{" "}
-          {projects.length} live
-          {archived.length ? ` · ${archived.length} archived` : ""}
+          {liveCount} live
+          {archivedCount ? ` · ${archivedCount} archived` : ""}
         </Mono>
       </div>
 
@@ -102,7 +108,6 @@ export function ProjectAdmin({
       {pane === "client" ? <NewClientForm onDone={() => setPane("none")} /> : null}
 
       {clients.length ? <ClientList clients={clients} /> : null}
-      {archived.length ? <ArchivedList archived={archived} /> : null}
     </div>
   );
 }
@@ -369,7 +374,19 @@ function NewClientForm({ onDone }: { onDone: () => void }) {
  * Its own component so the list page stays a Server Component and only this
  * strip is interactive.
  */
-export function ProjectRowControls({ project }: { project: ProjectSummary }) {
+export function ProjectRowControls({
+  project,
+  isArchived = false,
+}: {
+  project: ProjectSummary;
+  /**
+   * An archived project is a row in the same list now, behind the `archived=1`
+   * filter, rather than a second list underneath it. So this control has to be
+   * able to send it back — otherwise the only way out of the archive would be a
+   * surface that no longer exists.
+   */
+  isArchived?: boolean;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
@@ -405,15 +422,17 @@ export function ProjectRowControls({ project }: { project: ProjectSummary }) {
     });
   }
 
-  function archive() {
+  function setArchived(next: boolean) {
     startTransition(async () => {
       const result = await settle(
-        () => setProjectArchived({ projectId: project.id, isArchived: true }),
+        () => setProjectArchived({ projectId: project.id, isArchived: next }),
         "That change did not save."
       );
       toast(
         result.ok
-          ? `${project.name} is archived. Nothing was deleted.`
+          ? next
+            ? `${project.name} is archived. Nothing was deleted.`
+            : `${project.name} is back.`
           : result.error ?? "That change did not save."
       );
       if (result.ok) router.refresh();
@@ -496,13 +515,21 @@ export function ProjectRowControls({ project }: { project: ProjectSummary }) {
       </button>
       <button
         type="button"
-        onClick={archive}
+        onClick={() => setArchived(!isArchived)}
         disabled={pending}
-        aria-label={`Archive ${project.name}`}
-        title={`Archive ${project.name} — it leaves this list, nothing is deleted`}
+        aria-label={isArchived ? `Restore ${project.name}` : `Archive ${project.name}`}
+        title={
+          isArchived
+            ? `Restore ${project.name} — it comes back to the list`
+            : `Archive ${project.name} — it leaves this list, nothing is deleted`
+        }
         className={ACTION}
       >
-        <Archive size={13} strokeWidth={1.8} aria-hidden />
+        {isArchived ? (
+          <ArchiveRestore size={13} strokeWidth={1.8} aria-hidden />
+        ) : (
+          <Archive size={13} strokeWidth={1.8} aria-hidden />
+        )}
       </button>
     </div>
   );
@@ -644,53 +671,3 @@ function ClientRow({ client }: { client: ClientSummary }) {
   );
 }
 
-function ArchivedList({ archived }: { archived: ArchivedProject[] }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [pending, startTransition] = useTransition();
-
-  function restore(project: ArchivedProject) {
-    startTransition(async () => {
-      const result = await settle(
-        () => setProjectArchived({ projectId: project.id, isArchived: false }),
-        "That change did not save."
-      );
-      toast(result.ok ? `${project.name} is back.` : result.error ?? "That change did not save.");
-      if (result.ok) router.refresh();
-    });
-  }
-
-  return (
-    <section
-      aria-label="Archived projects"
-      className="overflow-hidden rounded-list border border-[var(--hairline)] bg-[var(--raised)]"
-    >
-      <h2 className="border-b border-[var(--hairline)] px-5 py-3 text-[13px] font-medium text-[var(--ink-muted)]">
-        Archived
-      </h2>
-      {archived.map((project) => (
-        <div
-          key={project.id}
-          className="flex flex-wrap items-center gap-4 border-b border-[var(--hairline)] px-5 py-3 last:border-b-0"
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13.5px]">{project.name}</span>
-            <Mono size="meta" className="block truncate text-[var(--ink-faint)]">
-              {project.clientName}
-            </Mono>
-          </span>
-          <button
-            type="button"
-            onClick={() => restore(project)}
-            disabled={pending}
-            aria-label={`Restore ${project.name}`}
-            className={ACTION}
-          >
-            <ArchiveRestore size={13} strokeWidth={1.8} aria-hidden />
-            Restore
-          </button>
-        </div>
-      ))}
-    </section>
-  );
-}
