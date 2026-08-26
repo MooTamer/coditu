@@ -1543,8 +1543,8 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `done` | `pending` | **W7a comparator + W7b sorting + W7c filters + W7d saved views:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **W7d:** `test` **345** · `db:test` **351** (13 new RLS) · `budgets` **OK 79.6/110 own, 219.7/220 total** · saved-views **6/6**. **Deferred to W8:** favourites, which this unblocks |
 | W8 | **Projects and project home**, the favourites W6 deferred, and the budget paid back | `done` | `pending` | the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px; favourites are a table, a star on three surfaces and a sidebar section · projects 7/7, project-home 8/8, favourites 5/5, all incl. axe · `test` **375** · `db:test` **364** · `budgets` **own OK 75.7/110; §5 total 215.7/220 after W8d** |
 | W9 | **People & Access** — the access log, the roles matrix, safety states made visible | `done` | `pending` | `access_events` written by triggers and writable by nobody · 12 new pgTAP incl. three write refusals · e2e **disabled-and-explained** on all three self controls · `test` **382** · `db:test` **376** · `budgets` **OK 75.7/110, 215.7/220**. Client contacts stay on `/app/clients` — see `05-DECISIONS.md` |
-| W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `done` | `pending` | `lib/earnings.ts` untouched — the three functions are the bytes they were at W0. **W10a:** the boundary asserted both ways, the outward list widened from 11 paths to 27 incl. the client portal, which nothing had ever checked. **W10b:** `/app/profile` split out; `/app/settings` is admin-only and redirects everybody else. **W10c:** Team payouts on `/app/settings/payouts`, read by every internal member and confirmed only by an admin — the team's own §E5 rule, kept. `test` **387** · `db:test` **376** after a `db:reset` · `budgets` **OK 75.9/110 own, 215.9/220 total** · every spec W10 touched green together — **227 passed, 6 skipped, 0 failed** across eleven files, from a `db:reset` · full `e2e --workers=1` reached **606 passed, 0 failed** once and a rotating 2-3 contention failures on four other runs, each passing alone and none naming a file this phase changed — see the note below |
-| W11 | **Version history UI and Trash** | `todo` | | e2e restore returns comments and versions |
+| W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `done` | `8904f20` | `lib/earnings.ts` untouched — the three functions are the bytes they were at W0. **W10a:** the boundary asserted both ways, the outward list widened from 11 paths to 27 incl. the client portal, which nothing had ever checked. **W10b:** `/app/profile` split out; `/app/settings` is admin-only and redirects everybody else. **W10c:** Team payouts on `/app/settings/payouts`, read by every internal member and confirmed only by an admin — the team's own §E5 rule, kept. `test` **387** · `db:test` **376** after a `db:reset` · `budgets` **OK 75.9/110 own, 215.9/220 total** · every spec W10 touched green together — **227 passed, 6 skipped, 0 failed** across eleven files, from a `db:reset` · full `e2e --workers=1` reached **606 passed, 0 failed** once and a rotating 2-3 contention failures on four other runs, each passing alone and none naming a file this phase changed — see the note below |
+| W11 | **Version history UI and Trash** | `wip` | | **W11a done:** the restore promise is asserted — `e2e/trash.spec.ts` **7/7**, and the file now leaves the database as it found it |
 | W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `todo` | | e2e rehearsal pass **and** fail, live rows untouched |
 | W13 | **Responsive, a11y, security, performance hardening** | `todo` | | full `e2e` · `budgets` · `lighthouse` · `degraded` |
 
@@ -3450,3 +3450,52 @@ engineer, both themes, 375 and 1280, no horizontal overflow, console clean apart
 from the dev server's own HMR socket.
 
 **Next:** W11 — Version history UI and Trash.
+
+## W11a — the promise the bin makes, finally asserted
+
+`06-PROGRESS.md` has named W11's verification since the plan was written —
+*e2e restore returns comments and versions* — and nothing was checking it.
+`trash.spec.ts` proved a restored story comes back and leaves the bin, which is
+equally true of a row whose thread and history were thrown away on the way in.
+
+It passes today, and that is the point of writing it: `deleteWorkItem` is soft
+precisely so a story keeps its criteria, its thread and its hours. The assertion
+is for the day somebody makes deletion cascade — the obvious tidy-up, and a
+silent one. Every screen would keep working; only a story that had already been
+round the bin would come back hollow.
+
+Rendered rather than counted. `select count(*) from comments` passes while the
+thread refuses to show them, and it is the thread somebody opens.
+
+### Two things it found on the way
+
+The comment marker matched **twice** — once as the comment in the thread, once
+inside the history panel's diff of it. That is half of what the test exists to
+prove, so it is asserted rather than escaped: `exact: true` for the comment,
+and a second assertion for the diff line. Third time this session that
+Playwright's substring name-matching has cost a red run.
+
+And the diff line is `toBeAttached`, not `toBeVisible`, because W4c put diffs
+inside a collapsed `<details>` so the panel could ship a diff viewer and no
+JavaScript. Whether a reader can expand it is `version-history.spec.ts`'s
+question.
+
+### The spec was leaving residue, which this session has a note about
+
+It edits a description and inserts a comment, and both write append-only
+`document_revisions` rows. `version-history.spec.ts` already solved this for
+`COD-238` — capture the original, delete the rows as a fixture privilege, put
+everything back in `afterAll` — and `trash.spec.ts` does the same for `COD-237`
+now.
+
+**The first attempt restored the wrong value.** `beforeAll` captured the
+description *after* an earlier run had already overwritten it, so "put it back"
+put back the probe. `db:reset`, then re-run: 0 revisions, the seed's
+description, 0 probe comments, and the same three numbers after a second
+consecutive run.
+
+`lint`, `typecheck` clean · `test` **387** · `db:test` **376** · trash **7/7**,
+twice back to back, leaving the database as it found it.
+
+**Next:** W11b — `/app/history`, the workspace-wide version list the design asks
+for and the only route in the plan's traceability matrix that does not exist.

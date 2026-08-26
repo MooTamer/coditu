@@ -1,4 +1,4 @@
-import { SEED_ENGINEER, SEED_LEAD, auditA11y, expect, query, signIn, test } from "./fixtures";
+import { SEED, SEED_ENGINEER, SEED_LEAD, auditA11y, expect, query, signIn, test } from "./fixtures";
 
 const ITEM_KEY = "COD-237";
 
@@ -20,6 +20,24 @@ async function clearTrash() {
   await query(`delete from comments where body_text like 'TRASH SPEC%'`);
 }
 
+/**
+ * Put `COD-237` back exactly as the seed left it.
+ *
+ * The restore test edits its description to have a version worth losing, and
+ * every edit and every comment writes a `document_revisions` row. The table is
+ * append-only **to the application** — a direct delete is a fixture privilege,
+ * and it is the only way this file can stop changing what the next run of
+ * anything else reads. `version-history.spec.ts` does the same for `COD-238`
+ * and says why; leaving rows behind is the trap `revisions.sql` was built to
+ * avoid and this session met twice more.
+ */
+async function clearRevisions() {
+  await query(
+    `delete from document_revisions where work_item_id = (select id from work_items where key = $1)`,
+    [ITEM_KEY]
+  );
+}
+
 async function itemId() {
   const [row] = await query<{ id: string }>(`select id from work_items where key = $1`, [ITEM_KEY]);
   return row.id;
@@ -36,12 +54,27 @@ async function profileId(email: string) {
 test.describe("trash", () => {
   test.describe.configure({ mode: "serial" });
 
+  let originalDescription: string | null = null;
+
+  test.beforeAll(async () => {
+    const [row] = await query<{ description: string | null }>(
+      `select description from work_items where key = $1`,
+      [ITEM_KEY]
+    );
+    originalDescription = row.description;
+  });
+
   test.beforeEach(async () => {
     await clearTrash();
   });
 
   test.afterAll(async () => {
     await clearTrash();
+    await query(`update work_items set description = $1 where key = $2`, [
+      originalDescription,
+      ITEM_KEY,
+    ]);
+    await clearRevisions();
   });
 
   test("a deleted story is listed with where it was and what it costs to purge", async ({
@@ -88,6 +121,106 @@ test.describe("trash", () => {
       .toBeNull();
 
     await expect(page.getByRole("listitem").filter({ hasText: ITEM_KEY })).toHaveCount(0);
+  });
+
+  /**
+   * The promise the bin makes, checked against the screens that would show it
+   * broken.
+   *
+   * `docs/06-PROGRESS.md` names this as W11's verification, and it was the one
+   * thing the restore path had nobody asserting: the previous test proves the
+   * story comes back and leaves the bin, which is true of a row whose thread
+   * and history were thrown away on the way in.
+   *
+   * Delete is soft precisely so that does not happen — `lib/actions/work-items.ts`
+   * says *"the row keeps its criteria, its thread and its hours"* — so this
+   * passes today. It is written for the day somebody makes deletion cascade,
+   * which is the obvious tidy-up and would be silent: every screen would keep
+   * working, and only a story that had already been round the bin would come
+   * back hollow.
+   *
+   * Rendered rather than counted in SQL. `select count(*) from comments` would
+   * pass while the thread refused to show them, and it is the thread that
+   * somebody opens.
+   */
+  test("a restored story comes back with its comments and its versions", async ({
+    adminPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    const id = await itemId();
+    const marker = `TRASH SPEC restored thread ${Date.now()}`;
+
+    await query(
+      `insert into comments (work_item_id, author_id, body_text, body_json)
+       values ($1, $2, $3, $4)`,
+      [
+        id,
+        await profileId("mohamed@coditu.com"),
+        marker,
+        JSON.stringify({
+          type: "doc",
+          content: [{ type: "paragraph", content: [{ type: "text", text: marker }] }],
+        }),
+      ]
+    );
+
+    // An edit, so there is a version to lose as well as a comment.
+    await query(
+      `update work_items set description = 'W11 restore probe' where id = $1`,
+      [id]
+    );
+
+    const before = await query<{ n: string }>(
+      `select count(*) as n from document_revisions where work_item_id = $1`,
+      [id]
+    );
+    expect(Number(before[0].n), "nothing to prove without a version").toBeGreaterThan(0);
+
+    await query(`update work_items set deleted_at = now() where id = $1`, [id]);
+
+    await page.goto("/app/trash");
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: ITEM_KEY })
+      .first()
+      .getByRole("button", { name: "Restore" })
+      .click();
+
+    await expect
+      .poll(
+        async () => {
+          const [row] = await query<{ deleted_at: string | null }>(
+            `select deleted_at from work_items where id = $1`,
+            [id]
+          );
+          return row.deleted_at;
+        },
+        { timeout: 8000 }
+      )
+      .toBeNull();
+
+    // The thread and the history, on the story's own page. `exact`, because the
+    // history panel's diff quotes the comment it captured — two matches, and
+    // the second one is half of what this test is here to prove, so it is
+    // asserted rather than escaped from.
+    await page.goto(`${SEED.sprint}/items/${ITEM_KEY}`);
+    await expect(page.getByText(marker, { exact: true })).toBeVisible();
+    // `toBeAttached`, not `toBeVisible`: the diff lives inside a collapsed
+    // `<details>` — W4c's decision, so the panel ships a diff viewer and no
+    // JavaScript. Whether a reader can expand it is `version-history.spec.ts`'s
+    // question; this one only asks whether the version is still there.
+    await expect(page.getByText(`+ added: ${marker}`)).toBeAttached();
+
+    // And the count, because the panel shows a window and the table is what
+    // survives.
+    const after = await query<{ n: string }>(
+      `select count(*) as n from document_revisions where work_item_id = $1`,
+      [id]
+    );
+    expect(Number(after[0].n), "history did not survive the round trip").toBe(
+      Number(before[0].n)
+    );
   });
 
   test("a withdrawn comment is listed WITHOUT its words", async ({ adminPage: page }) => {
