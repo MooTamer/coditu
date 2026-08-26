@@ -3636,3 +3636,55 @@ though nothing has ever happened on it. A window of **30 days** cannot do that. 
 `describeActivity` moved out of `item-detail.tsx` into `lib/activity.ts` for the same reason the state
 rule moved: the wording is the only part of an activity row a reader ever sees, so two copies would be
 two chances for this list to describe an event differently from the item it happened on.
+
+## The project page's two columns start at 1400px, measured
+
+**Decided 2026-08-26, W8b.** The design puts a 320px column beside the main one from 1180. That
+number cannot survive here, because at 1180 the app's own sidebar has just widened to 268px — so the
+page has 912, and a 320px aside would leave the sprint manager 568.
+
+Forced on and measured, counting elements whose `scrollWidth` exceeds their `clientWidth`:
+
+```
+1280   main 606   many clipped — `Sprint — Week 16` renders 37px of the 119 it needs
+1320   main 644   14 clipped
+1360   main 683    7 clipped
+1400   main 721    nothing clipped
+```
+
+So `min-[1400px]`, which keeps both columns on the 1440 laptop this team uses and stacks them below.
+`xl` was the first attempt and shipped a sprint list whose names were fragments — the same failure
+W6c refused to ship in the topbar, in a different place. `2xl` would have been the safe standard
+choice and would have given the two columns up at exactly the width they work at.
+
+*Verified the way `07-FIELD-NOTES.md` says an arbitrary variant has to be:* the served stylesheet
+contains the `1400px` rule, and `e2e/project-home.spec.ts` asserts the computed
+`grid-template-columns` on both sides of it. A variant that compiles to nothing leaves the class on
+the element and every static check green.
+
+## What earns the project page's right-hand column
+
+**Decided 2026-08-26, W8b.** Four panels, and the rule for what goes in them is that they are about
+the project rather than *in* it: the **views saved against it**, **who is on it**, **how much of it a
+client can see**, and **what happened last**. Everything in the main column is the work itself.
+
+- **Team is read from the seats on the work** — the assignees and reviewers on its items — because
+  there is no membership table and inventing one would create a list somebody has to keep in step
+  with reality. The empty state says exactly that rather than "no team".
+- **Client access is a count and what it allows, never an address.** An outside person's name and
+  email do not belong on a screen that gets shown in a stand-up; `/app/clients` is the screen that
+  exists to manage them. A revoked grant is not access — `revoked_at is null` is the whole filter,
+  and it matches the policy the portal itself reads through.
+- **Saved views became possible one phase ago**, and this is the second place they surface. A view
+  saved against a sprint goes to that sprint; one saved against the project follows whichever is
+  running. Neither invents an address the reader cannot get back to, and a view whose sprint is gone
+  is inert and says why.
+- **The design's fifth panel, project pages, is not built.** There is no project-scoped document
+  route to put in it, and a panel of links to nothing is furniture. Same reasoning as W6d's missing
+  Notes row.
+
+*Two different bounds on the same table, deliberately:* `listProjectOverviews` bounds activity by
+**30 days**, because the list is asking "has anything happened lately" and a count-bound scan would
+render a quiet project as though nothing ever had. This panel bounds by **count**, because "the last
+few things" is a count by definition. The headings say which — `Recent activity` and `Latest
+activity`.

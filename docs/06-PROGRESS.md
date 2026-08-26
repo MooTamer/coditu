@@ -1541,7 +1541,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `done` | `34b7d7e` | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `done` | `f491856` | one `aria-current` **per navigation** (the trail's last crumb is the ARIA breadcrumb pattern — see `05-DECISIONS.md`) · zero overflow at 13 widths + 200% · axe · `budgets` **OK 74.6/110, 214.6/220** · `test` **293** · `db:test` **338** · full e2e `--workers=1` **550 passed**, 1 contention failure that passes alone · rail 12/12, navigation 15/15, home 8/8. **Favourites and recents deferred** to W7/W9, recorded rather than faked |
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `done` | `pending` | **W7a comparator + W7b sorting + W7c filters + W7d saved views:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **W7d:** `test` **345** · `db:test` **351** (13 new RLS) · `budgets` **OK 79.6/110 own, 219.7/220 total** · saved-views **6/6**. **Deferred to W8:** favourites, which this unblocks |
-| W8 | **Projects and project home** | `wip` | | **W8a done:** the list searches, filters by a derived state, and shows archived behind a toggle · projects 7/7 incl. axe and the archive round trip · `budgets` **OK 79.4/110, 219.4/220**. **W8b next:** project home, then favourites |
+| W8 | **Projects and project home** | `wip` | | **W8a+W8b done:** the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px · projects 7/7, project-home 8/8, both incl. axe · `budgets` **OK 79.4/110, 219.4/220**. **W8c next:** favourites |
 | W9 | **People & Access** — six sections, safety states, the per-project client grant editor | `todo` | | pgTAP self-demote / self-deactivate / last-admin · e2e disabled-and-explained |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `todo` | | `tests/earnings-boundary.test.ts` extended, both ways |
 | W11 | **Version history UI and Trash** | `todo` | | e2e restore returns comments and versions |
@@ -2931,3 +2931,56 @@ a11y 15/15 · rail 12/12 · navigation 15/15 · sprint-manage 9/9.
 
 **Next:** W8b — project home, and then favourites, which W6 deferred until saved
 views existed.
+
+## W8b — the project page says what a project is, and who can see it
+
+A header that names the client, its site and the key prefix people say out loud;
+a control that opens the running sprint or explains why there is none; and a
+320px column of the four things that are *about* a project rather than in it —
+saved views, team, client access, latest activity. All server-rendered:
+`budgets` is unchanged at **79.4 / 219.4**.
+
+Every panel is real data. **Team** is read from the assignees and reviewers on
+the work, because there is no membership table and inventing one would create a
+list somebody has to keep in step with reality. **Client access** is a count and
+what it allows, never an address. **Saved views** are the second surface for
+what W7 built — and the reason W6 deferred favourites until now.
+
+The design's fifth panel, project pages, is not built: there is no
+project-scoped document route to put in it, and a panel of links to nothing is
+furniture. Same reasoning as W6d's missing Notes row.
+
+### The two columns start at 1400, and the first attempt shipped fragments
+
+`xl` looked reasonable and was wrong. Measured, counting elements whose
+`scrollWidth` exceeds their `clientWidth`:
+
+```
+1280   main 606   many clipped — `Sprint — Week 16` renders 37px of the 119 it needs
+1320   main 644   14 clipped
+1360   main 683    7 clipped
+1400   main 721    nothing clipped
+```
+
+At 1180 — the design's own number — the app sidebar has just taken 268px, so a
+320px aside would leave the sprint manager 568. `min-[1400px]` keeps both
+columns on a 1440 laptop and stacks them below. The served stylesheet was
+checked for the rule, per the W6b lesson that a variant which compiles to
+nothing leaves the class on the element and every static check green.
+
+### Three things the specs needed before they could assert anything
+
+The seed has **no saved views, no client contacts and no grants** — the
+client-portal fixtures that make them are gitignored. So the interesting half of
+three panels is only reachable by inserting a row and removing it again, each in
+a `finally`, in SQL. `profiles.id` references `auth.users`, so the throwaway
+contact goes through `createThrowawayAccount` rather than a raw insert: a person
+in this app is an account first, and the schema says so.
+
+`test` **368** · `lint`, `typecheck` clean · `db:test` **351** after a
+`db:reset` · `budgets` **OK 79.4 / 110 own, 219.4 / 220 total** · project-home
+**8/8** incl. axe, the measured breakpoint and the 320px overflow check ·
+projects 7/7 · sprint-manage 9/9 · a11y 15/15.
+
+**Next:** favourites — the sidebar section W6 deferred until saved views
+existed, which is now the only thing left in the design's sidebar.

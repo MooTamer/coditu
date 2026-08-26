@@ -138,6 +138,11 @@ export function presetFor(name: keyof typeof ACCESS_PRESETS): ClientCapability[]
 
 const KNOWN = new Set<string>(CLIENT_CAPABILITIES);
 
+/** A guard, so a stored value can be narrowed without a cast. */
+export function isClientCapability(value: string): value is ClientCapability {
+  return KNOWN.has(value);
+}
+
 /**
  * The capability list to actually store.
  *

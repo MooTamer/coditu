@@ -347,6 +347,100 @@ export const listProjectOverviews = cache(async (): Promise<ProjectOverview[]> =
   ];
 });
 
+/* -------------------------------------------------------------------------- */
+
+/** Everybody holding a seat on an item in one project. */
+export const listProjectTeam = cache(
+  async (projectId: string): Promise<Array<{ id: string; fullName: string; initials: string; avatarUrl: string | null; role: string }>> => {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("work_items")
+      .select(
+        `sprints!inner ( project_id ),
+         assignee:profiles!work_items_assignee_id_fkey ( id, full_name, initials, avatar_url, role ),
+         reviewer:profiles!work_items_reviewer_id_fkey ( id, full_name, initials, avatar_url, role )`
+      )
+      .eq("sprints.project_id", projectId);
+
+    if (error) throw error;
+
+    const roster = new Map<string, { id: string; fullName: string; initials: string; avatarUrl: string | null; role: string }>();
+    for (const row of data ?? []) {
+      for (const person of [row.assignee, row.reviewer]) {
+        if (!person) continue;
+        roster.set(person.id, {
+          id: person.id,
+          fullName: person.full_name,
+          initials: person.initials,
+          avatarUrl: person.avatar_url,
+          role: person.role,
+        });
+      }
+    }
+
+    return [...roster.values()].sort((a, b) => a.fullName.localeCompare(b.fullName));
+  }
+);
+
+export interface ProjectActivityRow {
+  id: string;
+  /** `COD-229`, and the address it belongs to. */
+  key: string;
+  href: string;
+  sentence: string;
+  at: string;
+}
+
+/**
+ * What happened on this project lately, newest first.
+ *
+ * Bounded by a count here rather than by days, and the difference from
+ * `listProjectOverviews` is the question being asked: the list wants "has
+ * anything happened recently", which a time window answers honestly; this panel
+ * wants "the last few things", which is a count by definition. The heading says
+ * which — `Latest`, not `All`.
+ */
+export const listProjectActivity = cache(
+  async (projectId: string, limit = 8): Promise<ProjectActivityRow[]> => {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("activity")
+      .select(
+        `id, verb, field, from_value, to_value, created_at,
+         actor:profiles!activity_actor_id_fkey ( initials ),
+         work_items!inner ( key, sprints!inner ( number, project_id, projects!inner ( slug ) ) )`
+      )
+      .eq("work_items.sprints.project_id", projectId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    return (data ?? []).map((row) => {
+      const item = row.work_items;
+      const sprint = item?.sprints;
+      return {
+        id: row.id,
+        key: item?.key ?? "",
+        href:
+          sprint?.projects?.slug && sprint.number && item?.key
+            ? `/app/projects/${sprint.projects.slug}/sprints/${sprint.number}/items/${item.key}`
+            : "",
+        sentence: describeActivity({
+          verb: row.verb,
+          field: row.field,
+          fromValue: row.from_value,
+          toValue: row.to_value,
+          actor: row.actor,
+        }),
+        at: row.created_at,
+      };
+    });
+  }
+);
+
 export interface SprintSummary {
   id: string;
   number: number;

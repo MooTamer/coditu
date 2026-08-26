@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
-import type { ClientCapability } from "@/lib/client-access";
+import { CLIENT_CAPABILITIES, isClientCapability, type ClientCapability } from "@/lib/client-access";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 
 /**
@@ -156,3 +156,52 @@ export const listClientAccess = cache(async (): Promise<ClientAccessRow[]> => {
     };
   });
 });
+
+/* -------------------------------------------------------------------------- */
+
+export interface ProjectClientAccess {
+  /** Contacts with a live grant on this project. */
+  contacts: number;
+  /** The union of what those grants allow, in the vocabulary the panel uses. */
+  capabilities: ClientCapability[];
+}
+
+/**
+ * How much of one project a client can see, in two numbers.
+ *
+ * Deliberately a summary rather than a roster: naming a client contact on the
+ * project page would put an outside person's address on a screen that gets
+ * shown in stand-ups, and `/app/clients` is the screen that exists to manage
+ * them. A count and what they can see is what somebody looking at a project
+ * actually needs — "is anything on this screen visible outside the company".
+ *
+ * A revoked grant is not access. `revoked_at is null` is the whole filter, and
+ * it matches the policy the client portal reads through.
+ */
+export const getProjectClientAccess = cache(
+  async (projectId: string): Promise<ProjectClientAccess> => {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("client_project_grants")
+      .select("contact_profile_id, capabilities")
+      .eq("project_id", projectId)
+      .is("revoked_at", null);
+
+    if (error) throw error;
+
+    const contacts = new Set<string>();
+    const capabilities = new Set<ClientCapability>();
+    for (const row of data ?? []) {
+      contacts.add(row.contact_profile_id);
+      for (const capability of row.capabilities ?? []) {
+        if (isClientCapability(capability)) capabilities.add(capability);
+      }
+    }
+
+    return {
+      contacts: contacts.size,
+      capabilities: CLIENT_CAPABILITIES.filter((capability) => capabilities.has(capability)),
+    };
+  }
+);
