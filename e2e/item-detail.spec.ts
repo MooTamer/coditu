@@ -412,3 +412,106 @@ test.describe("the link popover, inside the sheet", () => {
     await expect(page.getByRole("textbox", { name: "Comment" })).toBeVisible();
   });
 });
+
+/**
+ * The story updating itself while somebody is reading it.
+ *
+ * `ThreadRealtime` subscribes the item page to its COMMENTS, and for a long
+ * time that was the only subscription it had — so a reader on a story's full
+ * page saw new discussion arrive and never saw the story itself move. Somebody
+ * else could publish a new description, rename it, or change its status, and
+ * the page went on showing the old one for as long as it was left open.
+ *
+ * It was invisible because of where the peek renders. Open a story from the
+ * sprint table and it is an intercepted modal over a sprint page that is still
+ * mounted, and that page's `SprintRealtime` filters on `sprint_id` — which
+ * covers every item in the sprint, including the one being peeked at. Only the
+ * FULL page, reached by a shared link, a refresh, or a hard navigation, had
+ * nothing listening.
+ *
+ * `05-DECISIONS.md` records the contract this broke: last write wins, *and the
+ * loser sees the new value rather than their stale draft*. Half of that was not
+ * happening.
+ *
+ * The control is the point of the second test: it asserts the peek still works
+ * through the sprint's subscription, so the fix cannot quietly become "mount a
+ * second channel for every open story" without this saying so.
+ */
+test.describe("a story that changes under its reader", () => {
+  // A key no other spec touches. The description is put back afterwards, along
+  // with the revisions the capture trigger writes for it — the table is
+  // append-only to the application, so a test that leaves rows behind moves
+  // every later run's version numbers.
+  const KEY = "COD-232";
+  const AT = `${SPRINT}/items/${KEY}`;
+
+  let original: string | null = null;
+  let highWater = 0;
+
+  test.beforeAll(async () => {
+    const [row] = await query<{ description: string | null }>(
+      `select description from work_items where key = $1`,
+      [KEY]
+    );
+    original = row.description;
+    const [max] = await query<{ high: number }>(
+      `select coalesce(max(revision_no), 0)::int as high from document_revisions
+        where surface = 'work_item_description'
+          and entity_id = (select id from work_items where key = $1)`,
+      [KEY]
+    );
+    highWater = max.high;
+  });
+
+  test.afterAll(async () => {
+    await query(`update work_items set description = $1, description_json = null where key = $2`, [
+      original,
+      KEY,
+    ]);
+    await query(
+      `delete from document_revisions
+        where surface = 'work_item_description'
+          and entity_id = (select id from work_items where key = $1)
+          and revision_no > $2`,
+      [KEY, highWater]
+    );
+  });
+
+  test("the full page shows a description somebody else published, with no reload", async ({
+    adminPage: page,
+  }) => {
+    await page.goto(AT);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+
+    // Written straight to the table: the claim is about the READER, and going
+    // through the editor would only be testing the writer's own optimistic
+    // update. This is what a second person's publish looks like from here.
+    const published = `Published elsewhere ${Date.now().toString(36)}`;
+    await query(`update work_items set description = $1, description_json = null where key = $2`, [
+      published,
+      KEY,
+    ]);
+
+    // `exact` because the version-history panel refreshes with it and renders
+    // the same words again as `+ added: …` in the diff. Two matches is the
+    // update arriving twice over, not an ambiguity worth loosening.
+    await expect(page.getByText(published, { exact: true })).toBeVisible({ timeout: 20_000 });
+  });
+
+  test("the side peek does too, through the sprint underneath it", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(SPRINT);
+    await page.getByRole("link", { name: "Link Kachel changes", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    const published = `Peeked elsewhere ${Date.now().toString(36)}`;
+    await query(`update work_items set description = $1, description_json = null where key = $2`, [
+      published,
+      KEY,
+    ]);
+
+    await expect(
+      page.getByRole("dialog").getByText(published, { exact: true })
+    ).toBeVisible({ timeout: 20_000 });
+  });
+});

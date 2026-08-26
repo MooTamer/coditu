@@ -95,3 +95,29 @@ export function ThreadRealtime({ workItemId }: { workItemId: string }) {
   useRealtime(`thread:${workItemId}`, "comments", `work_item_id=eq.${workItemId}`);
   return null;
 }
+
+/**
+ * The open story itself changing under whoever is reading it.
+ *
+ * `ThreadRealtime` covers the discussion and nothing else, so a story page was
+ * subscribed to its comments and not to the story: somebody else could publish
+ * a new description, rename it, or move its status, and the reader went on
+ * seeing the old one indefinitely. Presence said `2 viewing` the whole time,
+ * which made it worse — the page knew both people were there and still said
+ * nothing.
+ *
+ * Mounted by the FULL page only, deliberately. The side peek is a parallel
+ * route rendered over the sprint, whose `SprintRealtime` filters on
+ * `sprint_id` and therefore already carries every item in it — including the
+ * one being peeked at. Mounting this in the shared body would give every open
+ * peek a second channel for a row it is already being told about, and this
+ * file's first rule is that channels are not free.
+ *
+ * Verified both ways before it was written: the table converged, the peek
+ * converged, a comment on the story converged, and the story's own text on the
+ * full page did not.
+ */
+export function ItemRealtime({ workItemId }: { workItemId: string }) {
+  useRealtime(`item:${workItemId}`, "work_items", `id=eq.${workItemId}`);
+  return null;
+}

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { ItemDetailBody } from "@/components/app/item-detail";
+import { ItemRealtime } from "@/components/app/realtime.client";
 import { listFavouritedTargets } from "@/lib/data/favourites";
 import { getWorkItemRevisions } from "@/lib/data/revisions";
 import { Mono } from "@/components/coditu/mono";
@@ -64,6 +65,9 @@ export default async function ItemPage({
 
   return (
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+      {/* The sprint is not rendered underneath this one, so nothing else is
+          listening for the story changing. The modal does not need it. */}
+      <ItemRealtime workItemId={item.id} />
       <Reveal tier="section" as="header" className="flex flex-wrap items-center gap-3">
         <Link
           href={`/app/projects/${slug}/sprints/${number}`}

@@ -3958,3 +3958,54 @@ has **no** table privilege anywhere in `public`, and no `TRUNCATE` grant to
 
 `lint`, `typecheck` clean · `test` **416** · `db:test` **406** (11 new) from a
 `db:reset` · `db:types` regenerates with no diff.
+
+### A story that changed under its reader, and never said so
+
+Driven from two independent browser contexts, which is the only way this one
+shows up.
+
+A published a description, B opened the same story, A published again, B
+published from the stale base. Last write wins, which is the documented
+answer — `coditu-thread-and-earnings-prompt.md` §269 says so in as many words.
+The rest of that sentence is what was missing:
+
+> Two people editing the same criterion: last write wins, **but the loser sees
+> the new value after `router.refresh()` rather than their stale draft.**
+
+A did not. Fifteen seconds after B's publish, A's page still showed A's own
+superseded text, with nothing on it mentioning a change — every `[aria-live]`
+region on the page said `2 viewing`, `no discussion yet`, `1.5`. Presence knew
+both people were there. The document did not.
+
+Four surfaces, tested separately, which is what located it:
+
+| Surface | Subscribed to | Converged |
+|---|---|---|
+| Sprint table, an item changes | `SprintRealtime` → `work_items` | yes |
+| Side peek, the story changes | the sprint page beneath it | yes |
+| Story page, a comment arrives | `ThreadRealtime` → `comments` | yes |
+| **Story full page, the story changes** | **nothing** | **no** |
+
+`item-detail.tsx` mounts `ThreadRealtime` and only that, so the page listened to
+its discussion and not to itself. The peek hid it: an intercepted modal renders
+over a sprint page that is still mounted, and that page's subscription filters
+on `sprint_id`, which covers the peeked item too. Only the FULL page — a shared
+link, a refresh, a hard navigation, exactly the three cases its own comment
+names — had nobody listening.
+
+`ItemRealtime` is mounted by the full page alone, for that reason: giving the
+shared body a channel would hand every open peek a second one for a row it is
+already told about, and the first rule in `realtime.client.tsx` is that channels
+are not free.
+
+Two specs in `item-detail.spec.ts`, and the second is the control — it asserts
+the peek still converges *through the sprint*, so this cannot quietly become a
+channel per open story without the suite saying so. Red-green verified by
+removing the mount: the full-page test failed and the peek test passed.
+
+Two traps worth the next person's time. The first run after an edit reported the
+sprint table NOT converging — a cold Turbopack compile eating a twelve-second
+window, not a regression; it passed twice over once warm. And the first version
+of the assertion failed as a strict-mode violation with two matches, which was
+the update arriving *twice* — once in the description, once as `+ added: …` in
+the version-history diff refreshing beside it.
