@@ -1543,7 +1543,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `done` | `pending` | **W7a comparator + W7b sorting + W7c filters + W7d saved views:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **W7d:** `test` **345** · `db:test` **351** (13 new RLS) · `budgets` **OK 79.6/110 own, 219.7/220 total** · saved-views **6/6**. **Deferred to W8:** favourites, which this unblocks |
 | W8 | **Projects and project home**, the favourites W6 deferred, and the budget paid back | `done` | `pending` | the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px; favourites are a table, a star on three surfaces and a sidebar section · projects 7/7, project-home 8/8, favourites 5/5, all incl. axe · `test` **375** · `db:test` **364** · `budgets` **own OK 75.7/110; §5 total 215.7/220 after W8d** |
 | W9 | **People & Access** — the access log, the roles matrix, safety states made visible | `done` | `pending` | `access_events` written by triggers and writable by nobody · 12 new pgTAP incl. three write refusals · e2e **disabled-and-explained** on all three self controls · `test` **382** · `db:test` **376** · `budgets` **OK 75.7/110, 215.7/220**. Client contacts stay on `/app/clients` — see `05-DECISIONS.md` |
-| W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `todo` | | `tests/earnings-boundary.test.ts` extended, both ways |
+| W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `wip` | | **W10a done:** `tests/earnings-boundary.test.ts` extended both ways — `test` **386** (4 new), the outward list widened from 11 entries to 27 incl. the client portal itself |
 | W11 | **Version history UI and Trash** | `todo` | | e2e restore returns comments and versions |
 | W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `todo` | | e2e rehearsal pass **and** fail, live rows untouched |
 | W13 | **Responsive, a11y, security, performance hardening** | `todo` | | full `e2e` · `budgets` · `lighthouse` · `degraded` |
@@ -3182,3 +3182,46 @@ the shape this repo has a whole field-notes section about. Verified passing unde
 
 `test` **382** · `lint`, `typecheck` clean · navigation **15 passed, 1 skipped**
 against dev · the new spec **1/1** under `e2e:prod`.
+
+## W10a — the boundary walked from the other side, and the list that was not checking the portal
+
+W10's first slice is a test and nothing else. The formulas in `lib/earnings.ts`
+are not touched by this phase at all — `potCents`, `splitEqually` and
+`meetsThreshold` are the same bytes they were in W0 — so what is owed here is
+the assertion that the boundary around them still holds after four phases added
+six new screens.
+
+**The outward list had a hole in it, and the hole was the client portal.**
+`CLIENT_FACING` named eleven paths, all of them written before `app/client/**`
+existed. A client is *signed in* to that route — it is the most client-facing
+thing in the repository — and no assertion has been looking at it since the day
+it was built. Nothing leaked. Nothing was checking either, which is the same
+class of note as `07-FIELD-NOTES.md`'s *"a working feature is not evidence that
+its policy is enforced"*. Twenty-seven paths now, including the portal, its
+data modules, and the shell — the rail, the topbar and the trail are on screen
+during every projected sprint review.
+
+**The other direction is new.** A denylist only ever protects what somebody
+remembered to add to it, and the portal is the proof. So a second suite walks
+every `.ts`/`.tsx` under `app/`, `components/` and `lib/` and asserts the set of
+files that can reach a figure is **exactly** eleven named ones: the four model
+modules, the tunables row, the formatter definitions, the generated types, and
+the four screens. A new screen is covered the moment it exists — put an
+earnings import in it and the suite goes red until somebody names the file and
+says who reads it.
+
+The equality is asserted **both ways**. Unexpected entries are the leak.
+Missing entries are the rot: a list that still names a file which stopped
+touching money is a list nobody has read, and it is where the next real entry
+hides. That second assertion earned itself immediately — it caught
+`lib/earnings.ts`, which imports nothing and defines the arithmetic, so no
+import-shaped predicate could see it. `MONEY_ARITHMETIC` is the fix, and it
+closed a real gap in the outward direction too: a screen that called
+`potCents()` and printed the number with its own template string passed every
+check in the file before today.
+
+Proven to bite rather than assumed to: a `usdFromCents` import added to
+`components/client/component-card.tsx` turns both directions red, and was
+reverted.
+
+`test` **386** (4 new) · `lint`, `typecheck` clean.

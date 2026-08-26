@@ -27,19 +27,57 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = join(__dirname, "..");
 
-/** Every screen a client can end up looking at. */
+/**
+ * Every screen a client can end up looking at.
+ *
+ * Two kinds of thing are on this list and they are shared for different
+ * reasons. `app/client/**` is the portal — a client is literally signed in to
+ * it. Everything else is an internal screen that gets *shown*: projected in a
+ * review, screenshotted into a chat, or read over a shoulder. The app shell
+ * counts, because the rail, the topbar and the trail are on screen during all
+ * of that.
+ *
+ * It grows with the app. W10 added the second half — the portal itself, which
+ * was never listed, and the six workspace surfaces W6 through W9 built after
+ * this file was written.
+ */
 const CLIENT_FACING = [
-  "app/app/projects",
+  // The portal. A client's own session reads these.
+  "app/client",
+  "components/client",
+  "lib/data/client.ts",
+  "lib/data/client-threads.ts",
+  "lib/client-access.ts",
+  "lib/client-threads.ts",
+
+  // What gets exported, printed and mailed.
   "lib/export",
   "lib/data/export.ts",
+  "lib/push",
+
+  // The delivery screens.
+  "app/app/projects",
+  "app/app/my-work",
   "components/app/sprint-table.client.tsx",
   "components/app/sprint-board.tsx",
   "components/app/sprint-cards.tsx",
   "components/app/sprint-header.tsx",
   "components/app/item-detail.tsx",
+  "components/app/item-modal.client.tsx",
+  "components/app/export-dialog.client.tsx",
+  "components/app/client-visibility-panel.client.tsx",
+
+  // The shell, which is on screen during every one of the above.
+  "app/app/page.tsx",
+  "app/app/layout.tsx",
+  "components/app/rail.client.tsx",
+  "components/app/topbar.client.tsx",
+  "components/app/tab-bar.client.tsx",
+  "components/app/breadcrumbs.client.tsx",
   "components/app/command-palette.client.tsx",
-  "lib/push",
-  "app/app/my-work",
+  "components/app/project-spaces.client.tsx",
+  "components/app/favourites.client.tsx",
+  "lib/breadcrumbs.ts",
 ];
 
 /**
@@ -59,6 +97,16 @@ const MONEY_MODULES = [
 
 /** The formatters that turn cents into something a person reads. */
 const MONEY_FORMATTERS = ["usdFromCents", "egpFromPiastres", "piastresFromCents", "rateFromMicros"];
+
+/**
+ * The arithmetic itself.
+ *
+ * `lib/earnings.ts` imports nothing — it is pure functions over integers — so
+ * no import test can see it, and a screen that called `potCents()` and printed
+ * the number with its own template string would pass every other check in this
+ * file. These three names are how a figure comes into existence.
+ */
+const MONEY_ARITHMETIC = ["potCents", "splitEqually", "meetsThreshold"];
 
 /** The tables. A raw query would bypass the modules above. */
 const MONEY_TABLES = ["sprint_payouts", "sprint_payout_shares", "app_settings"];
@@ -132,6 +180,19 @@ describe("no client-facing screen can reach a figure", () => {
     expect(offenders, "a shared screen formats money").toEqual([]);
   });
 
+  it("computes no pot and no share", () => {
+    const offenders: string[] = [];
+    for (const file of files) {
+      const body = code(file);
+      for (const fn of MONEY_ARITHMETIC) {
+        if (new RegExp(`\\b${fn}\\s*\\(`).test(body)) {
+          offenders.push(`${relative(ROOT, file)} calls ${fn}()`);
+        }
+      }
+    }
+    expect(offenders, "a shared screen computes money").toEqual([]);
+  });
+
   it("queries no payout table", () => {
     const offenders: string[] = [];
     for (const file of files) {
@@ -172,5 +233,104 @@ describe("the export contract is unchanged", () => {
     for (const word of ["payout", "earning", "hourly_rate", "share_cents", "pot_cents"]) {
       expect(spec.toLowerCase(), `the export spec mentions ${word}`).not.toContain(word);
     }
+  });
+});
+
+/**
+ * The same boundary, walked from the other side.
+ *
+ * The list above is a denylist: it names the screens that must not reach a
+ * figure. A denylist only protects what somebody remembered to add to it, and
+ * the proof is in this file's own history — `app/client/**`, the portal a
+ * client is actually signed in to, was **not on it** from the day the portal
+ * was built until W10 put it there. Nothing was leaking; nothing was checking
+ * either.
+ *
+ * So this walks every source file in the application and asserts the set that
+ * can reach money is *exactly* the set below. A new screen is covered the
+ * moment it exists, without anybody remembering anything: put an earnings
+ * import in it and this goes red until the file is named here, which is the
+ * point at which somebody has to think about who reads it.
+ *
+ * The equality is asserted in both directions on purpose. Unexpected entries
+ * are the leak. Missing entries are the rot — a list that still names a file
+ * which no longer touches money is a list nobody has read in a year, and it
+ * makes the next unexpected entry look like it was always there.
+ */
+const MONEY_TREE = ["app", "components", "lib"];
+
+/**
+ * Everything that may reach a figure, and why it is allowed to.
+ *
+ * Four of these are the model itself and cannot be anything else. The rest are
+ * the screens, and there are deliberately few: `/app/earnings` is a person's
+ * own money, `/app/settings/payouts` is the admin confirmation, and
+ * `/app/settings` carries the rate and the threshold that produce both.
+ */
+const MONEY_SURFACES = [
+  // The model. Pure arithmetic, the reads, the writes, the rate.
+  "lib/earnings.ts",
+  "lib/data/earnings.ts",
+  "lib/actions/earnings.ts",
+  "lib/exchange-rate.ts",
+  // The tunables row: the rate and the threshold live here beside the image
+  // caps, which is why half the app imports this module and none of it gets a
+  // figure out.
+  "lib/settings.ts",
+  // Defines the formatters rather than calling them.
+  "lib/format.ts",
+  // Generated from the schema, so it names every table including these two.
+  "lib/supabase/database.types.ts",
+  // The screens.
+  "app/app/earnings/page.tsx",
+  "app/app/settings/page.tsx",
+  "components/app/admin-settings.client.tsx",
+  "components/app/earnings-board.client.tsx",
+];
+
+describe("the money surfaces are exactly the ones on the list", () => {
+  function reachesMoney(path: string): boolean {
+    const body = code(path);
+    for (const specifier of MONEY_MODULES) {
+      if (body.includes(`"${specifier}"`) || body.includes(`'${specifier}'`)) return true;
+    }
+    // `@/lib/earnings` is the pure arithmetic and is not in `MONEY_MODULES` —
+    // the denylist above does not need it, because a screen that imported it
+    // would still have to import a read or a formatter to render anything.
+    // Walking inward, it counts: it is how a figure gets computed.
+    if (/from ["']@?\/?lib\/earnings["']/.test(body)) return true;
+    for (const fn of [...MONEY_FORMATTERS, ...MONEY_ARITHMETIC]) {
+      if (new RegExp(`\\b${fn}\\s*\\(`).test(body)) return true;
+    }
+    for (const table of MONEY_TABLES) {
+      if (body.includes(`"${table}"`) || body.includes(`'${table}'`)) return true;
+    }
+    return false;
+  }
+
+  const scanned = MONEY_TREE.flatMap(sourceFiles);
+  const reaching = scanned
+    .filter(reachesMoney)
+    .map((file) => relative(ROOT, file))
+    .sort();
+
+  it("walks the whole application, not a corner of it", () => {
+    expect(scanned.length).toBeGreaterThan(150);
+  });
+
+  it("lets nothing else reach a figure", () => {
+    const unexpected = reaching.filter((file) => !MONEY_SURFACES.includes(file));
+    expect(
+      unexpected,
+      "a file reaches the earnings model and is not named in MONEY_SURFACES — if that is deliberate, add it there and say who reads the screen"
+    ).toEqual([]);
+  });
+
+  it("keeps the list honest — every name on it still touches money", () => {
+    const stale = MONEY_SURFACES.filter((file) => !reaching.includes(file));
+    expect(
+      stale,
+      "MONEY_SURFACES names a file that no longer reaches a figure; drop it, or the next real entry hides among the dead ones"
+    ).toEqual([]);
   });
 });
