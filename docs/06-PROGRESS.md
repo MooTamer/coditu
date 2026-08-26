@@ -3704,3 +3704,31 @@ no leftover schema.
 
 **Next:** W13 — responsive, a11y, security and performance hardening, the last
 phase in the plan.
+
+## After W12 — a red spec that was neither the app nor the machine
+
+The full run on W12's commit failed two, and the triage split them cleanly.
+`a11y` → *the comment composer* passed alone: the machine, the pattern this file
+already carries. `reliable-writes` → *a comment whose response was lost is not
+posted a second time* **failed alone**, which by the same triage means the code.
+
+It was the test. The assertion read
+`expect(page.getByText("The retry must not say this twice.")).toHaveCount(1)`
+and got 2, while `countComments` — the database — said 1 in the same run, and it
+reproduces identically at `971ee17`, so W12 did not cause it.
+
+`getByText` matches every element whose text is the string. When the thread
+renders a comment body as `<div class="flex"><p>…</p></div>`, the wrapper and the
+paragraph both match; on runs where it renders one level shallower, only one
+does. One comment, one row, and a red suite that looked exactly like a
+duplicate-submission bug in the file whose whole subject is duplicate
+submissions.
+
+Counted as `article` elements filtered by text now, which is stable against any
+amount of wrapping. Three consecutive clean runs of the file.
+
+**And it corrected a note written earlier the same session.** The
+streaming-buffer note claimed "Playwright is not affected — its locators ignore
+hidden subtrees". Actionability and `toBeVisible` do; `toHaveCount` does not
+filter by visibility at all. Fixed in place, because a field note that is wrong
+is worse than no field note.

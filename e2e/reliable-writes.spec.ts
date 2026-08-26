@@ -117,7 +117,16 @@ test.describe("a submission that arrives twice happens once", () => {
     await expect.poll(countComments, { timeout: 8000 }).toBe(1);
 
     // And it is on screen once, not merely in the table once.
-    await expect(page.getByText("The retry must not say this twice.")).toHaveCount(1);
+    //
+    // Counted as ARTICLES, not as text. `getByText` matches every element whose
+    // text is the string — a paragraph and the wrapper around it both qualify —
+    // so it returned 2 for a single comment whenever the thread happened to
+    // render the body inside an extra flex wrapper. One row in the table, one
+    // comment on screen, and a red suite: the assertion was counting the
+    // markup rather than the thing.
+    await expect(
+      page.locator("article").filter({ hasText: "The retry must not say this twice." })
+    ).toHaveCount(1);
   });
 
   test("time logged twice over is logged once, and the rollup agrees", async ({ adminPage: page }) => {

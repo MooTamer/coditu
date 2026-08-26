@@ -1719,11 +1719,36 @@ so two "identical" rows read as `COD-231 Highlight · v1` and
 [...document.querySelectorAll(SELECTOR)].filter((n) => !n.closest('[hidden]')).length
 ```
 
-Playwright is not affected — its locators ignore hidden subtrees by default,
-which is why no spec ever saw this and an hour went into a page that was right
-all along. It only bites hand-measurement in a console, which is exactly what
-"open the page in a browser" means here.
+**Playwright is only partly protected, and the first version of this note said
+otherwise.** Actionability checks and `toBeVisible` do ignore hidden subtrees;
+`toHaveCount` does not filter by visibility at all. So a count assertion can see
+the buffered copy even though a click never would. Corrected here rather than
+left, because a field note that is wrong is worse than none.
 
 Related: the same buffering is why `get_page_text` and `querySelector`
 immediately after a navigation can return an *empty* main — the resolved copy
 has not been moved in yet. Measure after the page settles, in a call of its own.
+
+
+### `getByText` counts the wrapper as well as the words
+
+`expect(page.getByText("The retry must not say this twice.")).toHaveCount(1)`
+failed with **2**, on a thread holding exactly **one** comment and a table
+holding exactly **one** row.
+
+Neither the database nor the screen was wrong. `getByText` matches *every*
+element whose text is that string, and when the comment body renders as
+`<div class="flex"><p>…</p></div>` both the wrapper and the paragraph qualify.
+The same spec passed on runs where the body rendered one level shallower, which
+is what made it look like an intermittent duplicate-comment bug — the worst
+possible thing for it to look like, in a file about idempotency.
+
+The probe that settled it filtered to **leaf** elements and found one, then the
+same probe without the leaf filter found one *container*: two Playwright
+matches, one comment.
+
+**Count the thing, not its text.** `page.locator("article").filter({ hasText })`
+is stable against any amount of wrapping; a bare `getByText().toHaveCount(n)` is
+an assertion about markup depth wearing the costume of an assertion about
+content. Related, one section up: `toHaveCount` also counts elements inside
+React's hidden streaming buffer.
