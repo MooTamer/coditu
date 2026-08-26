@@ -1543,7 +1543,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `done` | `pending` | **W7a comparator + W7b sorting + W7c filters + W7d saved views:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **W7d:** `test` **345** · `db:test` **351** (13 new RLS) · `budgets` **OK 79.6/110 own, 219.7/220 total** · saved-views **6/6**. **Deferred to W8:** favourites, which this unblocks |
 | W8 | **Projects and project home**, the favourites W6 deferred, and the budget paid back | `done` | `pending` | the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px; favourites are a table, a star on three surfaces and a sidebar section · projects 7/7, project-home 8/8, favourites 5/5, all incl. axe · `test` **375** · `db:test` **364** · `budgets` **own OK 75.7/110; §5 total 215.7/220 after W8d** |
 | W9 | **People & Access** — the access log, the roles matrix, safety states made visible | `done` | `pending` | `access_events` written by triggers and writable by nobody · 12 new pgTAP incl. three write refusals · e2e **disabled-and-explained** on all three self controls · `test` **382** · `db:test` **376** · `budgets` **OK 75.7/110, 215.7/220**. Client contacts stay on `/app/clients` — see `05-DECISIONS.md` |
-| W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `done` | `pending` | `lib/earnings.ts` untouched — the three functions are the bytes they were at W0. **W10a:** the boundary asserted both ways, the outward list widened from 11 paths to 27 incl. the client portal, which nothing had ever checked. **W10b:** `/app/profile` split out; `/app/settings` is admin-only and redirects everybody else. **W10c:** Team payouts on `/app/settings/payouts`, read by every internal member and confirmed only by an admin — the team's own §E5 rule, kept. `test` **387** · `db:test` **376** after a `db:reset` · `budgets` **OK 75.9/110 own, 215.9/220 total** · full `e2e --workers=1` **606 passed, 7 skipped, 0 failed** — the first fully green full run this branch has had |
+| W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `done` | `pending` | `lib/earnings.ts` untouched — the three functions are the bytes they were at W0. **W10a:** the boundary asserted both ways, the outward list widened from 11 paths to 27 incl. the client portal, which nothing had ever checked. **W10b:** `/app/profile` split out; `/app/settings` is admin-only and redirects everybody else. **W10c:** Team payouts on `/app/settings/payouts`, read by every internal member and confirmed only by an admin — the team's own §E5 rule, kept. `test` **387** · `db:test` **376** after a `db:reset` · `budgets` **OK 75.9/110 own, 215.9/220 total** · every spec W10 touched green together — **227 passed, 6 skipped, 0 failed** across eleven files, from a `db:reset` · full `e2e --workers=1` reached **606 passed, 0 failed** once and a rotating 2-3 contention failures on four other runs, each passing alone and none naming a file this phase changed — see the note below |
 | W11 | **Version history UI and Trash** | `todo` | | e2e restore returns comments and versions |
 | W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `todo` | | e2e rehearsal pass **and** fail, live rows untouched |
 | W13 | **Responsive, a11y, security, performance hardening** | `todo` | | full `e2e` · `budgets` · `lighthouse` · `degraded` |
@@ -3402,10 +3402,51 @@ counts and seeded booleans are residue-coupled.** `npm run db:test` failed
 `seed.sql` 16-17 (*95 ticked*, *104 attachments*) for exactly this reason after
 a browser session. Every number below was taken after a `db:reset`.
 
+### Five full runs, five different answers, and what that is worth
+
+```
+run 1  dirty db   4 failed   2 real (fixed below), 2 in code W10 never touched
+run 2  dirty db   4 failed   all four residue; each passes alone
+run 3  clean db   606 passed, 7 skipped, 0 failed
+run 4  dirty db   601 passed, 2 failed, 3 did not run   both pass alone
+run 5  clean db   595 passed, 3 failed, 8 did not run   all three pass alone
+```
+
+**Run 3 was luck, and saying otherwise was the mistake worth recording.** After
+run 4 the obvious inference was "a full run only counts from a `db:reset`", so
+run 5 was started from one — and failed three *different* specs, none of them
+run 4's, none of them in code W10 touched, all three passing in isolation. A
+clean database does not buy a green run.
+
+Two separate things were being conflated, and only one of them is about state:
+
+- **Residue is real and reproducible.** `db:test` failed `seed.sql` 16-17
+  (*95 ticked*, *104 attachments*) after a suite plus a browser session, and
+  `item-detail` → *tapping the words does not tick the box* failed because a
+  spec had genuinely left that criterion ticked. Both fixed by `db:reset`, both
+  fail again the same way without one. That is worth a field note and got one.
+- **The rotating handful is the machine**, at load average 4.8 — the pattern
+  this file already carries as *the suite's failures move between runs, and
+  three is not a regression*, and the three-way triage says exactly what to do
+  about it: re-run the named specs alone. Every one of the nine failures across
+  runs 2, 4 and 5 did.
+
+And a third thing, narrower than either and newly characterised: **`access.spec.ts`
+→ *an ordinary change through the ordinary screen* is coupled to the state its
+own previous run leaves.** It failed alone immediately after a group run and
+passed alone a minute later, once that run's cleanup had landed — it invites a
+fixed `probe` address, so a leftover row makes the click a no-op and the
+`before + 2` count never arrives. Not the machine, not the seed: itself, one run
+ago.
+
+**So the honest claim for this phase is not a full-suite number.** It is that
+the eleven spec files W10 touched pass together from a reset database —
+**227 passed, 6 skipped, 0 failed** — and that across five full runs no failure
+ever named a file this phase changed.
+
 `lint`, `typecheck` clean · `test` **387** · `db:test` **376** · `budgets`
-**own OK 75.9 / 110; §5 total 215.9 / 220** · full `e2e --workers=1`
-**606 passed, 7 skipped, 0 failed** · opened as admin and as an engineer, both
-themes, 375 and 1280, no horizontal overflow, console clean apart from the dev
-server's own HMR socket.
+**own OK 75.9 / 110; §5 total 215.9 / 220** · opened as admin and as an
+engineer, both themes, 375 and 1280, no horizontal overflow, console clean apart
+from the dev server's own HMR socket.
 
 **Next:** W11 — Version history UI and Trash.

@@ -1608,3 +1608,88 @@ id from the work item's id instead of `useId`. That reintroduces the exact bug
 `ProgressRing` was written to prevent — the same item's ring can be on screen
 twice, once in the sprint row and once in the open modal, and two elements would
 share an id again. `useId` is right; `e2e/sprint-table.spec.ts` asserts it.
+
+### `<Reveal>` forwards nothing it has not declared, and a `data-*` attribute vanishes silently
+
+`<Reveal as="header" data-identity>` compiles, type-checks, lints, and **reaches
+no element at all**. `RevealProps` is an explicit prop list — `tier`, `as`,
+`delay`, `className`, `aria-labelledby`, `aria-label` — with no rest parameter,
+and TypeScript does not check a JSX attribute whose name is not a valid
+identifier. So `data-anything` is accepted by the compiler and dropped by the
+component.
+
+The comment on `RevealProps` already says this about `aria-*`, which is why
+those two are declared. It is worth reading before adding a test hook: a spec
+scoped to `[data-identity]` will time out on an element that was never rendered,
+and nothing upstream of that says why.
+
+**Put the attribute on a real element and let `Reveal` sit inside it**, unless
+the prop is general enough to belong in `RevealProps`.
+
+### A route guard behind a `loading.tsx` is invisible to `curl`
+
+`/app/settings` redirects a non-admin to `/app/profile`. Checked with `curl`,
+every role got **`200` and `<title>Workspace settings</title>`**, which reads as
+a guard that does not work. It works.
+
+The segment has a `loading.tsx`, so the document response is the shell plus the
+skeleton, flushed immediately; the page component runs inside the Suspense
+boundary and its `redirect()` arrives later **in the streamed payload**. `curl`
+sees the first flush and stops. This file already records the same shape turning
+`notFound()` into a 200 — it is one behaviour with two faces.
+
+So a redirect or a `notFound()` on a segment that streams has to be verified in
+a browser, or by a request that reads the whole body and looks for the skeleton
+label rather than the title. A guard in a **layout** is different: layouts run
+above the boundary, so `password.spec.ts` can still assert the
+`must_set_password` gate wins over a page-level redirect underneath it.
+
+### Playwright's accessible-name match is a substring, and a second control can capture it
+
+`getByRole("button", { name: "Sign out" })` went from one match to two the moment
+Security grew a **"Sign out everywhere else"** button — strict mode fails with
+"resolved to 2 elements", not with "not found", and the error reads like the
+element moved rather than like the query widened.
+
+Same family as `getByText("EVIM")` matching `MEINEvim components`, four sections
+up, and it has the same fix: `{ name: "Sign out", exact: true }`. Worth checking
+whenever a screen gains a control whose label *starts with* an existing one.
+
+### An absolute count in `db:test` is coupled to every row the browser made
+
+`npm run db:test` failed `seed.sql` 16-17 — *"95 of them were already ticked in
+Notion"* and *"104 attachments"* — after a full `e2e` run and a session of
+clicking. Nothing in the schema was wrong. A spec ticked a criterion and did not
+put it back, and those two assertions count seeded rows.
+
+`e2e/item-detail.spec.ts` → *tapping the words does not tick the box* fails the
+same way and reads much worse: it expects `aria-checked="false"` and gets
+`"true"`, which looks exactly like a real regression in the tap targets. On a
+freshly reset database the file passes 24/24.
+
+**So `db:reset` before `db:test`, and before believing any absolute count or
+seeded boolean.** The rule this repo already had — never two suites at once —
+is not enough on its own: one suite is sufficient to leave residue for the next
+thing that reads it.
+
+### A spec that invites a fixed address is coupled to its own previous run
+
+`access.spec.ts` → *an ordinary change through the ordinary screen turns up in
+it* failed **in isolation**, which by the triage two sections up means the code.
+It was not the code. Run alone again a minute later, it passed.
+
+It invites a fixed `probe` address and asserts the history grew by exactly two
+rows. When the immediately preceding run has left that address in
+`allowed_emails`, the Invite click is a no-op, no rows are written, and
+`toHaveCount(before + 2)` never arrives. The spec cleans up after itself — so it
+poisons only the *next* run, and only until that run's own cleanup lands.
+
+**So "passes alone" has to mean alone on a settled database**, not alone
+immediately after something else. When an isolated re-run contradicts a previous
+isolated re-run of the same spec, `db:reset` and try once more before believing
+either.
+
+The general shape: a fixture keyed to a constant is a fixture shared with every
+past and future run of the same file. `composer.spec.ts` hands out a per-project
+row for exactly this reason, and `e2e/earnings.spec.ts` is `mode: "serial"`
+because `app_settings` has only one row to hand out.
