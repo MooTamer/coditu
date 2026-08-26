@@ -1573,3 +1573,38 @@ because `REFERENCES` and `TRIGGER` are there too and neither writes a row.
 database opens with `system` entries already in the history. A test that asserts
 an empty log will pass once and fail after the next `db:reset`; count the
 difference an action makes instead.
+
+
+### A hydration failure that only a recompiling dev server produces
+
+Reported as *"opening a story from the sprint table fails React hydration on
+every click"*, blamed on `ProgressRing`'s `useId` gradient because that is what
+the console diff named. Measured before changing anything:
+
+```
+production build, 4 loads + click                          0 hydration failures
+warm dev server, 5 loads                                   0
+warm dev server, 3 loads + click                           0
+dev server, loaded straight after touching a source file  2 of 11
+```
+
+None of the three things in the report were true: not every click, not
+`ProgressRing`, and not present in what ships.
+
+**It is the streamed-HTML twin of the stale-CSS note above.** The browser
+hydrates HTML produced by one compilation against a client bundle from another,
+so the trees genuinely differ — and React reports **the first attribute it finds
+that disagrees**, which is not the cause. Two captures of the same failure named
+two different components: `ProgressRing`'s `<linearGradient id>` once, the app
+shell's `<aside>` the next time. A `useId` value shifts whenever anything above
+it in the tree changes, which makes it a very convincing false lead.
+
+**So: before believing a hydration diff, load the same page four times on a warm
+dev server, then once against `npm run e2e:prod`.** If it survives neither, the
+compilation is what changed, not the component the diff points at.
+
+*And the fix that was suggested and would have been wrong:* deriving the gradient
+id from the work item's id instead of `useId`. That reintroduces the exact bug
+`ProgressRing` was written to prevent — the same item's ring can be on screen
+twice, once in the sprint row and once in the open modal, and two elements would
+share an id again. `useId` is right; `e2e/sprint-table.spec.ts` asserts it.

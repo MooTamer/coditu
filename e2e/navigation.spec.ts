@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 
 import {
+  SEED,
   auditA11y,
   createThrowawayAccount,
   expect,
@@ -390,5 +391,63 @@ test.describe("the breadcrumb trail", () => {
       "Sprint — Week 17"
     );
     expect(named, "the sprint is named once in the topbar").toBe(1);
+  });
+});
+
+
+/**
+ * Opening a story leaves the console clean.
+ *
+ * ## Why this is gated on a production build, and what it is really for
+ *
+ * A hydration failure was reported against this exact interaction — "fails on
+ * every click", blamed on `ProgressRing`'s `useId` gradient. Measured, it is
+ * none of those things:
+ *
+ * ```
+ * production build, 4 loads + click     0 hydration failures
+ * warm dev server, 5 loads              0
+ * warm dev server, 3 loads + click      0
+ * dev server, loaded straight after a recompile, 11 loads     2
+ * ```
+ *
+ * It is a **dev-server artefact**: the browser hydrates HTML streamed by one
+ * compilation against a client bundle from another, and React reports the first
+ * attribute that differs — which was the gradient id once and the app shell's
+ * `<aside>` the next time, from the same underlying cause at a different depth.
+ * `07-FIELD-NOTES.md` already records the same family for CSS chunks.
+ *
+ * So asserting it against the dev server would be a test that goes red when
+ * somebody saves a file, which is the shape this repo has a whole section about.
+ * Against a production build it is a real assertion, and it is the one nothing
+ * else makes: no spec anywhere checks that opening the modal logs nothing.
+ */
+test.describe("the console after opening a story", () => {
+  test("nothing is logged when a row opens the item over the sprint", async ({
+    adminPage: page,
+  }) => {
+    const prodUrl = process.env.E2E_PROD_URL;
+    test.skip(
+      !prodUrl,
+      "needs a production build — run `npm run e2e:prod` (sets E2E_PROD_URL). Against the dev server a recompile mid-run reports a hydration failure that does not exist in what ships."
+    );
+
+    const logged: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") logged.push(message.text());
+    });
+    page.on("pageerror", (error) => logged.push(error.message));
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${prodUrl}${SPRINT}`);
+    await expect(page.locator("table")).toBeVisible();
+
+    await page.locator(`a[href$="/items/${SEED.item}"]`).first().click();
+    await expect(page).toHaveURL(new RegExp(`/items/${SEED.item}$`));
+    // The modal, not a full navigation — the sprint is still behind it.
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.waitForTimeout(1200);
+
+    expect(logged, "opening a story logged nothing").toEqual([]);
   });
 });

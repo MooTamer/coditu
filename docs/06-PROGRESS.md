@@ -3147,3 +3147,38 @@ access **8/8** incl. axe, the grant assertion and two more browser contexts ·
 team 9/9 · a11y 15/15 · my-work-people-import green.
 
 **Next:** W10 — Profile, Workspace Settings, My Earnings, Team Payouts.
+
+## W9a — the hydration failure that was not one
+
+Flagged at the end of W8d and picked up as its own task: *opening a story from
+the sprint table fails hydration on every click, caused by `ProgressRing`'s
+`useId` gradient.* **All three claims were wrong**, and measuring came first:
+
+```
+production build, 4 loads + click                          0 hydration failures
+warm dev server, 5 loads                                   0
+warm dev server, 3 loads + click                           0
+dev server, loaded straight after touching a source file  2 of 11
+```
+
+It is a dev-server artefact — HTML streamed by one compilation hydrated against
+a client bundle from another — and the same family as the stale-CSS-chunk note
+this file already carried. React reports the first attribute that disagrees,
+which is not the cause: two captures of the same failure named `ProgressRing`'s
+gradient once and the app shell's `<aside>` the next time.
+
+**`ProgressRing` is unchanged, and the suggested fix would have been a
+regression.** Deriving the gradient id from the work item's id reintroduces the
+bug the component was written to prevent: the same item's ring is on screen twice
+whenever the modal is open over its own row, and two elements would share an id
+again. `useId` is correct and `e2e/sprint-table.spec.ts` already asserts it.
+
+**What is new is the assertion nothing was making.** `navigation.spec.ts` now
+checks that opening a story logs nothing at all — gated on `E2E_PROD_URL`, like
+the code-splitting assertion in `comments.spec.ts` and for the same reason: run
+against the dev server it would go red whenever somebody saved a file, which is
+the shape this repo has a whole field-notes section about. Verified passing under
+`npm run e2e:prod`, and skipping with a stated reason otherwise.
+
+`test` **382** · `lint`, `typecheck` clean · navigation **15 passed, 1 skipped**
+against dev · the new spec **1/1** under `e2e:prod`.
