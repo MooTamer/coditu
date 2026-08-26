@@ -24,6 +24,7 @@ import {
   todayInCairo,
 } from "@/lib/data/sprint";
 import { getAppSettings } from "@/lib/settings";
+import { parseSort, sortRows } from "@/lib/sprint-sort";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { parseStatusFilter } from "@/lib/work-items";
 
@@ -48,6 +49,7 @@ export default async function SprintPage({
     density?: string;
     component?: string;
     match?: string;
+    sort?: string;
   }>;
 }) {
   const [{ slug, number }, query] = await Promise.all([params, searchParams]);
@@ -95,7 +97,7 @@ export default async function SprintPage({
 
   const activeSlugs = activeComponents.map((component) => component.slug);
 
-  const visible = sprint.items.filter(
+  const filtered = sprint.items.filter(
     (item) =>
       (requested.length === 0 || requested.includes(item.status)) &&
       matchesComponentFilter(
@@ -104,6 +106,21 @@ export default async function SprintPage({
         match
       )
   );
+
+  /**
+   * Sorted here, on the server, rather than in the table.
+   *
+   * The rows are already in memory — the sprint is one query and the whole of
+   * it is on the page — so a comparator run here costs nothing and means the
+   * board, the cards and the table all receive the same order. Doing it in the
+   * client component would sort the table and leave the stacked cards below it
+   * in a different order at the same URL.
+   *
+   * An unrecognised column in `?sort=` is dropped by `parseSort`, never
+   * guessed: a stale link must not quietly reorder the sprint.
+   */
+  const sort = parseSort(query.sort);
+  const visible = sortRows(filtered, sort);
 
   // Only what this sprint actually touches, plus whatever is being filtered on
   // — so the menu cannot offer a component that would empty the table.
@@ -179,6 +196,7 @@ export default async function SprintPage({
               components={components}
               projectSlug={slug}
               today={todayInCairo()}
+              sort={sort}
             />
             <SprintCards rows={visible} allRows={sprint.items} basePath={basePath} />
           </>

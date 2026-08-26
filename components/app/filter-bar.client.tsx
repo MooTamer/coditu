@@ -202,16 +202,24 @@ export function FilterBar({
         );
       })}
 
+      {/* The link this view IS, read from the URL rather than rebuilt from the
+          controls above it.
+
+          It used to reconstruct the query from `status`, `component` and
+          `match` — which was correct until W7 made `sort` a real parameter, and
+          then it went on printing `?sort=order_index` while the address bar
+          said `?sort=deadline:asc,status:asc`. A hint that reconstructs is a
+          second implementation of the URL, and it drifts the moment anything
+          else learns to write one.
+
+          `params.entries()` yields DECODED values, so this reads `deadline:asc`
+          where `toString()` would show `deadline%3Aasc`. */}
       <Mono size="meta" className="ml-auto text-[var(--ink-faint)]">
         {(() => {
-          const parts = [
-            active.length ? `status=${active.join(",")}` : null,
-            activeComponents.length
-              ? `component=${activeComponents.map((component) => component.slug).join(",")}`
-              : null,
-            activeComponents.length > 1 && match === "all" ? "match=all" : null,
-          ].filter(Boolean);
-          return parts.length ? `?${parts.join("&")}` : "?sort=order_index";
+          const pairs = [...params.entries()].map(([key, value]) => `${key}=${value}`);
+          // No parameters at all is the sprint's own order, which is what the
+          // table is actually doing and what the drag handles write.
+          return pairs.length ? `?${pairs.join("&")}` : "?sort=order_index";
         })()}
       </Mono>
     </section>

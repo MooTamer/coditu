@@ -1539,8 +1539,8 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W3 | **Versioned block documents** — one editor, one allowlist, `*_json` + `*_version` beside the text projection | `done` | `d1c3f98` | **3a vocabulary + renderer + columns done:** `test` **252** · `db:test` **306** · comments/criteria/editor specs green. **3b blocks + Alt↑/↓ done:** `test` **252** · editor 11/11 incl. a checklist round-tripping to `taskItem` · `budgets` **OK 69.2/110**. `/` menu, editor 16/16 incl. axe with the menu open, `budgets` **OK 69.2/110**. **W3 done.** `test` **252** · `db:test` **306** · 49 document specs · `budgets` **OK 72.7/110** after finding two 60KB client-bundle regressions |
 | W4 | **Reliable writes, revisions, audit, trash** — idempotency keys, revisions, version history, `/app/trash` | `done` | `72853ed` | pgTAP append-only + restore-as-new-version · e2e duplicate submit, offline retry |
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `done` | `34b7d7e` | two browser contexts · socket frames carry no text · channel gone on unmount |
-| W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `done` | `pending` | one `aria-current` **per navigation** (the trail's last crumb is the ARIA breadcrumb pattern — see `05-DECISIONS.md`) · zero overflow at 13 widths + 200% · axe · `budgets` **OK 74.6/110, 214.6/220** · `test` **293** · `db:test` **338** · full e2e `--workers=1` **550 passed**, 1 contention failure that passes alone · rail 12/12, navigation 15/15, home 8/8. **Favourites and recents deferred** to W7/W9, recorded rather than faked |
-| W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `todo` | | comparator vitest · e2e desktop + mobile sheets |
+| W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `done` | `f491856` | one `aria-current` **per navigation** (the trail's last crumb is the ARIA breadcrumb pattern — see `05-DECISIONS.md`) · zero overflow at 13 widths + 200% · axe · `budgets` **OK 74.6/110, 214.6/220** · `test` **293** · `db:test` **338** · full e2e `--workers=1` **550 passed**, 1 contention failure that passes alone · rail 12/12, navigation 15/15, home 8/8. **Favourites and recents deferred** to W7/W9, recorded rather than faked |
+| W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `wip` | | **W7a comparator + W7b the table sorts done:** `test` **315** (22 new) · `db:test` **338** · `budgets` **OK 76.5/110** · sprint-table **15/15** incl. axe with a two-key sort · a11y 15/15 · inline-edit 8/8. **Outstanding:** the remaining filters (type, assignee, reviewer, grouping, free text) and saved views |
 | W8 | **Projects and project home** | `todo` | | e2e search/filter/archived · axe |
 | W9 | **People & Access** — six sections, safety states, the per-project client grant editor | `todo` | | pgTAP self-demote / self-deactivate / last-admin · e2e disabled-and-explained |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `todo` | | `tests/earnings-boundary.test.ts` extended, both ways |
@@ -2693,3 +2693,65 @@ anything here. Nothing in this phase touches the trash.
 
 **W6 is done.** Next: W7 — sprint database, multi-column sort, filters, saved
 views. Favourites ride along with saved views; see `05-DECISIONS.md`.
+
+## W7a/W7b — the sort stack, and two bugs only a browser could report
+
+`lib/sprint-sort.ts` is the comparator, the URL vocabulary and the click rules,
+pure and asserted by 22 tests written before it existed. `?sort=deadline:asc,status:desc`
+is applied **on the server**, so the table, the board and the stacked cards
+cannot disagree about the order at the same URL.
+
+Three rules the prototype could not settle, all recorded in `05-DECISIONS.md`:
+
+**Missing is not a value.** The prototype's `"￿"` sentinel puts nulls last
+ascending and *first* descending — reverse a sort by deadline and the top of the
+sprint fills with stories that have no deadline. `missing` is compared before
+the direction is applied, so it stays last either way. Same for 0/0 criteria: no
+progress to compare is not 0%.
+
+**A sort and a manual order cannot both be true.** Sorting pauses the drag —
+no handles, no `DndContext` — and says so in the table with `back to manual
+order` beside it, rather than in a tooltip on a control that is no longer there.
+
+**The headers are buttons, not links**, because shift-clicking an anchor opens a
+new window and that binding cannot be taken back.
+
+### Everything below here was found by opening the page
+
+**Two quick header clicks lost the first one.** `router.replace` on a dynamic
+route is a round trip, so the second click's `toggleSort` ran against the props
+from before the first navigation landed: Deadline then shift-Status produced
+`?sort=status:asc`, with the deadline key silently dropped. The faster somebody
+built a sort, the more of it they lost. The table now toggles from the stack the
+last click *asked* for, reconciled during render. `e2e/sprint-table.spec.ts`
+clicks twice with no wait in between, which is the only way to see it.
+
+**The filter bar's shareable-link hint was lying.** It reconstructed the query
+from `status`, `component` and `match` — correct until `sort` became a real
+parameter, after which it went on printing `?sort=order_index` while the address
+bar said `?sort=deadline:asc,status:asc`. It reads `params.entries()` now, which
+is the URL itself and also shows `deadline:asc` where `toString()` would show
+`deadline%3Aasc`.
+
+### And one that was the environment, not the app
+
+A `display: flex`, visible, in-document element measured **0×0**, screenshots
+were seconds stale, and a real click did nothing — because the Browser pane's
+tab had gone to the background. `document.visibilityState === "hidden"` throttles
+rAF and suspends layout. Everything re-measured correctly on `tabs_select`, with
+no change to the code. In `07-FIELD-NOTES.md`, because it reads exactly like a
+broken component.
+
+*Also worth knowing while this branch is live:* **another session holds port
+3000**, so e2e here runs with `E2E_BASE_URL` pointed at this session's own dev
+server. `playwright.config.ts` defaults to 3000 and would otherwise have tested
+somebody else's checkout.
+
+`test` **315** (22 new) · `lint`, `typecheck` clean · `db:test` **338** after a
+`db:reset` — the two `seed.sql` count assertions had drifted to 98/95 and
+107/104, which is the documented e2e dirt and not this work · `budgets`
+**OK 76.5 / 110 own, 216.5 / 220 total** (74.6 at W6e) · sprint-table **15/15**
+incl. axe with a two-key sort applied · a11y 15/15 · inline-edit 8/8.
+
+**Next:** W7c — the remaining filters (type, assignee, reviewer, grouping, free
+text over title and description), then W7d saved views.

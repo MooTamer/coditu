@@ -3380,3 +3380,74 @@ trail's last crumb. That is the ARIA breadcrumb pattern and it is correct — ea
 marks its own current item — but the W6 verification line reads "exactly one `aria-current='page'`"
 and it should be read as *one per navigation*. The rail's own count is still asserted, scoped to
 `aside`, by `e2e/rail.spec.ts`.
+
+## The sort stack lives in the URL, and it is four keys wide
+
+**Decided 2026-08-26, W7a/W7b.** `?sort=deadline:asc,status:desc`, read by `lib/sprint-sort.ts` and
+applied **on the server** before the rows reach any component.
+
+*Why the server:* the sprint is one query and all of it is already in memory, so the comparator costs
+nothing there — and the table, the board and the stacked cards then receive the same order. Sorting
+inside `sprint-table.client.tsx` would have sorted the table and left the cards below it in a
+different order at the same URL, which is the sort of thing nobody notices until a phone screenshot
+disagrees with a laptop.
+
+*Why four keys:* legibility, not arithmetic. The header draws a numbered badge per key and a reader
+has to be able to hold the sentence — "by deadline, then status, then assignee, then grouping" is
+already the edge of it. It also bounds what a hand-edited `?sort=` can ask for.
+
+*Unrecognised columns are dropped, never guessed*, exactly like `parseStatusFilter`: there is no sort
+a wrong word could safely mean, and a stale link must not quietly reorder somebody's sprint.
+
+### Missing is not a value, so it does not reverse
+
+The prototype sorts nulls with a `"￿"` sentinel. That puts them last ascending and **first**
+descending, so reversing a sort by deadline fills the top of the sprint with the stories that have no
+deadline. Here `missing` is a flag compared *before* the direction is applied, so a row without a
+deadline, an assignee, a reviewer, a grouping or a component stays at the bottom whichever way the
+column points. Nobody sorts a column to find the rows that do not have it.
+
+Same reasoning for **0/0 criteria**: a story with no acceptance criteria has no progress to compare,
+which is not the same as 0% and must not sort as the least-finished work in the sprint. It is
+missing.
+
+`status` sorts by `STATUS_DISPLAY_ORDER` — the "what needs attention" order the board, the report and
+the exports already use. Alphabetically, `blocked` would open the sprint and `in_progress` would sit
+in the middle. `key` sorts by its **number**, because `COD-10` is not between `COD-1` and `COD-9`.
+
+### A sort and a manual order cannot both be true
+
+Drag-to-reorder writes `order_index`. While a sort is applied, what the reader sees does not come
+from `order_index` — so a drag would write a position nothing on screen reflects, and the row would
+jump back the moment the sort was cleared. That reads as a lost edit.
+
+So sorting **pauses** the drag: no handles, no `DndContext`, and a line in the table saying why, with
+`back to manual order` beside it. Said where the handles used to be rather than in a tooltip on a
+control that is no longer there.
+
+### The headers are `<button>`s because shift-click on a link opens a window
+
+Not a preference. Shift-clicking an anchor is a browser binding — open in a new window — and it
+cannot be prevented, so a link could never carry the stacking gesture the design asks for. Plain
+click cycles the primary column `asc → desc → cleared`; shift-click appends, flips, then removes.
+
+A plain click on a column already *in* the stack promotes it to the only sort, ascending. It does not
+resume the cycle from wherever that column happened to sit, because then the same click would mean
+different things depending on a stack the reader may not have open.
+
+`aria-sort` goes on the **primary** column only: the attribute takes one value and a table has one
+sort direction as far as the accessibility tree is concerned. A key further down says its position in
+the button's own accessible name — *"Status, sorted ascending — 2 of 2"* — which is also what the
+numbered badge beside it means.
+
+### The click that has not landed yet is remembered
+
+`router.replace` on a dynamic route is a server round trip, so the `sort` prop only changes when the
+new render arrives. Clicking Deadline and then shift-clicking Status a moment later computed the
+second toggle from an **empty** stack and silently dropped the deadline key — the faster somebody
+built a sort, the more of it they lost. Found in a browser; no unit test could see it.
+
+The table keeps the stack the last click *asked* for and toggles from that, reconciled during render
+when the URL catches up. It is only ever the input to the next toggle: the headers and the rows both
+still come from the server's `sort`, so nothing on screen is optimistic and there is nothing to roll
+back.

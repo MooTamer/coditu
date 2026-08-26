@@ -46,6 +46,7 @@ export function SprintCards({
         return (
           <Link
             key={row.id}
+            data-sprint-card
             href={`${basePath}/items/${row.key}`}
             // See `rail.client.tsx` — a prefetch that is discarded before it
             // can be used is a server render nobody asked for.

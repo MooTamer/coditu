@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import {
   DndContext,
@@ -22,7 +22,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical } from "lucide-react";
 
 import {
   ComponentCell,
@@ -41,6 +41,14 @@ import { reorderWorkItems } from "@/lib/actions/work-items";
 import type { ComponentRef } from "@/lib/data/components";
 import type { PersonRef, WorkItemRow } from "@/lib/data/sprint";
 import { hours } from "@/lib/format";
+import {
+  ariaSortFor,
+  serializeSort,
+  sortLabelFor,
+  toggleSort,
+  type SortColumn,
+  type SortKey,
+} from "@/lib/sprint-sort";
 import { groupingHue, groupingStickyBg, groupingTint } from "@/lib/work-items";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +100,7 @@ export function SprintTable({
   components,
   projectSlug,
   today,
+  sort,
 }: {
   /** Rows after filtering — what is displayed. */
   rows: WorkItemRow[];
@@ -112,9 +121,14 @@ export function SprintTable({
   projectSlug: string;
   /** Today in Africa/Cairo, from the server so a stale tab cannot drift. */
   today: string;
+  /** The sort stack from the URL. The rows arrive already sorted — this is for
+   *  the headers to draw themselves and for the drag to know it is paused. */
+  sort: SortKey[];
 }) {
   const toast = useToast();
   const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const [, startTransition] = useTransition();
   const [order, setOrder] = useState<string[] | null>(null);
 
@@ -126,6 +140,67 @@ export function SprintTable({
     // keeps its server position rather than vanishing.
     return moved.length === rows.length ? moved : rows;
   }, [order, rows]);
+
+  /**
+   * Sorting is a URL write, exactly like the filters beside it — same
+   * `router.replace`, same `scroll: false`, because clicking a header must not
+   * throw a reader back to the top of a table they are part way down.
+   */
+  const writeSort = useCallback(
+    (stack: SortKey[]) => {
+      const next = new URLSearchParams(params);
+      const value = serializeSort(stack);
+      if (value) next.set("sort", value);
+      else next.delete("sort");
+      const query = next.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [params, pathname, router]
+  );
+
+  /**
+   * The stack the last click ASKED for, which is not yet the stack the server
+   * has answered with.
+   *
+   * Found in a browser, not by a test: `router.replace` on a dynamic route is a
+   * round trip, and `sort` only changes when the new render lands. So clicking
+   * Deadline and then shift-clicking Status a moment later computed the second
+   * toggle from an **empty** stack — and the deadline key was silently dropped.
+   * The faster somebody builds a sort, the more of it they lose.
+   *
+   * Reconciled during render rather than in an effect: when the URL catches up
+   * to exactly what was asked for, this goes back to following the server. A
+   * newer click that has not landed yet is deliberately NOT cleared by an older
+   * one arriving, or a fast pair would visibly bounce through the intermediate
+   * stack.
+   *
+   * It is only ever the input to the next toggle. The headers and the rows both
+   * come from `sort`, so what is drawn is always what the server sorted — there
+   * is no optimistic state on screen and so nothing to roll back.
+   */
+  const [asked, setAsked] = useState<SortKey[] | null>(null);
+  if (asked && serializeSort(asked) === serializeSort(sort)) setAsked(null);
+
+  const onSort = useCallback(
+    (column: SortColumn, shift: boolean) => {
+      const next = toggleSort(asked ?? sort, column, shift);
+      setAsked(next);
+      writeSort(next);
+    },
+    [asked, sort, writeSort]
+  );
+
+  /**
+   * **A sort and a manual order cannot both be true.**
+   *
+   * What the reader sees while sorted comes from the comparator, not from
+   * `order_index`, so a drag would write a position nothing on screen reflects
+   * — the row would jump back the moment the sort was cleared, which reads as a
+   * lost edit. So the drag is switched off, and the table says why rather than
+   * leaving a handle that silently does nothing.
+   */
+  const sorted = sort.length > 0;
+  const reorderable = canReorder && !sorted;
 
   /**
    * A mouse, a finger and a keyboard each need a different way to start a drag,
@@ -202,27 +277,33 @@ export function SprintTable({
       <table className="w-full border-collapse">
         <caption className="sr-only">
           {`Sprint work items. ${rows.length} of ${allRows.length} shown.` +
-            (canReorder
+            (reorderable
               ? " Rows can be reordered: focus a row and press Space to lift it, arrow keys to move it, Space to drop, Escape to cancel."
-              : "")}
+              : "") +
+            (sorted ? " Sorted, so manual reordering is paused." : "")}
         </caption>
 
         <thead>
           <tr className="border-b border-[var(--hairline-strong)]">
-            <th scope="col" className={`sticky left-0 z-[2] min-w-[340px] bg-[var(--raised)] text-left ${HEAD}`}>
-              Task
-            </th>
+            <SortHeader
+              column="key"
+              label="Task"
+              sortsBy="story key"
+              sort={sort}
+              onSort={onSort}
+              className={`sticky left-0 z-[2] min-w-[340px] bg-[var(--raised)] text-left`}
+            />
             {/* A floor, not a fixed width: "EVIM Rollover Contact Cards" needs
                 room, and the cell truncates rather than wrapping a row to two
                 lines. */}
-            <th scope="col" className={`min-w-[180px] text-left ${HEAD}`}>Component</th>
-            <th scope="col" className={`text-left ${HEAD}`}>Status</th>
-            <th scope="col" className={`text-right ${HEAD}`}>Hours</th>
-            <th scope="col" className={`text-left ${HEAD}`}>Assignee</th>
-            <th scope="col" className={`text-left ${HEAD}`}>Reviewer</th>
-            <th scope="col" className={`text-left ${HEAD}`}>Deadline</th>
-            <th scope="col" className={`text-left ${HEAD}`}>Type</th>
-            <th scope="col" className={`text-right ${HEAD}`}>Grouping</th>
+            <SortHeader column="component" label="Component" sort={sort} onSort={onSort} className="min-w-[180px] text-left" />
+            <SortHeader column="status" label="Status" sort={sort} onSort={onSort} className="text-left" />
+            <SortHeader column="hours" label="Hours" sort={sort} onSort={onSort} align="right" className="text-right" />
+            <SortHeader column="assignee" label="Assignee" sort={sort} onSort={onSort} className="text-left" />
+            <SortHeader column="reviewer" label="Reviewer" sort={sort} onSort={onSort} className="text-left" />
+            <SortHeader column="deadline" label="Deadline" sort={sort} onSort={onSort} className="text-left" />
+            <SortHeader column="type" label="Type" sort={sort} onSort={onSort} className="text-left" />
+            <SortHeader column="grouping" label="Grouping" sort={sort} onSort={onSort} align="right" className="text-right" />
           </tr>
         </thead>
 
@@ -232,7 +313,7 @@ export function SprintTable({
               key={row.id}
               row={row}
               basePath={basePath}
-              canReorder={canReorder}
+              canReorder={reorderable}
               currentProfileId={currentProfileId}
               canAssign={canAssign}
               rowHeight={rowHeight}
@@ -273,7 +354,40 @@ export function SprintTable({
     </section>
   );
 
-  if (!canReorder) return table;
+  /**
+   * Said in the table, not in a tooltip on a handle that is no longer there.
+   *
+   * `role="status"` because it appears and disappears with the sort, which is
+   * exactly the moment somebody needs to be told — a drag handle that quietly
+   * stops working is the alternative.
+   */
+  const paused =
+    canReorder && sorted ? (
+      <p
+        role="status"
+        data-drag-paused
+        className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-[var(--hairline)] bg-[var(--raised)] px-4 py-[10px] text-[12.5px] leading-[1.5] text-[var(--ink-muted)] @max-[900px]:hidden"
+      >
+        Manual drag order is paused while a sort is active — the order you see comes from the
+        sort, not from the stored positions.
+        <button
+          type="button"
+          onClick={() => writeSort([])}
+          className="cursor-pointer font-mono text-[11px] text-[var(--accent)] underline-offset-2 hover:underline"
+        >
+          back to manual order
+        </button>
+      </p>
+    ) : null;
+
+  if (!reorderable) {
+    return (
+      <>
+        {paused}
+        {table}
+      </>
+    );
+  }
 
   return (
     <DndContext
@@ -292,6 +406,84 @@ export function SprintTable({
         {table}
       </SortableContext>
     </DndContext>
+  );
+}
+
+/**
+ * One column heading, and the control that sorts by it.
+ *
+ * A `<button>` rather than a link, and that is not a preference: **shift-click
+ * on an anchor opens a new window**, which is the browser's own binding and
+ * cannot be taken back — so a link could never carry the stacking gesture the
+ * design asks for.
+ *
+ * `aria-sort` goes on the `<th>` and only for the **primary** column: the
+ * attribute takes one value and a table has one sort direction as far as the
+ * accessibility tree is concerned. A column further down the stack says its
+ * position in the button's own accessible name instead, which is also where
+ * the `1` / `2` badge beside it is explained.
+ */
+function SortHeader({
+  column,
+  label,
+  sortsBy = label,
+  sort,
+  onSort,
+  align = "left",
+  className,
+}: {
+  column: SortColumn;
+  label: string;
+  /** What the column sorts BY, where the heading does not say it. The Task
+   *  column is headed "Task" and sorts by the story key — which is the useful
+   *  order and not the one "Task" implies, so the control says so. */
+  sortsBy?: string;
+  sort: SortKey[];
+  onSort: (column: SortColumn, shift: boolean) => void;
+  align?: "left" | "right";
+  className?: string;
+}) {
+  const at = sort.findIndex((entry) => entry.column === column);
+  const active = at !== -1;
+  const spoken = sortLabelFor(sort, column);
+  const Arrow = active && sort[at].direction === "desc" ? ArrowDown : ArrowUp;
+
+  return (
+    <th scope="col" aria-sort={ariaSortFor(sort, column)} className={cn(HEAD, className)}>
+      <button
+        type="button"
+        onClick={(event) => onSort(column, event.shiftKey)}
+        title={
+          active
+            ? `${sortsBy} — ${spoken}. Click to change, shift-click to keep the rest of the sort.`
+            : `Sort by ${sortsBy}. Shift-click to add it to the sort.`
+        }
+        className={cn(
+          "-mx-1 inline-flex w-[calc(100%+0.5rem)] cursor-pointer items-center gap-[6px] rounded-chip px-1 py-[2px]",
+          "font-mono text-[10.5px] font-medium uppercase tracking-[0.06em]",
+          "transition-colors duration-[var(--dur-micro)] hover:text-[var(--ink)]",
+          active ? "text-[var(--ink)]" : "text-[var(--ink-faint)]",
+          align === "right" && "justify-end"
+        )}
+      >
+        {label}
+        {/* The arrow is decorative — `aria-sort` and the name below carry the
+            same fact to anybody not looking at it. */}
+        {active ? <Arrow size={11} strokeWidth={2.4} aria-hidden /> : null}
+        {/* Only when there is a stack to number. A lone `1` beside the only
+            sorted column is a question rather than an answer. */}
+        {active && sort.length > 1 ? (
+          <Mono
+            size="meta"
+            aria-hidden
+            className="rounded-chip bg-[var(--canvas)] px-[4px] text-[9px] text-[var(--ink-muted)]"
+          >
+            {at + 1}
+          </Mono>
+        ) : null}
+        {spoken ? <span className="sr-only">{`, ${spoken}`}</span> : null}
+      </button>
+    </th>
   );
 }
 
@@ -376,6 +568,12 @@ function Row({
               {...attributes}
               {...listeners}
               type="button"
+              // A stable hook: "can this row be dragged" is otherwise only
+              // visible as an icon inside a hover-revealed button, which is
+              // exactly the kind of assertion that goes green for the wrong
+              // reason. `e2e/sprint-table.spec.ts` counts these to prove a
+              // sort pauses the manual order.
+              data-drag-handle
               aria-label={`Reorder ${row.key} — ${row.title}`}
               className="relative z-[1] -ml-1 flex size-6 shrink-0 cursor-grab items-center justify-center rounded-[5px] text-[var(--ink-faint)] opacity-0 transition-opacity duration-[var(--dur-micro)] group-hover/row:opacity-100 hover:bg-[var(--canvas)] focus-visible:opacity-100"
             >

@@ -1,4 +1,4 @@
-import { SEED, SEED_ENGINEER, expect, query, signIn, test } from "./fixtures";
+import { SEED, SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
 
@@ -317,5 +317,155 @@ test.describe("sprint table", () => {
         : `clipped: y=${box.y.toFixed(1)} h=${box.height.toFixed(1)} viewBox=${view.y}..${view.y + view.height}`;
     });
     expect(inside).toBe("inside");
+  });
+});
+
+/**
+ * The sort stack, in a browser.
+ *
+ * `tests/sprint-sort.test.ts` owns the comparator and asserts every rule it
+ * has. What only a browser can answer is the other half: that the URL is what
+ * carries the sort, that a header says what it is doing to a screen reader, and
+ * that a sort and a manual drag order are never both on offer at once.
+ */
+test.describe("sorting the sprint table", () => {
+  const header = (page: import("@playwright/test").Page, name: string) =>
+    page.locator("thead th").filter({ hasText: new RegExp(`^${name}`, "i") });
+
+  test.beforeEach(async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+  });
+
+  test("a header click writes the sort into the URL and back out again", async ({
+    adminPage: page,
+  }) => {
+    await page.goto(SPRINT);
+
+    await header(page, "Deadline").getByRole("button").click();
+    await expect(page).toHaveURL(/[?&]sort=deadline%3Aasc/);
+    await expect(header(page, "Deadline")).toHaveAttribute("aria-sort", "ascending");
+
+    await header(page, "Deadline").getByRole("button").click();
+    await expect(page).toHaveURL(/[?&]sort=deadline%3Adesc/);
+    await expect(header(page, "Deadline")).toHaveAttribute("aria-sort", "descending");
+
+    // Third click clears it, and the parameter leaves the URL rather than
+    // sitting there as `sort=`.
+    await header(page, "Deadline").getByRole("button").click();
+    await expect(page).not.toHaveURL(/sort=/);
+    await expect(header(page, "Deadline")).toHaveAttribute("aria-sort", "none");
+  });
+
+  /**
+   * Shift-click is why the headers are `<button>`s and not links: **shift-click
+   * on an anchor opens a new window**, which is the browser's own binding and
+   * cannot be prevented.
+   */
+  test("shift-click stacks, and the stack is numbered", async ({ adminPage: page }) => {
+    await page.goto(SPRINT);
+
+    // Deliberately without waiting in between. `router.replace` on a dynamic
+    // route is a server round trip, and the second click used to compute its
+    // toggle from the stack the FIRST click had not yet delivered — so the
+    // deadline key was silently dropped. The faster somebody builds a sort, the
+    // more of it they lost.
+    await header(page, "Deadline").getByRole("button").click();
+    await header(page, "Status").getByRole("button").click({ modifiers: ["Shift"] });
+
+    await expect(page).toHaveURL(/sort=deadline%3Aasc%2Cstatus%3Aasc/);
+
+    // `aria-sort` belongs to the PRIMARY column only — the attribute takes one
+    // value and a table has one sort direction as far as the accessibility tree
+    // is concerned. The second key says its position in its own name.
+    await expect(header(page, "Deadline")).toHaveAttribute("aria-sort", "ascending");
+    await expect(header(page, "Status")).toHaveAttribute("aria-sort", "none");
+    await expect(
+      header(page, "Status").getByRole("button", { name: /sorted ascending — 2 of 2/ })
+    ).toBeVisible();
+  });
+
+  /**
+   * The rule that keeps the table honest: what a sort shows does not come from
+   * `order_index`, so a drag would write a position nothing on screen reflects.
+   */
+  test("a sort pauses the manual order, and says so", async ({ adminPage: page }) => {
+    await page.goto(SPRINT);
+
+    const grips = page.locator("tbody [data-drag-handle]");
+    const before = await grips.count();
+    expect(before, "the seeded admin can drag before any sort").toBeGreaterThan(0);
+    await expect(page.locator("[data-drag-paused]")).toHaveCount(0);
+
+    await header(page, "Grouping").getByRole("button").click();
+
+    await expect(page.locator("[data-drag-paused]")).toBeVisible();
+    await expect(page.locator("[data-drag-paused]")).toContainText("paused while a sort is active");
+    await expect(grips).toHaveCount(0);
+
+    // And the way back is offered where the drag used to be, not in a tooltip
+    // on a handle that is no longer there.
+    await page.locator("[data-drag-paused]").getByRole("button", { name: "back to manual order" }).click();
+    await expect(page).not.toHaveURL(/sort=/);
+    await expect(page.locator("[data-drag-paused]")).toHaveCount(0);
+    await expect(grips).toHaveCount(before);
+  });
+
+  test("the order in the URL is the order on the page, on arrival", async ({
+    adminPage: page,
+  }) => {
+    await page.goto(`${SPRINT}?sort=hours%3Adesc`);
+
+    const logged = await page
+      .locator("tbody tr")
+      .evaluateAll((rows) =>
+        rows.map((row) => {
+          const cell = row.querySelectorAll("td")[3];
+          return Number((cell?.textContent ?? "").split("/")[0].trim()) || 0;
+        })
+      );
+
+    expect(logged.length).toBeGreaterThan(1);
+    expect(logged, "hours descending").toEqual([...logged].sort((a, b) => b - a));
+  });
+
+  /**
+   * A stale or hand-edited link must not quietly reorder the sprint — the same
+   * rule the status filter lives by, asserted here because a dropped key is
+   * invisible on screen.
+   */
+  test("an unrecognised column is dropped rather than guessed", async ({ adminPage: page }) => {
+    await page.goto(`${SPRINT}?sort=whatever%3Aasc`);
+
+    await expect(page.locator("[data-drag-paused]")).toHaveCount(0);
+    const sorted = page.locator('thead th:not([aria-sort="none"])');
+    await expect(sorted).toHaveCount(0);
+  });
+
+  test("axe is clean with a two-key sort applied", async ({ adminPage: page }) => {
+    // Sorted, the header stops being text and becomes a control: nine buttons
+    // inside `<th>`s, one of them carrying `aria-sort`. That is a different
+    // table to audit than the one `a11y.spec.ts` sees.
+    await page.goto(`${SPRINT}?sort=deadline%3Aasc%2Cstatus%3Adesc`);
+    await expect(page.locator("[data-drag-paused]")).toBeVisible();
+    expect(await auditA11y(page, "main"), "the sorted sprint table").toEqual([]);
+  });
+
+  test("the stacked cards follow the same order as the table", async ({ adminPage: page }) => {
+    await page.goto(`${SPRINT}?sort=hours%3Adesc`);
+
+    // Read the table's order at a width where the table is what renders…
+    const fromTable = await page
+      .locator("tbody tr td:first-child")
+      .evaluateAll((cells) => cells.map((cell) => (cell.textContent ?? "").slice(0, 7)));
+
+    // …then the cards' order at a width where they are. Sorting happens on the
+    // server precisely so these cannot disagree at the same URL.
+    await page.setViewportSize({ width: 700, height: 900 });
+    const fromCards = await page
+      .locator("[data-sprint-card]")
+      .evaluateAll((cards) => cards.map((card) => (card.textContent ?? "").slice(0, 7)));
+
+    expect(fromCards.length).toBeGreaterThan(1);
+    expect(fromCards).toEqual(fromTable);
   });
 });

@@ -1286,3 +1286,40 @@ pinned where it belongs, in `tests/today.test.ts`, against a fixed hour.
 
 The general form: **anything derived from `now` needs an injected clock in a
 unit test and a different signal entirely in a browser test.**
+
+### A hidden Browser-pane tab suspends layout, so every measurement is zero
+
+Diagnosing the sort headers, `getBoundingClientRect()` on a visible, `display: flex`,
+`visibility: visible` element in the document returned **0×0**, screenshots showed a frame from
+several seconds earlier, and a real pointer click on a button did nothing at all. It reads exactly
+like a broken component — and it cost a wrong diagnosis before the cause turned up:
+
+```js
+document.visibilityState   // "hidden"
+document.hasFocus()        // false
+```
+
+The pane's tab had gone to the background. A hidden tab throttles `requestAnimationFrame`, suspends
+layout, and serves a stale compositor frame to a screenshot.
+
+**Check `document.visibilityState` before believing any measurement or screenshot**, and call
+`tabs_select` on the tab first. Everything re-measured correctly the moment it was fronted, with no
+change to the code.
+
+### `router.replace` is a round trip, so two quick clicks compute from the same stale state
+
+The sprint table's sort headers write `?sort=` and read the stack back from the server's props.
+Clicking Deadline and then shift-clicking Status a moment later produced `?sort=status:asc` — the
+deadline key **silently dropped** — because the second click's `toggleSort` ran against the props
+from before the first navigation had landed. The faster somebody builds a sort, the more of it they
+lose.
+
+`window.location` is no help: on a dynamic route the URL updates when the navigation commits, which
+is after the server responds.
+
+The fix is to remember what the last click *asked for* and toggle from that, reconciling during
+render when the URL catches up. Note what it is deliberately not: the headers and the rows still both
+render from the server's value, so nothing on screen is optimistic and there is nothing to roll back.
+
+**Any control that computes its next state from a URL it just wrote has this bug.** Filters that
+toggle one value at a time do not (each click is independent); anything that *accumulates* does.
