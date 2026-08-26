@@ -1100,7 +1100,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Project spaces exist only where the sidebar has labels.
+   Project spaces and favourites exist only where the sidebar has labels.
 
    `display: none`, not the `opacity: 0` the labels above use, and the
    difference is the point. A nav label fades because its ICON survives and
@@ -1109,11 +1109,13 @@
    dozen rows that nobody sighted can see and nobody can reach.
    --------------------------------------------------------------------------- */
 
-aside[data-app-chrome] [data-rail-spaces] {
+aside[data-app-chrome] [data-rail-spaces],
+aside[data-app-chrome] [data-rail-favourites] {
   display: none;
 }
 @media (min-width: 1180px) {
-  aside[data-app-chrome]:not([data-collapsed]) [data-rail-spaces] {
+  aside[data-app-chrome]:not([data-collapsed]) [data-rail-spaces],
+  aside[data-app-chrome]:not([data-collapsed]) [data-rail-favourites] {
     display: block;
   }
 }

@@ -6,6 +6,8 @@ import { TabBar } from "@/components/app/tab-bar.client";
 import { ToastProvider } from "@/components/app/toast.client";
 import { Topbar } from "@/components/app/topbar.client";
 import { listComponentsByProject } from "@/lib/data/components";
+import { listFavourites } from "@/lib/data/favourites";
+import { favouriteLinks } from "@/lib/favourites";
 import { countUnreadNotifications } from "@/lib/data/notifications";
 import { listActiveProfiles } from "@/lib/data/profiles";
 import { listProjects } from "@/lib/data/projects";
@@ -63,7 +65,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
    */
   if (profile.must_set_password) redirect("/auth/update-password");
 
-  const [projects, unreadCount, people, componentsByProject] = await Promise.all([
+  const [projects, unreadCount, people, componentsByProject, favourites] = await Promise.all([
     listProjects(),
     countUnreadNotifications(),
     listActiveProfiles(),
@@ -71,7 +73,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // sprint, so it needs every project's registry. One query, request-cached
     // like the rest of the shell's reads.
     listComponentsByProject(),
+    // The sidebar's first section. One query, embedded three ways — see
+    // `lib/data/favourites.ts` for why it is not three reads.
+    listFavourites(profile.id),
   ]);
+
+  // Resolved here rather than in the sidebar: a starred row becomes an address
+  // by way of the project list, and doing that in a client component put
+  // `lib/favourites` in the browser bundle and the shell's §5 total over.
+  const favouriteTargets = favouriteLinks(favourites, projects);
 
   /**
    * The sidebar's registry row is a live count, and an archived component is
@@ -98,6 +108,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           unreadCount={unreadCount}
           projects={projects}
           componentCounts={componentCounts}
+          favourites={favouriteTargets}
         />
         <div
           // Below `md` the bottom tab bar is FIXED, so it overlaps the content

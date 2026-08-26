@@ -50,6 +50,7 @@ export function FilterBar({
   groupings,
   views,
   sprintId,
+  starredViews,
 }: {
   availableStatuses: WorkItemStatus[];
   /** Only the components this sprint actually touches. A menu of forty when
@@ -67,6 +68,8 @@ export function FilterBar({
   groupings: number[];
   /** This project's saved views — the reader's own, plus everybody's shared. */
   views: SavedView[];
+  /** Which saved views the reader has starred, as ids. */
+  starredViews: Set<string>;
   /** The sprint on screen, for a view somebody pins to this week. */
   sprintId: string;
 }) {
@@ -226,7 +229,12 @@ export function FilterBar({
 
       {/* A view is a link, so this is the only control here that navigates
           rather than rewriting one parameter. */}
-      <ViewMenu views={views} projectSlug={projectSlug} sprintId={sprintId} />
+      <ViewMenu
+        views={views}
+        projectSlug={projectSlug}
+        sprintId={sprintId}
+        starredViews={starredViews}
+      />
 
       {/* Type, assignee, reviewer, grouping and free text. Behind a button with
           a count, because four more dimensions inline wrap this bar to three

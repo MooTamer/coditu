@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(287);
+select plan(300);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -2810,6 +2810,127 @@ select throws_ok(
   '42501',
   null,
   'negative: anonymous cannot read saved views'
+);
+
+select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- Favourites — private to one person, and a pointer rather than a copy.
+--
+-- Stricter than `saved_views`, which has a shared mode: there is no operational
+-- reason for a lead or an admin to read or change how somebody arranges their
+-- own sidebar. The negative assertions are the point of this block.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+
+insert into public.favourites (profile_id, saved_view_id)
+values ('33333333-3333-3333-3333-333333333333', '7a000000-0000-4000-8000-000000000001');
+
+select is(
+  (select count(*)::int from public.favourites),
+  1,
+  'a member reads their own favourite'
+);
+
+-- Exactly one target, enforced by the check rather than by whoever writes next.
+select throws_ok(
+  $$insert into public.favourites (profile_id, saved_view_id, work_item_id)
+    values ('33333333-3333-3333-3333-333333333333',
+            '7a000000-0000-4000-8000-000000000002',
+            '60000000-0000-0000-0000-000000000001')$$,
+  '23514',
+  null,
+  'negative: a favourite cannot point at two things at once'
+);
+
+select throws_ok(
+  $$insert into public.favourites (profile_id) values ('33333333-3333-3333-3333-333333333333')$$,
+  '23514',
+  null,
+  'negative: a favourite cannot point at nothing'
+);
+
+-- Starring the same thing twice is the same star.
+select throws_ok(
+  $$insert into public.favourites (profile_id, saved_view_id)
+    values ('33333333-3333-3333-3333-333333333333', '7a000000-0000-4000-8000-000000000001')$$,
+  '23505',
+  null,
+  'negative: the same thing cannot be starred twice by one person'
+);
+
+-- ...but two people may each star it, and two kinds coexist for one person.
+insert into public.favourites (profile_id, work_item_id)
+values ('33333333-3333-3333-3333-333333333333', '60000000-0000-0000-0000-000000000001');
+
+select is(
+  (select count(*)::int from public.favourites),
+  2,
+  'one person may star a view and a story at once'
+);
+
+select throws_ok(
+  $$insert into public.favourites (profile_id, saved_view_id)
+    values ('22222222-2222-2222-2222-222222222222', '7a000000-0000-4000-8000-000000000002')$$,
+  '42501',
+  null,
+  'negative: nobody may star anything as somebody else'
+);
+
+-- A lead reads their own and nobody else's — the difference from saved views.
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select is(
+  (select count(*)::int from public.favourites),
+  0,
+  'negative: a lead cannot read another person''s favourites'
+);
+
+select is(
+  (select count(*)::int from public.favourites
+    where profile_id = '33333333-3333-3333-3333-333333333333'),
+  0,
+  'negative: naming the owner does not help either'
+);
+
+-- An admin has no privilege here at all, which is deliberate.
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+select is(
+  (select count(*)::int from public.favourites),
+  0,
+  'negative: an admin cannot read another person''s favourites'
+);
+
+select lives_ok(
+  $$delete from public.favourites
+     where profile_id = '33333333-3333-3333-3333-333333333333'$$,
+  'an admin''s delete is accepted and matches nothing'
+);
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select is(
+  (select count(*)::int from public.favourites),
+  2,
+  'and the owner still has both — the delete above touched no row'
+);
+
+-- Deleting the target takes the favourite with it. A real foreign key, not a
+-- polymorphic id somebody has to remember to clean up after.
+select pg_temp.act_as_owner();
+delete from public.saved_views where id = '7a000000-0000-4000-8000-000000000001';
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select is(
+  (select count(*)::int from public.favourites),
+  1,
+  'deleting the view deleted the favourite pointing at it'
+);
+
+select pg_temp.act_as_anon();
+select throws_ok(
+  'select count(*) from public.favourites',
+  '42501',
+  null,
+  'negative: anonymous cannot read favourites'
 );
 
 select pg_temp.act_as_owner();

@@ -7,6 +7,8 @@ import { ComponentIcon } from "@/components/coditu/component-icon";
 import { Mono } from "@/components/coditu/mono";
 import { StatusChipDot, ToneChip } from "@/components/coditu/status-chip";
 import { Reveal } from "@/components/motion/reveal";
+import { FavouriteStar } from "@/components/app/favourite-star.client";
+import { listFavouritedTargets } from "@/lib/data/favourites";
 import { COMPONENT_KIND_LABEL, COMPONENT_KIND_TONE } from "@/lib/components";
 import { getComponentDossier, type ComponentItem } from "@/lib/data/components";
 import { listClientThreads } from "@/lib/data/client-threads";
@@ -54,6 +56,8 @@ export default async function ComponentPage({
   const dossier = await getComponentDossier(project.id, component);
   if (!dossier) notFound();
 
+  const starred = await listFavouritedTargets(profile.id);
+
   const canManage = profile.role === "admin" || profile.role === "lead";
 
   // Threads on THIS component, out of the project's. One query rather than a
@@ -94,6 +98,12 @@ export default async function ComponentPage({
                 className="text-[var(--ink)]"
               />
               <span className="min-w-0 truncate">{dossier.name}</span>
+              <FavouriteStar
+                kind="component"
+                targetId={dossier.id}
+                label={dossier.name}
+                starred={starred.has(dossier.id)}
+              />
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
               <ToneChip tone={COMPONENT_KIND_TONE[dossier.kind]}>

@@ -951,6 +951,69 @@ export type Database = {
           },
         ]
       }
+      favourites: {
+        Row: {
+          component_id: string | null
+          created_at: string
+          id: string
+          profile_id: string
+          saved_view_id: string | null
+          work_item_id: string | null
+        }
+        Insert: {
+          component_id?: string | null
+          created_at?: string
+          id?: string
+          profile_id: string
+          saved_view_id?: string | null
+          work_item_id?: string | null
+        }
+        Update: {
+          component_id?: string | null
+          created_at?: string
+          id?: string
+          profile_id?: string
+          saved_view_id?: string | null
+          work_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favourites_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favourites_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favourites_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "favourites_saved_view_id_fkey"
+            columns: ["saved_view_id"]
+            isOneToOne: false
+            referencedRelation: "saved_views"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favourites_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "work_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           comment_id: string | null

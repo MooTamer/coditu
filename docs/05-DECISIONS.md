@@ -3688,3 +3688,52 @@ client can see**, and **what happened last**. Everything in the main column is t
 render a quiet project as though nothing ever had. This panel bounds by **count**, because "the last
 few things" is a count by definition. The headings say which — `Recent activity` and `Latest
 activity`.
+
+## Favourites are private, and a pointer rather than a copy
+
+**Decided 2026-08-26, W8c.** This closes the deferral W6d recorded. The design's three favourites are
+a saved filter view, a work item and a component registry; saved views did not exist until W7, so
+building the table then would have meant a schema that could hold two of its three kinds. It holds
+all three now.
+
+### Three columns, not one `target_id`
+
+The obvious shape is `(kind, target_id)` and it is wrong here for the same reason `saved_views` chose
+a composite foreign key over a trigger: a polymorphic id **cannot have a foreign key**, so deleting a
+story would leave a favourite pointing at nothing and the sidebar would draw a row that goes nowhere.
+Nobody would find out until they clicked it.
+
+Three nullable columns, each with a real `on delete cascade`, and a check that exactly one is set.
+Adding a fourth kind is one column, one FK and one term in the check — more typing than a polymorphic
+id, and it cannot rot. pgTAP asserts both halves of the check and the cascade.
+
+### Private, which is stricter than saved views
+
+A favourite is readable, writable and deletable by exactly one person. Not shared, not visible to a
+lead, not adjustable by an admin. That is deliberately stricter than `saved_views`, which has a shared
+mode: a shared view is a team artefact, a favourite is furniture in one person's room, and there is no
+operational reason for anybody else to see or move it. The negative pgTAP assertions are the point —
+an admin's `select` returns nothing and their `delete` matches no row.
+
+No `update` policy and no `update` grant. A favourite has nothing to change; it is inserted or deleted.
+
+### The star is one component, on three surfaces
+
+Item detail, component page, and the saved-view menu. One component rather than three near-identical
+buttons, because three is three chances for the story's star to behave differently from the
+component's. In the view menu it sits **outside** the `view.mine` branch that guards share and remove:
+a shared view somebody else made is exactly the kind of thing worth keeping at the top of your own
+sidebar.
+
+### The links are resolved on the server, and the budget is why
+
+`favouriteLinks` turns a starred row into an address — including the case that only shows up later, a
+view with no sprint of its own following whichever one is running. Doing that in the sidebar component
+put `lib/favourites` into the browser bundle and the app shell's §5 **total** to **220.4 of 220**. The
+shell resolves them now and the client renders a finished list: **220.2**.
+
+*Which is still 0.2 KB over §5's stated total, and this is the second phase running in which that
+number has been the binding one.* The gate CI enforces is the route's **own** code — 80.2 of 110, with
+30 KB of room — because 140 KB of the total is a framework floor this codebase cannot move. The known
+lever is the one W1 measured and left on the list: the item-detail route shares the sprint page's
+chunk group, worth **8.7 KB**. That is a phase of its own, not a line in this one.

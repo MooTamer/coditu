@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { CommentActions } from "@/components/app/comment-actions.client";
 import { CommentBody } from "@/components/app/comment-body";
+import { FavouriteStar } from "@/components/app/favourite-star.client";
 import { describeActivity } from "@/lib/activity";
 import { documentFromText } from "@/lib/blocks/schema";
 import { CommentThread } from "@/components/app/comment-thread.client";
@@ -46,6 +47,7 @@ export function ItemDetailBody({
   me,
   maxImageBatch,
   revisions,
+  starred,
 }: {
   item: WorkItemDetail;
   today: string;
@@ -82,6 +84,8 @@ export function ItemDetailBody({
   };
   /** How many images one paste may carry — from `app_settings`. */
   maxImageBatch?: number;
+  /** Whether this reader has starred this story. */
+  starred: boolean;
 }) {
   const properties: Array<{ label: string; value: string; color?: string }> = [
     { label: "type", value: TYPE_LABEL[item.type] },
@@ -124,7 +128,14 @@ export function ItemDetailBody({
             alone and nothing is being edited, which is nearly always. */}
         <ItemPresence workItemId={item.id} me={me} people={people} />
 
-        <EditableTitle itemId={item.id} title={item.title} canEdit={canManage} />
+        {/* Beside the title rather than in the property list: starring is
+            something you do TO this story, not a fact about it. */}
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <EditableTitle itemId={item.id} title={item.title} canEdit={canManage} />
+          </div>
+          <FavouriteStar kind="work_item" targetId={item.id} label={item.key} starred={starred} />
+        </div>
 
         {/* Both are block documents now, read through the same server-side
             walker as the thread. A story written before the editor existed has

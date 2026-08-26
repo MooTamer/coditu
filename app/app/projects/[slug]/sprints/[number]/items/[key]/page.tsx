@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { ItemDetailBody } from "@/components/app/item-detail";
+import { listFavouritedTargets } from "@/lib/data/favourites";
 import { getWorkItemRevisions } from "@/lib/data/revisions";
 import { Mono } from "@/components/coditu/mono";
 import { StatusChipDot } from "@/components/coditu/status-chip";
@@ -56,7 +57,10 @@ export default async function ItemPage({
   const project = await getProjectBySlug(slug);
   const sprints = project ? await listSprintsForProject(project.id) : [];
 
-  const revisions = await getWorkItemRevisions(item.id);
+  const [revisions, starred] = await Promise.all([
+    getWorkItemRevisions(item.id),
+    listFavouritedTargets(profile.id),
+  ]);
 
   return (
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
@@ -96,6 +100,7 @@ export default async function ItemPage({
           }))}
           people={people}
           revisions={revisions}
+          starred={starred.has(item.id)}
           maxImageBatch={settings.maxImageBatch}
           me={{
             id: profile.id,

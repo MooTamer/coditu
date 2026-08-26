@@ -3,12 +3,14 @@
 import { usePathname } from "next/navigation";
 import { PanelLeft } from "lucide-react";
 
+import { Favourites } from "@/components/app/favourites.client";
 import { navFor } from "@/components/app/nav-items";
 import { NavIcon, NavLink } from "@/components/app/nav-link.client";
 import { PersonAvatar, type AvatarPerson } from "@/components/app/person-avatar";
 import { ProjectSpaces } from "@/components/app/project-spaces.client";
 import { CoditusMark } from "@/components/coditu/coditus-mark";
 import { usePersistentFlag } from "@/lib/hooks/use-client-state";
+import type { FavouriteLink } from "@/lib/favourites";
 import type { SpaceProject } from "@/lib/project-spaces";
 import { cn } from "@/lib/utils";
 
@@ -102,6 +104,7 @@ export function Rail({
   unreadCount,
   projects,
   componentCounts,
+  favourites,
 }: {
   me: AvatarPerson;
   role: string;
@@ -112,6 +115,9 @@ export function Rail({
   projects: SpaceProject[];
   /** Live component count per project id, for the registry row. */
   componentCounts: Record<string, number>;
+  /** What this reader has starred, already resolved to links by the shell.
+   *  Empty draws nothing at all. */
+  favourites: FavouriteLink[];
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = usePersistentFlag(COLLAPSED_KEY);
@@ -206,6 +212,7 @@ export function Rail({
           })}
         </nav>
 
+        <Favourites links={favourites} />
         <ProjectSpaces projects={projects} componentCounts={componentCounts} />
       </div>
 

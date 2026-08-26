@@ -1541,7 +1541,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `done` | `34b7d7e` | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `done` | `f491856` | one `aria-current` **per navigation** (the trail's last crumb is the ARIA breadcrumb pattern — see `05-DECISIONS.md`) · zero overflow at 13 widths + 200% · axe · `budgets` **OK 74.6/110, 214.6/220** · `test` **293** · `db:test` **338** · full e2e `--workers=1` **550 passed**, 1 contention failure that passes alone · rail 12/12, navigation 15/15, home 8/8. **Favourites and recents deferred** to W7/W9, recorded rather than faked |
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `done` | `pending` | **W7a comparator + W7b sorting + W7c filters + W7d saved views:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **W7d:** `test` **345** · `db:test` **351** (13 new RLS) · `budgets` **OK 79.6/110 own, 219.7/220 total** · saved-views **6/6**. **Deferred to W8:** favourites, which this unblocks |
-| W8 | **Projects and project home** | `wip` | | **W8a+W8b done:** the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px · projects 7/7, project-home 8/8, both incl. axe · `budgets` **OK 79.4/110, 219.4/220**. **W8c next:** favourites |
+| W8 | **Projects and project home**, and the favourites W6 deferred | `done` | `pending` | the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px; favourites are a table, a star on three surfaces and a sidebar section · projects 7/7, project-home 8/8, favourites 5/5, all incl. axe · `test` **375** · `db:test` **364** · `budgets` **own OK 80.2/110; §5 total 220.2/220, over by 0.2 — see W8c** |
 | W9 | **People & Access** — six sections, safety states, the per-project client grant editor | `todo` | | pgTAP self-demote / self-deactivate / last-admin · e2e disabled-and-explained |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `todo` | | `tests/earnings-boundary.test.ts` extended, both ways |
 | W11 | **Version history UI and Trash** | `todo` | | e2e restore returns comments and versions |
@@ -2984,3 +2984,49 @@ projects 7/7 · sprint-manage 9/9 · a11y 15/15.
 
 **Next:** favourites — the sidebar section W6 deferred until saved views
 existed, which is now the only thing left in the design's sidebar.
+
+## W8c — favourites, two phases after they were deferred
+
+W6d left the design's `Favourites` section out of the sidebar and recorded why:
+its three kinds are a saved filter view, a work item and a component registry,
+and saved views did not exist. W7 built them. This builds the table, the star and
+the section, and closes the deferral in the order that decision named.
+
+Migration `20260826120000_favourites.sql` — **the eleventh production has never
+seen.**
+
+**Three columns, not one `target_id`.** A polymorphic id cannot have a foreign
+key, so deleting a story would leave a favourite pointing at nothing and the
+sidebar would draw a row that goes nowhere. Three nullable columns with real
+`on delete cascade`, and a check that exactly one is set. 13 new pgTAP
+assertions, including both halves of that check and the cascade.
+
+**Private, which is stricter than saved views.** No shared mode, no lead
+override, no admin override — an admin's `select` returns nothing and their
+`delete` matches no row, and both are asserted. A shared view is a team
+artefact; a favourite is furniture in one person's room.
+
+**One star component on three surfaces** — item detail, component page, and the
+saved-view menu, where it deliberately sits outside the `view.mine` branch that
+guards share and remove.
+
+### The budget is the thing to look at
+
+Resolving the links in the sidebar component put `lib/favourites` into the
+browser bundle: **220.4 of 220** on §5's total. The shell resolves them now and
+the client renders a finished list: **220.2**.
+
+**Still 0.2 KB over §5's total.** The gate CI enforces is the route's own code —
+**80.2 of 110**, 30 KB of room — because 140 KB of the total is a framework floor
+this codebase cannot move. The known lever is the one W1 measured and left on the
+list: the item-detail route shares the sprint page's chunk group, worth **8.7
+KB**. That is a phase of its own. **This is the second phase running where the
+total has been the binding number, and it should be spent before W9 adds to the
+shell.**
+
+`test` **375** (7 new) · `lint`, `typecheck` clean · `db:test` **364** (13 new) ·
+`budgets` **own OK 80.2 / 110; §5 total 220.2 / 220, over by 0.2** · favourites
+**5/5** incl. two browser contexts for the privacy rule · saved-views 6/6 ·
+rail 12/12 · item-detail, components, a11y all green (65 across the neighbours).
+
+**W8 is done.** Next: W9 — People & Access.

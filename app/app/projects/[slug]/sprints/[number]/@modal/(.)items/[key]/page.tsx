@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { ItemDetailBody } from "@/components/app/item-detail";
+import { listFavouritedTargets } from "@/lib/data/favourites";
 import { getWorkItemRevisions } from "@/lib/data/revisions";
 import { ItemModal } from "@/components/app/item-modal.client";
 import { todayInCairo } from "@/lib/data/sprint";
@@ -40,7 +41,10 @@ export default async function InterceptedItemPage({
   const project = await getProjectBySlug(slug);
   const sprints = project ? await listSprintsForProject(project.id) : [];
 
-  const revisions = await getWorkItemRevisions(item.id);
+  const [revisions, starred] = await Promise.all([
+    getWorkItemRevisions(item.id),
+    listFavouritedTargets(profile.id),
+  ]);
 
   return (
     <ItemModal itemKey={item.key}>
@@ -58,6 +62,7 @@ export default async function InterceptedItemPage({
           }))}
           people={people}
           revisions={revisions}
+          starred={starred.has(item.id)}
           maxImageBatch={settings.maxImageBatch}
           me={{
             id: profile.id,

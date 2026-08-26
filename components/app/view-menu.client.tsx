@@ -8,6 +8,7 @@ import { DialogShell } from "@/components/app/dialog-shell.client";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
+import { FavouriteStar } from "@/components/app/favourite-star.client";
 import { deleteView, saveView, setViewShared } from "@/lib/actions/saved-views";
 import type { SavedView } from "@/lib/data/saved-views";
 import { describeSpec, isSameView, searchFromSpec, specFromSearch } from "@/lib/saved-views";
@@ -56,11 +57,14 @@ export function ViewMenu({
   views,
   projectSlug,
   sprintId,
+  starredViews,
 }: {
   views: SavedView[];
   projectSlug: string;
   /** The sprint on screen. A view saved against it is pinned to that week. */
   sprintId: string;
+  /** Which of these the reader has starred, as ids. */
+  starredViews: Set<string>;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -276,6 +280,17 @@ export function ViewMenu({
                 </span>
                 {current?.id === view.id ? <span className="sr-only">— the view you are looking at</span> : null}
               </button>
+
+              {/* Starring is not an owner's privilege — a shared view somebody
+                  else made is exactly the kind of thing worth keeping at the
+                  top of your own sidebar, so this sits outside the `view.mine`
+                  branch that guards share and remove. */}
+              <FavouriteStar
+                kind="saved_view"
+                targetId={view.id}
+                label={view.name}
+                starred={starredViews.has(view.id)}
+              />
 
               {view.mine ? (
                 <>
