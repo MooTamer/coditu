@@ -3737,3 +3737,40 @@ number has been the binding one.* The gate CI enforces is the route's **own** co
 30 KB of room — because 140 KB of the total is a framework floor this codebase cannot move. The known
 lever is the one W1 measured and left on the list: the item-detail route shares the sprint page's
 chunk group, worth **8.7 KB**. That is a phase of its own, not a line in this one.
+
+## The chunk split W1 parked does not exist any more; two static imports did
+
+**Decided 2026-08-26, W8d.** W1 measured 8.7 KB of item-detail code in the sprint page's chunk group
+and left it on the list with a cause: a parallel route's `@modal` slot contributes its client
+references to the segment even when the slot renders `null`. Going back for it, that is **no longer
+true** on Next 16 / Turbopack.
+
+Settled by stubbing the modal slot's page to `return null`, so nothing in the segment imported
+`ItemDetailBody`, and rebuilding:
+
+```
+with the modal's item import   220.2 KB gz, 17 chunks
+with it stubbed out            220.3 KB gz, 17 chunks
+```
+
+No change. Turbopack co-locates modules from sibling routes and the sprint page needs its half of the
+shared chunk, so **route structure is not the lever**. The W1 note is corrected in
+`07-FIELD-NOTES.md` rather than left to be re-derived.
+
+**What was actually costing bytes was two static imports.** The topbar imported the export and
+new-item dialogs at the top of the file and rendered them `{open ? … : null}` — the code on every
+page, the markup on none. `next/dynamic` on both:
+
+```
+own    80.2 → 75.7 KB / 110
+total  220.2 → 215.7 KB / 220 §5
+```
+
+So §5's total is **4.3 KB under** rather than 0.2 over, and W9 has room to work in.
+
+The **command palette is deliberately not one of them.** It is the ⌘K surface, and a shortcut whose
+first press starts a download instead of opening a dialog is a worse thing than 14 KB.
+
+*The general rule this leaves behind:* a client component that renders something conditionally should
+import it conditionally. `{open ? <Heavy /> : null}` with `import { Heavy }` at the top of the file
+ships `Heavy` to every page that renders the parent.

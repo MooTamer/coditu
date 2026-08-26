@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Download, Plus, Search } from "lucide-react";
@@ -7,14 +8,30 @@ import { Download, Plus, Search } from "lucide-react";
 import { AccountMenu, type AccountIdentity } from "@/components/app/account-menu.client";
 import { Breadcrumbs } from "@/components/app/breadcrumbs.client";
 import { CommandPalette } from "@/components/app/command-palette.client";
-import { ExportDialog } from "@/components/app/export-dialog.client";
-import { NewItemDialog } from "@/components/app/new-item-dialog.client";
 import { ThemeToggle } from "@/components/app/theme-toggle.client";
 import { Mono } from "@/components/coditu/mono";
 import type { ComponentRef } from "@/lib/data/components";
 import type { ProfileRef } from "@/lib/data/profiles";
 import type { ProjectSummary } from "@/lib/data/projects";
 import { cn } from "@/lib/utils";
+
+/**
+ * Two dialogs that only exist after a click, and are only fetched then.
+ *
+ * Both were static imports, which put them in the app shell's bundle on every
+ * page — 22.2 KB for the export dialog alone, measured as its own chunk. They
+ * are rendered `{open ? … : null}`, so nothing about them is on screen until
+ * somebody asks, and `next/dynamic` makes the *code* follow the same rule.
+ *
+ * The command palette below is deliberately NOT one of these: it is the ⌘K
+ * surface, so the first press must open it rather than start a download.
+ */
+const ExportDialog = dynamic(() =>
+  import("@/components/app/export-dialog.client").then((m) => m.ExportDialog)
+);
+const NewItemDialog = dynamic(() =>
+  import("@/components/app/new-item-dialog.client").then((m) => m.NewItemDialog)
+);
 
 /**
  * 60px topbar: where you are, search, and the two things you do from anywhere.

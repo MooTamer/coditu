@@ -1541,7 +1541,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W5 | **Presence and realtime** — entity-scoped presence and typing, no draft content on the wire | `done` | `34b7d7e` | two browser contexts · socket frames carry no text · channel gone on unmount |
 | W6 | **Shell and Workspace Home** — sidebar/rail/overlay/bottom bar, breadcrumbs, ⌘K, `/app` becomes Home | `done` | `f491856` | one `aria-current` **per navigation** (the trail's last crumb is the ARIA breadcrumb pattern — see `05-DECISIONS.md`) · zero overflow at 13 widths + 200% · axe · `budgets` **OK 74.6/110, 214.6/220** · `test` **293** · `db:test` **338** · full e2e `--workers=1` **550 passed**, 1 contention failure that passes alone · rail 12/12, navigation 15/15, home 8/8. **Favourites and recents deferred** to W7/W9, recorded rather than faked |
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `done` | `pending` | **W7a comparator + W7b sorting + W7c filters + W7d saved views:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **W7d:** `test` **345** · `db:test` **351** (13 new RLS) · `budgets` **OK 79.6/110 own, 219.7/220 total** · saved-views **6/6**. **Deferred to W8:** favourites, which this unblocks |
-| W8 | **Projects and project home**, and the favourites W6 deferred | `done` | `pending` | the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px; favourites are a table, a star on three surfaces and a sidebar section · projects 7/7, project-home 8/8, favourites 5/5, all incl. axe · `test` **375** · `db:test` **364** · `budgets` **own OK 80.2/110; §5 total 220.2/220, over by 0.2 — see W8c** |
+| W8 | **Projects and project home**, the favourites W6 deferred, and the budget paid back | `done` | `pending` | the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px; favourites are a table, a star on three surfaces and a sidebar section · projects 7/7, project-home 8/8, favourites 5/5, all incl. axe · `test` **375** · `db:test` **364** · `budgets` **own OK 75.7/110; §5 total 215.7/220 after W8d** |
 | W9 | **People & Access** — six sections, safety states, the per-project client grant editor | `todo` | | pgTAP self-demote / self-deactivate / last-admin · e2e disabled-and-explained |
 | W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `todo` | | `tests/earnings-boundary.test.ts` extended, both ways |
 | W11 | **Version history UI and Trash** | `todo` | | e2e restore returns comments and versions |
@@ -3030,3 +3030,49 @@ shell.**
 rail 12/12 · item-detail, components, a11y all green (65 across the neighbours).
 
 **W8 is done.** Next: W9 — People & Access.
+
+## W8d — the chunk split that was not there, and the 4.5 KB that was
+
+W8c left §5's total 0.2 KB over and named the lever: the 8.7 KB chunk split W1
+measured and parked. Going back for it, **it is not there any more.**
+
+W1's cause was a parallel route's `@modal` slot contributing its client
+references to the segment's chunk group. Settled by stubbing the slot's page to
+`return null` and rebuilding:
+
+```
+with the modal's item import   220.2 KB gz, 17 chunks
+with it stubbed out            220.3 KB gz, 17 chunks
+```
+
+No change at all. Turbopack co-locates modules from sibling routes and the
+sprint page needs its half of the shared chunk. `07-FIELD-NOTES.md` is corrected
+rather than left to mislead the next person.
+
+**What was costing bytes was two static imports.** The topbar imported the
+export and new-item dialogs at the top of the file and rendered them
+`{open ? … : null}` — the code on every page, the markup on none.
+
+```
+own    80.2 → 75.7 KB / 110
+total  220.2 → 215.7 KB / 220 §5
+```
+
+The command palette stays a static import on purpose: ⌘K has to open it, not
+start a download.
+
+### And one thing found while looking
+
+Opening a story from the sprint table **fails hydration every time** —
+`ProgressRing`'s `useId` gradient id differs between the server's HTML and the
+client's tree, because the intercepting modal renders `ItemDetailBody` at a
+different depth than the full route. **Confirmed pre-existing at `95f87a8`**, so
+it is not this work; flagged as its own task rather than folded in here. Nothing
+asserts a clean console after opening the modal, which is why it has been
+invisible.
+
+`test` **375** · `lint`, `typecheck` clean · `budgets` **own OK 75.7 / 110; §5
+total 215.7 / 220, 4.3 under** · export, new-item and palette-realtime **29/29**,
+which is what proves a lazily-imported dialog still opens.
+
+**Next:** W9 — People & Access.

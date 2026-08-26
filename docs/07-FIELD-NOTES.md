@@ -1470,3 +1470,51 @@ it, and then failed on an assertion that had nothing to do with the change.
 Assert absence against something only this test could have created — a filter value nobody would
 save — rather than against the state of the whole table. Same family as the note above about reading
 a seeded row by position: a test that depends on what is *not* there depends on everything.
+
+### The `@modal` slot no longer drags the item detail into the sprint's chunks
+
+The note above — *"a parallel route's `@modal` slot contributes its client
+references to the segment's chunk group even on a render where the slot returns
+`null`"* — was measured in W1 and is **no longer true on Next 16 / Turbopack**.
+
+Tested the only way that settles it: the modal slot's page was replaced with
+`export default function () { return null }`, so nothing in the segment imported
+`ItemDetailBody`, and the route was rebuilt and re-measured.
+
+```
+with the modal's item import   220.2 KB gz, 17 chunks
+with it stubbed out            220.3 KB gz, 17 chunks
+```
+
+**No change.** The chunk that holds both the sprint table's strings and
+`"Half an hour more"` is still fetched, because Turbopack co-locates modules
+from sibling routes and the sprint page needs its half. Route structure is not
+the lever.
+
+**The lever that does work is a static import of something only rendered on
+click.** The topbar imported the export and new-item dialogs at the top of the
+file and rendered them `{open ? … : null}` — so the code shipped on every page
+and the markup on none. `next/dynamic` on the two of them:
+
+```
+before   own 80.2 KB, total 220.2 KB
+after    own 75.7 KB, total 215.7 KB
+```
+
+The command palette is deliberately not one of them: ⌘K has to open it, not
+start a download.
+
+**So the general rule, and it is cheap to check:** grep a client component for
+`{someState ? <Heavy /> : null}` and see whether `Heavy` is a static import at
+the top. If it is, it is in the bundle of every page that renders the parent.
+
+### Measuring what a route actually downloads
+
+`scripts/check-budgets.mjs` only prints the six biggest chunks when a route is
+**over**, which is exactly when you no longer need the list. To get it for a
+route that passes, copy its `measure()` — a Playwright page with a
+`response` listener over `/_next/static/**.js`, `waitUntil: "load"` then
+`networkidle` then a 2.5s settle — and cross-reference each chunk against the
+built files with the string markers above. That is how the two numbers in the
+note above were taken. Keep the script out of git: `/scripts/.*.local.mjs` is
+already ignored.
