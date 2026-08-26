@@ -1543,7 +1543,7 @@ schedule, routes and Week 17 metrics are demonstration content. The only confirm
 | W7 | **Sprint database** — multi-column sort, filters, saved and shareable views | `done` | `pending` | **W7a comparator + W7b sorting + W7c filters + W7d saved views:** `test` **331** (38 new) · `db:test` **338** · `budgets` **OK 77.9/110** · sprint-table **24/24** incl. axe with a two-key sort and with the panel open, and the panel as a sheet at 390 · 198 specs across every dialog-bearing suite on three devices, for the `DialogShell` portal. **W7d:** `test` **345** · `db:test` **351** (13 new RLS) · `budgets` **OK 79.6/110 own, 219.7/220 total** · saved-views **6/6**. **Deferred to W8:** favourites, which this unblocks |
 | W8 | **Projects and project home**, the favourites W6 deferred, and the budget paid back | `done` | `pending` | the list searches, filters by a derived state and shows archived behind a toggle; the project page gains a header, a running-sprint control and four panels at a measured 1400px; favourites are a table, a star on three surfaces and a sidebar section · projects 7/7, project-home 8/8, favourites 5/5, all incl. axe · `test` **375** · `db:test` **364** · `budgets` **own OK 75.7/110; §5 total 215.7/220 after W8d** |
 | W9 | **People & Access** — the access log, the roles matrix, safety states made visible | `done` | `pending` | `access_events` written by triggers and writable by nobody · 12 new pgTAP incl. three write refusals · e2e **disabled-and-explained** on all three self controls · `test` **382** · `db:test` **376** · `budgets` **OK 75.7/110, 215.7/220**. Client contacts stay on `/app/clients` — see `05-DECISIONS.md` |
-| W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `wip` | | **W10a done:** `tests/earnings-boundary.test.ts` extended both ways — `test` **386** (4 new), the outward list widened from 11 entries to 27 incl. the client portal itself |
+| W10 | **Profile · Workspace Settings · My Earnings · Team Payouts** — formulas untouched | `wip` | | **W10a:** `tests/earnings-boundary.test.ts` extended both ways — `test` **386** (4 new), the outward list widened from 11 entries to 27 incl. the client portal itself. **W10b:** `/app/profile` split out, `/app/settings` is admin-only and redirects everyone else, `/app/earnings` grows the personal view · `test` **386** · `db:test` **376** · `budgets` **OK 75.9/110 own, 215.9/220 total** · opened as admin, lead and engineer, both themes, 375 and 1280 |
 | W11 | **Version history UI and Trash** | `todo` | | e2e restore returns comments and versions |
 | W12 | **Backup & Recovery Center** — application recovery, infrastructure coverage labelled unverified | `todo` | | e2e rehearsal pass **and** fail, live rows untouched |
 | W13 | **Responsive, a11y, security, performance hardening** | `todo` | | full `e2e` · `budgets` · `lighthouse` · `degraded` |
@@ -3225,3 +3225,92 @@ Proven to bite rather than assumed to: a `usdFromCents` import added to
 reverted.
 
 `test` **386** (4 new) · `lint`, `typecheck` clean.
+
+## W10b — two screens that shared a URL, and three things the prototype asks for that cannot be stored
+
+`/app/settings` was 344 lines of two unrelated screens. Your name, your picture,
+your notifications and your account facts at the top; the workspace's hourly
+rate, image caps and default weekly capacity underneath. One is yours and
+everybody has one. The other is an admin's, and every row of it refuses a write
+from anybody else. They shared a URL and nothing else.
+
+`/app/profile` is the first half plus the two sections it never had — Appearance
+and Security — and `/app/settings` is the second half with `Access and recovery`
+as three links out rather than three reimplemented corners of People, Clients
+and Trash.
+
+### The old URL redirects rather than refuses
+
+A non-admin at `/app/settings` lands on `/app/profile`. Not `notFound()`, which
+is what `/app/clients` does to an engineer, and not W9's visible-and-disabled,
+which is for a control on your own row whose consequence you can see. This is a
+URL that **was** your profile yesterday, and the thing you were looking for is
+one redirect away — the same argument `project_slug_aliases` makes for old
+project links. `05-DECISIONS.md` has it.
+
+Verified in a browser rather than with curl, and the difference matters: with a
+`loading.tsx` on the route the document response is a **200 carrying the
+skeleton**, and the redirect arrives later in the stream. `curl` sees
+`<title>Workspace settings</title>` and concludes the guard is broken. It is the
+same streaming behaviour this file already records for `notFound()`.
+
+### Three things the design asks for that this schema cannot store
+
+- **The four notification switches.** Mentions, review requested, assigned to me,
+  daily digest — all per-person, and there is no per-person preference row
+  anywhere. `push_subscriptions` is keyed by endpoint, because a subscription
+  belongs to a browser. Four switches over `useState` would forget every answer
+  on reload. Notifications stays the per-device subscription that exists, and
+  says so.
+- **`2 sessions` under Security.** GoTrue lets a session revoke the others and
+  does not let one enumerate them. The control says what it does — `signOut({
+  scope: "others" })`, which is the same call the sign-out button makes with the
+  scope that spares this device — instead of claiming what it will affect.
+- **`Push notifications on this device` as a third security action.** It is the
+  Notifications section three headings up. One control, one place.
+
+Third time this programme has refused to invent state — W6d's favourites, W9's
+invitations — and the third time it is written down instead of quietly made.
+
+### Appearance is two native radios, not two buttons
+
+`enableSystem={false}` and `defaultTheme="light"`, so "follow my system" is not a
+state this app can be in and offering it would be a control that does nothing.
+Two options, and real `<input type="radio">` elements rather than the
+prototype's buttons: arrow keys, one tab stop, and the label associated without
+`aria-labelledby`, none of which had to be written. Neither is checked until
+mounted — the server does not know the stored theme, which is the whole reason
+`ThemeToggle` renders a placeholder — and the group carries `aria-busy` while
+that is true.
+
+### Two things found by opening the page
+
+The update-password screen says *"nothing else in Coditu opens until it is
+done."* True of the forced change the app shell redirects to; a lie to somebody
+who arrived from the Security section of their own profile. It reads
+`app_metadata.must_set_password` — the middleware's copy, already on the user
+object it reads — and says one of two things.
+
+`/app/earnings` opened on a local database with `payout_from_sprint_id` null,
+which is the seeded state, so every card read `—` and the calculation block was
+absent. Correct, and not evidence of anything. Pointed at Week 15 by hand, the
+populated view checks out against the arithmetic: 17.5 h × $12.00 = $210.00,
+one of two contributors above the 25% threshold, equal split $210.00, 13.5/17.5
+= 77.1%. Set back to null afterwards, and `db:test` re-run to prove it.
+
+### What moved, and the one file that left the money list
+
+The personal earnings card left `/app/settings` for the top of `/app/earnings`,
+where the design puts it — so `getMyEarnings` never lost its only caller, and
+`app/app/settings/page.tsx` **stopped being able to reach a figure**. W10a's
+"keeps the list honest" assertion caught that in the same run it caught
+`components/app/my-earnings.tsx` arriving. Both directions of the new test
+earned themselves inside one phase.
+
+`lint`, `typecheck` clean · `test` **386** · `db:test` **376** · `budgets`
+**own OK 75.9 / 110; §5 total 215.9 / 220** (+0.2 KB, one lucide icon) · opened
+as admin, lead and engineer, in both themes, at 375 and 1280, zero horizontal
+overflow, console clean.
+
+**Next:** W10c — Team payouts moves to `/app/settings/payouts`, and `/app/earnings`
+becomes personal-only.

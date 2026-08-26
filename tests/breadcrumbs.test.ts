@@ -42,6 +42,7 @@ describe("crumbsFor", () => {
       "/app/projects/meinevim/sprints/17/items/COD-241",
       "/app/trash",
       "/app/earnings",
+      "/app/profile",
     ]) {
       const trail = crumbsFor(path, PROJECTS);
       expect(trail.at(-1)?.href, path).toBeUndefined();
@@ -65,11 +66,13 @@ describe("crumbsFor", () => {
     expect(labels("/app/settings")).toEqual(["Coditu", "Workspace settings"]);
   });
 
-  it("groups earnings under an inert Account crumb", () => {
-    // The design puts Earnings under Account. There is no `/app/account` route,
-    // so the crumb is present and carries no link rather than inventing one.
-    expect(labels("/app/earnings")).toEqual(["Coditu", "Account", "Earnings"]);
+  it("groups the two personal screens under an inert Account crumb", () => {
+    // The design puts both under Account. There is no `/app/account` route, so
+    // the crumb is present and carries no link rather than inventing one.
+    expect(labels("/app/earnings")).toEqual(["Coditu", "Account", "My earnings"]);
     expect(hrefs("/app/earnings")).toEqual(["/app", null, null]);
+    expect(labels("/app/profile")).toEqual(["Coditu", "Account", "Profile"]);
+    expect(hrefs("/app/profile")).toEqual(["/app", null, null]);
   });
 
   it("uses names, not slugs and numbers", () => {

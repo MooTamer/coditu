@@ -28,6 +28,20 @@ export const ROLE_LABEL: Record<Role, string> = {
   engineer: "Engineer",
 };
 
+/**
+ * The matrix in one line, for the top of somebody's own profile.
+ *
+ * Prose, and it lives here rather than on the profile screen so that the
+ * sentence and the table it summarises are edited together. Like the table, it
+ * decides nothing — every rule it alludes to is enforced in the place the
+ * matrix names.
+ */
+export const ROLE_SUMMARY: Record<Role, string> = {
+  admin: "every project · people, payouts and access",
+  lead: "every project · sprints, notes and client visibility",
+  engineer: "the work assigned to you, and the work you review",
+};
+
 export interface Capability {
   what: string;
   admin: boolean;

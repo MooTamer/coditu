@@ -1,66 +1,74 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { ArrowRight, LogOut } from "lucide-react";
+import { redirect } from "next/navigation";
+import { ArrowRight } from "lucide-react";
 
 import { AdminSettings } from "@/components/app/admin-settings.client";
-import { AvatarSettings } from "@/components/app/avatar-settings.client";
-import { NameSettings } from "@/components/app/name-settings.client";
-import { PushSettings } from "@/components/app/push-settings.client";
 import { Mono } from "@/components/coditu/mono";
 import { Reveal } from "@/components/motion/reveal";
-import { signOut } from "@/lib/actions/auth";
-import { getMyEarnings } from "@/lib/data/earnings";
 import { listTeam } from "@/lib/data/profiles";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { getAppSettings } from "@/lib/settings";
-import { timestamp, usdFromCents } from "@/lib/format";
 
-export const metadata = { title: "Settings" };
+export const metadata = { title: "Workspace settings" };
 
 /**
- * Your profile: the two things about yourself you set, the two you do not, and
- * the way out.
+ * Every number this app makes a decision with, and where the rest of the admin
+ * work lives.
  *
- * It used to edit a picture and nothing else, and — worse — **nothing anywhere
- * linked to it**. `grep -rn '/app/settings' app components lib` returned two
- * hits and both were `page.goto()` in a spec. The only way in was to type the
- * URL, which inside an installed PWA is not a thing you can do. It is reachable
- * from the account menu in the topbar and from the mobile navigation now.
+ * ## What left, and where it went
  *
- * The boundary between this screen and People is the one `lib/actions/profiles.ts`
- * documents at length, and it is not blurred here: a name and a picture are how
- * a person presents themselves and they own both. Role, capacity and access are
- * decisions *about* a person, they are an admin's to make, and they are shown
- * here as facts with a pointer to where they are changed.
+ * This page was 344 lines and two screens: your name, your picture, your
+ * notifications and your account facts at the top; the workspace's rate,
+ * threshold and image caps underneath. They shared a URL and nothing else —
+ * different owner, different audience, different frequency. `/app/profile` has
+ * the first half now.
+ *
+ * **A non-admin is redirected there rather than shown a refusal.** That is the
+ * opposite of the call W9 made about the three self-controls on People, and
+ * deliberately: those are controls *on your own row* that you can see the
+ * consequence of, so hiding them taught nothing and disabling them with a
+ * reason taught the rule. This is a whole route with nothing on it for you,
+ * reached from a bookmark that used to be your profile. Sending somebody to
+ * the page they were actually looking for beats a 404 or a locked door — and
+ * `docs/05-DECISIONS.md` records it.
+ *
+ * ## Why the links at the bottom are links and not sections
+ *
+ * The design's Workspace settings gathers `Access and recovery` as three rows
+ * that open elsewhere. Same here: People & Access and Trash are real screens
+ * with their own permissions, and a settings page that reimplemented a corner
+ * of each would be a fourth place for those rules to drift.
  */
 export default async function Page() {
   const profile = await getCurrentProfile();
-  if (!profile) notFound();
+  if (!profile) redirect("/login");
 
-  const isAdmin = profile.role === "admin";
-  const [settings, mine, team] = await Promise.all([
-    getAppSettings(),
-    getMyEarnings(),
-    isAdmin ? listTeam() : Promise.resolve([]),
-  ]);
+  // Not `notFound()`. See the note above: this URL was somebody's profile
+  // until today, and the profile is one redirect away.
+  if (profile.role !== "admin") redirect("/app/profile");
+
+  const [settings, team] = await Promise.all([getAppSettings(), listTeam()]);
 
   // Every sprint, newest first, for the effective-from picker. Read here rather
   // than in the client component so the picker is server-rendered with the
   // rest of the page.
   const supabase = await createClient();
-  const { data: sprintRows } = isAdmin
-    ? await supabase
-        .from("sprints")
-        .select("id, name, starts_on, projects!inner ( name )")
-        .order("starts_on", { ascending: false, nullsFirst: false })
-    : { data: [] };
+  const { data: sprintRows } = await supabase
+    .from("sprints")
+    .select("id, name, starts_on, projects!inner ( name )")
+    .order("starts_on", { ascending: false, nullsFirst: false });
 
   return (
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
       <Reveal tier="section" as="header">
-        <h1 className="text-[22px] font-bold tracking-[-0.022em]">Settings</h1>
+        <Mono size="eyebrow" className="text-[var(--ink-faint)]">
+          admin only · nothing here is per-person
+        </Mono>
+        <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.022em]">Workspace settings</h1>
         <p className="mt-1 max-w-[68ch] text-[13.5px] text-[var(--ink-muted)]">
-          Your profile, as the rest of the team sees it.
+          Every number this app makes a decision with, in one place, with what it affects. None of
+          them is a constant in the source — a rate that needs a deploy to change is a rate nobody
+          changes.
         </p>
       </Reveal>
 
@@ -68,277 +76,90 @@ export default async function Page() {
         tier="section"
         delay={0.075}
         as="section"
-        aria-labelledby="name"
+        aria-labelledby="tunables"
         className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
       >
         <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="name" className="text-[16px] font-bold tracking-[-0.015em]">
-            Your name
+          <h2 id="tunables" className="text-[16px] font-bold tracking-[-0.015em]">
+            Rates, limits and capacity
           </h2>
           <Mono size="meta" className="text-[var(--ink-faint)]">
-            only you can change it
+            one row · applies workspace-wide
           </Mono>
         </div>
 
         <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-          It is what appears on every item you are assigned, every hour you log and every comment
-          you write. Your initials are derived from it, by the same rule that ran when the account
-          was created — so a name corrected here and a name typed at sign-up agree.
+          A change to the rate or the threshold affects the <strong>next</strong> confirmation and
+          nothing that has already been agreed. Confirmed payouts carry their own copy of both, and
+          cannot be rewritten.
         </p>
 
-        <NameSettings fullName={profile.full_name} avatarUrl={profile.avatar_url} />
+        <div className="mt-5">
+          <AdminSettings
+            settings={settings}
+            sprints={(sprintRows ?? []).map((sprint) => ({
+              id: sprint.id,
+              label: `${sprint.projects?.name ?? "—"} · ${sprint.name}`,
+            }))}
+            developers={team.map((person) => ({
+              id: person.id,
+              fullName: person.fullName,
+              isDeveloper: person.isDeveloper,
+              isActive: person.isActive,
+            }))}
+          />
+        </div>
       </Reveal>
 
       <Reveal
         tier="section"
         delay={0.15}
         as="section"
-        aria-labelledby="picture"
+        aria-labelledby="elsewhere"
         className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
       >
         <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="picture" className="text-[16px] font-bold tracking-[-0.015em]">
-            Your picture
+          <h2 id="elsewhere" className="text-[16px] font-bold tracking-[-0.015em]">
+            Access and recovery
           </h2>
           <Mono size="meta" className="text-[var(--ink-faint)]">
-            only you can change it
+            each one has its own rules
           </Mono>
         </div>
 
-        <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-          It appears everywhere you do — the sprint board, the table, the team header, and beside
-          every comment you write. Without one, your initials are shown instead.
-        </p>
-
-        <AvatarSettings
-          me={{
-            fullName: profile.full_name,
-            initials: profile.initials,
-            avatarUrl: profile.avatar_url,
-          }}
-        />
-      </Reveal>
-
-      <Reveal
-        tier="section"
-        delay={0.225}
-        as="section"
-        aria-labelledby="notifications"
-        className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
-      >
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="notifications" className="text-[16px] font-bold tracking-[-0.015em]">
-            Notifications
-          </h2>
-          <Mono size="meta" className="text-[var(--ink-faint)]">
-            per device
-          </Mono>
-        </div>
-
-        <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-          Being mentioned in a comment reaches your phone or your desktop, not just the dot on My
-          work. Turned on per device, because a subscription belongs to the browser it was made in —
-          your laptop and your phone are two separate answers.
-        </p>
-
-        <PushSettings />
-      </Reveal>
-
-
-      {/* Money appears on exactly two screens in this app, and this is the
-          second. Everything under `/app/projects/**` and every export is
-          deliberately free of it — those are the ones that get shared with a
-          client. `e2e/earnings.spec.ts` asserts that twice. */}
-      <Reveal
-        tier="section"
-        delay={0.26}
-        as="section"
-        aria-labelledby="earnings"
-        className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
-      >
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="earnings" className="text-[16px] font-bold tracking-[-0.015em]">
-            Your earnings
-          </h2>
-          <Mono size="meta" className="text-[var(--ink-faint)]">
-            never on a screen a client sees
-          </Mono>
-        </div>
-
-        {mine?.isDeveloper === false ? (
-          <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-            Your hours count toward every sprint&rsquo;s pot; you do not take a share of it. An
-            admin decides that, and the confirmation screen says so by name so it is never a
-            surprise.
-          </p>
-        ) : (
-          <dl className="mt-4 flex flex-col gap-3">
-            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <dt className="w-[132px] shrink-0">
-                <Mono size="eyebrow" className="text-[var(--ink-faint)]">
-                  This sprint
-                </Mono>
-              </dt>
-              <dd className="min-w-0 text-[14px]">
-                {mine?.current ? (
-                  <>
-                    <span className="font-semibold tabular-nums">
-                      {usdFromCents(mine.current.cents)}
-                    </span>
-                    <Mono size="meta" className="ml-2 text-[var(--ink-faint)]">
-                      provisional · {mine.current.name}
-                    </Mono>
-                  </>
-                ) : (
-                  <span className="text-[var(--ink-faint)]">not tracked yet</span>
-                )}
-              </dd>
-            </div>
-            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <dt className="w-[132px] shrink-0">
-                <Mono size="eyebrow" className="text-[var(--ink-faint)]">
-                  Last confirmed
-                </Mono>
-              </dt>
-              <dd className="min-w-0 text-[14px]">
-                {mine?.lastConfirmed ? (
-                  <>
-                    <span className="font-semibold tabular-nums">
-                      {usdFromCents(mine.lastConfirmed.cents)}
-                    </span>
-                    <Mono size="meta" className="ml-2 text-[var(--ink-faint)]">
-                      {mine.lastConfirmed.name} · {timestamp(mine.lastConfirmed.at)}
-                    </Mono>
-                  </>
-                ) : (
-                  <span className="text-[var(--ink-faint)]">nothing confirmed yet</span>
-                )}
-              </dd>
-            </div>
-          </dl>
-        )}
-
-        <div className="mt-5 border-t border-[var(--hairline)] pt-5">
-          <Link
-            href="/app/earnings"
-            className="inline-flex h-11 items-center gap-2 rounded-control border border-[var(--hairline-strong)] px-4 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
-          >
-            Open Earnings
-            <ArrowRight size={14} strokeWidth={2} aria-hidden />
-          </Link>
-        </div>
-      </Reveal>
-
-      {isAdmin ? (
-        <Reveal
-          tier="section"
-          delay={0.28}
-          as="section"
-          aria-labelledby="tunables"
-          className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
-        >
-          <div className="flex flex-wrap items-baseline gap-3">
-            <h2 id="tunables" className="text-[16px] font-bold tracking-[-0.015em]">
-              How Coditu is set up
-            </h2>
-            <Mono size="meta" className="text-[var(--ink-faint)]">
-              an admin changes these
-            </Mono>
-          </div>
-
-          <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-            Every number this app makes a decision with, in one place, with what it affects.
-            None of them is a constant in the source — a rate that needs a deploy to change is a
-            rate nobody changes.
-          </p>
-
-          <div className="mt-5">
-            <AdminSettings
-              settings={settings}
-              sprints={(sprintRows ?? []).map((sprint) => ({
-                id: sprint.id,
-                label: `${sprint.projects?.name ?? "—"} · ${sprint.name}`,
-              }))}
-              developers={team.map((person) => ({
-                id: person.id,
-                fullName: person.fullName,
-                isDeveloper: person.isDeveloper,
-                isActive: person.isActive,
-              }))}
-            />
-          </div>
-        </Reveal>
-      ) : null}
-
-      <Reveal
-        tier="section"
-        delay={0.3}
-        as="section"
-        aria-labelledby="account"
-        className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] p-6"
-      >
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h2 id="account" className="text-[16px] font-bold tracking-[-0.015em]">
-            Your account
-          </h2>
-          <Mono size="meta" className="text-[var(--ink-faint)]">
-            an admin administers these
-          </Mono>
-        </div>
-
-        {/* Facts, not fields. Rendering these as disabled inputs would have
-            been the obvious thing and it would have been a lie — a disabled
-            input reads as "not right now", and these are not yours to change
-            at any time. Address and role live on People, with the rest of what
-            an admin decides about a person. */}
-        <dl className="mt-4 flex flex-col gap-3">
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <dt className="w-[92px] shrink-0">
-              <Mono size="eyebrow" className="text-[var(--ink-faint)]">
-                Email
-              </Mono>
-            </dt>
-            <dd className="min-w-0 break-all text-[14px]">{profile.email ?? "—"}</dd>
-          </div>
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <dt className="w-[92px] shrink-0">
-              <Mono size="eyebrow" className="text-[var(--ink-faint)]">
-                Role
-              </Mono>
-            </dt>
-            <dd className="min-w-0 text-[14px]">{profile.role}</dd>
-          </div>
-        </dl>
-
-        <p className="mt-4 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-          Your address and what you may do are set on People, where an admin decides who is on the
-          team and what they hold.
-        </p>
-
-        <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[var(--hairline)] pt-5">
-          <Link
+        <div className="mt-4 flex flex-col gap-2">
+          <SettingsLink
             href="/app/people"
-            className="inline-flex h-11 items-center gap-2 rounded-control border border-[var(--hairline-strong)] px-4 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
-          >
-            Open People
-            <ArrowRight size={14} strokeWidth={2} aria-hidden />
-          </Link>
-
-          {/* A real `<form>` with a Server Action, not an onClick. It is the one
-              control on this page that has to work when nothing else does —
-              including before hydration, which on a phone on a cold PWA launch
-              is a real window. */}
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="inline-flex h-11 items-center gap-2 rounded-control px-4 text-[13.5px] font-medium text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
-            >
-              <LogOut size={14} strokeWidth={2} aria-hidden />
-              Sign out
-            </button>
-          </form>
+            label="People &amp; Access"
+            hint="Roles, who can sign up, client contacts and the access history."
+          />
+          <SettingsLink
+            href="/app/clients"
+            label="Clients"
+            hint="Which client contact exists, and what each of them may see."
+          />
+          <SettingsLink
+            href="/app/trash"
+            label="Trash"
+            hint="Recoverable stories, comments and documents. Emptying it is the one thing here that cannot be undone."
+          />
         </div>
       </Reveal>
     </main>
+  );
+}
+
+function SettingsLink({ href, label, hint }: { href: string; label: string; hint: string }) {
+  return (
+    <Link
+      href={href}
+      className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-control border border-[var(--hairline)] px-4 py-2.5 hover:bg-[var(--canvas)]"
+    >
+      <span className="min-w-0">
+        <span className="block text-[13.5px] font-medium">{label}</span>
+        <span className="block text-[12.5px] leading-[1.5] text-[var(--ink-muted)]">{hint}</span>
+      </span>
+      <ArrowRight size={14} strokeWidth={2} aria-hidden className="shrink-0" />
+    </Link>
   );
 }

@@ -2,13 +2,14 @@ import { notFound } from "next/navigation";
 import { after } from "next/server";
 
 import { EarningsBoard } from "@/components/app/earnings-board.client";
+import { MyEarnings } from "@/components/app/my-earnings";
 import { Mono } from "@/components/coditu/mono";
 import { Reveal } from "@/components/motion/reveal";
-import { listSprintEarnings } from "@/lib/data/earnings";
+import { getMyEarnings, listSprintEarnings } from "@/lib/data/earnings";
 import { refreshStoredRate } from "@/lib/exchange-rate";
 import { createSnapshotClient, getCurrentProfile } from "@/lib/supabase/server";
 
-export const metadata = { title: "Earnings" };
+export const metadata = { title: "My earnings" };
 
 /**
  * What every sprint pays, and what has been agreed.
@@ -40,6 +41,9 @@ export default async function EarningsPage() {
   if (!profile) notFound();
 
   const { settings, sprints, nonParticipants } = await listSprintEarnings();
+  // Reads the same `listSprintEarnings()` through React's per-request `cache`,
+  // so this is a second view of one query rather than a second query.
+  const mine = await getMyEarnings();
 
   // Both arguments are prepared HERE, on the request, and the callback only
   // uses them. `after()` may not touch `cookies()`, so a client built the
@@ -52,17 +56,39 @@ export default async function EarningsPage() {
   return (
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
       <Reveal tier="section" as="header">
-        <h1 className="text-[22px] font-bold tracking-[-0.022em]">Earnings</h1>
+        <h1 className="text-[22px] font-bold tracking-[-0.022em]">My earnings</h1>
         <p className="mt-1 max-w-[68ch] text-[13.5px] text-[var(--ink-muted)]">
-          Every sprint, what it paid, and who agreed to it. Everyone can read this;
-          only an admin can confirm a distribution.
+          What this sprint is provisionally worth to you, what was last confirmed, and the
+          arithmetic behind both.
         </p>
         <Mono size="meta" className="mt-2 block text-[var(--ink-faint)]">
           nothing here appears on a screen or an export a client sees
         </Mono>
       </Reveal>
 
-      <Reveal tier="section" delay={0.06}>
+      {mine ? (
+        <Reveal tier="section" delay={0.06}>
+          <MyEarnings
+            isDeveloper={mine.isDeveloper}
+            current={mine.current}
+            lastConfirmed={mine.lastConfirmed}
+            settings={mine.settings}
+          />
+        </Reveal>
+      ) : null}
+
+      <Reveal tier="section" delay={0.12} as="section" aria-labelledby="every-sprint">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h2 id="every-sprint" className="text-[16px] font-bold tracking-[-0.015em]">
+            Every sprint
+          </h2>
+          <Mono size="meta" className="text-[var(--ink-faint)]">
+            provisional rows move · confirmed rows never do
+          </Mono>
+        </div>
+      </Reveal>
+
+      <Reveal tier="section" delay={0.16}>
         <EarningsBoard
           sprints={sprints}
           settings={settings}

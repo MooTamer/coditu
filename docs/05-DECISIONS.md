@@ -3837,3 +3837,54 @@ absent — and says so in place, so the next reader knows it was a decision rath
   every line names where the rule is really enforced, so when a policy changes and the table goes
   stale, the note beside it says which to trust. Today the only way to learn what you may do is to try
   something and read the refusal.
+
+## Profile and Workspace settings split, and the old URL redirects rather than refuses
+
+**Decided 2026-08-26, W10.** `/app/settings` was 344 lines and two screens under one URL: your name,
+your picture, your notifications and your account facts at the top; the workspace's hourly rate,
+image caps and default capacity underneath. Different owner, different audience, different frequency
+— and the design splits them. `/app/profile` is yours and everybody has one; `/app/settings` is the
+workspace's and only an admin can change a row of it.
+
+**A non-admin who opens `/app/settings` is redirected to `/app/profile`.** Not `notFound()`, which is
+what `/app/clients` does to an engineer, and not a visible refusal, which is what W9 decided for the
+three self-controls on People. Those two are still right for what they cover: a 404 is honest about a
+route that is not yours, and a disabled control with a reason teaches a rule you can see the
+consequence of. This is neither. It is a URL that **was** somebody's profile until today, reached
+from a bookmark or from the installed app's history, and the thing they were looking for is one
+redirect away. `project_slug_aliases` keeps old project links alive for the same reason.
+
+The nav follows: `SETTINGS_ITEM` gains `visibleTo: role === "admin"`, so the account menu and the
+phone's More sheet stop offering a destination with nothing on it — a hidden destination, not a
+hidden control.
+
+## The prototype's four notification switches are not built
+
+**Decided 2026-08-26, W10.** The design's Profile has *Mentions and replies*, *Review requested*,
+*Assigned to me* and *Daily sprint digest* as per-person switches. **This app has nowhere to store
+any of them.** `push_subscriptions` is keyed by endpoint — a subscription belongs to a browser — and
+there is no per-person preference row anywhere in the schema.
+
+Four switches over `useState` would forget every answer on reload, which is worse than not offering
+them: a control that does nothing is a promise the app breaks silently. So Notifications is the
+per-device subscription that genuinely exists, and the copy says a mention is the only thing this app
+sends, which is also true. Third time this programme has made this call — W6d refused favourites'
+sample data, W9 refused an invitations state machine — and it is written down each time rather than
+quietly made.
+
+For the same reason the Security section prints **no session count**. GoTrue lets a session revoke
+the others; it does not let one enumerate or describe them, so the prototype's `2 sessions` is a
+number this app cannot know. `signOut({ scope: "others" })` says what it does instead of claiming
+what it will affect.
+
+## My earnings shows counts, not colleagues
+
+**Decided 2026-08-26, W10.** The prototype's calculation block explains a share by naming everybody
+who was excluded and how many hours each logged. `/app/earnings` shows `Participants above the
+threshold — 1 of 2` instead.
+
+The arithmetic is complete either way: pot ÷ participants is the whole sum, and the gap between the
+two counts is what says other people's minutes counted toward the pot and took no share. Naming them
+adds nothing to the explanation and turns a private screen into a roster of who worked how much. The
+confirmation screen names them, because that is the screen where an admin is deciding about those
+people, and E7 requires the exclusion to be visible there.

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { LogOut, Settings, Trash2, Wallet } from "lucide-react";
+import { LogOut, Settings, Trash2, UserRound, Wallet } from "lucide-react";
 
 import { PersonAvatar, type AvatarPerson } from "@/components/app/person-avatar";
 import { Mono } from "@/components/coditu/mono";
@@ -191,13 +191,13 @@ export function AccountMenu({ me }: { me: AccountIdentity }) {
                 <Link
                   role="menuitem"
                   data-autofocus
-                  href="/app/settings"
+                  href="/app/profile"
                   prefetch={false}
                   onClick={() => setOpen(false)}
                   className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
                 >
-                  <Settings size={15} strokeWidth={1.9} aria-hidden />
-                  Settings
+                  <UserRound size={15} strokeWidth={1.9} aria-hidden />
+                  Profile
                 </Link>
 
                 {/* Earnings lives here and in the phone's "More" sheet, and
@@ -214,8 +214,27 @@ export function AccountMenu({ me }: { me: AccountIdentity }) {
                   className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
                 >
                   <Wallet size={15} strokeWidth={1.9} aria-hidden />
-                  Earnings
+                  My earnings
                 </Link>
+
+                {/* Workspace settings is the rate, the caps and the capacity —
+                    an admin's screen, and every row of it refuses a write from
+                    anybody else. A non-admin who reaches the URL is redirected
+                    to their profile rather than refused, so this omission
+                    hides a destination that holds nothing for them rather than
+                    a control they might have expected. */}
+                {me.role === "admin" ? (
+                  <Link
+                    role="menuitem"
+                    href="/app/settings"
+                    prefetch={false}
+                    onClick={() => setOpen(false)}
+                    className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
+                  >
+                    <Settings size={15} strokeWidth={1.9} aria-hidden />
+                    Workspace settings
+                  </Link>
+                ) : null}
 
                 {/* Beside Settings rather than in the rail: a bin on every
                     screen is noise most days and a small invitation on the

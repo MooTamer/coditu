@@ -281,9 +281,12 @@ const MONEY_SURFACES = [
   "lib/format.ts",
   // Generated from the schema, so it names every table including these two.
   "lib/supabase/database.types.ts",
-  // The screens.
+  // The screens. `app/app/settings/page.tsx` was on this list until W10 and is
+  // deliberately not any more: Workspace settings renders the rate through
+  // `AdminSettings`, and the page around it stopped being able to reach a
+  // figure the moment the personal earnings card moved to `/app/earnings`.
   "app/app/earnings/page.tsx",
-  "app/app/settings/page.tsx",
+  "components/app/my-earnings.tsx",
   "components/app/admin-settings.client.tsx",
   "components/app/earnings-board.client.tsx",
 ];

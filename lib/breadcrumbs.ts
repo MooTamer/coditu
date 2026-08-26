@@ -53,7 +53,8 @@ const FLAT: Record<string, string> = {
   clients: "Clients",
   trash: "Trash",
   settings: "Workspace settings",
-  earnings: "Earnings",
+  profile: "Profile",
+  earnings: "My earnings",
 };
 
 export function crumbsFor(pathname: string, projects: CrumbProject[]): Crumb[] {
@@ -74,7 +75,8 @@ export function crumbsFor(pathname: string, projects: CrumbProject[]): Crumb[] {
     // `earnings` sits under Account in the design, which is a grouping rather
     // than a route — there is no `/app/account` to link to, so the crumb is
     // present and inert.
-    if (first === "earnings") return [root, { label: "Account" }, { label: "Earnings" }];
+    if (first === "earnings") return [root, { label: "Account" }, { label: "My earnings" }];
+    if (first === "profile") return [root, { label: "Account" }, { label: "Profile" }];
     const label = FLAT[first];
     return label ? [root, { label }] : [root];
   }

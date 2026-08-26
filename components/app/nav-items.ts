@@ -1,4 +1,4 @@
-import { Building2, CheckCheck, FolderOpen, House, Import, Rows3, Settings, Trash2, Users, Wallet } from "lucide-react";
+import { Building2, CheckCheck, FolderOpen, House, Import, Rows3, Settings, Trash2, UserRound, Users, Wallet } from "lucide-react";
 
 /**
  * The application's destinations, and the rule for when each one is current.
@@ -110,16 +110,40 @@ export function navFor(role: string): readonly NavItem[] {
 }
 
 /**
+ * Your own name, picture, theme, notifications and password.
+ *
+ * Not in `NAV` for the same reason as the two below: it is not a place the team
+ * works. Everybody has one, so unlike Workspace settings it carries no
+ * `visibleTo`.
+ */
+export const PROFILE_ITEM: NavItem = {
+  id: "profile",
+  label: "Profile",
+  href: "/app/profile",
+  Icon: UserRound,
+  isActive: (path) => path.startsWith("/app/profile"),
+};
+
+/**
  * Settings is not in `NAV` and that is deliberate: it is not a place the team
  * works, it is a place you go once. It appears in the account menu and in the
  * phone's overflow sheet, and nowhere in the rail.
+ *
+ * **It is an admin's screen now.** Until W10 this URL was everybody's profile
+ * with the workspace tunables bolted underneath; the two split, and what stayed
+ * here is the rate, the caps and the capacity — every row of which refuses a
+ * write from anybody else. A non-admin who follows an old bookmark is
+ * redirected to `/app/profile` rather than refused, so hiding the destination
+ * hides a screen with nothing on it for them rather than a control they might
+ * reasonably have expected to find.
  */
 export const SETTINGS_ITEM: NavItem = {
   id: "settings",
-  label: "Settings",
+  label: "Workspace settings",
   href: "/app/settings",
   Icon: Settings,
   isActive: (path) => path.startsWith("/app/settings"),
+  visibleTo: (role) => role === "admin",
 };
 
 /**
@@ -134,7 +158,7 @@ export const SETTINGS_ITEM: NavItem = {
  */
 export const EARNINGS_ITEM: NavItem = {
   id: "earnings",
-  label: "Earnings",
+  label: "My earnings",
   href: "/app/earnings",
   Icon: Wallet,
   isActive: (path) => path.startsWith("/app/earnings"),
@@ -177,9 +201,17 @@ export const TABS: readonly NavItem[] = TAB_IDS.map(
   (id) => NAV.find((item) => item.id === id)!
 );
 
-/** People, Import, Clients, Earnings, Trash and Settings — behind the overflow sheet. */
+/**
+ * People, Import, Clients, Profile, My earnings, Trash and Workspace settings —
+ * behind the overflow sheet.
+ *
+ * Profile goes at the front of the account group rather than the end of the
+ * list: on a phone this sheet is the only way to reach it, and it is the one
+ * an engineer actually opens.
+ */
 export const OVERFLOW: readonly NavItem[] = [
   ...NAV.filter((item) => !TAB_IDS.includes(item.id as (typeof TAB_IDS)[number])),
+  PROFILE_ITEM,
   EARNINGS_ITEM,
   TRASH_ITEM,
   SETTINGS_ITEM,

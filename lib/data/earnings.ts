@@ -269,11 +269,52 @@ export const listSprintEarnings = cache(async (): Promise<{
   return { settings, sprints: rows, nonParticipants };
 });
 
+export interface MyCurrentSprint {
+  name: string;
+  /** What the equal split would hand you if it were confirmed as proposed. */
+  cents: number;
+  /** Your own minutes on it, and the team's. */
+  minutesLogged: number;
+  totalMinutes: number;
+  /** Your share of the team's minutes, 0-100, as `listSprintEarnings` rounds it. */
+  sharePct: number;
+  /** Whether the app proposes you — a developer at or above the threshold. */
+  proposed: boolean;
+  /** The pot, before it is divided. */
+  potCents: number;
+  /**
+   * How many the pot would be divided among, and how many people logged
+   * anything at all.
+   *
+   * Counts, not names. The prototype's calculation block lists each excluded
+   * colleague and their hours; this screen is somebody's own money and does
+   * not need to hand them a roster to explain the arithmetic. Pot ÷
+   * participants is the whole sum, and the difference between the two numbers
+   * is what says "other people's minutes counted and took no share".
+   */
+  participantCount: number;
+  contributorCount: number;
+}
+
+export interface MyConfirmedPayout {
+  name: string;
+  cents: number;
+  at: string;
+  minutesLogged: number;
+}
+
 /**
- * One person's own figures, for the compact card on `/app/settings`.
+ * One person's own figures.
  *
- * The provisional amount for whichever tracked sprint is running, and the last
- * one that was actually confirmed.
+ * The provisional amount for whichever tracked sprint is running, the last one
+ * that was actually confirmed, and enough of the surrounding facts for
+ * `/app/earnings` to show its arithmetic rather than assert a number.
+ *
+ * **Nothing here computes anything.** Every value is lifted out of
+ * `listSprintEarnings`, which is the one place the pot, the threshold and the
+ * split are worked out. A second calculation that agreed today would be a
+ * second calculation to keep agreeing, and this screen and the confirmation
+ * screen disagreeing about somebody's share is the failure that matters most.
  */
 export const getMyEarnings = cache(async () => {
   const profile = await getCurrentProfile();
@@ -284,6 +325,7 @@ export const getMyEarnings = cache(async () => {
 
   const current = tracked.find((s) => s.status === "active") ?? tracked[0] ?? null;
   const mine = current?.proposedShares.find((s) => s.profileId === profile.id) ?? null;
+  const meOnCurrent = current?.participants.find((p) => p.profileId === profile.id) ?? null;
 
   const lastConfirmed = tracked.find((s) => s.confirmed) ?? null;
   const lastMine =
@@ -292,14 +334,27 @@ export const getMyEarnings = cache(async () => {
   return {
     settings,
     isDeveloper: Boolean(profile.is_developer),
-    current: current ? { name: current.name, cents: mine?.shareCents ?? 0 } : null,
+    current: current
+      ? ({
+          name: current.name,
+          cents: mine?.shareCents ?? 0,
+          minutesLogged: meOnCurrent?.minutesLogged ?? 0,
+          totalMinutes: current.totalMinutes,
+          sharePct: meOnCurrent?.sharePct ?? 0,
+          proposed: Boolean(meOnCurrent?.proposed),
+          potCents: current.potCents,
+          participantCount: current.proposedShares.length,
+          contributorCount: current.participants.filter((p) => p.minutesLogged > 0).length,
+        } satisfies MyCurrentSprint)
+      : null,
     lastConfirmed:
       lastConfirmed && lastMine
-        ? {
+        ? ({
             name: lastConfirmed.name,
             cents: lastMine.shareCents,
             at: lastConfirmed.confirmed!.confirmedAt,
-          }
+            minutesLogged: lastMine.minutesLogged,
+          } satisfies MyConfirmedPayout)
         : null,
   };
 });

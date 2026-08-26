@@ -224,3 +224,40 @@ export async function signOut() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+/**
+ * Sign out everywhere except here.
+ *
+ * `signOut()` above takes GoTrue's default scope, which is **global** — it
+ * revokes every refresh token this account has, on every device. That is the
+ * right answer for a sign-out button and a trap everywhere else, and
+ * `docs/07-FIELD-NOTES.md` records it costing a parallel e2e run.
+ *
+ * `scope: "others"` is the same call with the current session spared: a phone
+ * left signed in at a client's office stops being signed in, and the laptop
+ * the person is asking from does not. There is no confirmation step because
+ * there is nothing to undo and nothing to lose — the cost of pressing it by
+ * accident is signing in again.
+ *
+ * Nothing is revalidated: this session is untouched, so every rendered page on
+ * it is still correct. The other devices find out on their next request, when
+ * the refresh they were about to make is refused.
+ */
+export async function signOutOtherDevices(): Promise<AuthState> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "You are not signed in any more." };
+  }
+
+  const { error } = await supabase.auth.signOut({ scope: "others" });
+  if (error) {
+    return { error: "Those sessions could not be signed out. Try again in a moment." };
+  }
+
+  return { notice: "Every other device has been signed out." };
+}
