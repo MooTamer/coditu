@@ -3905,3 +3905,56 @@ that pass are the control — an ordinary removal, made while the profile still
 exists, is still named and still points at them.
 
 `lint`, `typecheck` clean · `test` **416** (8 new).
+
+### An unauthenticated write, standing behind a Supabase session setting
+
+Postgres grants `EXECUTE` to `PUBLIC` on every new function; `anon` and
+`authenticated` both inherit from `PUBLIC`; PostgREST publishes every function
+in an exposed schema as RPC. So the DEFAULT for a `security definer` function in
+`public` — one that bypasses RLS by construction — is *callable by anybody
+holding the anon key*, and that key ships in the browser bundle. There are
+thirty-six of them here.
+
+Thirty-five are fine, and the sweep now says why rather than assuming it. Most
+are trigger functions, which cannot be called directly. `set_work_item_deleted`
+and `list_deleted_work_items` are directly callable and mutating, and both
+check `is_admin_or_lead()` in their own body — verified by calling them over
+PostgREST with the anon key, which answers 42501 for each.
+
+`rebalance_project_keys()` checked nothing. It takes no arguments and rewrites
+`key_prefix` and `next_key_number` on every row of `public.projects`.
+
+It looked refused, which is why it survived W13's grant sweep:
+
+```
+{"code":"21000","message":"UPDATE requires a WHERE clause"}
+```
+
+That is `safeupdate`, which Supabase loads into the PostgREST session, firing on
+the last statement in the function — the one that updates every project's
+counter with no `where`. **The two updates before it have `where` clauses and
+had already run**; only the transaction rolling back undid them. So what stood
+between an anonymous request and a write to `projects` was a session setting
+reacting to a missing clause. Add that clause as a tidy-up and the function is
+simply callable.
+
+Nothing in the application calls it — only `seed.sql`, the SQL
+`scripts/import-notion-export.mjs` generates, and the migration that created it,
+all three running as the owner. So the fix is the grant rather than a guard:
+`20260826211339_maintenance_rpc_is_not_an_endpoint.sql` revokes `EXECUTE` from
+`PUBLIC`. Anon now gets `permission denied for function`; the owner still runs
+it, and `npm run db:reset` still leaves MEINEvim on `COD`.
+
+`rls.sql` sweeps for the class, as an exact list rather than a count, so the
+next mutating definer function reachable by `anon` is **named** by the failure
+instead of absorbed into a number. Red-green verified by re-granting: the sweep
+failed with `rebalance_project_keys` in the middle of the list.
+
+The rest of the boundary was swept at the same time and holds: no definer
+function in `public` is without a pinned `search_path`, every table has RLS
+enabled and at least one policy, all three views are `security_invoker`, `anon`
+has **no** table privilege anywhere in `public`, and no `TRUNCATE` grant to
+`authenticated` survives.
+
+`lint`, `typecheck` clean · `test` **416** · `db:test` **406** (11 new) from a
+`db:reset` · `db:types` regenerates with no diff.

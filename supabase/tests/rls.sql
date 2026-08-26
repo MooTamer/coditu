@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(315);
+select plan(319);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -3105,6 +3105,70 @@ select is(
   '',
   'no table in public lets authenticated truncate it — truncate ignores RLS'
 );
+
+-- ---------------------------------------------------------------------------
+-- A `security definer` function in `public` is an API endpoint.
+--
+-- Postgres grants EXECUTE to PUBLIC on every new function, `anon` and
+-- `authenticated` both inherit from PUBLIC, and PostgREST publishes every
+-- function in an exposed schema as RPC. So the default for a definer function
+-- — which bypasses RLS by construction — is "callable by anybody holding the
+-- anon key", and that key ships in the browser bundle.
+--
+-- Most of the thirty-six here are trigger functions, which cannot be called
+-- directly, or return a fact about the caller that is null with no session.
+-- The ones that matter are the VOLATILE, directly-callable ones: those read or
+-- write through RLS on somebody else's behalf.
+--
+-- Two are allowed, and both refuse `anon` in their own body. The third,
+-- `rebalance_project_keys`, checked nothing and rewrote every row of
+-- `projects`; it aborted only because `safeupdate` objected to a missing
+-- `where` clause, which is a Supabase session setting and not a decision this
+-- schema made. `20260826211339_maintenance_rpc_is_not_an_endpoint.sql` revoked
+-- it.
+--
+-- Written as an exact list rather than a count, so the next one added is named
+-- by the failure instead of being absorbed by it.
+-- ---------------------------------------------------------------------------
+
+select is(
+  (select coalesce(string_agg(p.proname, ', ' order by p.proname), '')
+     from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+     join pg_type t on t.oid = p.prorettype
+    where n.nspname = 'public'
+      and p.prosecdef
+      and p.provolatile = 'v'
+      and t.typname <> 'trigger'
+      and has_function_privilege('anon', p.oid, 'EXECUTE')),
+  'list_deleted_work_items, set_work_item_deleted',
+  'exactly two mutating security-definer functions are reachable by anon, and both guard themselves'
+);
+
+select pg_temp.act_as_anon();
+
+select throws_ok(
+  $$select public.set_work_item_deleted('00000000-0000-0000-0000-000000000000'::uuid, true)$$,
+  '42501',
+  null,
+  'negative: anon cannot bin a work item through the RPC that bypasses RLS'
+);
+
+select throws_ok(
+  $$select * from public.list_deleted_work_items('00000000-0000-0000-0000-000000000000'::uuid)$$,
+  '42501',
+  null,
+  'negative: anon cannot read the bin through the RPC that bypasses RLS'
+);
+
+select throws_ok(
+  $$select public.rebalance_project_keys()$$,
+  '42501',
+  null,
+  'negative: anon cannot reach the maintenance routine that renumbers every project'
+);
+
+select pg_temp.act_as_owner();
 
 select * from finish();
 rollback;
