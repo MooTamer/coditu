@@ -528,3 +528,57 @@ design does not cover `/login`, so this is recorded rather than scheduled.
   count in the whole matrix, and no row above had it.
 - Checks 4 and 8 are **closed as conforming** — the editor and presence engines do not need work;
   only where their output is placed does.
+
+---
+
+# Fifth pass — implementation, 2026-08-27
+
+Branch `visual-conformance`, from `origin/main` at `b63f4c7`.
+**Visual conformance is NOT complete.** This section is the row-by-row state. A row is
+`done` only where the Evidence column names a command or a measurement that was run.
+
+## Done, with the measurement that proves it
+
+| Row | What changed | Evidence |
+|---|---|---|
+| **V-0** | The four workspace files are in `design/project/`; `README-REPO.md` names `Coditu Workspace.dc.html` as the source of truth for `/app` and records the two places the prototype is not the authority | `030fd6a`. Byte-compare showed the five older artboards, `doc-page.js` and `support.js` identical between bundles, so nothing was duplicated and no runtime added |
+| **V-A1 – V-A15** | One `PageShell` carries all fifteen measures; four routes gained a `main` landmark they never had | `e2e/measures.local.spec.ts` — **15/15 at 1920**, each asserting the exact `max-width`, a `main`, and no horizontal overflow |
+| **V-C1** | Breadcrumbs at every width; below `lg` the trail collapses to `Coditu / … / COD-229` instead of disappearing; folded crumbs stay in the accessibility tree | `e2e/navigation.spec.ts` **15/15**, including a rewritten spec that asserts the ellipsis, the surviving middle crumb, and the trail on Home. Measured at 320: the trail occupies 161px of 320 |
+| **V-C8** | Export removed from the global topbar, added to the sprint header beside Sprint notes | Browser at 1440: `topbarHasExport: false`, `pageHasExport: true`. `a11y.spec.ts › axe: the export dialog` passes against the new location |
+| **V-C9** | Topbar is `min-height: 56px` and wraps, not a fixed 60 | Served CSS carries `--topbar-h: 56px` |
+| **V-C10** | `--tint` exists in both themes at the design's values and is used across the shell | Computed: `--tint: #0b0e1409` light. 27 content-level `--canvas` hovers are **left, deliberately** — see Outstanding |
+| **V-D4a** | Board is one horizontally scrolling row at every width; columns `minmax(264px,1fr)`, gap 12px | Source; **not yet measured in the browser** — see Outstanding |
+| **V-D6 / V-D7** | Table→cards moves from a 900px *container* query to the design's 768px *viewport*. The sticky Task column is exercised for the first time | Browser at 834: `tableVisible: true`, `stickyPos: sticky`, `cardsVisible: 0`, `overflow: false` |
+| **V-E2** | Bottom bar carries the design's five destinations | Measured at 320: five tabs at 64px each, `truncated: false` on all five, no overflow. The "five would truncate" note this replaced was never measured |
+| **Locked 3** | Export in the sprint header only | as V-C8 |
+| **Locked 4** | Sprint notes are their route; the duplicated inline panel is gone | Browser: `inlineNotesEditor: false`, `notesLink: true` |
+| **Locked 5** | Burn-up is a closed `<details>` below the designed header | Browser: `burnUpDetails: true`, `burnUpOpen: false`. Works before hydration |
+| **V-G7, shell only** | Topbar controls, theme toggle and account trigger are 44px below `md` | Source; the route-level targets are **still failing** — see Outstanding |
+
+## Outstanding — nothing below has been implemented
+
+Ordered as the plan orders them. Every one is still a gap.
+
+| Row | What is still missing |
+|---|---|
+| **V-B1 – V-B8** | Workspace Home's whole composition: quick actions, sprint Goal column, status stacked bar, per-person load bars, the **320px right column** (Online now / Recently opened / Activity), My work tabs, the 26px `h1`. Home has its 1320px measure now and nothing to put in it |
+| **V-C2 – V-C6** | Rail search button, rail footer tools, rail subtitle, profile presence dot, and the **768–1179 overlay drawer** — the largest remaining shell gap |
+| **Locked 2** | The truthful idle save chip. Untouched: the chip still renders nothing when idle, which is neither the design's persistent "All changes saved" nor the required proof-of-no-pending-write |
+| **V-D1 – V-D3** | Sprint presence column, saved-views menu, sort-stack panel |
+| **V-D8 – V-D11** | My work, People and Projects as database-style tables; People's six sections; the Projects list/cards toggle |
+| **V-F1** | Recovery Centre structure. **The truthful copy is untouched and must stay that way** — the four-card header may be adopted, none of the prototype's values may be |
+| **V-G7, routes** | 115 sub-44px targets on `/app/history`, 31 on `/app/projects`, 30 on `/app/people`, 15 on `/app/settings`, 7 on `/app/profile` and `/app/settings/recovery` |
+| **Phase 9** | Editor, mention, slash, presence, empty, loading, offline and failure states in their designed placements |
+| **`--tint` sweep** | 27 files still hover with `--canvas`. Left because it is a 27-file visual change I could not verify in one pass, not because it is right |
+
+## Verification still owed
+
+The plan lists twelve checks. These have **not** been run:
+
+- 768, 1180 and 1920 sweeps in the browser (only 320, 390, 834, 1024 and 1440 were).
+- **Dark theme across the changed surfaces.** Tokens were verified; the changed layouts were not.
+- **Lead, Engineer and Client boundaries** against the new shell.
+- 200% zoom, multi-user presence, offline and failed-save states.
+- **Production bundle budgets** (`npm run budgets`) — `PageShell` is a server component and should be free, but that is reasoning, not a measurement.
+- **The full serial browser suite.** Attempted twice on `mobile.spec.ts` + `a11y.spec.ts`: 83 passed / 13 failed, then 87 passed / 13 failed **with a different thirteen**. A spec that passed alone on a warm server (`axe: the export dialog`) had failed in the first run, so the cold-compile half is noise.
+  `06-PROGRESS.md` already records that only a serial run from a fresh `db:reset`, with the auth container restarted and the PostgREST cache reloaded, produces a number worth keeping. **That reset was not run: the local database is shared with a second session's worktree, and wiping it is not this branch's call.** The one persistent, real failure across both runs is `mobile.spec.ts:357 › every target clears 44px`, which is V-G7 and is a known open gap, not a regression.
