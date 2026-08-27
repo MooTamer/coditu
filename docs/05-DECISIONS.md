@@ -3924,3 +3924,45 @@ asked for, and the docs do not claim a privacy the database does not enforce. Cl
 untouched: `20260825110100_internal_only_reads.sql` closed the base tables to `account_kind =
 'client'`, and `tests/earnings-boundary.test.ts` walks the whole application to prove no client-facing
 surface can reach a figure at all.
+
+---
+
+## Two people editing one story: last write wins, and the loser converges
+
+**Decided 2026-08-27, during the independent audit.** The audit asked for a stronger property than
+this codebase implements — *"concurrent edits are detected using a base revision or equivalent
+guard"* — so the choice is recorded here rather than acted on quietly in either direction.
+
+**Last write wins, and that is not a gap.** `docs/coditu-thread-and-earnings-prompt.md` §269 decided
+it before any of this was built: *"Two people editing the same criterion: last write wins, but the
+loser sees the new value after `router.refresh()` rather than their stale draft."* It is one sentence
+about criteria, and the same answer is what every writing surface in this app already gives.
+
+**Reproduced through two browser contexts, so the behaviour is on the record.** A published
+`A one`. B opened the story. A published `A two`. B published from the stale base. The live row
+became B's text, and `document_revisions` held all four versions in order. Nothing was lost, because
+nothing in this schema can be: the table has no `insert`, `update` or `delete` policy for anybody,
+including an admin, and `supabase/tests/revisions.sql` asserts each of those refusals. A's superseded
+text is a click away in Version history, attributed and timestamped, and restoring it would add a
+fifth version rather than remove the fourth.
+
+**What was actually broken was the second half of that sentence, and it is fixed.** The loser did not
+converge — A sat on superseded text indefinitely, because the story's full page subscribed to its
+comments and not to itself. `06-PROGRESS.md` records the diagnosis and the two specs that hold it.
+
+**Why a base-revision guard is not being added.**
+
+- The brief does not ask for one, and `CLAUDE.md` is explicit: *do not add features that are not in
+  the brief. Restraint is the design.* A conflict guard is a feature — it needs a refusal path, a
+  place to keep the refused draft, and words for a state that does not exist anywhere in the design
+  bundle. Inventing that in an audit is the wrong moment to design it.
+- It is not a *correctness* failure, which is the one thing that would override the brief. Correctness
+  here would be losing an edit, and no edit is lost. Every version is readable, attributed, and
+  restorable by anyone who can read the story.
+- Coditu is four people who talk to each other, and presence already shows who else is on the story
+  before either of them starts typing.
+
+**What would change this.** A surface where two people genuinely write at once and history is not
+enough — sprint notes during a live review is the plausible one. If that happens, the guard belongs
+in one place: a compare-and-set on the document column inside the existing `UPDATE`, which is atomic
+and needs no schema change. Recorded here so the next person does not have to re-derive it.
