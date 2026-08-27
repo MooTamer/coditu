@@ -7,7 +7,7 @@ import { Pencil, Trash2, X } from "lucide-react";
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
-import { settle } from "@/lib/action-result";
+import { useTrackedSave } from "@/components/app/save-state.client";
 import { deleteTimeEntry, logTime, updateTimeEntry } from "@/lib/actions/work-items";
 import type { TimeEntryRecord } from "@/lib/data/work-item";
 import { hours, hoursLabel } from "@/lib/format";
@@ -37,6 +37,7 @@ export function LogTime({
   isAdmin?: boolean;
 }) {
   const [minutes, setMinutes] = useState(90);
+  const trackedSave = useTrackedSave();
   const [pending, startTransition] = useTransition();
   // Null between submissions; a uuid from the first attempt until one succeeds.
   const retryToken = useRef<string | null>(null);
@@ -88,7 +89,7 @@ export function LogTime({
       // Inside the transition — that is what scopes the optimistic entry to
       // this action's lifetime.
       addOptimistic(logged);
-      const result = await settle(
+      const result = await trackedSave(
         () => logTime({ itemId, minutes: logged, workedOn: today, idempotencyKey: token }),
         "That time did not save — check your connection."
       );
@@ -201,6 +202,7 @@ function TimeEntryRow({
   canRemove: boolean;
 }) {
   const router = useRouter();
+  const trackedSave = useTrackedSave();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -209,7 +211,7 @@ function TimeEntryRow({
 
   function save() {
     startTransition(async () => {
-      const result = await settle(
+      const result = await trackedSave(
         () => updateTimeEntry({ entryId: entry.id, minutes, workedOn }),
         "That correction did not save — check your connection."
       );
@@ -224,7 +226,7 @@ function TimeEntryRow({
 
   function remove() {
     startTransition(async () => {
-      const result = await settle(
+      const result = await trackedSave(
         () => deleteTimeEntry({ entryId: entry.id }),
         "That entry did not go — check your connection."
       );

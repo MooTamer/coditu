@@ -91,7 +91,6 @@ export default async function ComponentsPage({ params }: { params: Promise<{ slu
                   href={`/app/projects/${project.slug}/components/${component.slug}`}
                   prefetch={false}
                   className="flex h-full flex-col gap-3 rounded-card border border-[var(--hairline)] bg-[var(--raised)] p-4 hover:border-[var(--hairline-strong)]"
-                  style={{ opacity: component.isArchived ? 0.6 : 1 }}
                 >
                   {/* The name gets the whole first line. Sharing it with the
                       kind chip cost about a hundred pixels, which is the
@@ -110,13 +109,37 @@ export default async function ComponentsPage({ params }: { params: Promise<{ slu
                       {COMPONENT_KIND_LABEL[component.kind]}
                     </ToneChip>
 
+                    {/* ── Retired is a word, not a fade ──────────────────────
+                        This card carried `opacity: 0.6` when archived, and
+                        that was wrong twice. It multiplies every colour on the
+                        card against the background, so `--ink-faint` and
+                        `--ink-muted` stopped clearing 4.5:1 — eight
+                        colour-contrast violations, found the first time this
+                        project had an archived component to render.
+
+                        And it is the failure `01-DESIGN-SYSTEM.md` names and
+                        `presence.client.tsx` already records in its own words:
+                        a faded thing is colour as the sole carrier of meaning,
+                        and carries nothing at all to a screen reader.
+
+                        The card said "retired" only when nothing was
+                        attributed, so the one archived component that HAS a
+                        story — `Redakteurkalender`, which is exactly why
+                        anything is archived rather than deleted — said nothing.
+                        The chip is unconditional now. */}
+                    {component.isArchived ? (
+                      <ToneChip tone="slate" className="shrink-0">
+                        retired
+                      </ToneChip>
+                    ) : null}
+
                     {/* Nothing attributed yet is one fact, not three zeroes.
                         Most of the registry is in that state on the day it
                         lands, and "0 items 0 open 0.0 h" wraps the card to two
                         lines to say nothing. */}
                     {component.itemCount === 0 ? (
                       <Mono size="meta" className="text-[var(--ink-faint)]">
-                        {component.isArchived ? "retired" : "no items yet"}
+                        no items yet
                       </Mono>
                     ) : (
                       <>

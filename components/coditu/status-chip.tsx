@@ -29,12 +29,16 @@ const CHIP_VARS: Record<WorkItemStatus, { fg: string; bg: string }> = {
   blocked: { fg: "var(--chip-blocked-fg)", bg: "var(--chip-blocked-bg)" },
 };
 
-export type ChipTone = "amber" | "jade" | "slate";
+export type ChipTone = "amber" | "jade" | "slate" | "rose" | "cobalt";
 
 const TONE_VARS: Record<ChipTone, { fg: string; bg: string }> = {
   amber: { fg: "var(--tone-amber-fg)", bg: "var(--tone-amber-bg)" },
   jade: { fg: "var(--tone-jade-fg)", bg: "var(--tone-jade-bg)" },
   slate: { fg: "var(--tone-slate-fg)", bg: "var(--tone-slate-bg)" },
+  // From the returned handoff's TONE map. See `app/globals.css` for why these
+  // two arrived later than the other three.
+  rose: { fg: "var(--tone-rose-fg)", bg: "var(--tone-rose-bg)" },
+  cobalt: { fg: "var(--tone-cobalt-fg)", bg: "var(--tone-cobalt-bg)" },
 };
 
 const CHIP_BASE =

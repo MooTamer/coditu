@@ -8,6 +8,8 @@ import { Download, Plus, Search } from "lucide-react";
 import { AccountMenu, type AccountIdentity } from "@/components/app/account-menu.client";
 import { Breadcrumbs } from "@/components/app/breadcrumbs.client";
 import { CommandPalette } from "@/components/app/command-palette.client";
+import { SaveChip } from "@/components/app/save-state.client";
+import { TopbarPresence } from "@/components/app/topbar-presence.client";
 import { ThemeToggle } from "@/components/app/theme-toggle.client";
 import { Mono } from "@/components/coditu/mono";
 import type { ComponentRef } from "@/lib/data/components";
@@ -158,7 +160,20 @@ export function Topbar({
         </Mono>
       </button>
 
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      {/* The two the returned handoff names and the build did not have:
+          *"56px topbar carries breadcrumbs, surface presence, save chip,
+          theme, search, New."*
+
+          Both sit before `ml-auto` so they belong to the LEFT cluster and
+          shrink with it. Putting them on the right would have made a 320px
+          screen choose between "Failed — draft kept" and the New-item button,
+          and it would have chosen wrong. */}
+      <div className="ml-auto flex min-w-0 shrink items-center justify-end gap-2 overflow-hidden">
+        <TopbarPresence me={me} people={people} />
+        <SaveChip />
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2">
         {/* The palette's own trigger is `hidden … xl:flex` — a 420px search box
             has no room on a phone, and below 1280 it has no room beside the
             breadcrumb trail either. Search itself is needed at every width, or

@@ -82,6 +82,16 @@
   --tone-jade-bg: rgba(35, 201, 127, 0.18);
   --tone-slate-fg: #3f4c63;
   --tone-slate-bg: rgba(107, 122, 144, 0.14);
+  /* rose and cobalt come from the returned handoff's own TONE map. Three tone
+     pairs were enough while the only tones on screen were amber, jade and
+     slate; the save-confidence chip needs a failure that is not a warning
+     (`Failed — draft kept`) and a neutral notice that is not a success
+     (`Recovered draft`), and inventing either would have been a colour nobody
+     designed. #a81f2c on its own 14%% wash clears 4.5:1 on `--paper`. */
+  --tone-rose-fg: #a81f2c;
+  --tone-rose-bg: rgba(255, 95, 109, 0.14);
+  --tone-cobalt-fg: #183fbf;
+  --tone-cobalt-bg: rgba(43, 87, 255, 0.12);
 
   /* --- grouping: deterministic hue per integer.
          The hue lives on the 3px left border and the <=6% row tint only —
@@ -214,6 +224,10 @@
   --tone-jade-bg: rgba(35, 201, 127, 0.16);
   --tone-slate-fg: #aebacd;
   --tone-slate-bg: rgba(147, 160, 180, 0.16);
+  --tone-rose-fg: #ff9aa2;
+  --tone-rose-bg: rgba(255, 95, 109, 0.18);
+  --tone-cobalt-fg: #89a7ff;
+  --tone-cobalt-bg: rgba(43, 87, 255, 0.2);
 
   --group-1-sticky: #111827;
   --group-2-sticky: #0f1a1c;
@@ -494,6 +508,31 @@
   }
 }
 
+/* A DOCKED panel comes in from the edge it is docked to.
+   =========================================================================
+   The side peek is full height with no gutter above or below it, so
+   `cd-reveal-surface`'s `translateY(10px)` puts its bottom edge 10px past the
+   viewport for the length of the entrance. `item-detail.spec.ts` measures the
+   panel the moment it is visible and caught exactly that: 562.59 of a 560px
+   viewport, on WebKit.
+
+   Raising the gutter would have fixed the number and kept the wrong motion. A
+   panel docked to the right edge sliding UP is not what a side peek does; it
+   arrives from the side it lives on. Same duration, same easing, same blur —
+   only the axis changes, and the overflow goes with it. */
+@keyframes cd-reveal-peek {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
 @keyframes cd-reveal-section {
   from {
     opacity: 0;
@@ -702,6 +741,21 @@
   animation: cd-reveal-section var(--dur-section) var(--ease-entrance) both;
 }
 
+/* Below `md` the peek IS the bottom sheet, and a sheet rises — so the base
+   tier is the ordinary surface entrance and only the DOCKED form changes axis.
+   `prefers-reduced-motion` needs no clause of its own: the block at the end of
+   this file collapses every `[data-reveal]`, whatever its value, to a plain
+   120ms opacity fade. */
+[data-reveal="peek"] {
+  animation: cd-reveal-surface var(--dur-surface) var(--ease-entrance) both;
+}
+
+@media (min-width: 768px) {
+  [data-reveal="peek"] {
+    animation-name: cd-reveal-peek;
+  }
+}
+
 /* Scroll-triggered reveals hold at frame zero until an observer releases
    them — but ONLY when JS is actually running. Without the `js` class on
    <html> the animation simply plays on parse, so a reader with a broken
@@ -728,6 +782,15 @@
      there is one. Same `max()` this used to carry inline. */
   [data-scrim] {
     padding-bottom: max(clamp(12px, 3vh, 40px), env(safe-area-inset-bottom));
+  }
+
+  /* The side peek is docked, not floating. A centred dialog wants a real
+     margin below it; a panel against the right edge that stops 27px short of
+     the bottom reads as a dialog that failed to reach the edge — the same
+     failure the mobile sheet rule above exists to prevent, in the other
+     direction. The handoff's geometry is `margin: 0` at full height. */
+  [data-scrim][data-variant="peek"] {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 
@@ -810,6 +873,75 @@
   button.w-full:not([data-dense]),
   a.w-full:not([data-dense]) {
     min-width: 0;
+  }
+
+  /* --- 44px on the FIELDS, which this rule had never covered ----------------
+     The block above has said 44px for buttons and links since W14. It has
+     never said it for `input`, `select` or `textarea`, and the a11y spec that
+     was supposed to catch that only ran on four screens — so a role picker at
+     115x28, an allowlist field at 308x38, a projects search at 358x34 and
+     seven number fields in Workspace settings at 110x34 were all under the
+     floor, on every phone, for as long as they have existed. Found by
+     sweeping every route in the application rather than four of them.
+
+     `min-height` rather than `height`: a field that sets `h-[34px]` keeps its
+     declaration and the computed height becomes the larger of the two, which
+     is what `min-height` means. Nothing has to be edited component by
+     component, and the thirteenth field somebody adds is covered too — the
+     same argument the 16px rule above makes at length.
+
+     No `min-width`, deliberately. A field is as wide as its slot; a 44px floor
+     on the width would push a narrow numeric input out of a column that sized
+     it, and no field in this application is narrower than 44px anyway.
+
+     Two exclusions, and both are exclusions because the INPUT is not the
+     target:
+
+     - a checkbox or radio is wrapped in a `<label>` that carries the click,
+       and every one of them in this app already clears 44px — growing the box
+       itself would put an 44px tick beside a 20px word;
+     - `.sr-only` is a visually-hidden field — the file inputs behind "Choose a
+       picture" and "Choose an export" — whose target is the visible control
+       that labels it. Giving it a size would give it a size ON SCREEN. */
+  input:not([type="checkbox"]):not([type="radio"]):not(.sr-only):not([data-dense]),
+  select:not([data-dense]),
+  textarea:not([data-dense]) {
+    min-height: 44px;
+  }
+
+  /* --- and a `<select>` needs one more thing, on WebKit only ----------------
+     `min-height` above is enough for an input and a textarea, and enough for a
+     select in Chromium. **Safari ignores it on a select entirely**, because a
+     native `menulist` is sized by the platform from its font and internal
+     padding, not by the box model. Measured on Playwright's WebKit rather than
+     assumed, against the role picker on `/app/people`:
+
+       baseline                          28px
+       min-height: 44px                  28px   ← ignored
+       padding-block: 12px               28px   ← ignored too
+       appearance: none + min-height     44px   ✓
+
+     So the only thing that works is leaving the native control behind, and the
+     cost of that is the chevron: `appearance: none` takes away the one mark
+     that says "this opens a list". Drawing it back is not decoration, it is
+     replacing the affordance the reset removed.
+
+     A fixed grey rather than a token, because `background-image` cannot read a
+     CSS variable inside a data URI. `#7c899c` is `--ink-faint`'s DARK value,
+     which sits between the two themes' idea of a muted mark and clears 3:1
+     against both `--canvas` surfaces — a non-text control boundary, which is
+     the contrast rule that applies to it.
+
+     Scoped to coarse pointers, so a desktop select keeps the native control
+     it has always had. */
+  select:not([data-dense]) {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 30px;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237c899c' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px 12px;
   }
 }
 

@@ -39,6 +39,8 @@ const GAP = 8;
 const MARGIN = 8;
 
 export interface AccountIdentity extends AvatarPerson {
+  /** The signed-in profile's id. Read by the topbar's presence, not by this menu. */
+  id: string;
   email: string | null;
   role: string;
 }

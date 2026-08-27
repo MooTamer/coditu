@@ -82,7 +82,11 @@ export function CommentThread({
             <div className="min-w-0">
               <div className="flex items-baseline gap-2">
                 <span className="text-[13.5px] font-semibold">{me.fullName}</span>
-                <Mono size="eyebrow" className="normal-case tracking-normal text-[var(--ink-faint)]">
+                <Mono
+                  size="eyebrow"
+                  data-pending-comment
+                  className="normal-case tracking-normal text-[var(--ink-faint)]"
+                >
                   sending…
                 </Mono>
               </div>

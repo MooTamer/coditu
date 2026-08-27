@@ -49,6 +49,33 @@ function isVisible(element: HTMLElement): boolean {
  * about it — the focus trap, `Esc`, the scroll lock, focus return, the height
  * cap — is identical in both, and each of those was written for a recorded bug.
  *
+ * ## `variant="peek"` — the third shape, and the one the handoff asks for
+ *
+ * The returned prototype carries both states of the story panel in one object:
+ *
+ * ```js
+ * peekJustify: full ? "center"                       : "flex-end",
+ * peekWidth:   full ? (narrow ? "100%" : "min(1080px, 94vw)")
+ *                   : "min(620px, 96vw)",
+ * peekMargin:  full ? (narrow ? "0" : "24px")        : "0",
+ * peekRadius:  full ? (narrow ? "0" : "18px")        : "18px 0 0 18px",
+ * ```
+ *
+ * `flex-end` at `min(620px, 96vw)`, full height, rounded on the left only, is a
+ * **side peek** — a panel docked to the right edge. Coditu shipped only the
+ * second state, and `05-DECISIONS.md` recorded that as a deferred divergence.
+ * It is not deferred any more.
+ *
+ * Everything hard is still shared, which is the whole reason this is a variant
+ * and not a second component: the focus trap, `Esc`, the scroll lock, focus
+ * return and the height cap are identical, and each was written for a bug that
+ * would come straight back in a copy.
+ *
+ * **Below `md` the peek is still the sheet.** The handoff's breakpoint table
+ * says the story is a *"Full-screen page"* below 768 and a *"Side peek at 620px"*
+ * from 768 up — so the peek geometry is applied at `md` and above only, and the
+ * mobile shape is unchanged.
+ *
  * The panel is capped at the height of the scrim's content box and scrolls its
  * own body. Letting the panel grow to its content and scrolling the SCRIM
  * instead reads as a dialog sliced off by the bottom of the screen: a long
@@ -64,6 +91,7 @@ export function DialogShell({
   children,
   maxWidth = 1080,
   zIndex = 60,
+  variant = "dialog",
 }: {
   /** Accessible name for the dialog. */
   label: string;
@@ -76,6 +104,12 @@ export function DialogShell({
   children: ReactNode;
   maxWidth?: number;
   zIndex?: number;
+  /**
+   * `dialog` is the centred panel every dialog in this app has always been.
+   * `peek` is the handoff's 620px side peek: docked right, full height, rounded
+   * on the left only, at `md` and above. Below `md` both are the bottom sheet.
+   */
+  variant?: "dialog" | "peek";
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -184,6 +218,7 @@ export function DialogShell({
     <div
       onClick={close}
       data-scrim
+      data-variant={variant}
       // `touch-action: none` is half the scroll lock — see the note above. The
       // bottom gutter lives in `globals.css`, keyed on `[data-scrim]`, because
       // it differs by breakpoint and an inline style cannot hold a media query:
@@ -194,7 +229,15 @@ export function DialogShell({
       // horizontal gutter: `items-end` plus `px-0`, which is what turns the
       // same component into a sheet. Above `md` it is the centred-at-the-top
       // dialog it has always been, unchanged.
-      className="fixed inset-0 flex items-end justify-center overflow-y-auto px-0 pt-[clamp(12px,3vh,40px)] md:items-start md:px-4"
+      className={cn(
+        "fixed inset-0 flex items-end justify-center overflow-y-auto px-0",
+        // The peek is docked to the right edge and fills the height, so it takes
+        // no top padding and no horizontal gutter — a 24px gap would make it a
+        // floating panel rather than a docked one.
+        variant === "peek"
+          ? "md:items-stretch md:justify-end md:px-0 md:pt-0"
+          : "pt-[clamp(12px,3vh,40px)] md:items-start md:px-4"
+      )}
     >
       <div
         ref={panelRef}
@@ -203,7 +246,9 @@ export function DialogShell({
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        data-reveal="surface"
+        // A docked panel arrives from the edge it is docked to; a centred one
+        // rises. Below `md` both are the sheet and both rise — see `globals.css`.
+        data-reveal={variant === "peek" ? "peek" : "surface"}
         // `max-h-full` resolves against the scrim's content box — inset-0 minus
         // its own padding — so the panel can never reach an edge. `min-h-0` on
         // the scroller below is what actually lets it shrink: a flex child
@@ -224,9 +269,31 @@ export function DialogShell({
           // where Chromium does not, so on iOS the sheet grew 4px bottom
           // corners floating above the edge of the screen. Naming all four
           // corners is what stops the shorthand reaching any of them.
-          "min-h-[60dvh] rounded-t-section rounded-b-none md:min-h-0 md:rounded-section"
+          "min-h-[60dvh] rounded-t-section rounded-b-none md:min-h-0",
+          variant === "peek"
+            // `rounded-r-none` for the same reason `rounded-b-none` is spelled
+            // out above: `globals.css` gives every `:focus-visible` element a
+            // 4px radius shorthand, and it lands on whichever corners a
+            // one-sided utility left alone. WebKit treats the programmatic
+            // `.focus()` the trap takes as focus-visible; Chromium does not. So
+            // every corner is named.
+            //
+            // The width is a `md:` UTILITY rather than the inline style below,
+            // and that is not a stylistic preference: an inline `maxWidth`
+            // cannot hold a media query, so `min(620px, 96vw)` applied on a
+            // phone too and made the sheet 374px wide on a 390px screen —
+            // caught by *"an item opens against the bottom edge, full width"*.
+            // Below `md` the peek is the sheet, and a sheet is full width.
+            ? "md:h-full md:max-h-full md:max-w-[min(620px,96vw)] md:rounded-l-section md:rounded-r-none"
+            : "md:rounded-section"
         )}
-        style={{ boxShadow: "var(--shadow-overlay)", maxWidth }}
+        style={{
+          boxShadow: "var(--shadow-overlay)",
+          // Ignored for a peek, whose width is the utility above. `undefined`
+          // rather than a number, so nothing inline can win over the media
+          // query that is doing the work.
+          maxWidth: variant === "peek" ? undefined : maxWidth,
+        }}
       >
         <div className="flex shrink-0 items-center gap-3 border-b border-[var(--hairline)] bg-[var(--raised)] px-5 py-[14px]">
           {header}

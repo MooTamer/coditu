@@ -47,7 +47,10 @@ export default async function InterceptedItemPage({
   ]);
 
   return (
-    <ItemModal itemKey={item.key}>
+    <ItemModal
+      itemKey={item.key}
+      fullHref={`/app/projects/${slug}/sprints/${number}/items/${item.key}`}
+    >
       <ItemDetailBody
           item={item}
           today={todayInCairo()}

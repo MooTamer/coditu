@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
-import { settle } from "@/lib/action-result";
+import { useTrackedSave } from "@/components/app/save-state.client";
 import { useAnnounceSurface } from "@/components/app/presence-surface.client";
 import { documentFromText, isEmptyDocument } from "@/lib/blocks/schema";
 import type { ProfileRef } from "@/lib/data/profiles";
@@ -68,6 +68,7 @@ export function EditableTitle({
   canEdit: boolean;
 }) {
   const router = useRouter();
+  const trackedSave = useTrackedSave();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -103,7 +104,7 @@ export function EditableTitle({
     setEditing(false);
     startTransition(async () => {
       showOptimistic(next);
-      const result = await settle(
+      const result = await trackedSave(
         () => setWorkItemFields({ itemId, title: next }),
         "That title did not save — check your connection."
       );
@@ -258,6 +259,7 @@ export function EditableProse({
   maxImageBatch?: number;
 }) {
   const router = useRouter();
+  const trackedSave = useTrackedSave();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -287,7 +289,7 @@ export function EditableProse({
     startTransition(async () => {
       const cleared = next === null || isEmptyDocument(next);
       showOptimistic(cleared ? null : next);
-      const result = await settle(
+      const result = await trackedSave(
         () => setWorkItemFields({ itemId, [`${field}Doc`]: cleared ? null : next }),
         `That ${label.toLowerCase()} did not save — check your connection.`
       );
@@ -447,6 +449,7 @@ export function ItemActions({
   canManage: boolean;
 }) {
   const router = useRouter();
+  const trackedSave = useTrackedSave();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [moving, setMoving] = useState(false);
@@ -465,7 +468,7 @@ export function ItemActions({
   function move(targetSprintId: string) {
     setMoving(false);
     startTransition(async () => {
-      const result = await settle(
+      const result = await trackedSave(
         () => moveWorkItem({ itemId, targetSprintId }),
         "That move did not save — check your connection."
       );
@@ -486,7 +489,7 @@ export function ItemActions({
     }
     setConfirming(false);
     startTransition(async () => {
-      const result = await settle(
+      const result = await trackedSave(
         () => deleteWorkItem({ itemId }),
         "That item did not go — check your connection."
       );
@@ -498,7 +501,7 @@ export function ItemActions({
         label: "Undo",
         onAction: () => {
           startTransition(async () => {
-            const undone = await settle(
+            const undone = await trackedSave(
               () => restoreWorkItem({ itemId }),
               "That item did not come back."
             );

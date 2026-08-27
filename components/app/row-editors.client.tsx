@@ -8,7 +8,7 @@ import { CellPopover, optionListKeyDown } from "@/components/app/cell-popover.cl
 import { ComponentMultiPicker } from "@/components/app/component-picker.client";
 import { Mono } from "@/components/coditu/mono";
 import { StatusChipDot } from "@/components/coditu/status-chip";
-import { settle } from "@/lib/action-result";
+import { useTrackedSave } from "@/components/app/save-state.client";
 import {
   logTime,
   setWorkItemComponents,
@@ -66,6 +66,7 @@ export function StatusCell({
   onToast: Toast;
 }) {
   const [pending, startTransition] = useTransition();
+  const trackedSave = useTrackedSave();
   const [shown, showOptimistic] = useOptimistic(status);
 
   function choose(next: WorkItemStatus, close: () => void) {
@@ -75,7 +76,7 @@ export function StatusCell({
       // Must be inside the transition — that is what scopes the optimistic
       // value to this action's lifetime.
       showOptimistic(next);
-      const result = await settle(
+      const result = await trackedSave(
         () => setWorkItemStatus({ itemId, status: next }),
         "That change did not save — check your connection."
       );
@@ -134,6 +135,7 @@ export function PersonCell({
   onToast: Toast;
 }) {
   const router = useRouter();
+  const trackedSave = useTrackedSave();
   const [pending, startTransition] = useTransition();
   const [shown, showOptimistic] = useOptimistic(person);
 
@@ -142,7 +144,7 @@ export function PersonCell({
     if ((next?.id ?? null) === (shown?.id ?? null)) return;
     startTransition(async () => {
       showOptimistic(next);
-      const result = await settle(
+      const result = await trackedSave(
         () => setWorkItemPerson({ itemId, field, profileId: next?.id ?? null }),
         "That change did not save — check your connection."
       );
@@ -246,13 +248,14 @@ export function ComponentCell({
   onToast: Toast;
 }) {
   const router = useRouter();
+  const trackedSave = useTrackedSave();
   const [pending, startTransition] = useTransition();
   const [shown, showOptimistic] = useOptimistic<readonly ComponentRef[]>(tagged);
 
   function choose(next: ComponentRef[]) {
     startTransition(async () => {
       showOptimistic(next);
-      const result = await settle(
+      const result = await trackedSave(
         () => setWorkItemComponents({ itemId, componentIds: next.map((component) => component.id) }),
         "That change did not save — check your connection."
       );
@@ -297,6 +300,7 @@ export function HoursCell({
   onToast: Toast;
 }) {
   const router = useRouter();
+  const trackedSave = useTrackedSave();
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState(90);
   const [estimate, setEstimate] = useState(() => (estimateMinutes / 60).toFixed(1));
@@ -306,7 +310,7 @@ export function HoursCell({
   function log(close: () => void) {
     close();
     startTransition(async () => {
-      const result = await settle(
+      const result = await trackedSave(
         () => logTime({ itemId, minutes: draft, workedOn: today }),
         "That time did not save — check your connection."
       );
@@ -325,7 +329,7 @@ export function HoursCell({
     const minutes = Math.round(value * 60);
     if (minutes === estimateMinutes) return;
     startTransition(async () => {
-      const result = await settle(
+      const result = await trackedSave(
         () => setWorkItemFields({ itemId, estimateMinutes: minutes }),
         "That estimate did not save — check your connection."
       );
@@ -446,6 +450,7 @@ export function DeadlineCell({
   onToast: Toast;
 }) {
   const router = useRouter();
+  const trackedSave = useTrackedSave();
   const [pending, startTransition] = useTransition();
   const [shown, showOptimistic] = useOptimistic(deadline);
 
@@ -454,7 +459,7 @@ export function DeadlineCell({
     if (next === shown) return;
     startTransition(async () => {
       showOptimistic(next);
-      const result = await settle(
+      const result = await trackedSave(
         () => setWorkItemFields({ itemId, deadline: next }),
         "That deadline did not save — check your connection."
       );
@@ -525,6 +530,7 @@ export function TypeCell({
   onToast: Toast;
 }) {
   const router = useRouter();
+  const trackedSave = useTrackedSave();
   const [pending, startTransition] = useTransition();
   const [shown, showOptimistic] = useOptimistic(type);
 
@@ -533,7 +539,7 @@ export function TypeCell({
     if (next === shown) return;
     startTransition(async () => {
       showOptimistic(next);
-      const result = await settle(
+      const result = await trackedSave(
         () => setWorkItemFields({ itemId, type: next }),
         "That change did not save — check your connection."
       );
@@ -592,6 +598,7 @@ export function GroupingCell({
   onToast: Toast;
 }) {
   const router = useRouter();
+  const trackedSave = useTrackedSave();
   const [pending, startTransition] = useTransition();
   const [shown, showOptimistic] = useOptimistic(grouping);
   const [draft, setDraft] = useState(grouping === null ? "" : String(grouping));
@@ -607,7 +614,7 @@ export function GroupingCell({
     if (next === shown) return;
     startTransition(async () => {
       showOptimistic(next);
-      const result = await settle(
+      const result = await trackedSave(
         () => setWorkItemFields({ itemId, grouping: next }),
         "That grouping did not save — check your connection."
       );

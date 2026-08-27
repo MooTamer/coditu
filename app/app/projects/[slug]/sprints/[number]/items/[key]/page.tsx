@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { ItemDetailBody } from "@/components/app/item-detail";
+import { BackToPeek } from "@/components/app/back-to-peek.client";
 import { ItemRealtime } from "@/components/app/realtime.client";
+import { RecordVisit } from "@/components/app/record-visit.client";
 import { listFavouritedTargets } from "@/lib/data/favourites";
 import { getWorkItemRevisions } from "@/lib/data/revisions";
 import { Mono } from "@/components/coditu/mono";
@@ -68,14 +70,27 @@ export default async function ItemPage({
       {/* The sprint is not rendered underneath this one, so nothing else is
           listening for the story changing. The modal does not need it. */}
       <ItemRealtime workItemId={item.id} />
+      <RecordVisit
+        href={`/app/projects/${slug}/sprints/${number}/items/${item.key}`}
+        label={`${item.key} ${item.title}`}
+        glyph="COD"
+      />
       <Reveal tier="section" as="header" className="flex flex-wrap items-center gap-3">
         <Link
           href={`/app/projects/${slug}/sprints/${number}`}
-          className="flex h-[34px] items-center gap-2 rounded-control border border-[var(--hairline-strong)] px-3 text-[13.5px] hover:bg-[var(--raised)]"
+          className="flex min-h-11 items-center gap-2 rounded-control border border-[var(--hairline-strong)] px-3 text-[13.5px] hover:bg-[var(--raised)]"
         >
           <ArrowLeft size={14} strokeWidth={2} aria-hidden />
           {item.sprint.name}
         </Link>
+
+        {/* The prototype's second `toggleFull` label. Not a link: the peek and
+            this page are the SAME URL, so getting back into the peek means
+            being on the sprint first. See `back-to-peek.client.tsx`. */}
+        <BackToPeek
+          itemHref={`/app/projects/${slug}/sprints/${number}/items/${item.key}`}
+          className="hidden min-h-11 items-center gap-2 rounded-control border border-[var(--hairline)] px-3 text-[13px] text-[var(--ink-muted)] hover:bg-[var(--raised)] hover:text-[var(--ink)] disabled:opacity-60 md:inline-flex"
+        />
         <Mono size="key" className="text-[var(--accent)]">
           {item.key}
         </Mono>
