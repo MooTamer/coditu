@@ -555,7 +555,7 @@ Branch `visual-conformance`, from `origin/main` at `b63f4c7`.
 | **V-C8** | Export removed from the global topbar, added to the sprint header beside Sprint notes | Browser at 1440: `topbarHasExport: false`, `pageHasExport: true`. `a11y.spec.ts › axe: the export dialog` passes against the new location |
 | **V-C9** | Topbar is `min-height: 56px` and wraps, not a fixed 60 | Served CSS carries `--topbar-h: 56px` |
 | **V-C10** | `--tint` exists in both themes at the design's values and is used across the shell | Computed: `--tint: #0b0e1409` light. 27 content-level `--canvas` hovers are **left, deliberately** — see Outstanding |
-| **V-D4a** | Board is one horizontally scrolling row at every width; columns `minmax(264px,1fr)`, gap 12px | Source; **not yet measured in the browser** — see Outstanding |
+| **V-D4a** | Board is one horizontally scrolling row at every width; columns `minmax(264px,1fr)`, gap 12px | Source; **still not measured in the browser** — the board is out of this batch's scope |
 | **V-D6 / V-D7** | Table→cards moves from a 900px *container* query to the design's 768px *viewport*. The sticky Task column is exercised for the first time | Browser at 834: `tableVisible: true`, `stickyPos: sticky`, `cardsVisible: 0`, `overflow: false` |
 | **V-E2** | Bottom bar carries the design's five destinations | Measured at 320: five tabs at 64px each, `truncated: false` on all five, no overflow. The "five would truncate" note this replaced was never measured |
 | **Locked 3** | Export in the sprint header only | as V-C8 |
@@ -576,6 +576,8 @@ Ordered as the plan orders them. Every one is still a gap.
 | **V-D8 – V-D11** | My work, People and Projects as database-style tables; People's six sections; the Projects list/cards toggle |
 | **V-F1** | Recovery Centre structure. **The truthful copy is untouched and must stay that way** — the four-card header may be adopted, none of the prototype's values may be |
 | ~~**V-G7, routes**~~ | **Closed, and it was never open.** The per-route counts were an artefact of measuring without a coarse pointer — see the struck section above. The repaired aggregate sweep is green on all 21 routes. |
+| ~~**V-B1 – V-B8**~~ | **Done** — see the sixth pass below. |
+| ~~**V-C2 – V-C6**~~ | **Done** — see the sixth pass below. |
 | **Phase 9** | Editor, mention, slash, presence, empty, loading, offline and failure states in their designed placements |
 | **`--tint` sweep** | 27 files still hover with `--canvas`. Left because it is a 27-file visual change I could not verify in one pass, not because it is right |
 
@@ -615,3 +617,68 @@ The plan lists twelve checks. These have **not** been run:
   was neither of the above: it was a **real regression introduced by this branch** — the burn-up
   `<summary>` at 308×17 — recorded at the time as a pre-existing gap, which it was not.
   Fixed; see the struck V-G7 section.
+
+
+---
+
+# Sixth pass — Workspace Home and the shell, 2026-08-27
+
+Branch `visual-conformance`, `e5097e3`. **Visual conformance is still NOT complete** — this
+batch was V-B1 – V-B8 and V-C2 – V-C6 only, and the rows the Fifth pass lists as outstanding
+below those are untouched.
+
+## Rows closed, with the measurement
+
+| Row | What it is now | Evidence |
+|---|---|---|
+| **V-B1** | Quick actions beside the greeting: New story `n`, Sprint notes `N`, Open sprint `s`, Log time `t` | `e2e/home-shell.local.spec.ts` asserts all three visible controls. Every key is **bound**, and the listener stands down inside `input`, `textarea`, `select` and `contenteditable`, and on any modifier |
+| **V-B2** | The sprint goal is the first of the card's three columns, `max-w-[44ch]` | same spec — `Goal` visible at 1440 |
+| **V-B3** | 10px stacked status bar, one span per status by share, with a legend | same spec — `role="img"` whose label names every slice and its count |
+| **V-B4** | Per-person load bars: initials, 5px track, hours | Share of the sprint's **logged** time, which is the only honest comparison between those two numbers — not of a capacity nobody set |
+| **V-B5** | The 320px right column: Online now, Recently opened, Activity | Measured at 1440: `grid-template-columns: 761px 320px`. `e2e/home-shell.local.spec.ts` asserts two tracks ending `320px` at 1920/1440/1180 and one column at 1024/834/768/390/320 |
+| **V-B6** | My work is three tabs — Assigned / Reviewing / Due this sprint — with counts | same spec — `getByRole("tab")` is exactly 3. "Due this sprint" is the assigned rows filtered by the sprint's own `endsOn`, compared as ISO calendar strings (invariant 5), so it adds no query |
+| **V-B7** | Home `h1` is 26px / `-0.024em` | Measured: `h1Size: "26px"` |
+| **V-B8** | Mentions rows unchanged; the card moved into the left column | Not a change — recorded so the row is not read as done work |
+| **V-C2** | `Search or run` + `⌘K` at the top of the sidebar | same spec. Dispatches the event the topbar's palette already listens for — `⌘K`, the phone's Search tab and this are one dialog and one piece of state |
+| **V-C3** | `Trash` and `Workspace settings` in the rail footer | same spec. **Admin-only**, because both routes are: `/app/settings` redirects a lead and `/app/trash` is admin-gated at the database |
+| **V-C4** | `workspace · N members` under the name | same spec, against a live count from the profiles the shell already reads |
+| **V-C5** | A jade presence dot on your own face in the rail | The one presence fact a component can know without a socket. Teammates' dots are on Home, where a channel is actually subscribed |
+| **V-C6** | The 768–1179 overlay drawer | `e2e/home-shell.local.spec.ts` — opens from the topbar hamburger, `x = 0`, `width = 320`, closes on Escape. Built on the existing `DialogShell` with a new `drawer` variant, so there is one focus trap and one scroll lock |
+| **V-G7** | `summary` added to the coarse-pointer 44px floor | `e2e/touch-targets.local.spec.ts` — **1 passed**, 21 routes aggregated. And the canonical `e2e/mobile.spec.ts:357` now passes on all three browser projects |
+
+## Verification actually run for this batch
+
+| Check | Result |
+|---|---|
+| `tsc --noEmit` | clean |
+| `eslint app components e2e` | clean |
+| `vitest run` | **451 passed**, 33 files |
+| `git diff --check` | clean |
+| **Bundle budgets** | `npm run budgets` → **OK**. App shell **219.1 KB of §5's 220** own+total; marketing 153.7/130 with a 140.0 KB framework floor. **0.9 KB of headroom — down from 1.4.** Worth knowing before the next client component |
+| **1920 / 1440 / 1180 / 1024 / 834 / 768 / 390 / 320** | `home-shell.local.spec.ts` — **2 passed** (light and dark), asserting per band: no horizontal overflow, the right grid, the right navigation, and the breadcrumb trail present |
+| **Light and dark** | as above, and the palettes were already verified token-for-token in the fourth pass |
+| **200% zoom, keyboard, thirteen-width overflow, axe every route** | `e2e/a11y.spec.ts` + `e2e/navigation.spec.ts` → **29 passed, 1 skipped, 0 failed** (the skip is `@prod`, which needs a production URL) |
+| **Safe areas, sheets, coarse pointer, 16px fields** | `e2e/mobile.spec.ts`, all three projects → **60 passed, 0 failed** |
+| **Lead, Engineer and Client boundaries** | `e2e/access.spec.ts` + `e2e/client-boundary.spec.ts` + `e2e/team.spec.ts` → **19 passed, 0 failed** |
+| **Aggregate coarse-pointer sweep** | **1 passed**, 21 routes, real `hasTouch` + `isMobile` |
+
+No database reset was run and none was needed for any of the above.
+
+## Two things measured that contradicted a reasonable assumption
+
+- **`md:flex min-[1180px]:hidden` put the drawer's hamburger on a 1920px screen**, beside a fully
+  labelled sidebar. Two utilities from different breakpoint families do not order the way reading
+  them suggests. Both that range and Home's two-column grid are plain rules in `globals.css` now,
+  on attributes React sets — the same remedy the sidebar's own two states already use, and for the
+  same reason.
+- **Both CSS changes needed a `.next` wipe to appear at all.** The served stylesheet had zero
+  `--tint`, zero `summary:not([data-dense])` and zero `[data-home-grid]` while the source had each.
+  `07-FIELD-NOTES.md` carries the trap and its one-command check; it has now caught it three times
+  in this branch.
+
+## Still outstanding after this batch
+
+Unchanged from the Fifth pass, minus the rows above: the sprint's saved views and sort panel, the
+database-style Projects / My work / People layouts, the Recovery Centre's structure, Phase 9's
+editor and reliability states, the truthful idle save chip, and the 27 content-level `--canvas`
+hovers. The board's column geometry (V-D4a) is in the source but has not been measured in a browser.
