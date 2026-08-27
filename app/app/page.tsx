@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PageShell } from "@/components/app/page-shell";
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
@@ -88,7 +89,7 @@ export default async function WorkspaceHomePage() {
   const left = sprint ? daysRemaining(sprint.endsOn) : null;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-5 px-4 py-6 sm:px-6">
+    <PageShell measure="home">
       <Reveal tier="section">
         <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
           {todayLabel()}
@@ -302,7 +303,7 @@ export default async function WorkspaceHomePage() {
           ) : null}
         </Reveal>
       </div>
-    </div>
+    </PageShell>
   );
 }
 

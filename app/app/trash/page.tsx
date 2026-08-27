@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PageShell } from "@/components/app/page-shell";
 import { TrashRow } from "@/components/app/trash-row.client";
 import { Mono } from "@/components/coditu/mono";
 import { Reveal } from "@/components/motion/reveal";
@@ -61,7 +62,7 @@ export default async function TrashPage({
     : all;
 
   return (
-    <div className="mx-auto flex w-full max-w-[880px] flex-col gap-5 px-4 py-6 sm:px-6">
+    <PageShell measure="trash">
       <Reveal tier="section">
         <h1 className="text-[22px] font-medium tracking-[-0.01em] text-[var(--ink)]">Trash</h1>
         <p className="mt-1 max-w-[62ch] text-[13.5px] text-[var(--ink-muted)]">
@@ -167,7 +168,7 @@ export default async function TrashPage({
           </ul>
         )}
       </Reveal>
-    </div>
+    </PageShell>
   );
 }
 

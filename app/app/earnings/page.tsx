@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { ArrowRight } from "lucide-react";
 
+import { PageShell } from "@/components/app/page-shell";
 import { MyEarnings } from "@/components/app/my-earnings";
 import { MyEarningsHistory } from "@/components/app/my-earnings-history";
 import { Mono } from "@/components/coditu/mono";
@@ -66,7 +67,7 @@ export default async function EarningsPage() {
   if (mine) after(() => refreshStoredRate(supabase, mine.settings));
 
   return (
-    <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+    <PageShell measure="earnings">
       <Reveal tier="section" as="header">
         <h1 className="text-[22px] font-bold tracking-[-0.022em]">My earnings</h1>
         <p className="mt-1 max-w-[68ch] text-[13.5px] text-[var(--ink-muted)]">
@@ -105,6 +106,6 @@ export default async function EarningsPage() {
           everyone on the team reads it · only an admin confirms one
         </Mono>
       </Reveal>
-    </main>
+    </PageShell>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
+import { PageShell } from "@/components/app/page-shell";
 import { AdminSettings } from "@/components/app/admin-settings.client";
 import { Mono } from "@/components/coditu/mono";
 import { Reveal } from "@/components/motion/reveal";
@@ -59,7 +60,7 @@ export default async function Page() {
     .order("starts_on", { ascending: false, nullsFirst: false });
 
   return (
-    <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+    <PageShell measure="settings">
       <Reveal tier="section" as="header">
         <Mono size="eyebrow" className="text-[var(--ink-faint)]">
           admin only · nothing here is per-person
@@ -155,7 +156,7 @@ export default async function Page() {
           />
         </div>
       </Reveal>
-    </main>
+    </PageShell>
   );
 }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PageShell } from "@/components/app/page-shell";
 import { CommentBody } from "@/components/app/comment-body";
 import { RecordVisit } from "@/components/app/record-visit.client";
 import { RevisionHistory } from "@/components/app/revision-history";
@@ -82,7 +83,7 @@ export default async function SprintNotesPage({
   const sprintPath = `/app/projects/${slug}/sprints/${sprintNumber}`;
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-[var(--app-gutter)]">
+    <PageShell measure="notes" innerClassName="gap-6">
       <RecordVisit
         href={`${sprintPath}/notes`}
         label={`Sprint notes — ${sprint.name}`}
@@ -144,6 +145,6 @@ export default async function SprintNotesPage({
           canRestore={canEdit}
         />
       </Reveal>
-    </main>
+    </PageShell>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PageShell } from "@/components/app/page-shell";
 import { ClientMark } from "@/components/app/client-mark";
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { ProjectAdmin, ProjectRowControls } from "@/components/app/project-admin.client";
@@ -56,7 +57,7 @@ export default async function ProjectsPage({
   const shown = projects.filter((project) => matchesProjectFilters(project, filters));
 
   return (
-    <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+    <PageShell measure="projects">
       <Reveal tier="section" as="header">
         <h1 className="text-[22px] font-bold tracking-[-0.022em]">Projects</h1>
         <p className="mt-1 max-w-[68ch] text-[13.5px] text-[var(--ink-muted)]">
@@ -231,7 +232,7 @@ export default async function ProjectsPage({
           </p>
         ) : null}
       </Reveal>
-    </main>
+    </PageShell>
   );
 }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PageShell } from "@/components/app/page-shell";
 import { MarkNotificationsRead } from "@/components/app/mark-read.client";
 import { Mono } from "@/components/coditu/mono";
 import { Reveal } from "@/components/motion/reveal";
@@ -18,7 +19,7 @@ export default async function MyWorkPage() {
   const unread = notifications.filter((notification) => notification.readAt === null);
 
   return (
-    <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+    <PageShell measure="mywork">
       <Reveal tier="section" as="header">
         <h1 className="text-[26px] font-bold tracking-[-0.024em]">My work</h1>
         <p className="mt-2 text-[14.5px] text-[var(--ink-muted)]">
@@ -94,7 +95,7 @@ export default async function MyWorkPage() {
           {unread.length > 0 ? <MarkNotificationsRead count={unread.length} /> : null}
         </section>
       </Reveal>
-    </main>
+    </PageShell>
   );
 }
 

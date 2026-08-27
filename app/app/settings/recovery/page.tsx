@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
+import { PageShell } from "@/components/app/page-shell";
 import { RehearseRecovery } from "@/components/app/rehearse-recovery.client";
 import { Mono } from "@/components/coditu/mono";
 import { ToneChip } from "@/components/coditu/status-chip";
@@ -65,7 +66,7 @@ export default async function RecoveryPage() {
   const latest = runs[0] ?? null;
 
   return (
-    <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+    <PageShell measure="recovery">
       <Reveal tier="section" as="header">
         <Mono size="eyebrow" className="text-[var(--ink-faint)]">
           non-destructive by design · a rehearsal writes nothing back
@@ -220,7 +221,7 @@ export default async function RecoveryPage() {
           </ul>
         )}
       </Reveal>
-    </main>
+    </PageShell>
   );
 }
 

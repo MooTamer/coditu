@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
+import { PageShell } from "@/components/app/page-shell";
 import { AppearanceSettings } from "@/components/app/appearance-settings.client";
 import { AvatarSettings } from "@/components/app/avatar-settings.client";
 import { NameSettings } from "@/components/app/name-settings.client";
@@ -54,7 +55,7 @@ export default async function ProfilePage() {
   const role = profile.role as Role;
 
   return (
-    <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+    <PageShell measure="profile">
       {/* `data-identity` so a spec can scope to this surface rather than to the
           whole page — `07-FIELD-NOTES.md` records why that matters.
 
@@ -303,6 +304,6 @@ export default async function ProfilePage() {
           </form>
         </div>
       </Reveal>
-    </main>
+    </PageShell>
   );
 }
