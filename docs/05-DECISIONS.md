@@ -3966,3 +3966,90 @@ comments and not to itself. `06-PROGRESS.md` records the diagnosis and the two s
 enough — sprint notes during a live review is the plausible one. If that happens, the guard belongs
 in one place: a compare-and-set on the document column inside the existing `UPDATE`, which is atomic
 and needs no schema change. Recorded here so the next person does not have to re-derive it.
+
+---
+
+## Four places the build does not match the returned handoff, named on purpose
+
+**Decided 2026-08-27, during the independent audit.** The audit's completion gate
+says a material divergence from the handoff blocks a merge *without an explicit
+documented decision*. These are the divergences and this is the decision: they
+are recorded, not closed. Each one is a change to a designed surface rather than
+a defect, and the call on whether to build them belongs to whoever is deciding
+what ships, not to an audit tidying up on its way past.
+
+Everything below was read out of the returned prototype's own source, not
+inferred from a screenshot.
+
+### 1. The story peek is the design's FULL state, permanently
+
+`Coditu Workspace.dc.html` carries both states in one object:
+
+```js
+peekJustify: full ? "center"                       : "flex-end",
+peekWidth:   full ? (narrow ? "100%" : "min(1080px, 94vw)")
+                  : "min(620px, 96vw)",
+peekMargin:  full ? (narrow ? "0" : "24px")        : "0",
+```
+
+`flex-end` at `min(620px, 96vw)` with no margin is the side peek — a panel
+docked to the right edge. `center` at `min(1080px, 94vw)` with a 24px margin is
+what you get after pressing the toggle.
+
+`DialogShell` is `justify-center` at `maxWidth: 1080` and has no other state, so
+Coditu ships the second one and only the second one. It is a correct, focus-
+trapped, scroll-locked, responsive dialog — it is not a side peek, and the
+handoff names a side peek at three of its five breakpoints.
+
+### 2. There is no way from the peek to the full page
+
+The prototype has `toggleFull`, and the label reads `Open as full page` or
+`Back to side peek` depending on which state it is in. Coditu's modal has a
+close button; `item-detail.spec.ts` asserts exactly that, and that the FULL page
+is the one with a way back. Follows from 1: with only one state there is nothing
+to toggle to.
+
+### 3. The topbar carries neither presence nor a save chip
+
+The handoff's component table: *"56px topbar carries breadcrumbs, surface
+presence, save chip, theme, search, New."* Coditu's carries breadcrumbs, search,
+theme, Export and New item. Presence exists and is good — `item-presence.client.tsx`
+names the surface, *"editing the description"*, exactly as the handoff asks — but
+it lives on the story rather than in the shell.
+
+### 4. The save-confidence vocabulary is not on screen
+
+The handoff names five states: `Draft saved → Sending… → Saved (after
+acknowledgement) → Offline, will retry → Failed, draft kept`. Only `Sending…`
+exists, on the client reply composer.
+
+**The behaviour underneath it is real and proven**, which is why this is fourth
+and not first. `e2e/reliable-writes.spec.ts` holds that a submission arriving
+twice happens once, that a comment whose response was lost is not posted a
+second time, and that time logged twice over is logged once. A failed publish
+answers *"That change did not save. Nothing was lost — try again."* What is
+missing is the shared chip that says which of the five states you are in,
+everywhere, in the same words.
+
+### Why none of them is being built now
+
+- Each is a designed surface, not a bug. Building 1 and 2 means a docked panel
+  with its own focus, scroll and responsive behaviour, in `DialogShell`, which
+  the New item dialog also uses — and eight specs assert the current shape.
+- `CLAUDE.md`: *do not add features that are not in the brief. Restraint is the
+  design.* The handoff is a design bundle; on **behaviour** the brief wins, and
+  the brief never asked for a save chip or a docked peek.
+- Every one of them is additive. None is load-bearing for correctness, none
+  touches the client boundary, earnings, or recoverability, and none blocks the
+  migration.
+
+### What conforms, checked the same way
+
+The breakpoints are exact — `rail.client.tsx` is 268px with labels at ≥1180,
+64px icons below, gone below 768 where the bottom bar takes over, which is the
+handoff's table line for line. The status chip labels are the handoff's own
+words, `in progress · peer review · in qa · changes req. · ready · draft ·
+blocked · done`. The command palette is `max-w-[620px]`, which is the
+prototype's number. The typing indicator names the surface. The bottom bar keeps
+its four destinations and a More sheet, reading the same predicate list the rail
+does, so both agree on what is current.

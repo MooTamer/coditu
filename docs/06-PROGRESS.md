@@ -4107,3 +4107,65 @@ definition in force. Robust to this consolidation and to the next one.
 Every other reference to a deleted filename is a comment recording when a
 decision was made — in `06-PROGRESS.md`, `05-DECISIONS.md`, `lib/`, and two
 pgTAP files. Those are left exactly as they are. They are history, not paths.
+
+### The gate, run twice from scratch, and the one thing it does not run
+
+Two consecutive full serial runs, each from its own `db:reset`:
+
+| | run 1 | run 2 |
+|---|---|---|
+| passed | **628** | **628** |
+| skipped | 7 | 7 |
+| failed | **0** | **0** |
+| wall clock | 19.0m | 19.0m |
+
+628 is the recorded 622 plus the six this audit added — two specs across three
+Playwright projects.
+
+The rest of the gate, all after the consolidation: `git diff --check` clean,
+`lint` clean, `typecheck` clean, `test` **416**, `db:test` **406**, `db:types`
+no diff, `budgets` **OK** (marketing 13.6/20 own, app shell 76.1/110 own and
+216.1/220 total), `degraded` **OK**.
+
+`lighthouse` **Performance 94 against a threshold of 95** — median of 95, 94, 93,
+with Accessibility, Best Practices and SEO at 100. §14 has recorded this as a
+decision since step 14 and the number has moved the right way: it was 92.
+Measured LCP is **1036 ms** against §5's 2000 ms; the failing figure is Lantern's
+simulated 3074 ms, which is the framework critical path.
+
+`components:check` reports the registry seed **stale** — one new component,
+`Redaktionskalender`, and two gone, `Anfrage` and `Redakteurkalender`. That is
+the delivery repository moving, not this branch: nothing in this audit touched
+`supabase/seeds/components.sql` or the sync script, and the script's own advice
+for a removal is to archive it in the app so it keeps its history. Left alone.
+
+### A 329 KB editor chunk that readers were being sent
+
+Found by running the two specs the routine gate never runs. Both skip without
+`E2E_PROD_URL`, and `npm run e2e:prod` is not in the gate — so
+`comments.spec.ts`'s *"the editor bundle is not shipped to a reader who never
+composes"* had not executed in a long time. It fails.
+
+Measured on a real production build, on a story's full page, signed in as
+somebody who never opens the composer: **one chunk of 329,083 bytes containing
+`prosemirror-model` and `prosemirror-view` is fetched.** It is not in the
+document's preload links, so something in the graph is asking for it.
+
+**It is not this audit's doing.** Removing `ItemRealtime` and rebuilding fails
+identically, and nothing else committed here touches the client bundle.
+`05-DECISIONS.md` records this check being strengthened to read chunk bodies,
+and `06-PROGRESS.md` records it passing **1/1** under `e2e:prod` when it was
+written, so it regressed somewhere between then and `0a7670e`.
+
+What was *not* established is the cause. All five editor call sites are behind
+`next/dynamic` and `lib/blocks/schema` pulls no TipTap, so the source-level
+splitting is right; the plausible remaining explanation is that a module-scope
+`dynamic()` is preloaded on hydration under Turbopack, where it once waited for
+render. That is a hypothesis, not a finding — it was not tested, and it should
+be, because if it holds the fix is to gate the import on interaction rather than
+declare it at module scope.
+
+Left as a named, measured regression rather than a rushed bundling change at the
+end of an audit. The honest summary is: correctness and security are unaffected,
+a reader of a story page downloads 329 KB they do not need, and the guard that
+catches it needs to be in the routine gate so it cannot go quiet again.
