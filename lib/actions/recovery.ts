@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { RECOVERY_CHECKS } from "@/lib/recovery";
+import { isMissingRelation } from "@/lib/supabase/schema";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 
 /**
@@ -61,7 +62,7 @@ export async function rehearseRecovery(input: unknown): Promise<RehearsalResult>
     if (error.code === "42501") {
       return { ok: false, error: "Only an admin can rehearse a recovery." };
     }
-    if (error.code === "42883" || error.code === "42P01") {
+    if (isMissingRelation(error.code)) {
       // The migration has not reached this database. Says so, rather than
       // "something went wrong" — this is the one failure a reader can act on.
       return {

@@ -39,6 +39,81 @@ export function isMissingColumn(code: string | undefined): boolean {
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The same asymmetry, one level up: the answers a database gives when it does
+ * not have a **table** yet.
+ *
+ * The block above records that a missing *column* fails two different ways —
+ * `42703` from Postgres on a read, `PGRST204` from PostgREST's cache on a
+ * write. A missing *table* does exactly the same thing and it took an outage of
+ * its own to notice.
+ *
+ * Nine call sites guarded on `42P01` alone, which is Postgres's
+ * `undefined_table`. **PostgREST never lets that request reach Postgres.** It
+ * resolves the table against its own cached schema first, and when the table is
+ * not in that cache it answers `PGRST205` — so a guard written for `42P01` is a
+ * guard that does not fire, and the read that was supposed to degrade to `[]`
+ * throws a 500 instead.
+ *
+ * This is not hypothetical and it is not only about a fresh checkout.
+ * `07-FIELD-NOTES.md` records that **PostgREST caches the schema and does not
+ * notice a migration on its own**, and this project's migrations reach
+ * production by hand. So the window between `supabase db push` and PostgREST
+ * reloading is a window in which every new table answers `PGRST205` — which is
+ * precisely the "code reached production ahead of its schema" case these guards
+ * exist for, arriving through the one code they did not name.
+ *
+ * Found by reading the dev server's own log after a suite run: 44 ×
+ * `Could not find the table 'public.recent_views' in the schema cache`,
+ * 21 × the same for `public.pages`, and 8 × `PGRST200` for a relationship
+ * between two of them.
+ */
+
+/** Postgres `undefined_table`. What a query against a missing table returns. */
+export const UNDEFINED_TABLE = "42P01";
+
+/** Postgres `undefined_function`. A missing RPC — same deployment-order case. */
+export const UNDEFINED_FUNCTION = "42883";
+
+/** PostgREST's schema cache refusing a table it does not know. */
+export const UNKNOWN_TABLE_IN_CACHE = "PGRST205";
+
+/**
+ * PostgREST's schema cache refusing an EMBED whose foreign key it does not
+ * know. A select like `page:pages ( title )` fails this way when `pages` is
+ * new — the table may even be in the cache while the relationship is not.
+ */
+export const UNKNOWN_RELATIONSHIP_IN_CACHE = "PGRST200";
+
+/**
+ * PostgREST could not build its schema cache at all and is retrying.
+ *
+ * Transient, and it means the same thing to a reader: the API cannot answer
+ * about this table yet. Degrading is the right response — an empty history
+ * panel for a second beats a 500.
+ */
+export const SCHEMA_CACHE_UNAVAILABLE = "PGRST002";
+
+/**
+ * Any way of being told the table, function or relationship is not there yet.
+ *
+ * Deliberately broader than `isMissingColumn`: that one is two codes for one
+ * column with an end date, this one is the general "the schema has not caught
+ * up with the code" answer, and every reader that degrades to an empty list
+ * wants all of it.
+ */
+export function isMissingRelation(code: string | undefined): boolean {
+  return (
+    code === UNDEFINED_TABLE ||
+    code === UNDEFINED_FUNCTION ||
+    code === UNKNOWN_TABLE_IN_CACHE ||
+    code === UNKNOWN_RELATIONSHIP_IN_CACHE ||
+    code === SCHEMA_CACHE_UNAVAILABLE
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
 /** Postgres `unique_violation`. */
 export const UNIQUE_VIOLATION = "23505";
 

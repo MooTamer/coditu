@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import { OUTSIDE } from "@/lib/history-filters";
 import { createClient } from "@/lib/supabase/server";
-import { isMissingColumn } from "@/lib/supabase/schema";
+import { isMissingColumn, isMissingRelation } from "@/lib/supabase/schema";
 import type { PersonRef } from "@/lib/data/sprint";
 
 /**
@@ -36,7 +36,8 @@ export type RevisionSurface =
   | "work_item_highlight"
   | "sprint_notes"
   | "acceptance_criterion"
-  | "comment";
+  | "comment"
+  | "page";
 
 export interface RevisionEntry {
   id: string;
@@ -45,6 +46,16 @@ export interface RevisionEntry {
   revisionNo: number;
   actor: PersonRef | null;
   plainText: string | null;
+  /**
+   * The block document as it stood after this change.
+   *
+   * Read only on the server, and only by `lib/block-diff.ts` — it is what makes
+   * a formatting-only revision able to say *which* formatting. It is not sent
+   * to the browser: the diff is rendered to HTML before it leaves.
+   */
+  doc: unknown;
+  /** The block document of the version before this one, for the same reason. */
+  previousDoc: unknown;
   /** The revision this one was restored from, or null for an ordinary edit. */
   restoredFrom: number | null;
   createdAt: string;
@@ -74,6 +85,8 @@ export function surfaceLabel(surface: RevisionSurface): string {
       return "Acceptance criterion";
     case "comment":
       return "Comment";
+    case "page":
+      return "Page";
   }
 }
 
@@ -83,13 +96,14 @@ interface RevisionRow {
   entity_id: string;
   revision_no: number;
   plain_text: string | null;
+  doc: unknown;
   restored_from: number | null;
   created_at: string;
   actor: { id: string; full_name: string; initials: string; avatar_url: string | null } | null;
 }
 
 const REVISION_SELECT =
-  "id, surface, entity_id, revision_no, plain_text, restored_from, created_at, " +
+  "id, surface, entity_id, revision_no, plain_text, doc, restored_from, created_at, " +
   "actor:profiles!document_revisions_actor_id_fkey ( id, full_name, initials, avatar_url )";
 
 /**
@@ -119,10 +133,11 @@ export const getWorkItemRevisions = cache(
       .limit(limit);
 
     if (error) {
-      // `42P01` is "no such table" — the migration has not reached this
-      // database. `isMissingColumn` covers the column-shaped version of the
-      // same deployment-order problem.
-      if (error.code === "42P01" || isMissingColumn(error.code)) return [];
+      // The migration has not reached this database — or, just as often,
+      // PostgREST has not reloaded its schema cache since it did.
+      // `isMissingRelation` covers both, and `isMissingColumn` the
+      // column-shaped version of the same deployment-order problem.
+      if (isMissingRelation(error.code) || isMissingColumn(error.code)) return [];
       throw error;
     }
 
@@ -177,19 +192,20 @@ export const getWorkItemRevisions = cache(
     // the rows are newest first, so walking from the oldest and remembering the
     // last text seen per document gives every row its predecessor. Searching
     // forward from each row instead would be quadratic for no gain.
-    const previousByRow = new Map<string, { text: string | null; known: boolean }>();
-    const latestSeen = new Map<string, string | null>();
+    const previousByRow = new Map<string, { text: string | null; doc: unknown; known: boolean }>();
+    const latestSeen = new Map<string, { text: string | null; doc: unknown }>();
     for (let i = rows.length - 1; i >= 0; i -= 1) {
       const row = rows[i];
       const document = `${row.surface}:${row.entity_id}`;
       previousByRow.set(row.id, {
-        text: latestSeen.get(document) ?? null,
+        text: latestSeen.get(document)?.text ?? null,
+        doc: latestSeen.get(document)?.doc ?? null,
         // Either the predecessor is in this window, or this is version 1 and
         // there is genuinely nothing before it. Otherwise it fell off the end
         // of the page and we must not pretend the document started empty.
         known: latestSeen.has(document) || row.revision_no === 1,
       });
-      latestSeen.set(document, row.plain_text);
+      latestSeen.set(document, { text: row.plain_text, doc: row.doc });
     }
 
     return rows.map((row) => ({
@@ -198,9 +214,11 @@ export const getWorkItemRevisions = cache(
       entityId: row.entity_id,
       revisionNo: row.revision_no,
       plainText: row.plain_text,
+      doc: row.doc,
       restoredFrom: row.restored_from,
       createdAt: row.created_at,
       previousText: previousByRow.get(row.id)?.text ?? null,
+      previousDoc: previousByRow.get(row.id)?.doc ?? null,
       previousKnown: previousByRow.get(row.id)?.known ?? false,
       actor: row.actor
         ? {
@@ -211,6 +229,121 @@ export const getWorkItemRevisions = cache(
           }
         : null,
     }));
+  }
+);
+
+/**
+ * Every version of one sprint's notes, newest first.
+ *
+ * Same shape as `getPageRevisions` and for the same reason: one document, so
+ * the predecessor is the next row along and no stitching map is needed.
+ *
+ * Scoped by `sprint_id` **and** surface. `sprint_id` alone would be right today
+ * — nothing else is stamped with it — and would silently start returning
+ * something else the first time another surface is scoped to a sprint.
+ */
+export const getSprintRevisions = cache(
+  async (sprintId: string, limit = 40): Promise<RevisionEntry[]> => {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("document_revisions")
+      .select(REVISION_SELECT)
+      .eq("sprint_id", sprintId)
+      .eq("surface", "sprint_notes")
+      .order("revision_no", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      if (isMissingRelation(error.code) || isMissingColumn(error.code)) return [];
+      throw error;
+    }
+
+    const rows = (data ?? []) as unknown as RevisionRow[];
+
+    return rows.map((row, index) => {
+      const previous = rows[index + 1];
+      return {
+        id: row.id,
+        surface: row.surface,
+        entityId: row.entity_id,
+        revisionNo: row.revision_no,
+        plainText: row.plain_text,
+        doc: row.doc,
+        restoredFrom: row.restored_from,
+        createdAt: row.created_at,
+        previousText: previous?.plain_text ?? null,
+        previousDoc: previous?.doc ?? null,
+        previousKnown: Boolean(previous) || row.revision_no === 1,
+        actor: row.actor
+          ? {
+              id: row.actor.id,
+              fullName: row.actor.full_name,
+              initials: row.actor.initials,
+              avatarUrl: row.actor.avatar_url,
+            }
+          : null,
+      };
+    });
+  }
+);
+
+/**
+ * Every version of one page, newest first.
+ *
+ * The third scope, beside `getWorkItemRevisions` (a story) and `listRevisions`
+ * (the workspace). A separate function rather than a parameter, for the reason
+ * the other two are separate: this one is read on every page view and must not
+ * carry `/app/history`'s joins onto that path.
+ *
+ * There is no withdrawn-comment allowlist here because a page has no comments —
+ * `surface = 'page'` is the only thing `page_id` can be set on.
+ */
+export const getPageRevisions = cache(
+  async (pageId: string, limit = 40): Promise<RevisionEntry[]> => {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("document_revisions")
+      .select(REVISION_SELECT)
+      .eq("page_id", pageId)
+      .order("revision_no", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      if (isMissingRelation(error.code) || isMissingColumn(error.code)) return [];
+      throw error;
+    }
+
+    const rows = (data ?? []) as unknown as RevisionRow[];
+
+    return rows.map((row, index) => {
+      // Ordered by `revision_no desc` on one document, so the predecessor is
+      // simply the next row along — no stitching map needed, unlike the two
+      // mixed-document readers.
+      const previous = rows[index + 1];
+      return {
+        id: row.id,
+        surface: row.surface,
+        entityId: row.entity_id,
+        revisionNo: row.revision_no,
+        plainText: row.plain_text,
+        doc: row.doc,
+        restoredFrom: row.restored_from,
+        createdAt: row.created_at,
+        previousText: previous?.plain_text ?? null,
+        previousDoc: previous?.doc ?? null,
+        previousKnown: Boolean(previous) || row.revision_no === 1,
+        actor: row.actor
+          ? {
+              id: row.actor.id,
+              fullName: row.actor.full_name,
+              initials: row.actor.initials,
+              avatarUrl: row.actor.avatar_url,
+            }
+          : null,
+      };
+    });
   }
 );
 
@@ -235,21 +368,42 @@ export interface RevisionListEntry extends RevisionEntry {
   target: RevisionTarget | null;
 }
 
+/** What an action is, in the words `/app/history` uses. */
+export type RevisionAction = "created" | "edited" | "restored";
+
+/** Everything that can narrow `/app/history`. Every field is optional and additive. */
+export interface RevisionQuery {
+  surfaces?: RevisionSurface[];
+  /** Initials, or the reserved `outside` token. */
+  actors?: string[];
+  /** Free text, matched against the flattened projection. */
+  q?: string;
+  projectIds?: string[];
+  /** `YYYY-MM-DD`, inclusive, read as a calendar date in Africa/Cairo. */
+  from?: string;
+  /** `YYYY-MM-DD`, inclusive. */
+  to?: string;
+  actions?: RevisionAction[];
+}
+
 interface ListRow extends RevisionRow {
   work_item_id: string | null;
   sprint_id: string | null;
+  page_id: string | null;
   work_item: {
     key: string;
     sprint: { number: number; project: { slug: string } | null } | null;
   } | null;
   sprint: { number: number; name: string; project: { slug: string } | null } | null;
+  page: { title: string; slug: string; deleted_at: string | null; project: { slug: string } | null } | null;
 }
 
 const LIST_SELECT =
   REVISION_SELECT +
-  ", work_item_id, sprint_id" +
+  ", work_item_id, sprint_id, page_id" +
   ", work_item:work_items ( key, sprint:sprints ( number, project:projects ( slug ) ) )" +
-  ", sprint:sprints ( number, name, project:projects ( slug ) )";
+  ", sprint:sprints ( number, name, project:projects ( slug ) )" +
+  ", page:pages ( title, slug, deleted_at, project:projects ( slug ) )";
 
 /**
  * Every version of every document in the workspace, newest first.
@@ -275,16 +429,69 @@ const LIST_SELECT =
  * outside the app — which is a category this screen offers as a filter.
  */
 export const listRevisions = cache(
-  async (
-    filters: { surfaces?: RevisionSurface[]; actors?: string[] } = {},
-    limit = 80
-  ): Promise<RevisionListEntry[]> => {
+  async (filters: RevisionQuery = {}, limit = 80): Promise<RevisionListEntry[]> => {
     const supabase = await createClient();
 
     let query = supabase.from("document_revisions").select(LIST_SELECT);
 
     if (filters.surfaces?.length) {
       query = query.in("surface", filters.surfaces);
+    }
+
+    /**
+     * Free text, matched against the flattened projection.
+     *
+     * `plain_text` and not `doc`: the tree holds the same words plus a shape
+     * nobody types into a search box, and `20260827120200`'s trigram index is
+     * on the text column. `%` and `_` are escaped — a reader searching for
+     * `100%` must not get every revision in the workspace, and a `like`
+     * metacharacter reaching the database from a URL is the shape of a much
+     * worse bug than that one.
+     *
+     * **A withdrawn comment can match here and still not be returned**, because
+     * the allowlist below drops it after the query. That is the correct order:
+     * the words never leave the database, and a searcher learns nothing from
+     * the absence.
+     */
+    if (filters.q) {
+      const escaped = filters.q.replace(/[\\%_]/g, (c) => `\\${c}`);
+      query = query.ilike("plain_text", `%${escaped}%`);
+    }
+
+    if (filters.projectIds?.length) {
+      query = query.in("project_id", filters.projectIds);
+    }
+
+    // Calendar dates in Africa/Cairo, converted to the instants that bound
+    // them. Invariant 5: a `date` has no timezone and `created_at` is a
+    // `timestamptz`, so the conversion has to happen somewhere — here, once,
+    // rather than in three callers with three answers.
+    if (filters.from) query = query.gte("created_at", startOfCairoDay(filters.from));
+    if (filters.to) query = query.lt("created_at", startOfCairoDay(nextDay(filters.to)));
+
+    /**
+     * The action is derived rather than stored, so it is expressed as the
+     * predicate it is:
+     *
+     * - `created`  — `revision_no = 1`
+     * - `restored` — `restored_from is not null`
+     * - `edited`   — everything else
+     *
+     * The three are mutually exclusive (version 1 cannot be a restore, because
+     * there is nothing earlier to restore), which is what lets two of them be
+     * written as the negation of the third. Selecting all three, or none,
+     * narrows nothing — and says so by adding no clause at all rather than by
+     * building an `or` of everything.
+     */
+    const actions = filters.actions ?? [];
+    if (actions.length === 1) {
+      if (actions[0] === "created") query = query.eq("revision_no", 1);
+      if (actions[0] === "restored") query = query.not("restored_from", "is", null);
+      if (actions[0] === "edited") query = query.gt("revision_no", 1).is("restored_from", null);
+    } else if (actions.length === 2) {
+      if (!actions.includes("created")) query = query.gt("revision_no", 1);
+      else if (!actions.includes("restored")) query = query.is("restored_from", null);
+      else query = query.or("revision_no.eq.1,restored_from.not.is.null");
     }
 
     if (filters.actors?.length) {
@@ -320,7 +527,7 @@ export const listRevisions = cache(
       .limit(limit);
 
     if (error) {
-      if (error.code === "42P01" || isMissingColumn(error.code)) return [];
+      if (isMissingRelation(error.code) || isMissingColumn(error.code)) return [];
       throw error;
     }
 
@@ -346,16 +553,17 @@ export const listRevisions = cache(
     // `previousText` is stitched per document, exactly as the story panel does
     // — but across a mixed window, so two revisions of the same document may be
     // far apart in the list. Keyed by document, which handles both.
-    const previousByRow = new Map<string, { text: string | null; known: boolean }>();
-    const latestSeen = new Map<string, string | null>();
+    const previousByRow = new Map<string, { text: string | null; doc: unknown; known: boolean }>();
+    const latestSeen = new Map<string, { text: string | null; doc: unknown }>();
     for (let i = rows.length - 1; i >= 0; i -= 1) {
       const row = rows[i];
       const document = `${row.surface}:${row.entity_id}`;
       previousByRow.set(row.id, {
-        text: latestSeen.get(document) ?? null,
+        text: latestSeen.get(document)?.text ?? null,
+        doc: latestSeen.get(document)?.doc ?? null,
         known: latestSeen.has(document) || row.revision_no === 1,
       });
-      latestSeen.set(document, row.plain_text);
+      latestSeen.set(document, { text: row.plain_text, doc: row.doc });
     }
 
     return rows.map((row) => ({
@@ -364,9 +572,11 @@ export const listRevisions = cache(
       entityId: row.entity_id,
       revisionNo: row.revision_no,
       plainText: row.plain_text,
+      doc: row.doc,
       restoredFrom: row.restored_from,
       createdAt: row.created_at,
       previousText: previousByRow.get(row.id)?.text ?? null,
+      previousDoc: previousByRow.get(row.id)?.doc ?? null,
       previousKnown: previousByRow.get(row.id)?.known ?? false,
       actor: row.actor
         ? {
@@ -416,5 +626,51 @@ function targetFor(row: ListRow): RevisionTarget | null {
     };
   }
 
+  // A page. Deleted pages resolve to no route rather than to a 404: the row
+  // still renders and still says what changed, it simply offers nowhere to go —
+  // the same choice `previousKnown` makes about the diff, and the same one the
+  // two branches above make when a reader cannot see the project.
+  const page = row.page;
+  if (page && page.deleted_at === null) {
+    return {
+      label: page.title,
+      href: page.project?.slug
+        ? `/app/projects/${page.project.slug}/pages/${page.slug}`
+        : `/app/pages/${page.slug}`,
+      projectSlug: page.project?.slug ?? "",
+      sprintNumber: 0,
+      itemKey: null,
+    };
+  }
+
   return null;
+}
+
+/**
+ * Midnight in Africa/Cairo on a calendar date, as an instant.
+ *
+ * `new Date("2026-08-23")` parses as **UTC** midnight and shows the previous day
+ * in half the world — invariant 5's named trap. Egypt observes DST, so the
+ * offset is not a constant either: it is asked of `Intl` for that specific date
+ * rather than assumed to be +02:00.
+ */
+function startOfCairoDay(isoDate: string): string {
+  // Midday UTC on the date in question is inside the right calendar day in
+  // Cairo whatever the offset is, which makes it a safe probe for the offset.
+  const probe = new Date(`${isoDate}T12:00:00Z`);
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Cairo",
+    timeZoneName: "longOffset",
+  }).formatToParts(probe);
+  const offset = parts.find((part) => part.type === "timeZoneName")?.value ?? "GMT+02:00";
+  const sign = offset.includes("-") ? "-" : "+";
+  const [hours = "02", minutes = "00"] = offset.replace(/^GMT[+-]?/, "").split(":");
+  return new Date(`${isoDate}T00:00:00${sign}${hours.padStart(2, "0")}:${minutes}`).toISOString();
+}
+
+/** The calendar day after this one, as `YYYY-MM-DD`. */
+function nextDay(isoDate: string): string {
+  const date = new Date(`${isoDate}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
 }

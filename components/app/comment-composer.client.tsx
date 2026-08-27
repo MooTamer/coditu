@@ -7,9 +7,12 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, useTransition 
 import { useMounted } from "@/lib/hooks/use-client-state";
 
 import { useToast } from "@/components/app/toast.client";
-import { hasPendingUpload } from "@/components/app/uploading-image.client";
+// From `lib/blocks/uploading.ts`, NOT from `uploading-image.client.tsx`:
+// that module defines a TipTap node view, and importing a helper out of it
+// puts 329 KB of ProseMirror on this page. See that file.
+import { hasPendingUpload } from "@/lib/blocks/uploading";
 import { Mono } from "@/components/coditu/mono";
-import { settle } from "@/lib/action-result";
+import { useSaveReporter, useTrackedSave } from "@/components/app/save-state.client";
 import { useAnnounceSurface } from "@/components/app/presence-surface.client";
 import { postComment } from "@/lib/actions/comments";
 import type { ProfileRef } from "@/lib/data/profiles";
@@ -98,6 +101,8 @@ export function CommentComposer({
   onPending?: (doc: unknown) => void;
 }) {
   const [opened, setOpened] = useState(false);
+  const trackedSave = useTrackedSave();
+  const report = useSaveReporter();
   // Somebody is writing a comment. The stack says so; it never says what.
   useAnnounceSurface(opened ? "comment" : null);
   // null until the editor reports; a restored draft is not empty by definition.
@@ -149,11 +154,18 @@ export function CommentComposer({
       try {
         if (isEmpty) window.localStorage.removeItem(draftKey(itemKey));
         else window.localStorage.setItem(draftKey(itemKey), JSON.stringify(next));
+        // The shared vocabulary, from the surface that already had half of it.
+        // `draft saved` has been in this composer's footer since it was
+        // written; saying it in the topbar as well is what makes it the same
+        // word everywhere rather than this one composer's private caption.
+        report(isEmpty ? "idle" : "draft");
       } catch {
-        // Storage full or blocked. The comment itself still posts.
+        // Storage full or blocked. The comment itself still posts — but the
+        // chip must not claim a draft was saved when it was not.
+        report("idle");
       }
     },
-    [itemKey]
+    [itemKey, report]
   );
 
   const submit = useCallback(() => {
@@ -220,7 +232,7 @@ export function CommentComposer({
       // a second time.
       onPending?.(current);
 
-      const result = await settle(
+      const result = await trackedSave(
         () => postComment({ itemId, doc: current, idempotencyKey: token }),
         "That comment did not save — check your connection."
       );
@@ -241,10 +253,14 @@ export function CommentComposer({
         setReportedEmpty(false);
         setOpened(true);
         setDraftVersion((version) => version + 1);
+        // `trackedSave` already said `failed`; this says the second half of the
+        // handoff's sentence — *"Failed — draft kept"* — is true, because the
+        // draft has just been put back above.
+        report("failed");
         toast(result.error ?? "That comment did not save.");
       }
     });
-  }, [itemId, itemKey, onPending, restored, router, toast]);
+  }, [itemId, itemKey, onPending, report, restored, router, toast, trackedSave]);
 
   if (!active) {
     return (
@@ -298,7 +314,7 @@ export function CommentComposer({
           ⌘⏎ to send · Esc to step away
         </Mono>
         {!empty ? (
-          <Mono size="meta" className="ml-auto text-[var(--ink-faint)]">
+          <Mono size="meta" data-composer-draft className="ml-auto text-[var(--ink-faint)]">
             draft saved
           </Mono>
         ) : null}

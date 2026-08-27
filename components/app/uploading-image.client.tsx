@@ -4,6 +4,8 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
 import { AlertTriangle } from "lucide-react";
 
+import { UPLOADING_IMAGE } from "@/lib/blocks/uploading";
+
 /**
  * The picture you just pasted, before it exists anywhere but in your browser.
  *
@@ -35,7 +37,20 @@ import { AlertTriangle } from "lucide-react";
  * is worse than making them wait two seconds for it.
  */
 
-export const UPLOADING_IMAGE = "uploadingImage";
+/**
+ * `UPLOADING_IMAGE` and `hasPendingUpload` moved to `lib/blocks/uploading.ts`,
+ * and that move is not tidying — it is the fix for a 329 KB regression. Two
+ * ordinary client components on the story page imported `hasPendingUpload` from
+ * here, and this file imports TipTap, so every reader of every story downloaded
+ * the editor. The long version is in that file.
+ *
+ * Re-exported so the node definition below can be read without chasing the
+ * constant, and so nothing that already imports it from here breaks. Anything
+ * that needs only the constant or the predicate must import them from
+ * `lib/blocks/uploading.ts` instead — importing them from here brings TipTap
+ * with them, which is the whole bug.
+ */
+export { UPLOADING_IMAGE, hasPendingUpload } from "@/lib/blocks/uploading";
 
 export interface UploadingAttrs {
   uploadId: string;
@@ -157,10 +172,4 @@ function UploadingImageView({ node }: NodeViewProps) {
   );
 }
 
-/** True when a document still holds an image that has not landed yet. */
-export function hasPendingUpload(doc: unknown, depth = 0): boolean {
-  if (depth > 24 || !doc || typeof doc !== "object") return false;
-  const node = doc as { type?: string; content?: unknown[] };
-  if (node.type === UPLOADING_IMAGE) return true;
-  return (node.content ?? []).some((child) => hasPendingUpload(child, depth + 1));
-}
+

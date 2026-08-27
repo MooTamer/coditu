@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { isMissingRelation } from "@/lib/supabase/schema";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 
 /**
@@ -35,6 +36,7 @@ const restoreInput = z.object({
     "sprint_notes",
     "acceptance_criterion",
     "comment",
+    "page",
   ]),
   entityId: z.string().uuid(),
   revisionNo: z.number().int().positive().max(32767),
@@ -42,6 +44,21 @@ const restoreInput = z.object({
   itemKey: z.string().max(40).optional(),
   projectSlug: z.string().max(80).optional(),
   sprintNumber: z.number().int().positive().max(9999).optional(),
+  /**
+   * An exact route to revalidate, for a surface with no sprint to derive one
+   * from — a page.
+   *
+   * Shape-checked rather than trusted. `revalidatePath` takes whatever it is
+   * given, and a value straight out of a form could name any route in the
+   * application; this is only ever used to refresh a cache, but a parameter
+   * that reaches a framework primitive from a payload gets bounded the same way
+   * every other one does.
+   */
+  path: z
+    .string()
+    .max(200)
+    .regex(/^\/app\/[A-Za-z0-9/_-]*$/, "That is not a route in this app.")
+    .optional(),
 });
 
 export async function restoreRevision(input: unknown): Promise<RestoreResult> {
@@ -65,10 +82,11 @@ export async function restoreRevision(input: unknown): Promise<RestoreResult> {
     if (error.code === "P0002") {
       return { ok: false, error: "That version is no longer there." };
     }
-    // `42883`/`42P01` — the migration has not reached this database yet. Says
-    // so plainly rather than "something went wrong", because the fix is a
-    // deployment and somebody needs to know that.
-    if (error.code === "42883" || error.code === "42P01") {
+    // The migration has not reached this database yet — or PostgREST has
+    // not reloaded its cache since it did. Says so plainly rather than
+    // "something went wrong", because the fix is a deployment step and
+    // somebody needs to know that.
+    if (isMissingRelation(error.code)) {
       return { ok: false, error: "Version history is not available on this database yet." };
     }
     return { ok: false, error: "That version did not go back. Nothing was lost — try again." };
@@ -81,6 +99,7 @@ export async function restoreRevision(input: unknown): Promise<RestoreResult> {
     revalidatePath(sprint);
     if (parsed.data.itemKey) revalidatePath(`${sprint}/items/${parsed.data.itemKey}`);
   }
+  if (parsed.data.path) revalidatePath(parsed.data.path);
   revalidatePath("/app/my-work");
 
   return { ok: true, revisionNo: restored?.revision_no };

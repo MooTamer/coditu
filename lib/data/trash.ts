@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { isMissingRelation } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -18,13 +19,17 @@ import { createClient } from "@/lib/supabase/server";
  */
 
 export interface TrashEntry {
-  kind: "work_item" | "comment";
+  kind: "work_item" | "comment" | "page";
   entityId: string;
   title: string;
+  /** A story's key, or a page's slug. */
   itemKey: string;
-  projectSlug: string;
+  /** Null for a workspace page, which belongs to no project. */
+  projectSlug: string | null;
+  /** `Workspace` for a workspace page — `trash_list()` supplies the word. */
   projectName: string;
-  sprintNumber: number;
+  /** Null for a page: it has never belonged to a sprint. */
+  sprintNumber: number | null;
   /** Hours at stake if this is purged. Null for a comment. */
   minutesLogged: number | null;
   deletedAt: string;
@@ -32,13 +37,13 @@ export interface TrashEntry {
 }
 
 interface TrashRow {
-  kind: "work_item" | "comment";
+  kind: "work_item" | "comment" | "page";
   entity_id: string;
   title: string;
   item_key: string;
-  project_slug: string;
+  project_slug: string | null;
   project_name: string;
-  sprint_number: number;
+  sprint_number: number | null;
   minutes_logged: number | null;
   deleted_at: string;
   can_restore: boolean;
@@ -52,7 +57,7 @@ export const getTrash = cache(async (): Promise<TrashEntry[]> => {
     // `42883` — the migration has not reached this database yet. An empty bin
     // is a better answer than a 500 on a page whose whole job is reassurance,
     // and migrations reach production by hand.
-    if (error.code === "42883" || error.code === "42P01") return [];
+    if (isMissingRelation(error.code)) return [];
     throw error;
   }
 

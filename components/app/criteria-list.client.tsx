@@ -32,10 +32,13 @@ import { CSS } from "@dnd-kit/utilities";
 import { Check, GripVertical, Plus, Trash2 } from "lucide-react";
 
 import { useToast } from "@/components/app/toast.client";
-import { hasPendingUpload } from "@/components/app/uploading-image.client";
+// From `lib/blocks/uploading.ts`, NOT from `uploading-image.client.tsx`:
+// that module defines a TipTap node view, and importing a helper out of it
+// puts 329 KB of ProseMirror on this page. See that file.
+import { hasPendingUpload } from "@/lib/blocks/uploading";
 import { Mono } from "@/components/coditu/mono";
 import { ProgressRing } from "@/components/coditu/progress-ring";
-import { settle } from "@/lib/action-result";
+import { useTrackedSave } from "@/components/app/save-state.client";
 import { useAnnounceSurface } from "@/components/app/presence-surface.client";
 import {
   addCriterion,
@@ -130,6 +133,7 @@ export function CriteriaList({
   maxBatch?: number;
 }) {
   const toast = useToast();
+  const trackedSave = useTrackedSave();
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -237,7 +241,7 @@ export function CriteriaList({
     if (!canToggle) return;
     startTransition(async () => {
       setItems({ id: criterion.id, isDone: !criterion.isDone });
-      const result = await settle(
+      const result = await trackedSave(
         () => setCriterionDone({ criterionId: criterion.id, isDone: !criterion.isDone }),
         "That tick did not save — check your connection."
       );
@@ -261,7 +265,7 @@ export function CriteriaList({
     if (criterionId) setPendingText((was) => ({ ...was, [criterionId]: text }));
 
     startTransition(async () => {
-      const result = await settle(
+      const result = await trackedSave(
         () => (criterionId ? editCriterion({ criterionId, doc }) : addCriterion({ itemId, doc })),
         "That criterion did not save — check your connection."
       );
@@ -293,7 +297,7 @@ export function CriteriaList({
   function remove(criterion: Criterion) {
     const restoreDoc = criterion.bodyJson ?? textDoc(criterion.body);
     startTransition(async () => {
-      const result = await settle(
+      const result = await trackedSave(
         () => removeCriterion({ criterionId: criterion.id }),
         "That criterion did not go — check your connection."
       );
@@ -306,7 +310,7 @@ export function CriteriaList({
         label: "Undo",
         onAction: () => {
           startTransition(async () => {
-            const undone = await settle(
+            const undone = await trackedSave(
               () => addCriterion({ itemId, doc: restoreDoc }),
               "That criterion did not come back."
             );
@@ -344,7 +348,7 @@ export function CriteriaList({
       setDragOrder(next);
 
       startTransition(async () => {
-        const result = await settle(
+        const result = await trackedSave(
           () => reorderCriteria({ criterionId: String(active.id), orderedIds: next }),
           "The new order did not save — check your connection."
         );
@@ -357,7 +361,7 @@ export function CriteriaList({
         }
       });
     },
-    [items, router, toast]
+    [items, router, toast, trackedSave]
   );
 
   const list = (

@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { createClient } from "@/lib/supabase/server";
-import { isMissingColumn } from "@/lib/supabase/schema";
+import { isMissingColumn, isMissingRelation } from "@/lib/supabase/schema";
 import type { PersonRef } from "@/lib/data/sprint";
 // The vocabulary lives in a plain module because the rehearsal control is a
 // client component — see the note at the top of `lib/recovery.ts`.
@@ -71,7 +71,7 @@ export const listRecoveryRuns = cache(async (limit = 20): Promise<RecoveryRun[]>
     .limit(limit);
 
   if (error) {
-    if (error.code === "42P01" || isMissingColumn(error.code)) return [];
+    if (isMissingRelation(error.code) || isMissingColumn(error.code)) return [];
     throw error;
   }
 

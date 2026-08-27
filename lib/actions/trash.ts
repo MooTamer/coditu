@@ -25,13 +25,18 @@ export interface TrashResult {
 }
 
 const target = z.object({
-  kind: z.enum(["work_item", "comment"]),
+  kind: z.enum(["work_item", "comment", "page"]),
   entityId: z.string().uuid(),
 });
 
 function revalidateEverywhere() {
   revalidatePath("/app/trash");
   revalidatePath("/app/my-work");
+  // A restored page reappears in two lists and on its project's home. The
+  // layout-level revalidation is the cheapest way to say "somewhere under here
+  // changed" without this module knowing which project it was.
+  revalidatePath("/app/pages");
+  revalidatePath("/app/projects", "layout");
 }
 
 export async function restoreFromTrash(input: unknown): Promise<TrashResult> {
@@ -54,6 +59,20 @@ export async function restoreFromTrash(input: unknown): Promise<TrashResult> {
         error:
           error.code === "42501"
             ? "Only an admin or lead can restore a story."
+            : "That did not come back. Try again.",
+      };
+    }
+  } else if (parsed.data.kind === "page") {
+    const { error } = await supabase.rpc("set_page_deleted", {
+      p_page_id: parsed.data.entityId,
+      p_deleted: false,
+    });
+    if (error) {
+      return {
+        ok: false,
+        error:
+          error.code === "42501"
+            ? "Only an admin or lead can restore a page."
             : "That did not come back. Try again.",
       };
     }
