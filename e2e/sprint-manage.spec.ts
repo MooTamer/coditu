@@ -1,4 +1,13 @@
-import { SEED, SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixtures";
+import {
+  SEED,
+  SEED_ENGINEER,
+  SUPABASE_URL,
+  auditA11y,
+  expect,
+  query,
+  signIn,
+  test,
+} from "./fixtures";
 
 /**
  * Managing sprints, on the project that owns them.
@@ -173,7 +182,7 @@ test.describe("managing sprints", () => {
       `select id from public.projects where slug = 'meinevim'`
     );
 
-    const status = await page.evaluate(async (projectId) => {
+    const status = await page.evaluate(async ({ projectId, supabaseUrl }) => {
       const raw = document.cookie
         .split("; ")
         .find((c) => c.startsWith("sb-127-auth-token="))
@@ -181,7 +190,7 @@ test.describe("managing sprints", () => {
         .slice(1)
         .join("=");
       const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
-      const response = await fetch("http://127.0.0.1:54421/rest/v1/sprints", {
+      const response = await fetch(`${supabaseUrl}/rest/v1/sprints`, {
         method: "POST",
         headers: {
           apikey: json.access_token,
@@ -191,7 +200,7 @@ test.describe("managing sprints", () => {
         body: JSON.stringify({ project_id: projectId, number: 902, name: "E2E managed smuggled" }),
       });
       return response.status;
-    }, project.id);
+    }, { projectId: project.id, supabaseUrl: SUPABASE_URL });
 
     expect(status, "an engineer created a sprint").toBeGreaterThanOrEqual(400);
     const rows = await query<{ n: string }>(

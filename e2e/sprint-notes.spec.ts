@@ -1,4 +1,4 @@
-import { SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixtures";
+import { SEED_ENGINEER, SUPABASE_URL, auditA11y, expect, query, signIn, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
 
@@ -206,7 +206,7 @@ test.describe("sprint notes", () => {
        where p.slug = 'meinevim' and s.number = 17`
     );
 
-    const status = await page.evaluate(async (sprintId) => {
+    const status = await page.evaluate(async ({ sprintId, supabaseUrl }) => {
       const raw = document.cookie
         .split("; ")
         .find((c) => c.startsWith("sb-127-auth-token="))
@@ -215,7 +215,7 @@ test.describe("sprint notes", () => {
         .join("=");
       const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
       const response = await fetch(
-        `http://127.0.0.1:54421/rest/v1/sprints?id=eq.${sprintId}`,
+        `${supabaseUrl}/rest/v1/sprints?id=eq.${sprintId}`,
         {
           method: "PATCH",
           headers: {
@@ -228,7 +228,7 @@ test.describe("sprint notes", () => {
         }
       );
       return { status: response.status, body: await response.text() };
-    }, sprint.id);
+    }, { sprintId: sprint.id, supabaseUrl: SUPABASE_URL });
 
     // RLS answers a forbidden UPDATE by matching no rows, so a 200 with an
     // empty body is a refusal — the assertion that matters is the one below.

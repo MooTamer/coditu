@@ -979,6 +979,11 @@ The bypass reached the isolated stack. The shared one never saw it.
 constant. None is in this batch; all of them will silently target `:54421` the next time somebody
 points the suite elsewhere.
 
+*(**Eight files, not seven.** `avatar.spec.ts` is named in the sentence above and then dropped from
+the count in the summary at the end of this pass — its `?? "http://127.0.0.1:54421"` is the same
+literal wearing a different shape, and a spec that reads a default is bound to a stack exactly as
+firmly as one that writes the URL inline. Corrected below; all eight are swept in the Eighth pass.)*
+
 ## The four withdrawn suites, run
 
 ```bash
@@ -1049,7 +1054,10 @@ Added by this pass:
 
 1. **Six failing assertions across `access`, `team` and `mobile`**, diagnosed above, unfixed.
    *(All six have since been measured, confirmed as the harness, fixed and re-run — see the Eighth pass.)*
-2. **Seven specs still hard-coding `:54421`**, which will point at the wrong stack without failing.
+2. **Eight specs still hard-coding `:54421`** — `allowlist`, `avatar`, `earnings`, `new-item`,
+   `password`, `settings`, `sprint-manage`, `sprint-notes` — which will point at the wrong stack
+   without failing. *(This read "Seven" and omitted `avatar.spec.ts`. All eight are closed in the
+   Eighth pass.)*
 3. **The visual evidence is not reproducible outside this Mac** — see
    `05-DECISIONS.md`, *The visual evidence lives in three specs git does not carry*.
 
@@ -1184,9 +1192,105 @@ has been left exactly where it is. What is known about it:
 - it is a read, not a poll — `expect.poll` on `getComputedStyle(document.body).overflow` is the
   obvious repair and it is somebody's deliberate decision, not a thing to slip into this batch
 
+## The literal, in eight files and not seven
+
+The Seventh pass named seven specs carrying `http://127.0.0.1:54421` and then wrote "Seven" into
+its own summary while `avatar.spec.ts` sat outside the count with
+`process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54421"` at the top of the file. That is
+the same literal in a different shape: it follows an override, so it is less wrong than the seven —
+but it is a second answer to a question `e2e/fixtures.ts` already answers, and two answers is the
+whole problem. **Eight**, corrected above in both places.
+
+All eight are on the exported `SUPABASE_URL` now. Where the literal was inside a `page.evaluate`,
+the URL is passed in as an argument alongside whatever the callback already took —
+`{ sprintId, supabaseUrl }` — the shape `team.spec.ts` was given in the Seventh pass:
+
+| File | Call site |
+|---|---|
+| `allowlist.spec.ts` | `POST /rest/v1/allowed_emails` |
+| `avatar.spec.ts` | the file's private `SUPABASE_URL`, deleted; `PUBLIC_PREFIX` now builds on the exported one |
+| `earnings.spec.ts` | `POST /rest/v1/sprint_payouts` |
+| `new-item.spec.ts` | `POST /rest/v1/work_items` |
+| `password.spec.ts` | `PATCH /rest/v1/profiles?id=eq.…` |
+| `settings.spec.ts` | `PATCH /rest/v1/profiles?id=eq.…` |
+| `sprint-manage.spec.ts` | `POST /rest/v1/sprints` |
+| `sprint-notes.spec.ts` | `PATCH /rest/v1/sprints?id=eq.…` |
+
+### The grep
+
+```
+$ grep -rn 54421 --exclude-dir={node_modules,.next,test-results,.git} .
+e2e/fixtures.ts:21:export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54421";
+```
+
+is the only hit **under `e2e/`**, which is what the sweep was about. It is not the only hit in the
+repository and it should not be reported as one:
+
+| Remaining | Why it stays |
+|---|---|
+| `supabase/config.toml:15`, `.env.example:10` | where the port is **defined**. Deleting the number here deletes the stack |
+| `scripts/check-budgets.mjs:73`, `scripts/check-degraded-dependency.mjs:41` | their own `process.env.… ?? default`, the same shape as `fixtures.ts:21`. Each is one file's single answer, and both follow an override |
+| `tests/*.test.ts` (5 lines) | vitest fixtures. The string is **input** to `normaliseHref`, `avatarUrl` and `attachmentSrc` — nothing connects to it |
+| `supabase/tests/rls.sql:683` | an arbitrary URL being written into `avatar_url` inside a pgTAP `lives_ok`. Data, not a target |
+| `docs/*` | prose about the stack, including this file's own tables |
+
+### The proof, from the proxy rather than from a green tick
+
+The four bypass tests plus `password.spec.ts`'s were re-run on the swept code — **11 passed** — and
+both Kong access logs read afterwards. Every browser-side write in that window reached the isolated
+proxy:
+
+```
+supabase_kong_coditu-iso    44 PATCH /rest/v1/profiles   9 PATCH /rest/v1/sprints
+                             6 POST  /rest/v1/work_items  5 POST  /rest/v1/allowed_emails
+                             3 POST  /rest/v1/sprints     …
+supabase_kong_coditu        (nothing from :3011 after 23:38:50Z)
+```
+
+**And the run immediately before it demonstrated the defect, because it had to.** Establishing that
+the three pre-existing failures below were not caused by the sweep meant running the eight specs
+once on the pre-sweep code, and the pre-sweep code does what this entry says it does:
+
+```
+supabase_kong_coditu  23:37:44Z  POST  /rest/v1/work_items                    403  referer …:3011/
+supabase_kong_coditu  23:37:59Z  PATCH /rest/v1/profiles?id=eq.a0000000-…004  403  referer …:3011/
+supabase_kong_coditu  23:38:13Z  PATCH /rest/v1/profiles?id=eq.71b2198b-…     204  referer …:3011/
+supabase_kong_coditu  23:38:25Z  POST  /rest/v1/sprints                       403  referer …:3011/
+```
+
+Four requests from this worktree's dev server at the **shared** stack, while every assertion around
+them read the isolated one. The `204` is the instructive one: PostgREST answers a PATCH that matches
+no rows with `204`, and the test then read the database it meant and found the role unchanged — the
+guard "holding" for a reason that has nothing to do with the guard.
+
+The shared stack was checked read-only afterwards and is **unchanged**: `71b2198b…` does not exist
+there, no work item titled `E2E new item — smuggled`, no sprint numbered `902`, four profiles with
+one admin, four allowlist rows, and `a0000000-…004` still `engineer`. Three 403s and a no-op.
+
+### Three failures in that run, none of them the sweep's
+
+Run serially from a fresh reset, all eight files, one worker:
+
+| | passed | failed | did not run |
+|---|---|---|---|
+| pre-sweep (stashed) | 42 | **4** | 16 |
+| post-sweep | **44** | **3** | 1 |
+
+The sweep removes one failure and adds none. The three that remain are pre-existing and are **not**
+fixed here — they are outside what this batch was asked to do, and each is a different animal:
+
+1. `allowlist.spec.ts:77` — `getByLabel('Email')` resolves to two on `/login`. Both tabs of the
+   sign-in form are in the document, so this is a real second field, not the streaming copy. It
+   needs a scope, not a `:visible`.
+2. `earnings.spec.ts:255` — expects `1.0 h added` and reads `41.5 h added`. The file's own earlier
+   tests move the sprint's minutes, and this one asserts a delta against a confirmation taken
+   before them. It is an ordering assumption inside one file, visible only at `--workers=1`.
+3. `sprint-notes.spec.ts:46` — the seeded notes are not on the page. Its serial `describe` then
+   skips the rest of the file, which is why one test "did not run".
+
 ## Still outstanding after this batch
 
-Everything the Seventh pass listed, **minus** its item 1, which is closed above: the sprint's
+Everything the Seventh pass listed, **minus** its items 1 and 2, both closed above: the sprint's
 saved views and sort panel, the database-style Projects / My work /
 People layouts, the Recovery Centre's structure, Phase 9's editor and reliability states, the
 truthful idle save chip, the 27 content-level `--canvas` hovers, and the board's column geometry
@@ -1196,3 +1300,6 @@ Added by this pass:
 
 1. **One intermittent failure in `mobile.spec.ts` on `mobile-safari`**, diagnosed above, unfixed
    and deliberately so. 1 of 2 full runs, 0 of 3 isolated runs.
+2. **Three pre-existing failures across `allowlist`, `earnings` and `sprint-notes`**, diagnosed
+   above, unfixed. None is a duplicate-element problem and none is a wrong-stack problem; they are
+   a second form field, an intra-file ordering assumption, and a missing seeded row.

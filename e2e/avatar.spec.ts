@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { auditA11y, expect, query, signIn, test } from "./fixtures";
+import { SUPABASE_URL, auditA11y, expect, query, signIn, test } from "./fixtures";
 
 /**
  * Profile pictures: setting one, seeing it everywhere, and taking it away.
@@ -13,7 +13,6 @@ import { auditA11y, expect, query, signIn, test } from "./fixtures";
 const SUBJECT = { email: "avatar-subject@example.com", password: "avatar-subject-password" };
 const NAME = "Ava Tarr";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54421";
 const PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/avatars/`;
 
 /** 1200×630, 53KB. Non-square on purpose: it exercises the centre crop. */

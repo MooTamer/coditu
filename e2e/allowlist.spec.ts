@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-import { auditA11y, expect, query, test } from "./fixtures";
+import { SUPABASE_URL, auditA11y, expect, query, test } from "./fixtures";
 
 /**
  * Invite-only sign-up.
@@ -161,7 +161,7 @@ test.describe("invite-only sign-up", () => {
 
     // Straight at PostgREST with the engineer's own token — the same thing a
     // hand-rolled request would do. RLS is the boundary, not the button.
-    const status = await page.evaluate(async (email) => {
+    const status = await page.evaluate(async ({ email, supabaseUrl }) => {
       const raw = document.cookie
         .split("; ")
         .find((c) => c.startsWith("sb-127-auth-token="))
@@ -169,7 +169,7 @@ test.describe("invite-only sign-up", () => {
         .slice(1)
         .join("=");
       const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
-      const response = await fetch("http://127.0.0.1:54421/rest/v1/allowed_emails", {
+      const response = await fetch(`${supabaseUrl}/rest/v1/allowed_emails`, {
         method: "POST",
         headers: {
           apikey: json.access_token,
@@ -179,7 +179,7 @@ test.describe("invite-only sign-up", () => {
         body: JSON.stringify({ email }),
       });
       return response.status;
-    }, PROBE);
+    }, { email: PROBE, supabaseUrl: SUPABASE_URL });
 
     expect(status, "an engineer was able to insert into the allowlist").toBeGreaterThanOrEqual(400);
 

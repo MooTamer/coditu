@@ -6,6 +6,7 @@ import {
   query,
   removeThrowawayAccount,
   signIn,
+  SUPABASE_URL,
   test,
 } from "./fixtures";
 
@@ -211,7 +212,7 @@ test.describe("your own profile", () => {
         [me.email]
       );
 
-      await page.evaluate(async (profileId) => {
+      await page.evaluate(async ({ profileId, supabaseUrl }) => {
         const raw = document.cookie
           .split("; ")
           .find((c) => c.startsWith("sb-127-auth-token="))
@@ -219,7 +220,7 @@ test.describe("your own profile", () => {
           .slice(1)
           .join("=");
         const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
-        await fetch(`http://127.0.0.1:54421/rest/v1/profiles?id=eq.${profileId}`, {
+        await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${profileId}`, {
           method: "PATCH",
           headers: {
             apikey: json.access_token,
@@ -228,7 +229,7 @@ test.describe("your own profile", () => {
           },
           body: JSON.stringify({ role: "admin" }),
         });
-      }, id);
+      }, { profileId: id, supabaseUrl: SUPABASE_URL });
 
       const after = await storedProfile(me.email);
       expect(after.role, "the role changed").toBe(stored.role);

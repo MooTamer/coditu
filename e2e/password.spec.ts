@@ -7,6 +7,7 @@ import {
   removeThrowawayAccount,
   signIn,
   SEED_ENGINEER,
+  SUPABASE_URL,
   test,
 } from "./fixtures";
 
@@ -327,7 +328,7 @@ test.describe("a temporary password, and the change it forces", () => {
       await signIn(page, SEED_ENGINEER);
       await page.goto("/app/my-work");
 
-      const outcome = await page.evaluate(async () => {
+      const outcome = await page.evaluate(async (supabaseUrl) => {
         const raw = document.cookie
           .split("; ")
           .find((c) => c.startsWith("sb-127-auth-token="))
@@ -336,7 +337,7 @@ test.describe("a temporary password, and the change it forces", () => {
           .join("=");
         const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
         const me = JSON.parse(atob(json.access_token.split(".")[1])).sub;
-        const response = await fetch(`http://127.0.0.1:54421/rest/v1/profiles?id=eq.${me}`, {
+        const response = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${me}`, {
           method: "PATCH",
           headers: {
             apikey: json.access_token,
@@ -349,7 +350,7 @@ test.describe("a temporary password, and the change it forces", () => {
           body: JSON.stringify({ must_set_password: true }),
         });
         return { status: response.status, body: await response.text() };
-      });
+      }, SUPABASE_URL);
 
       // The trigger's own errcode, surfaced by PostgREST as a 403.
       expect(outcome.status).toBe(403);

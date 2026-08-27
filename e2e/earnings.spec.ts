@@ -1,4 +1,14 @@
-import { auditA11y, expect, query, SEED, SEED_ADMIN, SEED_ENGINEER, signIn, test } from "./fixtures";
+import {
+  SUPABASE_URL,
+  auditA11y,
+  expect,
+  query,
+  SEED,
+  SEED_ADMIN,
+  SEED_ENGINEER,
+  signIn,
+  test,
+} from "./fixtures";
 
 /**
  * What a sprint pays — and, much more importantly, where it must never appear.
@@ -301,7 +311,7 @@ test.describe("the earnings board", () => {
     // not PostgREST: it never reached a database, and on a page with no origin
     // yet it did not even reach a URL ("Failed to parse URL"). A 4xx from a
     // Next route that has never existed is not evidence that RLS holds.
-    const status = await page.evaluate(async (sprintId) => {
+    const status = await page.evaluate(async ({ sprintId, supabaseUrl }) => {
       const raw = document.cookie
         .split("; ")
         .find((c) => c.startsWith("sb-127-auth-token="))
@@ -309,7 +319,7 @@ test.describe("the earnings board", () => {
         .slice(1)
         .join("=");
       const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
-      const response = await fetch("http://127.0.0.1:54421/rest/v1/sprint_payouts", {
+      const response = await fetch(`${supabaseUrl}/rest/v1/sprint_payouts`, {
         method: "POST",
         headers: {
           apikey: json.access_token,
@@ -319,7 +329,7 @@ test.describe("the earnings board", () => {
         body: JSON.stringify({ sprint_id: sprintId, total_minutes: 1, pot_cents: 1 }),
       });
       return response.status;
-    }, sprint.id);
+    }, { sprintId: sprint.id, supabaseUrl: SUPABASE_URL });
 
     expect(status, "PostgREST accepted an engineer's payout").toBeGreaterThanOrEqual(400);
 
