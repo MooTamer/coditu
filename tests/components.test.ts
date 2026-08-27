@@ -1,3 +1,4 @@
+import { migrationContaining } from "./migration-source";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -32,7 +33,6 @@ import {
  * about "EVIM Heading & Separator", in a project where half the names are
  * German.
  */
-const MIGRATION = join(process.cwd(), "supabase", "migrations", "20260824120000_components.sql");
 const SEED = join(process.cwd(), "supabase", "seeds", "components.sql");
 
 /** The column's own constraint, restated. If this changes, the test should fail. */
@@ -40,7 +40,7 @@ const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 describe("component vocabulary", () => {
   it("SQL and TypeScript agree on the enum members", () => {
-    const sql = readFileSync(MIGRATION, "utf8");
+    const sql = migrationContaining("create type component_kind");
     const declaration = sql.slice(
       sql.indexOf("create type component_kind"),
       sql.indexOf("comment on type component_kind")
@@ -132,15 +132,8 @@ describe("the generated registry", () => {
  * on a machine with no Postgres.
  */
 describe("component tag ordering", () => {
-  const JOIN_MIGRATION = join(
-    process.cwd(),
-    "supabase",
-    "migrations",
-    "20260825120000_work_item_components.sql"
-  );
-
   it("SQL and TypeScript agree on the sort key", () => {
-    const sql = readFileSync(JOIN_MIGRATION, "utf8");
+    const sql = migrationContaining("create or replace function public.primary_component_of");
     const body = sql.slice(
       sql.indexOf("create or replace function public.primary_component_of"),
       sql.indexOf("comment on function public.primary_component_of")

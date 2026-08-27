@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
+import { migrationContaining } from "./migration-source";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -27,16 +26,9 @@ import {
  * of would be stored, would never match `= any(g.capabilities)`, and would
  * present as "I ticked it and it did nothing".
  */
-const MIGRATION = join(
-  process.cwd(),
-  "supabase",
-  "migrations",
-  "20260825110200_client_access.sql"
-);
-
 describe("capability vocabulary", () => {
   it("SQL and TypeScript agree on the enum members, in order", () => {
-    const sql = readFileSync(MIGRATION, "utf8");
+    const sql = migrationContaining("create type client_capability");
     const declaration = sql.slice(
       sql.indexOf("create type client_capability"),
       sql.indexOf("comment on type client_capability")

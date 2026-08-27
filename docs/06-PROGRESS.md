@@ -4032,3 +4032,78 @@ diagnostics, the screenshot helper, and every trace, video and report. The two
 probes that found the realtime gap were written under that rule and are not here.
 
 34 passed before the rename and 34 after.
+
+### Twenty-four unapplied migrations, consolidated into one
+
+`supabase migration list --linked`, re-run immediately before anything was
+deleted, had the hosted project at `20260825100000` and **twenty-four** local
+versions after it with an empty remote column. Every one of them was still a
+draft in the only sense that matters. They are one file now:
+
+`supabase/migrations/20260826220000_workspace_and_client_access.sql`
+
+**Not a squash.** `supabase migration squash` produces a schema, and ten of the
+twenty-four carry data: `work_item_components` back-fills the join table from
+the column it replaces and builds the compatibility mirror, `document_revisions`
+seeds a first version for every story that already had a description, `trash`
+back-fills `deleted_at`, `client_accounts` and `access_events` stamp and protect
+existing rows. A schema-shaped squash would produce the right columns with none
+of the content, silently.
+
+So it is the original SQL, verbatim, in chronological order, each section under
+the name of the file it came from. Nothing rewritten, nothing reordered, nothing
+deduplicated — a later `create or replace` that supersedes an earlier one in the
+same file is left doing exactly that, because the sequence is the behaviour.
+Checked before building: no `alter type … add value`, no `create index
+concurrently`, no psql meta-command, no explicit `begin`/`commit`, so one
+transaction is correct for all of it.
+
+**Proven identical, and the control is the interesting part.**
+
+A first comparison said seven tables differed beyond timestamps. They did — and
+so did twelve tables between **two runs of the same baseline with nothing
+changed at all**. `db reset` generates uuids and reads the clock, so a checksum
+over raw rows was comparing the seed with itself. `now()` compounds it: twenty-
+four migrations are twenty-four transactions and twenty-four clocks, one file is
+one of each, so every back-filled `created_at` collapses to a single instant.
+That is a real difference and not a semantic one.
+
+Re-run against **natural keys** — an item's `COD-` key, a component's slug, an
+address — from an identical populated baseline at the version production is on:
+
+| Comparison | Result |
+|---|---|
+| Schema: types, columns, constraints, indexes, function bodies (md5), function flags, triggers, RLS, policies, table grants, function grants, default privileges, publications, views, every comment | **identical** |
+| `pg_dump --schema-only` | **identical** apart from pg_dump's own random `\restrict` nonce |
+| Semantic data, 712 lines: work items, the component back-fill by key→slug, the compatibility mirror, seeded revisions, components, profiles and account kinds, client-access counts, trash back-fill, saved views, favourites, access events, recovery runs, criteria, time entries | **identical** |
+
+Fresh install works too: `db reset` over the twenty-seven retained migrations
+plus this one, then `db:test` **406 passing**, then `db:types` with **no diff**.
+
+**Migration-first is safe, and it was tested rather than assumed.** Mohamed
+applies the migration before the code is live, so `origin/main` — the code that
+is deployed today — was checked out into a worktree and run against a database
+that already had this migration applied. Fourteen routes rendered, `/` through
+the sprint report. Then every write shape that code performs, run against the
+new schema and rolled back: setting `component_id` directly (the mirror trigger
+syncs the join table), updating a description (the revision trigger captures
+it), inserting a comment, logging time with no `idempotency_key` column named
+(the rollup fires), creating a work item (a key is assigned), inserting a
+criterion, writing sprint notes. All of them work.
+
+One honest note on method: the first route sweep reported a schema error on the
+sprint report, and it was the regex. A greedy `column .* does not exist` matched
+across 568 KB of report prose — *"…in 1 column next to…"* and a *"does not
+exist"* far away in the same payload. Bounded, it is clean.
+
+**Two unit tests read migration files by name** and would have broken:
+`client-access.test.ts` read `20260825110200_client_access.sql` for the
+capability enum, `components.test.ts` read `20260825120000_work_item_components.sql`
+for `primary_component_of`'s sort key. They ask the question they always meant to
+ask now — `tests/migration-source.ts` finds the migration that *declares* the
+thing, taking the last one that does, since a later `create or replace` is the
+definition in force. Robust to this consolidation and to the next one.
+
+Every other reference to a deleted filename is a comment recording when a
+decision was made — in `06-PROGRESS.md`, `05-DECISIONS.md`, `lib/`, and two
+pgTAP files. Those are left exactly as they are. They are history, not paths.
