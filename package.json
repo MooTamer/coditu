@@ -23,11 +23,13 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:prod": "./scripts/e2e-prod.sh",
+    "e2e:bundle": "./scripts/with-prod-server.sh npx playwright test --project=chromium --grep @prod",
     "brand:assets": "node scripts/generate-brand-assets.mjs",
     "budgets": "./scripts/with-prod-server.sh node scripts/check-budgets.mjs",
     "degraded": "node scripts/check-degraded-dependency.mjs",
     "lighthouse": "./scripts/with-prod-server.sh node scripts/lighthouse.mjs",
-    "analyze": "ANALYZE=1 next build"
+    "analyze": "ANALYZE=1 next build",
+    "gate": "./scripts/gate.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

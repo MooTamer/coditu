@@ -66,6 +66,21 @@ const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 export default defineConfig({
   testDir: "./e2e",
+  /**
+   * Local-only diagnostics are not part of the routine suite.
+   *
+   * `.gitignore` keeps `e2e/*.local.spec.ts` out of git — they are one-off
+   * sweeps somebody wrote to find something, not guards anybody else has to
+   * keep green. Without this they still RAN, because `testDir` is a directory
+   * and gitignore is not a test filter: a diagnostic that fails on purpose
+   * would fail `npm run e2e` for everybody who never had the file.
+   *
+   * `testIgnore` applies even to a file named on the command line, so running
+   * one deliberately means turning it off for that run:
+   *
+   *     E2E_LOCAL=1 npx playwright test the-file.local.spec.ts
+   */
+  testIgnore: process.env.E2E_LOCAL ? [] : "**/*.local.spec.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

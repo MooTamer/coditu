@@ -79,7 +79,13 @@ test.describe("comment composer", () => {
     const editor = page.locator(".coditu-prose");
     await editor.click();
     await page.keyboard.type("Half-written thought");
-    await expect(page.getByText("draft saved")).toBeVisible();
+    // Two places say it, and that is the point of the shared vocabulary the
+    // 2026-08-27 audit added: the composer's own footer, and the topbar chip
+    // that says the same words on every writing surface in the application.
+    // `getByText` matched both and Playwright refused the ambiguity — the fix
+    // is to assert each of them, not to pick one.
+    await expect(page.locator("[data-composer-draft]")).toBeVisible();
+    await expect(page.locator("[data-save-chip]")).toHaveAttribute("data-state", "draft");
 
     await page.reload();
 

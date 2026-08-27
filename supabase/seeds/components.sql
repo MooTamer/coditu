@@ -75,8 +75,25 @@ cross join (values
   ('Urgent Alert'               , 'urgent-alert'               , 'spfx' , null),
   ('EVIM React Library'         , 'evim-react-library'         , 'react', null),
   ('News-Redaktion'             , 'news-redaktion'             , 'react', null),
+  ('Redaktionskalender'         , 'redaktionskalender'         , 'react', null),
   ('Anfrage'                    , 'anfrage'                    , 'react', null),
   ('Redakteurkalender'          , 'redakteurkalender'          , 'react', null)
 ) as listed (name, slug, kind, icon)
 where project.slug = 'meinevim'
 on conflict (project_id, slug) do nothing;
+
+-- Retired: in the registry, out of the toolbox.
+--
+-- These left the delivery repository and are kept because `is_archived` is what
+-- *"keeps every item that names it"*. Dropping them from the list above would
+-- have made a fresh `db:reset` produce a database in which they had never
+-- existed, taking their item attributions with them.
+--
+-- An UPDATE rather than part of the insert, so it also reaches a database where
+-- the row already exists and is not archived — which is every database that had
+-- them before they were retired, including the hosted one. Idempotent, and it
+-- opens no transaction (the Supabase SQL editor discards those).
+update public.components set is_archived = true
+ where project_id = (select id from public.projects where slug = 'meinevim')
+   and slug in ('anfrage', 'redakteurkalender')
+   and not is_archived;

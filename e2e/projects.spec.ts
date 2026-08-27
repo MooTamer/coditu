@@ -40,7 +40,19 @@ test.describe("the projects list", () => {
     expect(await slugs(page)).toEqual(SLUGS);
 
     const evim = rows(page).filter({ hasText: "MEINEvim components" });
-    await expect(evim).toContainText("41 components");
+
+    // Asked of the database rather than written down. The number moves whenever
+    // the delivery repository does — `npm run components:sync` — and an
+    // archived component is not in it, which is the whole point of archiving
+    // one. `41` was hard-coded here and became wrong the first time a component
+    // was retired; `components.spec.ts` has derived its count from the start
+    // and this is the same lesson arriving late.
+    const [{ live }] = await query<{ live: string }>(
+      `select count(*)::text as live
+         from components c join projects p on p.id = c.project_id
+        where p.slug = 'meinevim' and not c.is_archived`
+    );
+    await expect(evim).toContainText(`${live} components`);
     await expect(evim).toContainText("15 sprints");
     // Read from the database rather than hard-coded: the seed's hours move
     // whenever anything logs time, and a spec that pins them fails for the

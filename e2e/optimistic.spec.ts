@@ -178,7 +178,14 @@ test.describe("posting a comment is optimistic", () => {
       release();
 
       // Then the real one replaces it — same text, no longer "sending".
-      await expect(page.getByText("sending…")).toBeHidden({ timeout: 15_000 });
+      //
+      // `[data-pending-comment]` rather than a text match. Since the topbar
+      // gained the shared save-confidence chip, two elements say "sending" —
+      // the thread's own pending caption and the chip — which is the point of
+      // a shared vocabulary and a strict-mode violation for an unscoped
+      // `getByText`. This assertion is about the OPTIMISTIC comment, so it
+      // names it.
+      await expect(page.locator("[data-pending-comment]")).toBeHidden({ timeout: 15_000 });
       // `.first()` is the comment in the thread; version history renders the
       // same words as a diff line since W4c.
       await expect(page.getByText(body, { exact: false }).first()).toBeVisible();
@@ -211,7 +218,7 @@ test.describe("posting a comment is optimistic", () => {
 
     await expect(page.getByText(/did not save/i)).toBeVisible({ timeout: 10_000 });
     // The optimistic entry is gone…
-    await expect(page.getByText("sending…")).toBeHidden({ timeout: 10_000 });
+    await expect(page.locator("[data-pending-comment]")).toBeHidden({ timeout: 10_000 });
     // …and the words are back in the box, not lost. This is the whole reason
     // the composer clears optimistically rather than destructively.
     await expect(page.locator("[contenteditable='true']")).toContainText(body, { timeout: 10_000 });

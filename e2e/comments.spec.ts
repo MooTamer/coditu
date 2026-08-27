@@ -327,7 +327,7 @@ test.describe("comment rendering is inert against hostile JSON", () => {
     expect(await page.locator(`a:has-text("Adam Nafie")`).count()).toBe(0);
   });
 
-  test("the editor bundle is not shipped to a reader who never composes", async ({ adminPage: page }) => {
+  test("@prod the editor bundle is not shipped to a reader who never composes", async ({ adminPage: page }) => {
     // Only meaningful against a production build. The dev server eagerly loads
     // dynamic chunks so HMR can patch them, so measuring code splitting there
     // reports a failure that does not exist in what ships.

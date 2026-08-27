@@ -355,9 +355,26 @@ test.describe("accessibility, on a phone", () => {
   });
 
   test("every target in the app clears 44px on a coarse pointer", async ({ browser }) => {
-    // `e2e/a11y.spec.ts` has run this on `/` since it was written. It had never
-    // been run on a single screen of the application, which is where the small
-    // controls actually are.
+    // Twenty-one navigations in one test, each waiting for `networkidle`. That
+    // is a minute of work on a busy machine and the default budget is thirty
+    // seconds — so this failed as `browserContext.close: Target page … closed`,
+    // which reads as a browser crash and is really a stopwatch. The scope grew
+    // from four routes to twenty-one when the audit widened it; the budget did
+    // not, and that was an oversight rather than a discovery.
+    test.setTimeout(180_000);
+
+    // `e2e/a11y.spec.ts` has run this on `/` since it was written, and this ran
+    // it on FOUR application screens. The 2026-08-27 audit swept all of them
+    // and the four were the wrong four: a role picker at 115×28 on
+    // `/app/people`, a projects search at 358×34, seven number fields in
+    // Workspace settings at 110×34 and a select at 308×34 were every one of
+    // them under the floor, on every phone, for as long as they had existed.
+    // None was on a screen this test looked at.
+    //
+    // The fix was one rule in `globals.css`: the coarse-pointer block had said
+    // 44px for buttons and links since W14 and had never said it for `input`,
+    // `select` or `textarea`. The guard is the list below, which is every route
+    // the application has.
     const context = await browser.newContext({
       viewport: PHONE,
       hasTouch: true,
@@ -369,20 +386,66 @@ test.describe("accessibility, on a phone", () => {
       const { signIn, SEED_ADMIN } = await import("./fixtures");
       await signIn(page, SEED_ADMIN);
 
-      for (const path of [SPRINT, "/app/my-work", "/app/people", "/app/profile"]) {
+      const ROUTES = [
+        "/app",
+        "/app/sprint",
+        "/app/my-work",
+        "/app/people",
+        "/app/profile",
+        "/app/projects",
+        "/app/projects/meinevim",
+        "/app/projects/meinevim/pages",
+        "/app/projects/meinevim/components",
+        "/app/pages",
+        "/app/history",
+        "/app/trash",
+        "/app/earnings",
+        "/app/import",
+        "/app/clients",
+        "/app/settings",
+        "/app/settings/payouts",
+        "/app/settings/recovery",
+        SPRINT,
+        `${SPRINT}/notes`,
+        `${SPRINT}/items/${SEED.item}`,
+      ];
+
+      for (const path of ROUTES) {
         await page.goto(path);
-        await page.waitForTimeout(250);
+        // `networkidle` rather than a fixed pause. The old version waited 250ms
+        // and then read the DOM, which is a race dressed as a test: a screen
+        // that had not finished rendering reported no small targets and passed.
+        await page.waitForLoadState("networkidle").catch(() => {});
 
         const small = await page.evaluate(() =>
           Array.from(
-            document.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), [role='button']")
+            document.querySelectorAll<HTMLElement>(
+              "a[href], button:not([disabled]), [role='button'], input:not([type=hidden]), select, textarea, summary"
+            )
           )
             .filter((el) => {
-              const box = el.getBoundingClientRect();
+              // A visually hidden field is not a target: the visible control
+              // that labels it is. The file inputs behind "Choose a picture"
+              // and the export dialog are what this exempts.
+              if (el.classList.contains("sr-only")) return false;
+
+              // A checkbox or radio inside a `<label>` is targeted through the
+              // label, so the LABEL is what has to clear 44px. Growing the box
+              // itself would put a 44px tick beside a 20px word.
+              const input = el as HTMLInputElement;
+              const measured =
+                (input.type === "checkbox" || input.type === "radio") && el.closest("label")
+                  ? (el.closest("label") as HTMLElement)
+                  : el;
+
+              const box = measured.getBoundingClientRect();
               if (box.width === 0 || box.height === 0) return false;
-              // WCAG 2.5.8 exempts a target inside a sentence — padding one to
-              // 44px would break the paragraph it sits in.
-              if (el.tagName === "A" && el.closest("p")) return false;
+
+              // WCAG 2.5.8 exempts a target inline in a sentence — padding one
+              // to 44px would break the line it sits in. The activity feed's
+              // story keys and the registry's breadcrumb are these.
+              if (el.tagName === "A" && el.closest("p, li, span")) return false;
+
               // 43.5, not 44. A control that has been given `min-width: 44px`
               // still measures 43.9921875 when it sits at a fractional offset
               // in a flex row, and failing it for four thousandths of a pixel
@@ -390,10 +453,12 @@ test.describe("accessibility, on a phone", () => {
               // anybody could miss.
               return box.height < 43.5 || box.width < 43.5;
             })
-            .slice(0, 8)
+            // NOT `.slice(0, 8)`. The old cap meant a screen with nine failures
+            // reported eight, and fixing those eight looked like fixing the
+            // screen.
             .map((el) => {
               const box = el.getBoundingClientRect();
-              return `${el.tagName.toLowerCase()} "${(el.textContent ?? "").trim().slice(0, 20)}" ${Math.round(box.width)}×${Math.round(box.height)}`;
+              return `${el.tagName.toLowerCase()} "${(el.textContent ?? "").trim().slice(0, 24)}" ${Math.round(box.width)}×${Math.round(box.height)}`;
             })
         );
         expect(small, `targets under 44px on ${path}`).toEqual([]);

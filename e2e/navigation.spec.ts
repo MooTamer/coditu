@@ -440,7 +440,7 @@ test.describe("the breadcrumb trail", () => {
  * else makes: no spec anywhere checks that opening the modal logs nothing.
  */
 test.describe("the console after opening a story", () => {
-  test("nothing is logged when a row opens the item over the sprint", async ({
+  test("@prod nothing is logged when a row opens the item over the sprint", async ({
     adminPage: page,
   }) => {
     const prodUrl = process.env.E2E_PROD_URL;

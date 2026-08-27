@@ -188,6 +188,11 @@ test.describe("motion", () => {
         // shipped with no blur at all.
         blur: s.backdropFilter,
         panelTier: panel.dataset.reveal,
+        // The axis, not only the tier. A docked panel arrives from the edge it
+        // is docked to, and getting that wrong is what put the peek's bottom
+        // edge 10px past a 560px viewport — `cd-reveal-surface` translates on
+        // Y, and a full-height panel has no gutter to absorb it.
+        panelKeyframes: p.animationName,
         panelDelay: p.animationDelay,
       };
     });
@@ -196,7 +201,11 @@ test.describe("motion", () => {
       name: "cd-scrim",
       duration: "0.24s",
       blur: "blur(10px)",
-      panelTier: "surface",
+      // The story opens as a SIDE PEEK — docked right, full height — so it
+      // carries its own entrance tier. The New-item dialog is still `surface`;
+      // `dialog-shell.client.tsx` picks per variant.
+      panelTier: "peek",
+      panelKeyframes: "cd-reveal-peek",
       panelDelay: "0.016s",
     });
   });

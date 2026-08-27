@@ -38,6 +38,16 @@ async function revisions() {
   );
 }
 
+/** A one-paragraph document, optionally with marks on its only text node. */
+function doc(text: string, marks?: Array<{ type: string }>) {
+  return {
+    type: "doc",
+    content: [
+      { type: "paragraph", content: [{ type: "text", text, ...(marks ? { marks } : {}) }] },
+    ],
+  };
+}
+
 test.describe("version history", () => {
   // Serial: every test rewrites the same story's description and counts its
   // versions, so parallel workers would interleave revision numbers.
@@ -178,5 +188,66 @@ test.describe("version history", () => {
     await expect(panel.locator("pre").first()).toBeVisible();
 
     expect(await auditA11y(page)).toEqual([]);
+  });
+
+  test("a formatting-only change says WHAT changed rather than 'formatting only'", async ({
+    adminPage: page,
+  }) => {
+    // The thing this replaced: `lib/diff.ts` compares the flattened text, so
+    // bolding a word produced no diff lines and the entry read "formatting
+    // only" and then "nothing to compare" — a label, not an answer, on the one
+    // screen whose whole job is answering "what did somebody do to this".
+    //
+    // Written through the database rather than the editor on purpose: what is
+    // under test is the DIFF, and driving TipTap's toolbar to produce one bold
+    // mark would be testing TipTap.
+    await query(
+      `update work_items set description_json = $2, description = $3 where key = $1`,
+      [ITEM_KEY, JSON.stringify(doc("A sentence with no marks at all.")), "A sentence with no marks at all."]
+    );
+    await query(
+      `update work_items set description_json = $2, description = $3 where key = $1`,
+      [
+        ITEM_KEY,
+        JSON.stringify(doc("A sentence with no marks at all.", [{ type: "bold" }])),
+        // The SAME flattened text. This is what makes it formatting-only.
+        "A sentence with no marks at all.",
+      ]
+    );
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(ITEM);
+
+    const panel = page.getByRole("region", { name: "Version history" });
+    const newest = panel.getByRole("listitem").first();
+    await expect(newest).toContainText("formatting none → bold");
+
+    await newest.locator("summary").click();
+    await expect(newest.locator("[data-block-diff]")).toContainText("a paragraph: formatting");
+  });
+
+  test("restoring the version that is already current still writes a version", async ({
+    adminPage: page,
+  }) => {
+    // Before the audit the capture trigger's "nothing changed" guard swallowed
+    // this: no version was written and the RPC returned the pre-existing latest
+    // as though it had just made it. `supabase/tests/pages.sql` holds the same
+    // property at the database; this holds it through the button.
+    await setDescription("The one and only text.");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(ITEM);
+
+    const before = await revisions();
+    const panel = page.getByRole("region", { name: "Version history" });
+    await panel.getByRole("listitem").first().locator("summary").click();
+    await panel.getByRole("button", { name: "Restore as a new version" }).first().click();
+    await panel.getByRole("button", { name: /Restore/ }).last().click();
+
+    await expect
+      .poll(async () => (await revisions()).length)
+      .toBe(before.length + 1);
+
+    const after = await revisions();
+    expect(after[after.length - 1].restored_from).toBe(before.length);
   });
 });

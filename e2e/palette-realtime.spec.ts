@@ -327,19 +327,37 @@ test.describe("realtime", () => {
       .poll(() => sent.filter((f) => f.event === "phx_join").length, { timeout: 12_000 })
       .toBeGreaterThan(0);
 
-    const joined = sent.find((frame) => frame.event === "phx_join")!.topic;
+    // The SPRINT channel specifically, not "the first join". Since the topbar
+    // gained a route-scoped presence channel there are two, and which one wins
+    // the race is a rendering-order detail this test is not about.
+    const joins = () => sent.filter((f) => f.event === "phx_join").map((f) => f.topic);
+    await expect.poll(() => joins().some((t) => /^realtime:sprint:/.test(t)), { timeout: 12_000 })
+      .toBe(true);
+
+    const joined = joins().find((t) => /^realtime:sprint:/.test(t))!;
     expect(joined, "the channel is scoped to one sprint").toMatch(/^realtime:sprint:[0-9a-f-]+$/);
+
+    // And the presence channel the topbar joins is scoped to the ROUTE, which
+    // is the whole reason it has to be torn down on one — a channel keyed on
+    // the pathname that outlives the pathname is a leak per page visited.
+    await expect
+      .poll(() => joins().some((t) => t.startsWith("realtime:coditu:presence:route:")), {
+        timeout: 12_000,
+      })
+      .toBe(true);
+    const presence = joins().find((t) => t.startsWith("realtime:coditu:presence:route:"))!;
 
     // A client-side transition, not `page.goto`: a hard navigation tears the
     // document down wholesale, and the leak this guards against is the SPA one.
     await page.getByRole("link", { name: "People" }).click();
     await expect(page).toHaveURL(/\/app\/people$/);
 
+    const left = (topic: string) =>
+      sent.some((frame) => frame.event === "phx_leave" && frame.topic === topic);
+
+    await expect.poll(() => left(joined), { timeout: 12_000 }).toBe(true);
     await expect
-      .poll(
-        () => sent.some((frame) => frame.event === "phx_leave" && frame.topic === joined),
-        { timeout: 12_000 }
-      )
+      .poll(() => left(presence), { timeout: 12_000 })
       .toBe(true);
   });
 });

@@ -339,4 +339,39 @@ test.describe("trash", () => {
 
     expect(await auditA11y(page)).toEqual([]);
   });
+
+  test("a page goes to the bin, is listed without a sprint, and comes back", async ({
+    adminPage: page,
+  }) => {
+    // The third kind. `trash_list()` returns a null `sprint_number` for it —
+    // a page has never belonged to a sprint — and the row must not print
+    // "sprint null", which is the small lie a recovery screen cannot afford.
+    const title = `A page for the bin ${Date.now()}`;
+    const slug = `a-page-for-the-bin-${Date.now()}`;
+    await query(
+      `insert into pages (project_id, title, slug, body, published_at, created_by)
+       values ((select id from projects where slug = 'meinevim'), $1, $2, 'words', now(),
+               (select id from profiles where role = 'admin' limit 1))`,
+      [title, slug]
+    );
+
+    await page.goto(`/app/projects/meinevim/pages/${slug}`);
+    await page.getByRole("button", { name: `Move ${title} to the bin` }).click();
+    await page.waitForURL("**/app/projects/meinevim/pages");
+
+    await page.goto("/app/trash");
+    const row = page.getByRole("listitem").filter({ hasText: title });
+    await expect(row).toBeVisible();
+    await expect(row).not.toContainText("sprint null");
+    await expect(row).toContainText("MEINEvim");
+
+    await row.getByRole("button", { name: "Restore" }).click();
+    await expect(page.getByRole("listitem").filter({ hasText: title })).toHaveCount(0);
+
+    // And it is readable again where it lives.
+    await page.goto(`/app/projects/meinevim/pages/${slug}`);
+    await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+
+    await query(`delete from pages where slug = $1`, [slug]);
+  });
 });
