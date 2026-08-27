@@ -576,7 +576,7 @@ Ordered as the plan orders them. Every one is still a gap.
 | **V-D8 – V-D11** | My work, People and Projects as database-style tables; People's six sections; the Projects list/cards toggle |
 | **V-F1** | Recovery Centre structure. **The truthful copy is untouched and must stay that way** — the four-card header may be adopted, none of the prototype's values may be |
 | ~~**V-G7, routes**~~ | **Closed, and it was never open.** The per-route counts were an artefact of measuring without a coarse pointer — see the struck section above. The repaired aggregate sweep is green on all 21 routes. |
-| ~~**V-B1 – V-B8**~~ | **Done** — see the sixth pass below. |
+| **V-B1 – V-B7** | **Done. V-B8 is NOT** — see the sixth pass below, which was reopened and corrected. |
 | ~~**V-C2 – V-C6**~~ | **Done** — see the sixth pass below. |
 | **Phase 9** | Editor, mention, slash, presence, empty, loading, offline and failure states in their designed placements |
 | **`--tint` sweep** | 27 files still hover with `--canvas`. Left because it is a 27-file visual change I could not verify in one pass, not because it is right |
@@ -620,65 +620,148 @@ The plan lists twelve checks. These have **not** been run:
 
 
 ---
+# Sixth pass — Workspace Home and the shell, 2026-08-27, corrected 2026-08-28
 
-# Sixth pass — Workspace Home and the shell, 2026-08-27
+Branch `visual-conformance`. Implementation `e5097e3`, **corrected by `526c62c`**.
+**Visual conformance is still NOT complete** — this batch was V-B1 – V-B8 and
+V-C2 – V-C6 only, and every row the Fifth pass lists below those is untouched.
 
-Branch `visual-conformance`, `e5097e3`. **Visual conformance is still NOT complete** — this
-batch was V-B1 – V-B8 and V-C2 – V-C6 only, and the rows the Fifth pass lists as outstanding
-below those are untouched.
+## Why this section was rewritten
 
-## Rows closed, with the measurement
+The first version of it claimed V-B1 – V-B8 and V-C2 – V-C6 closed, and recorded
+`home-shell.local.spec.ts` as **2 passed**. The file contained four tests, not
+two, and what they asserted was that things were **visible**. Visible is not the
+claim any of those rows makes, and underneath it nine things were wrong — the
+sprint card outside Home's grid, the goal printed twice, an inert status legend
+signed off on the `role="img"` of the bar above it, load bars divided by the
+total instead of the largest entry, "Due this sprint" scoped by a date alone,
+`Log time` pointing at a table that cannot log time, an `N` key cited as source
+conformance against a source that gives that action no key, tabs with no panel
+and no arrow keys, a drawer that duplicated `rail-project-spaces`, and workspace
+presence that only existed while Home was mounted.
+
+`526c62c` fixes all of them. The instruments below were rewritten to assert URLs,
+measurements and resulting rows rather than presence, and the counts here are
+what those instruments actually printed.
+
+## Rows closed, with the measurement that proves it
+
+Unless stated otherwise the evidence is
+`E2E_LOCAL=1 npx playwright test e2e/home-shell.local.spec.ts --project=chromium --workers=1`
+→ **16 passed**, run three consecutive times (20.4s / 18.4s / 18.2s).
 
 | Row | What it is now | Evidence |
 |---|---|---|
-| **V-B1** | Quick actions beside the greeting: New story `n`, Sprint notes `N`, Open sprint `s`, Log time `t` | `e2e/home-shell.local.spec.ts` asserts all three visible controls. Every key is **bound**, and the listener stands down inside `input`, `textarea`, `select` and `contenteditable`, and on any modifier |
-| **V-B2** | The sprint goal is the first of the card's three columns, `max-w-[44ch]` | same spec — `Goal` visible at 1440 |
-| **V-B3** | 10px stacked status bar, one span per status by share, with a legend | same spec — `role="img"` whose label names every slice and its count |
-| **V-B4** | Per-person load bars: initials, 5px track, hours | Share of the sprint's **logged** time, which is the only honest comparison between those two numbers — not of a capacity nobody set |
-| **V-B5** | The 320px right column: Online now, Recently opened, Activity | Measured at 1440: `grid-template-columns: 761px 320px`. `e2e/home-shell.local.spec.ts` asserts two tracks ending `320px` at 1920/1440/1180 and one column at 1024/834/768/390/320 |
-| **V-B6** | My work is three tabs — Assigned / Reviewing / Due this sprint — with counts | same spec — `getByRole("tab")` is exactly 3. "Due this sprint" is the assigned rows filtered by the sprint's own `endsOn`, compared as ISO calendar strings (invariant 5), so it adds no query |
-| **V-B7** | Home `h1` is 26px / `-0.024em` | Measured: `h1Size: "26px"` |
-| **V-B8** | Mentions rows unchanged; the card moved into the left column | Not a change — recorded so the row is not read as done work |
-| **V-C2** | `Search or run` + `⌘K` at the top of the sidebar | same spec. Dispatches the event the topbar's palette already listens for — `⌘K`, the phone's Search tab and this are one dialog and one piece of state |
-| **V-C3** | `Trash` and `Workspace settings` in the rail footer | same spec. **Admin-only**, because both routes are: `/app/settings` redirects a lead and `/app/trash` is admin-gated at the database |
-| **V-C4** | `workspace · N members` under the name | same spec, against a live count from the profiles the shell already reads |
-| **V-C5** | A jade presence dot on your own face in the rail | The one presence fact a component can know without a socket. Teammates' dots are on Home, where a channel is actually subscribed |
-| **V-C6** | The 768–1179 overlay drawer | `e2e/home-shell.local.spec.ts` — opens from the topbar hamburger, `x = 0`, `width = 320`, closes on Escape. Built on the existing `DialogShell` with a new `drawer` variant, so there is one focus trap and one scroll lock |
-| **V-G7** | `summary` added to the coarse-pointer 44px floor | `e2e/touch-targets.local.spec.ts` — **1 passed**, 21 routes aggregated. And the canonical `e2e/mobile.spec.ts:357` now passes on all three browser projects |
+| **V-B1** | Quick actions beside the greeting: `New story n`, `New note` (**no key**), `Open sprint s`, `Log time t` | The four rendered labels are read back and compared exactly. `New story` opens the real `NewItemDialog`; `Log time` resolves to `/app/projects/…/sprints/…/items/COD-…#log-time` and the panel with the `Log …` control is asserted at the destination. Each key is pressed and its outcome awaited; the listener is proved to stand down inside the palette's field, inside a `contenteditable`, on ⌘/Ctrl/Alt/Shift, and on `repeat` |
+| **V-B2** | The sprint goal is the first of the card's three columns, `max-w-[44ch]`, and is printed **once** | Every non-empty paragraph in the card is counted; any repeat fails the test. The loose copy under the sprint name is gone, and the days-left chip moved to the header row where the source draws it |
+| **V-B3** | 10px stacked status bar, one span per status by share, with a legend **that filters** | Each legend entry's `href` is asserted, clicked, the resulting URL awaited, and the sprint's `tbody tr` count compared to the number the legend printed — for every slice |
+| **V-B4** | Per-person load bars: initials, 5px track, hours, measured against the **busiest** person | `lib/home.ts` `loadShare`/`busiest`, with fixtures in `tests/home.test.ts` proving it divides by the largest entry and not the sum, and does not divide by zero. Real minutes throughout; `hours()` is the only division by 60 |
+| **V-B5** | The 320px right column, beginning **level with the sprint card** | Measured at 1440: the card is inside `[data-home-left]` and is its first child, `grid-template-columns` ends `320px`, the card's width equals the left track's, and its top is within 1px of `Online now`'s |
+| **V-B6** | My work is three tabs — Assigned / Reviewing / Due this sprint — as a real tablist | Every tab has `aria-controls` pointing at a real `tabpanel` that names it back; exactly one tab is in the tab sequence and exactly one is selected; ArrowRight/ArrowLeft/Home/End move selection **and** focus, wrapping both ways. "Due this sprint" is scoped to the active project **and** sprint before the deadline is applied — six fixtures in `tests/home.test.ts`, including another project's work with a deadline in range, and the rendered rows are asserted to be under the active sprint's path |
+| **V-B7** | Home `h1` is 26px / `-0.024em` | `font-size: 26px` and the computed letter-spacing, measured at 1440 |
+| **V-C2** | `Search or run` + `⌘K` at the top of the sidebar | Asserted in the rail, and **clicked**: it opens the same dialog `⌘K` and the phone's Search tab open |
+| **V-C3** | `Trash` and `Workspace settings` in the rail footer | Both asserted in the rail. Admin-only, because both routes are |
+| **V-C4** | `workspace · N members` under the name | Compared against the number of rows `Online now` actually lists, so the count cannot drift from the roster |
+| **V-C5** | A jade presence dot on your own face in the rail | Exactly one, `rgb(35, 201, 127)` |
+| **V-C6** | The 768–1179 overlay drawer | Opens from the topbar hamburger at `x = 0`, `width = 320`; the rail is still in the document behind it; `body` overflow changes while open and is restored on close; Tab and Shift+Tab each cycle past the end without escaping; Escape closes it and focus returns to the opener; a navigation from inside it closes it. `rail-project-spaces` and `drawer-project-spaces` each appear exactly once, and no id in the page is duplicated |
+
+## V-B8 is NOT closed
+
+The Mentions composition from the source — avatar/initials, author, project and
+item, time, body preview, unread tint and dot, and a truthful `mark all read`
+wired to the existing `markNotificationsRead` Server Action — **is implemented**
+in `526c62c`. It is **not verified in a populated state**, and this row must not
+be read as done.
+
+`public.notifications` on this machine holds **0 rows** (`select count(*)` —
+the seed inserts none, and notifications are written by the
+`sync_comment_mentions` trigger). The local stack is shared with another
+session's worktree, so this pass may not create rows to look at. What is proved:
+
+- the empty state, and that `mark all read` is **not** offered when there is
+  nothing unread — a control that reports success while changing nothing is
+  indistinguishable from a broken one;
+- the row-to-sentence mapping, by fixtures in `tests/home.test.ts`: the author
+  comes from the comment's own author through `comment_id`, an `assigned` or
+  `review_requested` row genuinely has no actor to name and falls back to its
+  verb rather than inventing one, and a comment that previews as whitespace does
+  not render a blank line.
+
+**Still owed for V-B8:** the populated card in a browser, on a database somebody
+may write to.
+
+## One decision left for Mohamed
+
+The source gives `New note` **the empty string** as its key:
+
+```js
+{ label: "New note", key: "", icon: "M6 4h9l3 3v13H6zM14 4v4h4", run: () => this.go("notes") },
+```
+
+The build drew and bound `N`, and the first version of this section cited that as
+conformance. It is not, so the badge and the binding are both gone. Whether
+Coditu wants a shortcut there anyway is a product call, not an audit finding —
+it needs an answer before anyone reinstates it, and reinstating it means
+amending the source or recording the divergence in `05-DECISIONS.md`.
 
 ## Verification actually run for this batch
 
-| Check | Result |
-|---|---|
-| `tsc --noEmit` | clean |
-| `eslint app components e2e` | clean |
-| `vitest run` | **451 passed**, 33 files |
-| `git diff --check` | clean |
-| **Bundle budgets** | `npm run budgets` → **OK**. App shell **219.1 KB of §5's 220** own+total; marketing 153.7/130 with a 140.0 KB framework floor. **0.9 KB of headroom — down from 1.4.** Worth knowing before the next client component |
-| **1920 / 1440 / 1180 / 1024 / 834 / 768 / 390 / 320** | `home-shell.local.spec.ts` — **2 passed** (light and dark), asserting per band: no horizontal overflow, the right grid, the right navigation, and the breadcrumb trail present |
-| **Light and dark** | as above, and the palettes were already verified token-for-token in the fourth pass |
-| **200% zoom, keyboard, thirteen-width overflow, axe every route** | `e2e/a11y.spec.ts` + `e2e/navigation.spec.ts` → **29 passed, 1 skipped, 0 failed** (the skip is `@prod`, which needs a production URL) |
-| **Safe areas, sheets, coarse pointer, 16px fields** | `e2e/mobile.spec.ts`, all three projects → **60 passed, 0 failed** |
-| **Lead, Engineer and Client boundaries** | `e2e/access.spec.ts` + `e2e/client-boundary.spec.ts` + `e2e/team.spec.ts` → **19 passed, 0 failed** |
-| **Aggregate coarse-pointer sweep** | **1 passed**, 21 routes, real `hasTouch` + `isMobile` |
+Everything below ran against a `next dev` on **:3007** started from this
+worktree, because port 3000 is held by another session's checkout of `main` —
+`reuseExistingServer` would otherwise have measured that code and reported it as
+this branch's.
 
-No database reset was run and none was needed for any of the above.
+| Check | Command | Result |
+|---|---|---|
+| Types | `npx tsc --noEmit` | clean |
+| Lint | `npx eslint app components lib e2e tests scripts` | clean |
+| Unit | `npx vitest run` | **471 passed**, 34 files (was 451 / 33; `tests/home.test.ts` adds 20) |
+| Whitespace | `git diff --check` | clean |
+| **Bundle budgets** | `npm run budgets` | **OK**. App shell **79.2 KB own / 110**, **219.3 KB total / 220** — **0.7 KB of headroom, down from 0.9**. Marketing 13.7/20 own, 153.7/130 total against a 140.0 KB framework floor |
+| **Home, drawer, presence** | `E2E_LOCAL=1 playwright test e2e/home-shell.local.spec.ts --project=chromium --workers=1` | **16 passed**, three consecutive runs |
+| **1920 / 1440 / 1180 / 1024 / 834 / 768 / 390 / 320, light and dark** | same file | per band: no horizontal overflow, the right grid, the right navigation, the breadcrumb trail |
+| **Cross-route presence** | same file | two authenticated contexts: one on `/app`, one on `/app/people`. Home shows **both** online, and the `N of M` count agrees with the dots it drew |
+| **Measures and the coarse-pointer sweep** | `E2E_LOCAL=1 playwright test e2e/measures.local.spec.ts e2e/touch-targets.local.spec.ts --project=chromium --workers=1` | **16 passed** — 15 measures at 1920, plus the aggregate 21-route sweep with a real `hasTouch` + `isMobile` context |
+| **The canonical touch-target check** | `playwright test e2e/mobile.spec.ts -g "every target in the app clears 44px on a coarse pointer" --workers=1` | **3 passed** — chromium, mobile-safari, mobile-chrome |
+| **Axe every route, 200% zoom, keyboard, thirteen-width overflow** | `playwright test e2e/a11y.spec.ts e2e/navigation.spec.ts --project=chromium --workers=1` | **29 passed, 1 skipped, 0 failed** (the skip is `@prod`, which needs `E2E_PROD_URL`) |
 
-## Two things measured that contradicted a reasonable assumption
+**Not run, deliberately.** The mutation-heavy groups — the full `mobile.spec.ts`,
+`access.spec.ts`, `team.spec.ts`, `client-boundary.spec.ts` — write and delete
+rows, and the local database is shared with another session. The Sixth pass's
+first version reported numbers for all four; those numbers are withdrawn, not
+because they were wrong but because this pass cannot stand behind them. They are
+owed on an isolated, resettable database.
 
-- **`md:flex min-[1180px]:hidden` put the drawer's hamburger on a 1920px screen**, beside a fully
-  labelled sidebar. Two utilities from different breakpoint families do not order the way reading
-  them suggests. Both that range and Home's two-column grid are plain rules in `globals.css` now,
-  on attributes React sets — the same remedy the sidebar's own two states already use, and for the
-  same reason.
-- **Both CSS changes needed a `.next` wipe to appear at all.** The served stylesheet had zero
-  `--tint`, zero `summary:not([data-dense])` and zero `[data-home-grid]` while the source had each.
-  `07-FIELD-NOTES.md` carries the trap and its one-command check; it has now caught it three times
-  in this branch.
+**No database was reset, and nothing was written to it.** The local stack remains
+non-pristine from an earlier three-project mobile run: `COD-238` has zero
+comments where `supabase/seed.sql` seeds one, and six comment revisions exist
+that the seed does not describe.
+
+## What the instruments got wrong, and what that cost
+
+Playwright's selector engine matched **two** of every element on Home. It was not
+the application: `document.querySelectorAll` returned one at every sample, the
+accessibility tree contained one, and the second match reported
+`connected: false` with the parent chain `MAIN < DIV#S:0`.
+
+`#S:0` is React's streaming placeholder. `/app` streams, so when the page
+resolves React delivers it inside `<div hidden id="S:0">` and then moves the
+children into place — and both the emptied wrapper and the detached former
+subtree stay matchable. Anything asserting a count on this page has to exclude
+them, which `:visible` does and `:light()` does not, because none of it is shadow
+DOM. Written down on `home()` in the spec, with the measurement.
+
+Two hours went into that, most of it spent believing the duplicate was a
+hydration mismatch. `07-FIELD-NOTES.md` already warns that this dev server
+fabricates hydration diffs after a recompile; the lesson to add is that a
+*doubled* element is a different animal from a *changed* one, and the first thing
+to ask is whether the second copy is `connected`.
 
 ## Still outstanding after this batch
 
-Unchanged from the Fifth pass, minus the rows above: the sprint's saved views and sort panel, the
-database-style Projects / My work / People layouts, the Recovery Centre's structure, Phase 9's
-editor and reliability states, the truthful idle save chip, and the 27 content-level `--canvas`
-hovers. The board's column geometry (V-D4a) is in the source but has not been measured in a browser.
+Unchanged from the Fifth pass, minus the rows above, **plus V-B8**: the sprint's
+saved views and sort panel, the database-style Projects / My work / People
+layouts, the Recovery Centre's structure, Phase 9's editor and reliability
+states, the truthful idle save chip, the 27 content-level `--canvas` hovers, and
+the board's column geometry (V-D4a), which is in the source and has still not
+been measured in a browser.
