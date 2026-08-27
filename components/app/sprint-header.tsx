@@ -267,6 +267,7 @@ export function SprintHeader({
           canEdit={canEdit}
           people={people}
           maxImageBatch={maxImageBatch}
+          historyHref={`/app/projects/${project.slug}/sprints/${sprint.number}/notes`}
         />
       ) : null}
     </section>

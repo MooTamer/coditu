@@ -19,7 +19,6 @@ import { ComponentTag } from "@/components/coditu/component-icon";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
 import { ItemPresence } from "@/components/app/item-presence.client";
-import { PresenceSurfaceProvider } from "@/components/app/presence-surface.client";
 import { ThreadRealtime } from "@/components/app/realtime.client";
 import { RevisionHistory } from "@/components/app/revision-history";
 import { calendarDate, hours, timestamp } from "@/lib/format";
@@ -112,7 +111,6 @@ export function ItemDetailBody({
     // Wraps the whole body so an editor anywhere inside — a criterion, the
     // description, the composer — can say it is open without five layers of
     // props threading a callback down to it.
-    <PresenceSurfaceProvider>
     <div className="grid [grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))]">
       {/* Comments arriving on this item, coalesced through a 120ms buffer.
           Renders nothing — it only subscribes. */}
@@ -401,6 +399,5 @@ export function ItemDetailBody({
         />
       </div>
     </div>
-    </PresenceSurfaceProvider>
   );
 }

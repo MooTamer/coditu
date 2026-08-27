@@ -3,12 +3,13 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { ChevronRight, Pencil } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, History, Pencil } from "lucide-react";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { setSprintNotes } from "@/lib/actions/sprints";
-import { settle } from "@/lib/action-result";
+import { useTrackedSave } from "@/components/app/save-state.client";
 import { documentFromText, isEmptyDocument } from "@/lib/blocks/schema";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { calendarDate } from "@/lib/format";
@@ -45,6 +46,7 @@ export function SprintNotes({
   canEdit,
   people,
   maxImageBatch,
+  historyHref,
 }: {
   sprintId: string;
   /** The flattened projection. Still what the export and the report read. */
@@ -65,8 +67,18 @@ export function SprintNotes({
   /** For the `@` list. Notes are written TO the team, so mentions belong here. */
   people: ProfileRef[];
   maxImageBatch: number;
+  /**
+   * Where this note's Version History lives.
+   *
+   * Absent on the notes' own page, which already *is* that screen — a link back
+   * to the page you are on is a control that does nothing. Present in the
+   * sprint header, where the timeline has no room: `PLAN.md` §11 asks for
+   * *"Version History"* on every sprint note, and this is the door to it.
+   */
+  historyHref?: string;
 }) {
   const router = useRouter();
+  const trackedSave = useTrackedSave();
   const toast = useToast();
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -93,7 +105,7 @@ export function SprintNotes({
 
   async function save(doc: unknown) {
     setSaving(true);
-    const result = await settle(
+    const result = await trackedSave(
       () => setSprintNotes({ sprintId, doc }),
       "Those notes did not save — check your connection."
     );
@@ -134,6 +146,20 @@ export function SprintNotes({
             </span>
           ) : null}
         </button>
+
+        {historyHref && !editing ? (
+          // A link rather than a button, so it opens in a new tab, can be
+          // copied, and works before hydration — the same reasoning the history
+          // screen's own filter chips follow.
+          <Link
+            href={historyHref}
+            data-notes-history
+            className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-control px-2 text-[12px] font-medium text-[var(--ink-muted)] hover:bg-[var(--raised)] hover:text-[var(--ink)]"
+          >
+            <History size={13} strokeWidth={1.8} aria-hidden />
+            Version history
+          </Link>
+        ) : null}
 
         {canEdit && !editing ? (
           <button

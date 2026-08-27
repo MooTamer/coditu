@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 
 import { AppBadge } from "@/components/app/app-badge.client";
+import { PresenceSurfaceProvider } from "@/components/app/presence-surface.client";
 import { Rail } from "@/components/app/rail.client";
+import { SaveStateProvider } from "@/components/app/save-state.client";
 import { TabBar } from "@/components/app/tab-bar.client";
 import { ToastProvider } from "@/components/app/toast.client";
 import { Topbar } from "@/components/app/topbar.client";
@@ -97,7 +99,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <ToastProvider>
-      <div className="flex min-h-dvh bg-[var(--canvas)] text-[var(--ink)]">
+      {/* Two stores that wrap the whole shell, and neither re-renders it.
+          Both are `useSyncExternalStore` behind a context whose value never
+          changes — the lesson `presence-surface.client.tsx` wrote down after a
+          provider re-render stranded a `useOptimistic` entry.
+
+          `PresenceSurfaceProvider` is HERE rather than on the story, which is
+          where it used to be. The topbar's presence caption has to be able to
+          say "Adam is editing the description", and a provider nested inside
+          the story is invisible to a topbar rendered above it. One store, read
+          by both. */}
+      <PresenceSurfaceProvider>
+        <SaveStateProvider>
+          <div className="flex min-h-dvh bg-[var(--canvas)] text-[var(--ink)]">
         <Rail
           me={{
             fullName: profile.full_name,
@@ -123,6 +137,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             componentsByProject={componentsByProject}
             canCreate={profile.role === "admin" || profile.role === "lead"}
             me={{
+              id: profile.id,
               fullName: profile.full_name,
               initials: profile.initials,
               avatarUrl: profile.avatar_url,
@@ -137,8 +152,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
         {/* Renders nothing. Puts the same unread count the rail draws its dot
             from onto the installed app's icon. */}
-        <AppBadge unreadCount={unreadCount} />
-      </div>
+            <AppBadge unreadCount={unreadCount} />
+          </div>
+        </SaveStateProvider>
+      </PresenceSurfaceProvider>
     </ToastProvider>
   );
 }

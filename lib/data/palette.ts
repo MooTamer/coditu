@@ -58,6 +58,16 @@ export interface PaletteTargets {
   people: PalettePerson[];
   /** Whether this profile may reassign work — the palette hides what it cannot do. */
   canAssign: boolean;
+  /**
+   * The reader's role, so the palette can offer the destinations they can
+   * actually reach.
+   *
+   * `navFor()` already filters by role for the sidebar and the phone's overflow
+   * sheet; the palette is the third surface that has to agree with them, and a
+   * command that 404s reads as a broken app rather than as a screen that is not
+   * yours.
+   */
+  role: string;
 }
 
 const EMPTY: PaletteTargets = {
@@ -66,6 +76,7 @@ const EMPTY: PaletteTargets = {
   items: [],
   people: [],
   canAssign: false,
+  role: "",
 };
 
 export async function getPaletteTargets(): Promise<PaletteTargets> {
@@ -157,5 +168,6 @@ export async function getPaletteTargets(): Promise<PaletteTargets> {
     items,
     people,
     canAssign: profile.role === "admin" || profile.role === "lead",
+    role: profile.role,
   };
 }

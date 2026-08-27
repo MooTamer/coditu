@@ -12,6 +12,7 @@ import { loadPaletteTargets } from "@/lib/actions/palette";
 import { logTime, setWorkItemPerson, setWorkItemStatus } from "@/lib/actions/work-items";
 import type { PaletteTargets } from "@/lib/data/palette";
 import { todayInCairo } from "@/lib/today";
+import { overflowFor } from "@/components/app/nav-items";
 import { STATUS_DISPLAY_ORDER, STATUS_LABEL } from "@/lib/work-items";
 import { cn } from "@/lib/utils";
 
@@ -180,6 +181,32 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         run: () => {
           close();
           router.push(project.path);
+        },
+      });
+    }
+
+    /**
+     * The workspace's own destinations.
+     *
+     * The returned prototype's `paletteRows` ends with a list of exactly these
+     * — *"new note, sprint notes, my earnings, team payouts, trash, version
+     * history, backup & recovery, workspace settings, profile"* — and Coditu's
+     * palette offered items, sprints, projects and two actions. Every route
+     * this audit added was reachable only by clicking through the sidebar.
+     *
+     * `overflowFor(role)` rather than a list written out here, so the palette,
+     * the sidebar and the phone's More sheet cannot disagree about what a
+     * reader can reach. A command that 404s reads as a broken app rather than
+     * as a screen that is not yours.
+     */
+    for (const destination of overflowFor(targets.role)) {
+      list.push({
+        id: `go:${destination.id}`,
+        kind: "go to",
+        label: destination.label,
+        run: () => {
+          close();
+          router.push(destination.href);
         },
       });
     }

@@ -34,6 +34,7 @@ export function RestoreVersion({
   itemKey,
   projectSlug,
   sprintNumber,
+  path,
 }: {
   surface: RevisionSurface;
   entityId: string;
@@ -43,6 +44,8 @@ export function RestoreVersion({
   itemKey?: string;
   projectSlug?: string;
   sprintNumber?: number;
+  /** An exact route to revalidate. A page has no sprint to derive one from. */
+  path?: string;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -53,7 +56,7 @@ export function RestoreVersion({
     startTransition(async () => {
       const result = await settle(
         () =>
-          restoreRevision({ surface, entityId, revisionNo, itemKey, projectSlug, sprintNumber }),
+          restoreRevision({ surface, entityId, revisionNo, itemKey, projectSlug, sprintNumber, path }),
         "That version did not go back — check your connection."
       );
       setConfirming(false);

@@ -5,13 +5,18 @@ import { RevisionEntryDetails } from "@/components/app/revision-history";
 import { Mono } from "@/components/coditu/mono";
 import { Reveal } from "@/components/motion/reveal";
 import { listRevisions, surfaceLabel } from "@/lib/data/revisions";
+import { listProjects } from "@/lib/data/projects";
 import { listTeam } from "@/lib/data/profiles";
 import {
+  ACTIONS,
+  ACTION_LABEL,
+  MAX_QUERY,
   OUTSIDE,
   SURFACES,
   activeHistoryFilterCount,
   parseHistoryFilters,
   toggleHref,
+  type HistoryFilterSpec,
 } from "@/lib/history-filters";
 import { getCurrentProfile } from "@/lib/supabase/server";
 
@@ -31,11 +36,19 @@ const WINDOW = 80;
  * carried `work_item_id` and `sprint_id` since it was created and the migration
  * names this route as their reader.
  *
- * ## The filters are links, and the state is the URL
+ * ## Six filters, and the state is the URL
  *
- * No client component, no JavaScript, and every combination is somewhere a
- * person can paste into a message. Same rule the sprint table's filters follow,
- * and the same one that makes a saved view possible.
+ * `PLAN.md` §11 asks for *"Search and filtering by person, content type,
+ * project, date, and action"*. Every one of them is a query parameter, every
+ * chip is a `<Link>`, and the date range is a real `<form method="get">` — so
+ * the whole screen works before hydration, ships no JavaScript, and every
+ * combination is somewhere a person can paste into a message. Same rule the
+ * sprint table's filters follow, and the same one that makes a saved view
+ * possible.
+ *
+ * The form re-emits the chip state as hidden inputs. Without that, submitting a
+ * date would drop every chip on the screen — a GET form sends its own fields
+ * and nothing else, which is the classic way a filter bar half-forgets itself.
  *
  * ## The prototype's side panel is not built, and the diff is not lost
  *
@@ -56,14 +69,38 @@ const WINDOW = 80;
 export default async function HistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ surface?: string | string[]; actor?: string | string[] }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const profile = await getCurrentProfile();
   if (!profile) notFound();
 
   const filters = parseHistoryFilters(await searchParams);
+  const projects = await listProjects();
+
+  // Slugs in the URL, ids in the query. A slug this workspace does not have
+  // resolves to no id, and `projectIds: []` on a non-empty `filters.projects`
+  // would silently mean "no project filter" — so the empty result is made
+  // explicit rather than left to the absence of a clause.
+  const projectIds = projects
+    .filter((project) => filters.projects.includes(project.slug))
+    .map((project) => project.id);
+  const namesNothing = filters.projects.length > 0 && projectIds.length === 0;
+
   const [entries, team] = await Promise.all([
-    listRevisions({ surfaces: filters.surfaces, actors: filters.actors }, WINDOW),
+    namesNothing
+      ? Promise.resolve([])
+      : listRevisions(
+          {
+            surfaces: filters.surfaces,
+            actors: filters.actors,
+            q: filters.q || undefined,
+            projectIds: projectIds.length ? projectIds : undefined,
+            from: filters.from || undefined,
+            to: filters.to || undefined,
+            actions: filters.actions,
+          },
+          WINDOW
+        ),
     listTeam(),
   ]);
 
@@ -76,7 +113,7 @@ export default async function HistoryPage({
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
       <Reveal tier="section" as="header">
         <Mono size="eyebrow" className="text-[var(--ink-faint)]">
-          every story, note, criterion and comment
+          every story, note, page, criterion and comment
         </Mono>
         <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.022em]">Version history</h1>
         <p className="mt-1 max-w-[68ch] text-[13.5px] text-[var(--ink-muted)]">
@@ -87,10 +124,65 @@ export default async function HistoryPage({
 
       <Reveal tier="section" delay={0.06} as="section" aria-labelledby="filters">
         <h2 id="filters" className="sr-only">
-          Filters
+          Search and filters
         </h2>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        {/* A real GET form, so search and the date range work before hydration
+            and every result is a URL. The chips re-enter as hidden fields
+            because a GET form submits its own inputs and nothing else. */}
+        <form method="get" role="search" className="flex flex-wrap items-end gap-2">
+          <Hidden spec={filters} />
+
+          <label className="flex min-w-[220px] flex-1 flex-col gap-1">
+            <Mono size="meta" className="text-[var(--ink-faint)]">
+              search the words
+            </Mono>
+            <input
+              type="search"
+              name="q"
+              defaultValue={filters.q}
+              maxLength={MAX_QUERY}
+              placeholder="A phrase somebody wrote"
+              data-history-search
+              className="min-h-11 w-full rounded-control border border-[var(--hairline)] bg-[var(--raised)] px-3 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <Mono size="meta" className="text-[var(--ink-faint)]">
+              from
+            </Mono>
+            <input
+              type="date"
+              name="from"
+              defaultValue={filters.from}
+              data-history-from
+              className="min-h-11 rounded-control border border-[var(--hairline)] bg-[var(--raised)] px-3 text-[13px] text-[var(--ink)]"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <Mono size="meta" className="text-[var(--ink-faint)]">
+              to
+            </Mono>
+            <input
+              type="date"
+              name="to"
+              defaultValue={filters.to}
+              data-history-to
+              className="min-h-11 rounded-control border border-[var(--hairline)] bg-[var(--raised)] px-3 text-[13px] text-[var(--ink)]"
+            />
+          </label>
+
+          <button
+            type="submit"
+            className="min-h-11 rounded-control border border-[var(--hairline-strong)] bg-[var(--raised)] px-4 text-[13px] font-medium text-[var(--ink)]"
+          >
+            Search
+          </button>
+        </form>
+
+        <FilterRow label="Content type">
           {SURFACES.map((surface) => (
             <Chip
               key={surface}
@@ -100,9 +192,9 @@ export default async function HistoryPage({
               {surfaceLabel(surface)}
             </Chip>
           ))}
+        </FilterRow>
 
-          <span aria-hidden className="mx-1 h-4 w-px bg-[var(--hairline)]" />
-
+        <FilterRow label="Person">
           {team.map((person) => (
             <Chip
               key={person.id}
@@ -115,16 +207,40 @@ export default async function HistoryPage({
           <Chip href={toggleHref(filters, "actor", OUTSIDE)} on={filters.actors.includes(OUTSIDE)}>
             Outside the app
           </Chip>
+        </FilterRow>
 
+        <FilterRow label="Project">
+          {projects.map((project) => (
+            <Chip
+              key={project.id}
+              href={toggleHref(filters, "project", project.slug)}
+              on={filters.projects.includes(project.slug)}
+            >
+              {project.name}
+            </Chip>
+          ))}
+        </FilterRow>
+
+        <FilterRow label="Action">
+          {ACTIONS.map((action) => (
+            <Chip
+              key={action}
+              href={toggleHref(filters, "action", action)}
+              on={filters.actions.includes(action)}
+            >
+              {ACTION_LABEL[action]}
+            </Chip>
+          ))}
           {active > 0 ? (
             <Link
               href="/app/history"
+              data-clear-filters
               className="ml-1 inline-flex min-h-11 items-center rounded-control px-3 text-[12.5px] font-medium text-[var(--ink-muted)] underline underline-offset-4 hover:text-[var(--ink)]"
             >
               Clear {active === 1 ? "the filter" : `all ${active}`}
             </Link>
           ) : null}
-        </div>
+        </FilterRow>
 
         <Mono size="meta" className="mt-3 block text-[var(--ink-faint)]">
           {/* The count says what it is: a window, not a total. Claiming
@@ -142,9 +258,11 @@ export default async function HistoryPage({
       <Reveal tier="section" delay={0.12}>
         {entries.length === 0 ? (
           <p className="rounded-list border border-[var(--hairline)] bg-[var(--raised)] px-5 py-8 text-center text-[13px] text-[var(--ink-faint)]">
-            {active > 0
-              ? "Nothing matches these filters. Clear one to see more."
-              : "No versions have been recorded yet. They appear here as soon as somebody edits a document."}
+            {namesNothing
+              ? "No project here has that name."
+              : active > 0
+                ? "Nothing matches these filters. Clear one to see more."
+                : "No versions have been recorded yet. They appear here as soon as somebody edits a document."}
           </p>
         ) : (
           <ul
@@ -160,8 +278,8 @@ export default async function HistoryPage({
                 <RevisionEntryDetails
                   entry={entry}
                   itemKey={entry.target?.itemKey ?? undefined}
-                  projectSlug={entry.target?.projectSlug}
-                  sprintNumber={entry.target?.sprintNumber}
+                  projectSlug={entry.target?.projectSlug || undefined}
+                  sprintNumber={entry.target?.sprintNumber || undefined}
                   canRestore={canRestore}
                   target={
                     entry.target ? { label: entry.target.label, href: entry.target.href } : null
@@ -173,6 +291,37 @@ export default async function HistoryPage({
         )}
       </Reveal>
     </main>
+  );
+}
+
+/**
+ * The chip filters, as hidden fields on the search form.
+ *
+ * Without these, typing a date and pressing Search would drop every chip: a GET
+ * form navigates to its own fields and nothing else, so the query string it
+ * builds is the whole new URL. This is the same spec the chips' `href`s carry,
+ * expressed the way a form can carry it.
+ */
+function Hidden({ spec }: { spec: HistoryFilterSpec }) {
+  return (
+    <>
+      {spec.surfaces.length ? <input type="hidden" name="surface" value={spec.surfaces.join(",")} /> : null}
+      {spec.actors.length ? <input type="hidden" name="actor" value={spec.actors.join(",")} /> : null}
+      {spec.projects.length ? <input type="hidden" name="project" value={spec.projects.join(",")} /> : null}
+      {spec.actions.length ? <input type="hidden" name="action" value={spec.actions.join(",")} /> : null}
+    </>
+  );
+}
+
+/** One labelled row of chips. The label is a real heading for a screen reader. */
+function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <section aria-label={label} className="mt-3 flex flex-wrap items-center gap-1.5">
+      <Mono size="meta" className="w-[86px] shrink-0 text-[var(--ink-faint)]">
+        {label.toLowerCase()}
+      </Mono>
+      {children}
+    </section>
   );
 }
 

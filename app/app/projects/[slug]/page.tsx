@@ -4,6 +4,8 @@ import Link from "next/link";
 
 import { ClientMark } from "@/components/app/client-mark";
 import { PersonAvatar } from "@/components/app/person-avatar";
+import { PageList } from "@/components/app/page-list";
+import { RecordVisit } from "@/components/app/record-visit.client";
 import { SprintManager } from "@/components/app/sprint-manager.client";
 import { ComponentIcon } from "@/components/coditu/component-icon";
 import { Mono } from "@/components/coditu/mono";
@@ -12,6 +14,7 @@ import { Reveal } from "@/components/motion/reveal";
 import { CAPABILITY_LABEL } from "@/lib/client-access";
 import { getProjectClientAccess } from "@/lib/data/client-access";
 import { listComponentSummaries } from "@/lib/data/components";
+import { listPages } from "@/lib/data/pages";
 import {
   getProjectBySlug,
   listProjectActivity,
@@ -38,9 +41,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
  * The design puts a 320px column beside the main one. What goes in it here is
  * the four things that are *about* the project rather than *in* it — the views
  * saved against it, who is on it, how much of it a client can see, and what
- * happened last. Every one is real data; the design's fifth panel, project
- * pages, is not built because there is no project-scoped document route to put
- * in it, and a panel of links to nothing is furniture.
+ * happened last. Every one is real data.
+ *
+ * The design's fifth panel, **Pages & notes**, was not built for two phases
+ * because there was no project-scoped document route to put in it and a panel
+ * of links to nothing is furniture. `20260827120100_workspace_and_project_pages.sql`
+ * built the route, so the panel is in the main column now, between Components
+ * and Sprints — where the prototype has it, and where it is a door rather than
+ * an ornament.
  *
  * **1400px, and the number is measured rather than chosen.** The design says
  * 1180; at 1180 the app's own sidebar has just taken 268px, so the page has 912
@@ -66,13 +74,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
   if (!project) notFound();
   if (!profile) notFound();
 
-  const [sprints, components, team, activity, clientAccess, views] = await Promise.all([
+  const [sprints, components, team, activity, clientAccess, views, pages] = await Promise.all([
     listSprintsForProject(project.id),
     listComponentSummaries(project.id),
     listProjectTeam(project.id),
     listProjectActivity(project.id),
     getProjectClientAccess(project.id),
     listSavedViews(project.id, profile.id),
+    listPages(project.id),
   ]);
 
   const canManage = profile.role === "admin" || profile.role === "lead";
@@ -87,6 +96,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
 
   return (
     <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+      <RecordVisit href={`/app/projects/${project.slug}`} label={project.name} glyph="proj" />
+
       <Reveal tier="section" as="header">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <ClientMark logoPath={project.clientLogoPath} accentHex={project.accentHex} size={14} />
@@ -186,6 +197,32 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
                 starts collecting here.
               </p>
             )}
+          </Reveal>
+
+          <Reveal tier="section" delay={0.07} as="section" aria-labelledby="pages">
+            <div className="flex flex-wrap items-baseline gap-3">
+              <h2 id="pages" className="text-[16px] font-bold tracking-[-0.015em]">
+                Pages &amp; notes
+              </h2>
+              <Link
+                href={`/app/projects/${project.slug}/pages`}
+                className="text-[13px] font-medium text-[var(--ink-muted)] hover:text-[var(--accent)]"
+              >
+                {pages.length ? `all ${pages.length} →` : "start one →"}
+              </Link>
+            </div>
+
+            <div className="mt-3">
+              {/* Five, then the link above. A project's home is a set of
+                  doors, not a list — `05-DECISIONS.md`'s rule for this page is
+                  that each section links to its source of truth rather than
+                  restating it. */}
+              <PageList
+                pages={pages.slice(0, 5)}
+                compact
+                empty="Nothing written about this project yet."
+              />
+            </div>
           </Reveal>
 
           <Reveal tier="section" delay={0.075} as="section" aria-labelledby="sprints">

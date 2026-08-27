@@ -1,4 +1,4 @@
-import { Building2, CheckCheck, FolderOpen, History, House, Import, Rows3, Settings, Trash2, UserRound, Users, Wallet } from "lucide-react";
+import { Building2, CheckCheck, FileText, FolderOpen, History, House, Import, Rows3, Settings, Trash2, UserRound, Users, Wallet } from "lucide-react";
 
 /**
  * The application's destinations, and the rule for when each one is current.
@@ -68,6 +68,18 @@ export const NAV: readonly NavItem[] = [
     isActive: (path) =>
       /^\/app\/projects(\/[^/]+)?$/.test(path) ||
       /^\/app\/projects\/[^/]+\/components(\/|$)/.test(path),
+  },
+  {
+    id: "pages",
+    label: "Pages",
+    href: "/app/pages",
+    Icon: FileText,
+    // Workspace pages AND a project's pages, because both are the same document
+    // and a reader who followed one into the other has not changed what they are
+    // doing. Not the project overview, which Projects owns — the prefix test
+    // here is deliberately the deeper one.
+    isActive: (path) =>
+      path.startsWith("/app/pages") || /^\/app\/projects\/[^/]+\/pages(\/|$)/.test(path),
   },
   {
     id: "my-work",

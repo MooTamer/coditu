@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
+import { Recents } from "@/components/app/recents.client";
 import { Reveal } from "@/components/motion/reveal";
 import { getMyWork, getTeamLoad, type PersonLoad } from "@/lib/data/my-work";
 import { listNotifications } from "@/lib/data/notifications";
 import { listProjects } from "@/lib/data/projects";
+import { listRecents } from "@/lib/data/recents";
 import { daysRemaining, getSprint, statusDistribution } from "@/lib/data/sprint";
 import { calendarDate, hours } from "@/lib/format";
 import { getCurrentProfile } from "@/lib/supabase/server";
@@ -59,10 +61,13 @@ export default async function WorkspaceHomePage() {
   const profile = await getCurrentProfile();
   if (!profile) notFound();
 
-  const [projects, myWork, notifications] = await Promise.all([
+  const [projects, myWork, notifications, recents] = await Promise.all([
     listProjects(),
     getMyWork(),
     listNotifications(),
+    // Where this person has been. Scoped to the caller by RLS, not by a filter
+    // — see `lib/data/recents.ts`.
+    listRecents(),
   ]);
 
   const withSprint = projects.find((project) => project.activeSprint);
@@ -274,6 +279,27 @@ export default async function WorkspaceHomePage() {
               ))}
             </ul>
           )}
+        </Reveal>
+
+        <Reveal
+          tier="section"
+          delay={0.24}
+          className="rounded-section border border-[var(--hairline)] bg-[var(--overlay)] p-5"
+        >
+          {/* `PLAN.md` §2's fourth Home section, and the prototype's own panel.
+              Renders nothing at all until somebody has opened something, which
+              is why there is no empty state to look at on a fresh workspace. */}
+          <Recents items={recents} />
+          {recents.length === 0 ? (
+            <>
+              <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+                recently opened
+              </Mono>
+              <p className="mt-3 text-[13px] text-[var(--ink-faint)]">
+                Stories, notes and pages you open turn up here.
+              </p>
+            </>
+          ) : null}
         </Reveal>
       </div>
     </div>

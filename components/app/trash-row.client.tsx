@@ -23,7 +23,12 @@ export function TrashRow({ entry, canPurge }: { entry: TrashEntry; canPurge: boo
   const router = useRouter();
   const toast = useToast();
 
-  const noun = entry.kind === "work_item" ? entry.itemKey : "That comment";
+  const noun =
+    entry.kind === "work_item"
+      ? entry.itemKey
+      : entry.kind === "page"
+        ? `“${entry.title}”`
+        : "That comment";
 
   function act(what: "restore" | "purge") {
     startTransition(async () => {
@@ -52,7 +57,9 @@ export function TrashRow({ entry, canPurge }: { entry: TrashEntry; canPurge: boo
             ? `Deletes ${entry.itemKey}, its criteria, its thread, its version history${
                 entry.minutesLogged ? ` and ${(entry.minutesLogged / 60).toFixed(1)} logged hours` : ""
               }. This cannot be undone.`
-            : "Removes the comment permanently. This cannot be undone."}
+            : entry.kind === "page"
+              ? `Deletes “${entry.title}” and every version of it. This cannot be undone.`
+              : "Removes the comment permanently. This cannot be undone."}
         </p>
         <button
           type="button"

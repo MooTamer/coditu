@@ -139,10 +139,21 @@ export default async function TrashPage({
                         {entry.itemKey}
                       </Mono>
                     ) : null}
+                    {entry.kind === "page" ? (
+                      <Mono size="meta" className="shrink-0 text-[11.5px] text-[var(--ink-muted)]">
+                        page
+                      </Mono>
+                    ) : null}
                     <span className="truncate">{entry.title}</span>
                   </p>
                   <Mono size="meta" className="mt-[2px] block text-[11.5px] text-[var(--ink-faint)]">
-                    {entry.projectName} · sprint {entry.sprintNumber} ·{" "}
+                    {/* A page has no sprint, and a workspace page has no
+                        project either — `trash_list()` returns the word
+                        `Workspace` for that so this line never has to invent
+                        one. Printing "sprint null" is the kind of small lie a
+                        recovery screen cannot afford. */}
+                    {entry.projectName}
+                    {entry.sprintNumber === null ? "" : ` · sprint ${entry.sprintNumber}`} ·{" "}
                     <time dateTime={entry.deletedAt}>{stamp(entry.deletedAt)}</time>
                     {/* The hours are stated BEFORE anybody presses anything.
                         They are what a purge actually costs, and they are

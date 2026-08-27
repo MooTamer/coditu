@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Mono } from "@/components/coditu/mono";
 import { RestoreVersion } from "@/components/app/restore-version.client";
+import { blockChanges, summariseBlockChanges } from "@/lib/block-diff";
 import { collapseUnchanged, diffLines, summariseDiff } from "@/lib/diff";
 import { surfaceLabel, type RevisionEntry } from "@/lib/data/revisions";
 
@@ -20,14 +21,22 @@ import { surfaceLabel, type RevisionEntry } from "@/lib/data/revisions";
  * acted on rarely should not ship the acting half to everyone who reads it.
  * `lib/diff.ts` never reaches the browser.
  *
- * ## What the diff can and cannot show
+ * ## Two diffs, because one of them could not see half the changes
  *
- * It diffs `plain_text`, the flattened projection stored beside each revision.
- * So a change that only alters formatting — bolding a word, turning a paragraph
- * into a callout, ticking a checklist item — produces no diff lines, and the
- * entry says "formatting only" rather than rendering an empty box that reads
- * like a bug. The version is real either way; the capture trigger compares the
- * document, not the text.
+ * The text diff (`lib/diff.ts`) walks `plain_text`, the flattened projection
+ * stored beside each revision. It answers *"what words moved"* and it is the
+ * right answer most of the time.
+ *
+ * It is blind to everything else. Bolding a word, turning a paragraph into a
+ * callout, ticking a checklist item, changing a code block's language, pointing
+ * a link somewhere new — every one of those leaves the flattened text identical,
+ * and the entry used to say `formatting only` and then *"nothing to compare"*.
+ * That is a label, not an answer, and it is the point at which a reader stops
+ * trusting a version history.
+ *
+ * So when the text has not moved, the **block diff** (`lib/block-diff.ts`) runs
+ * on the two stored `doc` trees and says which property changed on which block.
+ * Both are server-side; neither reaches the browser.
  */
 export function RevisionHistory({
   entries,
@@ -35,13 +44,23 @@ export function RevisionHistory({
   itemKey,
   projectSlug,
   sprintNumber,
+  path,
   canRestore,
 }: {
   entries: RevisionEntry[];
   itemId: string;
   itemKey: string;
-  projectSlug: string;
-  sprintNumber: number;
+  /**
+   * Where the document lives, for the restore's revalidation.
+   *
+   * Optional because a **page** has neither: it belongs to a project or to the
+   * workspace, and never to a sprint. It passes `path` instead, which is the
+   * route to revalidate — see `lib/actions/revisions.ts`.
+   */
+  projectSlug?: string;
+  sprintNumber?: number;
+  /** An exact route to revalidate after a restore. Used by pages. */
+  path?: string;
   /**
    * Whether to offer the restore control at all.
    *
@@ -52,7 +71,7 @@ export function RevisionHistory({
   canRestore: boolean;
 }) {
   return (
-    <section aria-labelledby={`history-${itemId}`}>
+    <section aria-labelledby={`history-${itemId}`} data-version-history>
       <Mono
         as="h2"
         id={`history-${itemId}`}
@@ -75,6 +94,7 @@ export function RevisionHistory({
                 itemKey={itemKey}
                 projectSlug={projectSlug}
                 sprintNumber={sprintNumber}
+                path={path}
                 canRestore={canRestore}
               />
             </li>
@@ -101,6 +121,7 @@ export function RevisionEntryDetails({
   itemKey,
   projectSlug,
   sprintNumber,
+  path,
   canRestore,
   target,
 }: {
@@ -116,6 +137,8 @@ export function RevisionEntryDetails({
   itemKey?: string;
   projectSlug?: string;
   sprintNumber?: number;
+  /** An exact route to revalidate after a restore. Used by pages. */
+  path?: string;
   canRestore: boolean;
   /** Shown before the surface label when the reader does not already know. */
   target?: { label: string; href: string } | null;
@@ -131,12 +154,23 @@ export function RevisionEntryDetails({
   // document had just been written.
   const lines = entry.previousKnown ? diffLines(entry.previousText, entry.plainText) : [];
   const { lines: shown, elided } = collapseUnchanged(lines);
+  const textMoved = lines.some((line) => line.mark !== "same");
 
-  const summary = entry.previousKnown
-    ? entry.revisionNo === 1
+  // Only when the words did not move. When they did, `lib/diff.ts` has already
+  // answered and a second story about the same edit is noise — the block diff's
+  // own header says so, and it returns `[]` for that case anyway.
+  const blocks =
+    entry.previousKnown && !textMoved && entry.revisionNo > 1
+      ? blockChanges(entry.previousDoc, entry.doc)
+      : [];
+
+  const summary = !entry.previousKnown
+    ? "earlier versions not loaded"
+    : entry.revisionNo === 1
       ? "first version"
-      : summariseDiff(lines)
-    : "earlier versions not loaded";
+      : textMoved
+        ? summariseDiff(lines)
+        : summariseBlockChanges(blocks);
 
   // A story-level document is admin-and-lead only; a criterion or a comment is
   // not. Showing a restore an engineer cannot use would be a control that
@@ -164,10 +198,34 @@ export function RevisionEntryDetails({
       </summary>
 
       <div className="px-2 pb-3">
+        {blocks.length > 0 ? (
+          // The answer the text diff could not give. A list rather than a
+          // `<pre>` because these are sentences about the document, not lines
+          // of it — and each one names the block position, so "paragraph 3"
+          // means something a reader can point at.
+          <ul data-block-diff className="flex flex-col gap-1">
+            {blocks.map((change, index) => (
+              <li
+                key={`${entry.id}-block-${index}`}
+                className="flex gap-2 text-[12px] leading-[1.5] text-[var(--ink-muted)]"
+              >
+                <Mono size="meta" className="w-8 shrink-0 text-right text-[var(--ink-faint)]">
+                  {change.position === null ? "" : `#${change.position}`}
+                </Mono>
+                <span>{change.text}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
         {shown.length === 0 ? (
-          <Mono size="meta" className="text-[var(--ink-faint)]">
-            {entry.previousKnown ? "nothing to compare" : "the version before this one is not loaded"}
-          </Mono>
+          blocks.length > 0 ? null : (
+            <Mono size="meta" className="text-[var(--ink-faint)]">
+              {entry.previousKnown
+                ? "the words and the formatting are both unchanged — this version was written, and it matched"
+                : "the version before this one is not loaded"}
+            </Mono>
+          )
         ) : (
           <>
             {elided > 0 ? (
@@ -229,6 +287,7 @@ export function RevisionEntryDetails({
               itemKey={itemKey}
               projectSlug={projectSlug}
               sprintNumber={sprintNumber}
+              path={path}
             />
           </div>
         ) : null}
