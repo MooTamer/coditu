@@ -11,7 +11,7 @@ import { ToneChip } from "@/components/coditu/status-chip";
 import { statusDistribution, type BurnPoint, type SprintDetail } from "@/lib/data/sprint";
 import type { ProjectSummary } from "@/lib/data/projects";
 import { dateRange, hours, hoursLabel } from "@/lib/format";
-import { STATUS_LABEL, type WorkItemStatus } from "@/lib/work-items";
+import { STATUS_BAR_COLOR, STATUS_LABEL } from "@/lib/work-items";
 
 /**
  * The three-column sprint header. `minmax(280px, 1fr)` with auto-fit, so the
@@ -22,16 +22,6 @@ import { STATUS_LABEL, type WorkItemStatus } from "@/lib/work-items";
 /** Bar and legend colours. Deliberately the raw functional hues, not chip
  *  foregrounds: a 10px bar is a shape, not text, so it takes the saturated
  *  value rather than the AA-tuned one. */
-const BAR_COLOR: Record<WorkItemStatus, string> = {
-  in_progress: "#2B57FF",
-  in_peer_review: "#FFB020",
-  in_qa: "#21E2C6",
-  changes_requested: "#FF5F6D",
-  ready: "#6B7A90",
-  draft: "rgba(107,122,144,0.35)",
-  blocked: "#FF5F6D",
-  done: "#23C97F",
-};
 
 export function SprintHeader({
   project,
@@ -228,7 +218,7 @@ export function SprintHeader({
               <span
                 key={slice.status}
                 title={`${STATUS_LABEL[slice.status]} — ${slice.count}`}
-                style={{ width: `${slice.share}%`, background: BAR_COLOR[slice.status] }}
+                style={{ width: `${slice.share}%`, background: STATUS_BAR_COLOR[slice.status] }}
               />
             ))}
           </div>
@@ -239,7 +229,7 @@ export function SprintHeader({
                 <span
                   aria-hidden
                   className="size-2 rounded-[2px]"
-                  style={{ background: BAR_COLOR[slice.status] }}
+                  style={{ background: STATUS_BAR_COLOR[slice.status] }}
                 />
                 {STATUS_LABEL[slice.status]} {slice.count}
               </Mono>

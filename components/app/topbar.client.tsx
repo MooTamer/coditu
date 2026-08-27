@@ -7,6 +7,7 @@ import { Plus, Search } from "lucide-react";
 
 import { AccountMenu, type AccountIdentity } from "@/components/app/account-menu.client";
 import { Breadcrumbs } from "@/components/app/breadcrumbs.client";
+import { NavDrawer } from "@/components/app/nav-drawer.client";
 import { CommandPalette } from "@/components/app/command-palette.client";
 import { SaveChip } from "@/components/app/save-state.client";
 import { TopbarPresence } from "@/components/app/topbar-presence.client";
@@ -15,6 +16,7 @@ import { Mono } from "@/components/coditu/mono";
 import type { ComponentRef } from "@/lib/data/components";
 import type { ProfileRef } from "@/lib/data/profiles";
 import type { ProjectSummary } from "@/lib/data/projects";
+import type { FavouriteLink } from "@/lib/favourites";
 import { cn } from "@/lib/utils";
 
 /**
@@ -56,6 +58,9 @@ export function Topbar({
   componentsByProject,
   canCreate,
   me,
+  unreadCount,
+  componentCounts,
+  favourites,
 }: {
   projects: ProjectSummary[];
   /** Active profiles, for the New item dialog's owner pickers. */
@@ -67,6 +72,12 @@ export function Topbar({
   canCreate: boolean;
   /** The signed-in person. Their face is the account menu's trigger. */
   me: AccountIdentity;
+  /** The three below are for `NavDrawer` only — the 768–1179 navigation. The
+   *  shell already reads all of them for the sidebar, so nothing new is
+   *  fetched; they are handed across rather than queried twice. */
+  unreadCount: number;
+  componentCounts: Record<string, number>;
+  favourites: FavouriteLink[];
 }) {
   const pathname = usePathname();
   const [newOpen, setNewOpen] = useState(false);
@@ -85,11 +96,16 @@ export function Topbar({
     // so both routes into the palette end at the one piece of state that owns
     // it rather than the tab bar growing a second copy of the dialog.
     const onRequest = () => setPaletteOpen(true);
+    // Home's `New story n`. Same reasoning: one dialog, one piece of state,
+    // and the surface that asks does not grow its own copy of it.
+    const onNewItem = () => setNewOpen(true);
     window.addEventListener("keydown", onKey);
     window.addEventListener("coditu:open-palette", onRequest);
+    window.addEventListener("coditu:new-item", onNewItem);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("coditu:open-palette", onRequest);
+      window.removeEventListener("coditu:new-item", onNewItem);
     };
   }, []);
 
@@ -130,8 +146,18 @@ export function Topbar({
       className="sticky top-0 z-30 flex min-w-0 flex-wrap items-center gap-2 border-b border-[var(--hairline)] bg-[var(--raised)] px-[var(--app-gutter)] py-2 sm:gap-4"
       style={{ minHeight: "var(--topbar-h)", paddingRight: "max(var(--app-gutter), env(safe-area-inset-right))" }}
     >
-      {/* Where you are. `lg` and above only, and that breakpoint is measured
-          rather than chosen — the numbers are in `breadcrumbs.client.tsx`. */}
+      {/* 768–1179 only: the band where the sidebar is icons and cannot say
+          what any of them is. */}
+      <NavDrawer
+        role={me.role}
+        unreadCount={unreadCount}
+        projects={projects}
+        componentCounts={componentCounts}
+        favourites={favourites}
+      />
+
+      {/* Where you are — at every width now, collapsing rather than hiding
+          below `lg`. The numbers are in `breadcrumbs.client.tsx`. */}
       <Breadcrumbs projects={projects} />
 
       <button

@@ -1,18 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { HomeQuickActions } from "@/components/app/home-quick-actions.client";
+import { HomeWorkTabs } from "@/components/app/home-work-tabs.client";
+import { OnlineNow } from "@/components/app/online-now.client";
 import { PageShell } from "@/components/app/page-shell";
-import { PersonAvatar } from "@/components/app/person-avatar";
-import { StatusChipDot } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
 import { Recents } from "@/components/app/recents.client";
 import { Reveal } from "@/components/motion/reveal";
 import { getMyWork, getTeamLoad, type PersonLoad } from "@/lib/data/my-work";
 import { listNotifications } from "@/lib/data/notifications";
-import { listProjects } from "@/lib/data/projects";
+import { listProjectActivity, listProjects } from "@/lib/data/projects";
+import { listActiveProfiles } from "@/lib/data/profiles";
 import { listRecents } from "@/lib/data/recents";
 import { daysRemaining, getSprint, statusDistribution } from "@/lib/data/sprint";
 import { calendarDate, hours } from "@/lib/format";
+import { STATUS_BAR_COLOR, STATUS_LABEL } from "@/lib/work-items";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { greeting, todayInCairo, todayLabel } from "@/lib/today";
 
@@ -62,13 +65,16 @@ export default async function WorkspaceHomePage() {
   const profile = await getCurrentProfile();
   if (!profile) notFound();
 
-  const [projects, myWork, notifications, recents] = await Promise.all([
+  const [projects, myWork, notifications, recents, people] = await Promise.all([
     listProjects(),
     getMyWork(),
     listNotifications(),
     // Where this person has been. Scoped to the caller by RLS, not by a filter
     // — see `lib/data/recents.ts`.
     listRecents(),
+    // The roster the `Online now` card lists. Presence itself is a socket; this
+    // is who there is to be present.
+    listActiveProfiles(),
   ]);
 
   const withSprint = projects.find((project) => project.activeSprint);
@@ -82,6 +88,21 @@ export default async function WorkspaceHomePage() {
       : null;
   const load = sprint ? await getTeamLoad(sprint.id) : [];
 
+  /**
+   * The activity feed, scoped to the project whose sprint is active.
+   *
+   * Invariant 1: nothing is global. There is no workspace-wide activity query
+   * and this does not invent one — it asks the same question the rest of this
+   * screen asks, about the same project, and says so in its heading. RLS scopes
+   * the read on top of that.
+   */
+  const activity = withSprint ? await listProjectActivity(withSprint.id, 6) : [];
+
+  const slices = sprint ? statusDistribution(sprint.items) : [];
+  const sprintHref =
+    sprint && withSprint ? `/app/projects/${withSprint.slug}/sprints/${sprint.number}` : null;
+  const canCreate = profile.role === "admin" || profile.role === "lead";
+
   const unread = notifications.filter((n) => !n.readAt);
 
   const today = todayInCairo();
@@ -90,13 +111,23 @@ export default async function WorkspaceHomePage() {
 
   return (
     <PageShell measure="home">
-      <Reveal tier="section">
-        <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
-          {todayLabel()}
-        </Mono>
-        <h1 className="mt-1 text-[24px] font-medium tracking-[-0.015em] text-[var(--ink)]">
-          {greeting(profile.full_name)}
-        </h1>
+      <Reveal
+        tier="section"
+        className="flex flex-wrap items-end justify-between gap-4"
+      >
+        <div className="min-w-0">
+          <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+            {todayLabel()}
+          </Mono>
+          <h1 className="mt-[6px] text-[26px] font-bold tracking-[-0.024em] text-[var(--ink)]">
+            {greeting(profile.full_name)}
+          </h1>
+        </div>
+        <HomeQuickActions
+          sprintHref={sprintHref}
+          notesHref={sprintHref ? `${sprintHref}/notes` : null}
+          canCreate={canCreate}
+        />
       </Reveal>
 
       {sprint && withSprint ? (
@@ -138,53 +169,111 @@ export default async function WorkspaceHomePage() {
             {overdue ? " · ended" : left !== null ? ` · ${left} days left` : ""}
           </Mono>
 
-          <div className="mt-4 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))]">
-            <div>
+          <div className="mt-4 grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr))]">
+            <div className="min-w-0">
               <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
-                status · {sprint.items.length} {sprint.items.length === 1 ? "story" : "stories"}
+                Goal
               </Mono>
-              <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                {statusDistribution(sprint.items).map((slice) => (
+              {/* `sprints.goal` is the sentence the rest of this card is
+                  evidence for. It was rendered above, loose under the name; the
+                  handoff makes it the first of three columns. */}
+              <p className="mt-2 max-w-[44ch] text-[13.5px] leading-[1.5] text-[var(--ink)]">
+                {sprint.goal ?? (
+                  <span className="text-[var(--ink-faint)]">No goal written for this sprint.</span>
+                )}
+              </p>
+              <Mono size="meta" className="mt-3 block text-[11px] text-[var(--ink-faint)]">
+                {sprint.startsOn ? calendarDate(sprint.startsOn) : "no start date"}
+                {sprint.endsOn ? ` → ${calendarDate(sprint.endsOn)}` : ""}
+              </Mono>
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex items-baseline justify-between gap-[10px]">
+                <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+                  Status
+                </Mono>
+                <Mono size="meta" className="tabular-nums text-[var(--ink-muted)]">
+                  {sprint.items.length} {sprint.items.length === 1 ? "story" : "stories"}
+                </Mono>
+              </div>
+
+              {/* The handoff's stacked bar. One span per status, width by
+                  share, and a `role="img"` label naming every slice — the bar
+                  is colour, and colour alone says nothing. */}
+              <div
+                role="img"
+                aria-label={`Status distribution: ${slices
+                  .map((slice) => `${STATUS_LABEL[slice.status]} ${slice.count}`)
+                  .join(", ")}`}
+                className="mt-[10px] flex h-[10px] overflow-hidden rounded-pill bg-[var(--canvas)]"
+              >
+                {slices.map((slice) => (
+                  <span
+                    key={slice.status}
+                    title={`${STATUS_LABEL[slice.status]} — ${slice.count}`}
+                    style={{ width: `${slice.share}%`, background: STATUS_BAR_COLOR[slice.status] }}
+                  />
+                ))}
+              </div>
+
+              <ul className="mt-[10px] flex list-none flex-wrap gap-x-3 gap-y-[6px]">
+                {slices.map((slice) => (
                   <li key={slice.status} className="flex items-center gap-[6px]">
-                    {/* The chip already says the status. Printing
-                        `STATUS_LABEL` beside it renders "in progress in
-                        progress 3", which is what it did until somebody
-                        opened the page. */}
-                    <StatusChipDot status={slice.status} />
-                    <Mono size="meta" className="tabular-nums text-[11.5px] text-[var(--ink-muted)]">
-                      {slice.count}
+                    <span
+                      aria-hidden
+                      className="size-[7px] rounded-[2px]"
+                      style={{ background: STATUS_BAR_COLOR[slice.status] }}
+                    />
+                    <Mono size="meta" className="tabular-nums text-[var(--ink-muted)]">
+                      {STATUS_LABEL[slice.status]} {slice.count}
                     </Mono>
                   </li>
                 ))}
               </ul>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
-                hours
+                Hours
               </Mono>
               {/* Invariant 2: minutes everywhere, divided by 60 at the render
                   edge and nowhere else. `hours()` is that edge. */}
-              <p className="mt-1 text-[20px] font-medium tabular-nums text-[var(--ink)]">
-                {hours(sprint.items.reduce((total, item) => total + item.minutesLogged, 0))}
-                <span className="ml-1 text-[12.5px] font-normal text-[var(--ink-faint)]">
-                  / {hours(sprint.items.reduce((total, item) => total + item.estimateMinutes, 0))}{" "}
+              <div className="mt-2 flex items-baseline gap-2">
+                <Mono size="metric" className="tabular-nums text-[var(--ink)]">
+                  {hours(sprint.items.reduce((total, item) => total + item.minutesLogged, 0))}
+                </Mono>
+                <Mono size="key" className="text-[var(--ink-faint)]">
+                  / {hours(sprint.items.reduce((total, item) => total + item.estimateMinutes, 0))} h
                   estimated
-                </span>
-              </p>
+                </Mono>
+              </div>
+
               {load.length > 0 ? (
-                <ul className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  {load.map((person: PersonLoad) => (
-                    <li key={person.id} className="flex items-center gap-[6px]">
-                      <PersonAvatar
-                        person={{ ...person, avatarUrl: null }}
-                        size={18}
-                      />
-                      <Mono size="meta" className="text-[11.5px] text-[var(--ink-faint)]">
-                        {hours(person.minutesLogged)}
-                      </Mono>
-                    </li>
-                  ))}
+                <ul className="mt-3 flex list-none flex-col gap-[7px]">
+                  {load.map((person: PersonLoad) => {
+                    // Share of the sprint's logged time, not of a capacity —
+                    // the bar says who did how much of what was done, which is
+                    // the only thing these two numbers can honestly compare.
+                    const total = load.reduce((sum, p) => sum + p.minutesLogged, 0);
+                    const pct = total > 0 ? Math.round((person.minutesLogged / total) * 100) : 0;
+                    return (
+                      <li key={person.id} className="flex items-center gap-2">
+                        <Mono size="meta" className="w-[22px] shrink-0 text-[var(--ink-faint)]">
+                          {person.initials}
+                        </Mono>
+                        <span className="h-[5px] flex-1 overflow-hidden rounded-pill bg-[var(--canvas)]">
+                          <span
+                            className="block h-full rounded-pill"
+                            style={{ width: `${pct}%`, background: "var(--group-1)" }}
+                          />
+                        </span>
+                        <Mono size="meta" className="shrink-0 tabular-nums text-[var(--ink-muted)]">
+                          {hours(person.minutesLogged)}
+                        </Mono>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : null}
             </div>
@@ -203,7 +292,11 @@ export default async function WorkspaceHomePage() {
         </Reveal>
       )}
 
-      <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))]">
+      {/* The handoff's two columns: the work on the left, the workspace on the
+          right. `data-home-grid` becomes `minmax(0,1fr) 320px` at 1180px in
+          `globals.css`; below that this stays one flowing column. */}
+      <div data-home-grid className="flex flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-5">
         <Reveal
           tier="section"
           delay={0.12}
@@ -221,16 +314,13 @@ export default async function WorkspaceHomePage() {
             </Link>
           </div>
 
-          <MyWorkList
-            heading="Assigned to me"
-            items={myWork?.assigned ?? []}
-            empty="Nothing assigned — the sprint board is the place to pick something up."
-          />
-          <MyWorkList
-            heading="Waiting on my review"
-            items={myWork?.awaitingMyReview ?? []}
-            empty="Nothing waiting on you."
-          />
+          <div className="mt-3">
+            <HomeWorkTabs
+              assigned={myWork?.assigned ?? []}
+              reviewing={myWork?.awaitingMyReview ?? []}
+              sprintEndsOn={sprint?.endsOn ?? null}
+            />
+          </div>
         </Reveal>
 
         <Reveal
@@ -282,26 +372,80 @@ export default async function WorkspaceHomePage() {
           )}
         </Reveal>
 
-        <Reveal
-          tier="section"
-          delay={0.24}
-          className="rounded-section border border-[var(--hairline)] bg-[var(--overlay)] p-5"
-        >
-          {/* `PLAN.md` §2's fourth Home section, and the prototype's own panel.
-              Renders nothing at all until somebody has opened something, which
-              is why there is no empty state to look at on a fresh workspace. */}
-          <Recents items={recents} />
-          {recents.length === 0 ? (
-            <>
+        </div>
+
+        {/* The 320px right column. At 1180 and above it sits beside the work;
+            below, it flows underneath it — one column, in this order. */}
+        <div className="flex min-w-0 flex-col gap-5">
+          <Reveal tier="section" delay={0.24}>
+            <OnlineNow me={{ id: profile.id }} people={people} />
+          </Reveal>
+
+          <Reveal
+            tier="section"
+            delay={0.28}
+            className="rounded-section border border-[var(--hairline)] bg-[var(--overlay)] p-5"
+          >
+            {/* Renders nothing at all until somebody has opened something,
+                which is why there is no empty state on a fresh workspace. */}
+            <Recents items={recents} />
+            {recents.length === 0 ? (
+              <>
+                <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+                  recently opened
+                </Mono>
+                <p className="mt-3 text-[13px] text-[var(--ink-faint)]">
+                  Stories, notes and pages you open turn up here.
+                </p>
+              </>
+            ) : null}
+          </Reveal>
+
+          {withSprint ? (
+            <Reveal
+              tier="section"
+              delay={0.32}
+              className="rounded-section border border-[var(--hairline)] bg-[var(--overlay)] p-5"
+            >
               <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
-                recently opened
+                Activity · {withSprint.name}
               </Mono>
-              <p className="mt-3 text-[13px] text-[var(--ink-faint)]">
-                Stories, notes and pages you open turn up here.
-              </p>
-            </>
+              {/* Named, not "Activity" alone: invariant 1 says nothing here is
+                  global, and a heading that implied otherwise would be the
+                  first thing to mislead somebody with two clients open. */}
+              {activity.length ? (
+                <ul className="mt-3 flex list-none flex-col gap-[11px]">
+                  {activity.map((entry) => (
+                    <li key={entry.id} className="flex gap-[10px]">
+                      <span
+                        aria-hidden
+                        className="mt-[6px] size-[6px] shrink-0 rounded-pill bg-[var(--hairline-strong)]"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-[12.5px] leading-[1.45] text-[var(--ink)]">
+                          {entry.href ? (
+                            <Link href={entry.href} className="hover:text-[var(--accent)]">
+                              {entry.sentence}
+                            </Link>
+                          ) : (
+                            entry.sentence
+                          )}
+                        </span>
+                        <Mono size="meta" className="block text-[var(--ink-faint)]">
+                          {calendarDate(entry.at.slice(0, 10))}
+                        </Mono>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-[13px] text-[var(--ink-faint)]">
+                  Nothing has happened on this project yet.
+                </p>
+              )}
+            </Reveal>
           ) : null}
-        </Reveal>
+        </div>
       </div>
     </PageShell>
   );
@@ -315,46 +459,3 @@ export default async function WorkspaceHomePage() {
  * normal Tuesday and telling somebody where to go next is more use than an
  * illustration of a box.
  */
-function MyWorkList({
-  heading,
-  items,
-  empty,
-}: {
-  heading: string;
-  items: Awaited<ReturnType<typeof getMyWork>> extends infer T
-    ? T extends { assigned: infer A }
-      ? A
-      : never
-    : never;
-  empty: string;
-}) {
-  return (
-    <section className="mt-3">
-      <Mono size="meta" className="text-[11.5px] text-[var(--ink-muted)]">
-        {heading} · {items.length}
-      </Mono>
-      {items.length === 0 ? (
-        <p className="mt-1 text-[12.5px] text-[var(--ink-faint)]">{empty}</p>
-      ) : (
-        <ul className="mt-1 flex flex-col">
-          {items.slice(0, 5).map((item) => (
-            <li key={item.id}>
-              <Link
-                href={`/app/projects/${item.projectSlug}/sprints/${item.sprintNumber}/items/${item.key}`}
-                className="flex items-center gap-[10px] rounded-inner px-2 py-[6px] hover:bg-[var(--canvas)]"
-              >
-                <Mono size="meta" className="shrink-0 text-[11px] text-[var(--ink-faint)]">
-                  {item.key}
-                </Mono>
-                <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--ink)]">
-                  {item.title}
-                </span>
-                <StatusChipDot status={item.status} />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}

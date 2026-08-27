@@ -1237,7 +1237,41 @@
    named group, nothing to compile wrongly.
    --------------------------------------------------------------------------- */
 
+/* ---------------------------------------------------------------------------
+   The tablet drawer's trigger: 768–1179 and nowhere else.
+
+   Written here rather than as `md:flex min-[1180px]:hidden`, and measured
+   rather than assumed — that pair put the hamburger on a 1920px screen beside
+   a fully labelled sidebar. Two utilities from different breakpoint families
+   do not order the way reading them suggests, which is the same class of
+   failure this file already records for the sidebar's own two states.
+
+   One rule, one range, nothing to sort wrongly.
+   --------------------------------------------------------------------------- */
+[data-nav-drawer-trigger] {
+  display: none;
+}
+
+@media (min-width: 768px) and (max-width: 1179.98px) {
+  [data-nav-drawer-trigger] {
+    display: flex;
+  }
+}
+
 @media (min-width: 1180px) {
+  /* Workspace Home's two columns. `homeCols` in the prototype is
+     `minmax(0, 1fr) 320px` at this same width and one column below it.
+
+     Written here for the reason the sidebar rules above are: an arbitrary
+     Tailwind variant at a non-ladder width has already compiled to nothing once
+     in this file, silently, with the base class making one state look right.
+     One plain rule on an attribute React sets. */
+  [data-home-grid] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+  }
+
   aside[data-app-chrome]:not([data-collapsed]) {
     width: var(--rail-expanded);
   }

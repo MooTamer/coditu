@@ -109,7 +109,13 @@ export function DialogShell({
    * `peek` is the handoff's 620px side peek: docked right, full height, rounded
    * on the left only, at `md` and above. Below `md` both are the bottom sheet.
    */
-  variant?: "dialog" | "peek";
+  /**
+   * `drawer` is the handoff's tablet navigation: docked LEFT, full height,
+   * `min(320px, 86vw)`, rounded on the right only. Same trap, same Escape,
+   * same scroll lock — a second focus trap would be a second thing to get
+   * wrong.
+   */
+  variant?: "dialog" | "peek" | "drawer";
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -236,6 +242,8 @@ export function DialogShell({
         // floating panel rather than a docked one.
         variant === "peek"
           ? "md:items-stretch md:justify-end md:px-0 md:pt-0"
+          : variant === "drawer"
+            ? "md:items-stretch md:justify-start md:px-0 md:pt-0"
           : "pt-[clamp(12px,3vh,40px)] md:items-start md:px-4"
       )}
     >
@@ -285,14 +293,17 @@ export function DialogShell({
             // caught by *"an item opens against the bottom edge, full width"*.
             // Below `md` the peek is the sheet, and a sheet is full width.
             ? "md:h-full md:max-h-full md:max-w-[min(620px,96vw)] md:rounded-l-section md:rounded-r-none"
-            : "md:rounded-section"
+            : variant === "drawer"
+              // Every corner named, for the reason spelled out above the peek.
+              ? "md:h-full md:max-h-full md:max-w-[min(320px,86vw)] md:rounded-r-section md:rounded-l-none"
+              : "md:rounded-section"
         )}
         style={{
           boxShadow: "var(--shadow-overlay)",
           // Ignored for a peek, whose width is the utility above. `undefined`
           // rather than a number, so nothing inline can win over the media
           // query that is doing the work.
-          maxWidth: variant === "peek" ? undefined : maxWidth,
+          maxWidth: variant === "peek" || variant === "drawer" ? undefined : maxWidth,
         }}
       >
         <div className="flex shrink-0 items-center gap-3 border-b border-[var(--hairline)] bg-[var(--raised)] px-5 py-[14px]">

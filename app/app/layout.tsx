@@ -123,6 +123,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           projects={projects}
           componentCounts={componentCounts}
           favourites={favouriteTargets}
+          // The header's `workspace · N members`. `people` is already read
+          // above for the topbar's presence and mention lists, so this is a
+          // length rather than a query.
+          memberCount={people.length}
         />
         <div
           // Below `md` the bottom tab bar is FIXED, so it overlaps the content
@@ -136,6 +140,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             people={people}
             componentsByProject={componentsByProject}
             canCreate={profile.role === "admin" || profile.role === "lead"}
+            unreadCount={unreadCount}
+            componentCounts={componentCounts}
+            favourites={favouriteTargets}
             me={{
               id: profile.id,
               fullName: profile.full_name,
