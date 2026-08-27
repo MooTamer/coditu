@@ -38,7 +38,23 @@ import { cn } from "@/lib/utils";
  * heading is furniture that promises a feature, which is the same rule that kept
  * this section out of the sidebar for two phases rather than rendering it blank.
  */
-export function Favourites({ links }: { links: FavouriteLink[] }) {
+export function Favourites({
+  links,
+  idPrefix = "rail",
+}: {
+  links: FavouriteLink[];
+  /**
+   * Namespace for this instance's element ids.
+   *
+   * The 768–1179 drawer renders this same component beside the rail that is
+   * still in the document, so a hard-coded id was in the page twice the moment
+   * the drawer opened — and `aria-labelledby` resolves to the FIRST match, so
+   * the drawer's navigation was labelled by the rail's heading. Duplicate ids
+   * are invalid HTML and axe reports them; the drawer check that signed this
+   * off never opened the drawer with the rail present.
+   */
+  idPrefix?: string;
+}) {
   const pathname = usePathname();
 
   if (links.length === 0) return null;
@@ -48,13 +64,13 @@ export function Favourites({ links }: { links: FavouriteLink[] }) {
       <Mono
         size="eyebrow"
         as="h2"
-        id="rail-favourites"
+        id={`${idPrefix}-favourites`}
         className="px-3 pb-1 text-[9.5px] tracking-[0.07em] text-[var(--ink-faint)]"
       >
         Favourites
       </Mono>
 
-      <nav aria-labelledby="rail-favourites" className="flex flex-col">
+      <nav aria-labelledby={`${idPrefix}-favourites`} className="flex flex-col">
         {links.map((link) => {
           // The path only — a saved view's query string is what it carries, not
           // what makes it the page you are on. Matching the whole URL would

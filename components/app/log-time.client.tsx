@@ -101,7 +101,14 @@ export function LogTime({
   }
 
   return (
-    <div className="rounded-card border border-[var(--hairline)] bg-[var(--overlay)] p-4">
+    <div
+      // Home's `Log time` quick action and its `t` key land here. Without an
+      // anchor the control could only get you to the page and leave you to find
+      // the panel — which is what "navigating to the sprint" already did, and
+      // is not the action the button names.
+      id="log-time"
+      className="scroll-mt-20 rounded-card border border-[var(--hairline)] bg-[var(--overlay)] p-4"
+    >
       <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
         Log time
       </Mono>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { Mono } from "@/components/coditu/mono";
 import type { ProfileRef } from "@/lib/data/profiles";
-import { usePresence } from "@/lib/hooks/use-presence";
+import { useWorkspacePresence } from "@/components/app/workspace-presence.client";
 
 /**
  * Who is in the workspace right now — the handoff's `Online now` card.
@@ -17,12 +17,19 @@ import { usePresence } from "@/lib/hooks/use-presence";
  * people currently online would reorder itself under the reader's eye every
  * time somebody's laptop slept, and would say nothing at all most evenings.
  *
- * ## The channel is `coditu:presence:workspace`
+ * ## The channel is joined by the shell, not by this card
+ *
+ * This used to call `usePresence` itself. An effect lives exactly as long as
+ * the component that owns it, so `coditu:presence:workspace` existed **only
+ * while Home was on screen** — and a teammate reading `/app/people` had never
+ * joined it, so this card drew them offline while they were working. The
+ * subscription moved to `WorkspacePresenceProvider` in `app/app/layout.tsx`,
+ * where every authenticated route mounts it; this reads the roster.
  *
  * `realtime.messages` RLS requires the `coditu:` prefix and authorises the join
  * in SQL — the same policy `e2e/presence.spec.ts` asserts for the sprint
- * channel. Nothing is broadcast but the fact of being here: `usePresence`
- * announces a profile id and a surface, never anything typed.
+ * channel. Nothing is broadcast but the fact of being here: a profile id and a
+ * surface, never anything typed.
  *
  * ## Never colour alone
  *
@@ -31,24 +38,21 @@ import { usePresence } from "@/lib/hooks/use-presence";
  * invisible to a reader who cannot see green.
  */
 export function OnlineNow({
-  me,
   people,
 }: {
-  me: { id: string };
   /** Active profiles. The shell already reads them for the topbar. */
   people: ProfileRef[];
 }) {
-  const members = usePresence({
-    channelName: "coditu:presence:workspace",
-    profileId: me.id,
-    surface: "workspace",
-  });
+  const members = useWorkspacePresence();
 
   const here = new Set(members.map((member) => member.profileId));
   const onlineCount = people.filter((person) => here.has(person.id)).length;
 
   return (
-    <section className="rounded-section border border-[var(--hairline)] bg-[var(--overlay)] p-5">
+    <section
+      data-online-now
+      className="rounded-section border border-[var(--hairline)] bg-[var(--overlay)] p-5"
+    >
       <div className="flex items-baseline gap-2">
         <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
           Online now
@@ -62,7 +66,12 @@ export function OnlineNow({
         {people.map((person) => {
           const online = here.has(person.id);
           return (
-            <li key={person.id} className="flex items-center gap-[10px]">
+            <li
+              key={person.id}
+              data-presence-row={person.id}
+              data-presence={online ? "online" : "offline"}
+              className="flex items-center gap-[10px]"
+            >
               <span className="relative shrink-0">
                 <PersonAvatar person={person} size={26} fontSize={9.5} />
                 <span

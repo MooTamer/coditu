@@ -50,10 +50,21 @@ import { cn } from "@/lib/utils";
 export function ProjectSpaces({
   projects,
   componentCounts,
+  idPrefix = "rail",
 }: {
   projects: SpaceProject[];
   /** Live components per project id. The registry row is a count, not a guess. */
   componentCounts: Record<string, number>;
+  /**
+   * Namespace for this instance's element ids.
+   *
+   * The 768–1179 drawer renders this component while the icon rail is still in
+   * the document, so every id here — the heading and one per expandable space —
+   * appeared twice the moment the drawer opened. `aria-controls` and
+   * `aria-labelledby` both resolve to the FIRST match, so the drawer's
+   * disclosure buttons pointed at the rail's lists.
+   */
+  idPrefix?: string;
 }) {
   const pathname = usePathname();
   const currentSlug = projectSlugIn(pathname);
@@ -65,13 +76,13 @@ export function ProjectSpaces({
       <Mono
         size="eyebrow"
         as="h2"
-        id="rail-project-spaces"
+        id={`${idPrefix}-project-spaces`}
         className="px-3 pb-1 text-[9.5px] tracking-[0.07em] text-[var(--ink-faint)]"
       >
         Project spaces
       </Mono>
 
-      <nav aria-labelledby="rail-project-spaces" className="flex flex-col">
+      <nav aria-labelledby={`${idPrefix}-project-spaces`} className="flex flex-col">
         {projects.map((project) => (
           <Space
             key={project.id}
@@ -79,6 +90,7 @@ export function ProjectSpaces({
             componentCount={componentCounts[project.id] ?? 0}
             pathname={pathname}
             inside={project.slug === currentSlug}
+            idPrefix={idPrefix}
           />
         ))}
       </nav>
@@ -103,16 +115,18 @@ function Space({
   componentCount,
   pathname,
   inside,
+  idPrefix,
 }: {
   project: SpaceProject;
   componentCount: number;
   pathname: string;
   inside: boolean;
+  idPrefix: string;
 }) {
   const [open, setOpen] = usePersistentFlag(`coditu.space.${project.slug}`, inside);
   const rows = spaceRowsFor(project, componentCount);
   const state = spaceStateFor(project);
-  const listId = `rail-space-${project.slug}`;
+  const listId = `${idPrefix}-space-${project.slug}`;
   const href = `/app/projects/${project.slug}`;
   // `inside` is broader than this on purpose: the row is tinted anywhere under
   // the project, because that is "you are in here", but it is only *current*

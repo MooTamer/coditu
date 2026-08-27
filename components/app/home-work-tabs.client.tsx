@@ -1,67 +1,115 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 
 import { StatusChip } from "@/components/coditu/status-chip";
 import { Mono } from "@/components/coditu/mono";
+import { dueThisSprint, type SprintScope } from "@/lib/home";
 import type { MyWorkItem } from "@/lib/data/my-work";
 import { cn } from "@/lib/utils";
 
 /**
  * My work on Home, as the three tabs the handoff gives it.
  *
- * It was two stacked lists — `Assigned to me` and `Waiting on my review` —
- * both always open, so the card was as tall as the sum of them and the second
- * heading was usually below the fold. `workTabs` in the prototype is
- * `Assigned / Reviewing / Due this sprint` with a count on each.
+ * ## Two corrections
  *
- * **Due this sprint is derived, not fetched.** It is the assigned rows whose
- * `deadline` falls on or before the sprint's end date — the same rows, filtered
- * — so this adds no query, and a row can honestly appear under two tabs
- * because it honestly is both.
+ * **The scope.** "Due this sprint" filtered `deadline <= endsOn` over
+ * `getMyWork().assigned`, which is **workspace-wide** — so another client's
+ * story with a near deadline appeared under a tab that claims to be this
+ * sprint's. Invariant 1 says nothing is global; a date is not a scope. The
+ * predicate now compares the project and the sprint first and lives in
+ * `lib/home.ts`, where `tests/home.test.ts` holds it to fixtures that include
+ * exactly that row.
+ *
+ * **The semantics.** `role="tab"` and `aria-selected` were there; nothing else
+ * was. There was no `tabpanel`, so the tabs controlled nothing an assistive
+ * technology could find; no `aria-controls` to say what; and all three tabs
+ * were in the tab sequence, so reaching the rows meant three stops rather than
+ * one. Arrow keys, the whole point of a tablist, did nothing.
+ *
+ * A tablist is a **single** stop with roving focus: `tabIndex` is 0 on the
+ * selected tab and −1 on the rest, arrows move between them, Home and End jump
+ * to the ends. Selection follows focus, which is the correct pattern when
+ * switching is free — no fetch happens here, the rows are already in memory.
  */
 type TabId = "assigned" | "reviewing" | "due";
 
 export function HomeWorkTabs({
   assigned,
   reviewing,
-  sprintEndsOn,
+  scope,
 }: {
   assigned: MyWorkItem[];
   reviewing: MyWorkItem[];
-  /** The active sprint's last day, or null when there is no active sprint —
-   *  in which case there is nothing for "due this sprint" to mean and the tab
-   *  is not offered. */
-  sprintEndsOn: string | null;
+  /**
+   * The active sprint's project, number and last day — or null when no project
+   * has an active sprint, in which case there is nothing for "due this sprint"
+   * to mean and the tab is not offered.
+   */
+  scope: SprintScope | null;
 }) {
-  // Calendar dates, compared as ISO strings. Both are `date` columns rendered
-  // in Cairo, so string order is date order and no `Date` is constructed —
-  // invariant 5.
-  const due = sprintEndsOn
-    ? assigned.filter((item) => item.deadline !== null && item.deadline <= sprintEndsOn)
-    : [];
+  const due = dueThisSprint(assigned, scope);
 
   const tabs: Array<{ id: TabId; label: string; rows: MyWorkItem[] }> = [
     { id: "assigned", label: "Assigned", rows: assigned },
     { id: "reviewing", label: "Reviewing", rows: reviewing },
-    ...(sprintEndsOn ? [{ id: "due" as const, label: "Due this sprint", rows: due }] : []),
+    ...(scope ? [{ id: "due" as const, label: "Due this sprint", rows: due }] : []),
   ];
 
   const [active, setActive] = useState<TabId>("assigned");
   const shown = tabs.find((tab) => tab.id === active) ?? tabs[0];
 
+  // `useId` rather than a constant: this component is rendered once today, and
+  // a duplicated id is exactly the bug the navigation drawer shipped.
+  const base = useId();
+  const tabId = (id: TabId) => `${base}-tab-${id}`;
+  const panelId = `${base}-panel`;
+
+  const strip = useRef<HTMLDivElement>(null);
+
+  /**
+   * Roving focus. The index moves, selection follows it, and focus is moved
+   * onto the newly selected tab so the reader's caret is where the highlight
+   * is.
+   */
+  function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    const order = tabs.map((tab) => tab.id);
+    const at = order.indexOf(shown.id);
+    let next = at;
+
+    if (event.key === "ArrowRight") next = (at + 1) % order.length;
+    else if (event.key === "ArrowLeft") next = (at - 1 + order.length) % order.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = order.length - 1;
+    else return;
+
+    event.preventDefault();
+    setActive(order[next]);
+    strip.current?.querySelector<HTMLButtonElement>(`#${CSS.escape(tabId(order[next]))}`)?.focus();
+  }
+
   return (
     <>
-      <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="My work">
+      <div
+        ref={strip}
+        role="tablist"
+        aria-label="My work"
+        onKeyDown={onKeyDown}
+        className="flex flex-wrap items-center gap-1"
+      >
         {tabs.map((tab) => {
           const on = tab.id === shown.id;
           return (
             <button
               key={tab.id}
+              id={tabId(tab.id)}
               type="button"
               role="tab"
               aria-selected={on}
+              aria-controls={panelId}
+              // One stop for the whole strip, not one per tab.
+              tabIndex={on ? 0 : -1}
               onClick={() => setActive(tab.id)}
               className={cn(
                 "inline-flex h-11 cursor-pointer items-center gap-[7px] rounded-control px-[11px] text-[12.5px] md:h-[30px]",
@@ -79,39 +127,52 @@ export function HomeWorkTabs({
         })}
       </div>
 
-      {shown.rows.length ? (
-        <ul className="mt-2 flex list-none flex-col">
-          {shown.rows.map((item) => (
-            <li key={item.id}>
-              <Link
-                href={`/app/projects/${item.projectSlug}/sprints/${item.sprintNumber}/items/${item.key}`}
-                className="flex min-h-11 items-center gap-3 rounded-control px-2 py-[6px] hover:bg-[var(--tint)]"
-              >
-                <Mono size="meta" className="shrink-0 text-[var(--ink-faint)]">
-                  {item.key}
-                </Mono>
-                <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-[var(--ink)]">
-                  {item.title}
-                </span>
-                <StatusChip status={item.status} />
-                {item.deadline ? (
-                  <Mono size="meta" className="w-[62px] shrink-0 text-right text-[var(--ink-faint)]">
-                    {item.deadline.slice(5)}
+      <div
+        id={panelId}
+        role="tabpanel"
+        aria-labelledby={tabId(shown.id)}
+        // The panel is reachable, so a reader who has tabbed off the strip can
+        // still get into the rows without going back through it.
+        tabIndex={0}
+        className="outline-offset-2"
+      >
+        {shown.rows.length ? (
+          <ul className="mt-2 flex list-none flex-col">
+            {shown.rows.map((item) => (
+              <li key={item.id}>
+                <Link
+                  href={`/app/projects/${item.projectSlug}/sprints/${item.sprintNumber}/items/${item.key}`}
+                  className="flex min-h-11 items-center gap-3 rounded-control px-2 py-[6px] hover:bg-[var(--tint)]"
+                >
+                  <Mono size="meta" className="shrink-0 text-[var(--ink-faint)]">
+                    {item.key}
                   </Mono>
-                ) : null}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-3 text-[13.5px] text-[var(--ink-muted)]">
-          {shown.id === "assigned"
-            ? "Nothing assigned — the sprint board is the place to pick something up."
-            : shown.id === "reviewing"
-              ? "Nothing waiting on you."
-              : "Nothing of yours is due before this sprint ends."}
-        </p>
-      )}
+                  <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-[var(--ink)]">
+                    {item.title}
+                  </span>
+                  <StatusChip status={item.status} />
+                  {item.deadline ? (
+                    <Mono
+                      size="meta"
+                      className="w-[62px] shrink-0 text-right text-[var(--ink-faint)]"
+                    >
+                      {item.deadline.slice(5)}
+                    </Mono>
+                  ) : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-[13.5px] text-[var(--ink-muted)]">
+            {shown.id === "assigned"
+              ? "Nothing assigned — the sprint board is the place to pick something up."
+              : shown.id === "reviewing"
+                ? "Nothing waiting on you."
+                : "Nothing of yours is due before this sprint ends."}
+          </p>
+        )}
+      </div>
     </>
   );
 }

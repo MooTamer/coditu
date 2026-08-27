@@ -7,6 +7,7 @@ import { SaveStateProvider } from "@/components/app/save-state.client";
 import { TabBar } from "@/components/app/tab-bar.client";
 import { ToastProvider } from "@/components/app/toast.client";
 import { Topbar } from "@/components/app/topbar.client";
+import { WorkspacePresenceProvider } from "@/components/app/workspace-presence.client";
 import { listComponentsByProject } from "@/lib/data/components";
 import { listFavourites } from "@/lib/data/favourites";
 import { favouriteLinks } from "@/lib/favourites";
@@ -110,6 +111,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           the story is invisible to a topbar rendered above it. One store, read
           by both. */}
       <PresenceSurfaceProvider>
+        {/* Workspace presence is joined HERE, not inside Home's `Online now`
+            card. An effect lives as long as its component, so a channel owned
+            by that card existed only while somebody was looking at Home — and
+            everybody reading any other screen was drawn as offline. */}
+        <WorkspacePresenceProvider me={{ id: profile.id }}>
         <SaveStateProvider>
           <div className="flex min-h-dvh bg-[var(--canvas)] text-[var(--ink)]">
         <Rail
@@ -162,6 +168,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <AppBadge unreadCount={unreadCount} />
           </div>
         </SaveStateProvider>
+        </WorkspacePresenceProvider>
       </PresenceSurfaceProvider>
     </ToastProvider>
   );

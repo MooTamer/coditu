@@ -135,8 +135,16 @@ export function NavDrawer({
               })}
             </nav>
 
-            <Favourites links={favourites} />
-            <ProjectSpaces projects={projects} componentCounts={componentCounts} />
+            {/* `idPrefix` is not decoration: the icon rail is still in the
+                document behind this drawer, so without a namespace every id
+                these two render is in the page twice and `aria-labelledby`
+                resolves to the rail's copy. */}
+            <Favourites links={favourites} idPrefix="drawer" />
+            <ProjectSpaces
+              projects={projects}
+              componentCounts={componentCounts}
+              idPrefix="drawer"
+            />
           </div>
         </DialogShell>
       ) : null}
