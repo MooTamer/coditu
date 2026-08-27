@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(319);
+select plan(320);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -3166,6 +3166,33 @@ select throws_ok(
   '42501',
   null,
   'negative: anon cannot reach the maintenance routine that renumbers every project'
+);
+
+-- ---------------------------------------------------------------------------
+-- And the same refusal with the grant PUT BACK, which is the shape the hosted
+-- project is actually in.
+--
+-- `revoke execute … from public` was applied to both and worked on one. The
+-- hosted project grants EXECUTE on fifty-nine functions in `public` to `anon`
+-- and `authenticated` BY NAME, and taking a privilege away from `PUBLIC` does
+-- not touch one granted to a role directly — so the function stayed callable
+-- there while this suite, and a local `db reset`, said it did not.
+--
+-- The assertion above tests the grant, and the grant is the thing that was
+-- wrong once already and can be re-granted from a dashboard. This one tests the
+-- decision instead: the guard inside the body, with the privilege restored. It
+-- is the only one of the two that would still have been true on production.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_owner();
+grant execute on function public.rebalance_project_keys() to anon;
+select pg_temp.act_as_anon();
+
+select throws_ok(
+  $$select public.rebalance_project_keys()$$,
+  '42501',
+  'only an admin may renumber project keys',
+  'negative: and it still refuses anon when the privilege is handed back'
 );
 
 select pg_temp.act_as_owner();

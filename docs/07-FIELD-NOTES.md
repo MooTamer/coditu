@@ -1752,3 +1752,77 @@ is stable against any amount of wrapping; a bare `getByText().toHaveCount(n)` is
 an assertion about markup depth wearing the costume of an assertion about
 content. Related, one section up: `toHaveCount` also counts elements inside
 React's hidden streaming buffer.
+
+## `revoke … from public` does nothing on the hosted project
+
+**Found 2026-08-27, after the consolidated migration was pushed and verified.**
+
+`20260826211339` took `rebalance_project_keys` off the public API:
+
+```sql
+revoke execute on function public.rebalance_project_keys() from public;
+```
+
+Locally that is correct and it was verified two ways: the ACL came back as
+`postgres=X/postgres` and nothing else, and `anon` calling it over PostgREST got
+`permission denied for function`.
+
+`supabase db dump --linked` after the push, on the same function:
+
+```
+REVOKE ALL ON FUNCTION "public"."rebalance_project_keys"() FROM PUBLIC;
+GRANT  ALL ON FUNCTION "public"."rebalance_project_keys"() TO "anon";
+GRANT  ALL ON FUNCTION "public"."rebalance_project_keys"() TO "authenticated";
+GRANT  ALL ON FUNCTION "public"."rebalance_project_keys"() TO "service_role";
+```
+
+The revoke applied. It also achieved nothing, because on that project `anon`
+does not reach the function through `PUBLIC` — it has a grant of its own, and
+taking a privilege away from `PUBLIC` does not touch one granted to a role
+directly.
+
+**The two databases have different grant postures.** Counted from the two dumps:
+
+| | hosted | this checkout |
+|---|---|---|
+| functions in `public` granted to `anon` by name | **44** | 0 |
+| functions in `public` granted to `authenticated` by name | **59** | 20 |
+| tables in `public` granted to `anon` | 0 | 0 |
+
+Something has run the equivalent of `grant all on all functions in schema public
+to anon, authenticated, service_role` against the hosted project. `db reset`
+does not reproduce it, so a local checkout will always look tidier than
+production on function privileges.
+
+### What to do instead
+
+- **Revoke from the roles by name** — `from anon, authenticated` — never from
+  `public`, if the point is to close something.
+- **Put the decision in the body as well.** A grant can be handed back from the
+  dashboard; a `raise exception` cannot. Five of the six volatile
+  `security definer` functions `anon` can reach on the hosted project already do
+  this, and all five refuse correctly there *despite* being granted.
+- **`supabase db diff` will not tell you.** Verified: re-granting the function
+  locally and re-running `db diff --local` reports **no changes**. It compares
+  schema, not privileges. `supabase db dump` is what shows grants.
+
+### And the guard's discriminator is not `auth.uid()`
+
+The first version of the fix used the idiom from
+`guard_profile_privilege_columns` — *no `auth.uid()` means the owner, allow it* —
+so that `seed.sql` could still call the function. An **anonymous PostgREST
+request has no `auth.uid()` either**, so `anon` went straight through the moment
+the grant was restored. Measured with a temporary echo function, called both
+ways against the local stack:
+
+```
+anon, over PostgREST : session_user=authenticator  current_user=anon
+                       auth.uid()=null  claims={"role":"anon",…}
+owner, over psql     : session_user=postgres       current_user=postgres
+                       auth.uid()=null  claims=null
+```
+
+The question is *did this arrive as a request*, and the answer is the JWT claims,
+which PostgREST sets on every call and psql, a migration and the seed never do.
+That idiom is safe on a trigger guarding a table `anon` cannot write. It is not
+safe on a function `anon` can call.

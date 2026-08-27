@@ -4169,3 +4169,43 @@ Left as a named, measured regression rather than a rushed bundling change at the
 end of an audit. The honest summary is: correctness and security are unaffected,
 a reader of a story page downloads 329 KB they do not need, and the guard that
 catches it needs to be in the routine gate so it cannot go quiet again.
+
+### After the push: the revoke had landed and changed nothing
+
+`supabase db push` was run by hand on 2026-08-27 and applied
+`20260826220000_workspace_and_client_access.sql`. It printed a warning —
+`failed to cache migrations catalog … pgdelta-target-ca.crt: ENOENT` — which is
+the CLI's own catalog-caching step after the apply, not the migration.
+
+Verified read-only rather than assumed: the linked history now holds **28**
+migrations ending at `20260826220000`, **no** pending, **no** orphan rows, and
+**none** of the twenty-four deleted versions was inserted. All eleven tables the
+file creates exist remotely and refuse `anon` with 42501.
+`supabase db diff --linked --schema public` reports **no schema changes**.
+
+Then the one thing a schema diff cannot see. `supabase db dump --linked` shows
+`REVOKE ALL … FROM PUBLIC` alongside `GRANT ALL … TO "anon"` on
+`rebalance_project_keys`: **the security fix landed and closed nothing on
+production**, because that project grants forty-four functions to `anon` by name
+and a revoke from `PUBLIC` does not touch those. `07-FIELD-NOTES.md` has the
+whole trap, including that `db diff` cannot detect it and `db dump` can.
+
+Of the six volatile `security definer` functions `anon` can reach there, five
+guard themselves in the body and refuse correctly. Exactly one did not, and it
+is the one this audit had already named.
+
+`20260827041641_close_the_renumberer_on_the_hosted_project.sql` fixes it twice:
+the grant is revoked from `anon` and `authenticated` **by name**, and the body
+now refuses any caller that arrived as a request and is not an admin. The
+discriminator is the JWT claims, not `auth.uid()` — the first attempt used
+`auth.uid()` and the test caught it letting `anon` through, because an anonymous
+request has no `auth.uid()` either.
+
+Proven end to end against real PostgREST: with the revoke, `permission denied for
+function`; with production's explicit grant restored, `only an admin may
+renumber project keys`; project keys unchanged in both. `rls.sql` asserts the
+second of those, because it is the half that would still have been true on
+production. `db:reset` still leaves MEINEvim on `COD` at 244 — the seed calls
+this function with no session and is unaffected.
+
+`lint`, `typecheck` clean · `test` **416** · `db:test` **407** (1 new).
