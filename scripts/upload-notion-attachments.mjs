@@ -1,6 +1,11 @@
 /**
- * Push the imported Notion attachments into the private `work-attachments`
- * bucket, at exactly the paths `supabase/seed.sql` already claims for them.
+ * Push the imported Notion attachments into the private buckets, at exactly the
+ * paths `supabase/seed.sql` already claims for them.
+ *
+ * Two buckets, and each file says which: a picture `/api/attachments` can serve
+ * goes to `comment-images`, where the comment the importer wrote for it can
+ * show it; anything else stays in `work-attachments`, which no screen reads yet.
+ * See the attachments section of the generated seed.
  *
  *   node scripts/upload-notion-attachments.mjs <extracted-export-dir>
  *
@@ -48,22 +53,31 @@ if (!existsSync(manifestPath)) {
   console.error("supabase/notion-attachments.json is missing — run scripts/import-notion-export.mjs first.");
   process.exit(1);
 }
-const { bucket, files } = JSON.parse(readFileSync(manifestPath, "utf8"));
+const { bucket: defaultBucket, files } = JSON.parse(readFileSync(manifestPath, "utf8"));
 
-console.log(`${files.length} files → ${bucket} at ${url}`);
+const spread = {};
+for (const file of files) {
+  const target = file.bucket ?? defaultBucket;
+  spread[target] = (spread[target] ?? 0) + 1;
+}
+console.log(
+  `${files.length} files → ${Object.entries(spread).map(([b, n]) => `${n} ${b}`).join(", ")} at ${url}`
+);
 
 let done = 0;
 const failures = [];
 
 for (const file of files) {
-  const source = join(EXPORT_ROOT, file.source);
+  // `repoSource` is a picture somebody pasted into Notion rather than uploaded:
+  // it has no file in the export, so the importer decoded it into the repo.
+  const source = file.repoSource ? join(root, file.repoSource) : join(EXPORT_ROOT, file.source);
   if (!existsSync(source)) {
-    failures.push(`${file.path}: source missing (${file.source})`);
+    failures.push(`${file.path}: source missing (${file.repoSource ?? file.source})`);
     continue;
   }
   const body = readFileSync(source);
   const response = await fetch(
-    `${url}/storage/v1/object/${bucket}/${file.path.split("/").map(encodeURIComponent).join("/")}`,
+    `${url}/storage/v1/object/${file.bucket ?? defaultBucket}/${file.path.split("/").map(encodeURIComponent).join("/")}`,
     {
       method: "POST",
       headers: {

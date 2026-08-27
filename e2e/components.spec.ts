@@ -172,7 +172,7 @@ test.describe("components", () => {
     await expect(
       row.getByRole("button", { name: /^Components:.*EVIM Dokumentenbibliothek/ })
     ).toBeVisible();
-    await expect(row).toContainText("EVIM Themen Kachel");
+    await expect(row).toContainText(SEED.otherItemComponent);
   });
 
   test("the sprint reads one component at a time", async ({ adminPage: page }) => {
@@ -216,6 +216,20 @@ test.describe("components", () => {
     );
     expect(sprints.length).toBeGreaterThan(1);
 
+    // A row this component actually carries in the current sprint, read rather
+    // than named. It was `SEED.otherItem`, which held only while `otherItem`
+    // happened to be a Themen Kachel story — a coupling between two fixtures
+    // that nothing stated and the next import broke.
+    const [current] = await query<{ key: string }>(
+      `select w.key from work_items w
+       join sprints s on s.id = w.sprint_id
+       join projects p on p.id = s.project_id
+       join components c on c.id = w.component_id
+       where p.slug = 'meinevim' and s.number = 17 and c.slug = 'evim-themen-kachel'
+       order by w.order_index limit 1`
+    );
+    expect(current, "Week 17 has to carry a Themen Kachel story").toBeTruthy();
+
     await page.goto(`${REGISTRY}/evim-themen-kachel`);
 
     await expect(page.getByRole("heading", { name: "EVIM Themen Kachel", level: 1 })).toBeVisible();
@@ -224,7 +238,7 @@ test.describe("components", () => {
     // until the client-visibility panel arrived with a heading of its own, and
     // then failed for a reason that had nothing to do with sprints.
     await expect(page.locator('h2[id^="sprint-"]')).toHaveCount(sprints.length);
-    await expect(page.getByRole("link", { name: new RegExp(SEED.otherItem) })).toBeVisible();
+    await expect(page.getByRole("link", { name: new RegExp(current.key) })).toBeVisible();
 
     // Straight back into the sprint, filtered to this component.
     await page.getByRole("link", { name: "Sprint — Week 17", exact: true }).click();
@@ -262,13 +276,15 @@ test.describe("components", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     await page.goto(SPRINT);
-    // A row the seed already attributed — "Tabs with Cards" is Themen Kachel.
+    // A row the seed already attributed — see `otherItemComponent`.
     const row = page.locator("tbody tr", { hasText: SEED.otherItem });
 
-    await expect(row).toContainText("EVIM Themen Kachel");
+    await expect(row).toContainText(SEED.otherItemComponent);
     // Not a hidden control — a visible value with a reason attached.
     await expect(row.getByRole("button", { name: /^Components:/ })).toHaveCount(0);
-    await expect(row.locator('[aria-disabled="true"]', { hasText: "EVIM Themen Kachel" })).toBeVisible();
+    await expect(
+      row.locator('[aria-disabled="true"]', { hasText: SEED.otherItemComponent })
+    ).toBeVisible();
   });
 
   test("a new item is created with a component, and a component can be added in place", async ({

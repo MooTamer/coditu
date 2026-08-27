@@ -22,8 +22,9 @@
  * NULL rather than filled with a plausible guess. See docs/05-DECISIONS.md.
  */
 
-import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, mkdirSync, rmSync } from "node:fs";
 import { join, relative, basename, extname } from "node:path";
+import { createHash } from "node:crypto";
 
 const EXPORT_ROOT = process.argv[2];
 if (!EXPORT_ROOT || !existsSync(EXPORT_ROOT)) {
@@ -162,26 +163,56 @@ const PROFILE_ID = {
 /**
  * Notion's status labels against the `work_item_status` enum.
  *
- * Four of Notion's labels have no enum equivalent, and the mapping is a
+ * The enum values here are the POST-RENAME ones. `20260825100000_rename_work_item_statuses.sql`
+ * renamed four of them — todo -> ready, dev_started -> in_progress,
+ * ready_for_peer_review -> in_peer_review, in_review -> in_qa — and this map was
+ * not updated with it, so re-running the importer silently rewrote 23 rows of a
+ * seed nobody had regenerated since. That is the failure mode a "do not edit by
+ * hand, re-run the script" file has: the script and the schema drift apart in
+ * private and only agree again the next time somebody runs it.
+ *
+ * Five of Notion's labels have no enum equivalent, and the mapping is a
  * judgement recorded in docs/05-DECISIONS.md:
- *   "Ready for review"       -> in_review           (distinct from peer review, which Notion also has)
- *   "Ready for deployment"   -> done                (passed review; these shipped in 2025)
+ *   "Ready for review"       -> in_qa               (distinct from peer review, which Notion also has)
+ *   "Ready for deployment"   -> done                (passed review; these shipped)
  *   "Read for deployment"    -> done                (the same label, misspelled once, in Week 3)
- *   "Next sprint"            -> todo                (carried forward; the follow-up item exists in the next sprint)
+ *   "Next sprint"            -> ready               (carried forward; the follow-up item exists in the next sprint)
+ *   "Need to discuss"        -> blocked             (Week 17's note defines it: "where we need to call
+ *                                                    to clear misconfusions in the requirement" — work
+ *                                                    that cannot proceed until a conversation happens)
  */
 const STATUS = {
   done: "done",
-  "dev started": "dev_started",
-  "to do": "todo",
-  todo: "todo",
-  "not started": "todo",
-  "next sprint": "todo",
+  "dev started": "in_progress",
+  "to do": "ready",
+  todo: "ready",
+  "not started": "ready",
+  "next sprint": "ready",
   draft: "draft",
-  "ready for peer review": "ready_for_peer_review",
-  "ready for review": "in_review",
+  "ready for peer review": "in_peer_review",
+  "ready for review": "in_qa",
   "ready for deployment": "done",
   "read for deployment": "done",
+  "need to discuss": "blocked",
 };
+
+/**
+ * A row whose Status cell is present but EMPTY.
+ *
+ * Week 17 has two: "Meeting with Vanessa" and "Vanessa CRs", both carrying
+ * logged hours and neither carrying a status, an assignee or a story type. They
+ * are time-tracking rows somebody added to the board, not tickets anybody moved
+ * through it.
+ *
+ * `draft` because it is the one value in the enum that claims nothing about
+ * progress. `done` would assert something the export does not say; `ready` would
+ * say "not started" about work that consumed three hours. Where the export is
+ * silent this file writes NULL — `status` is NOT NULL, so this is as close as
+ * the column allows.
+ *
+ * Distinct from a status this map has never seen, which still refuses to write.
+ */
+const STATUS_WHEN_BLANK = "draft";
 
 const TYPE = { story: "story", "cr: change request": "change_request", "bug fix": "bug_fix" };
 
@@ -226,6 +257,18 @@ for (const n of [8, 9, 10, 11, 12, 13, 14]) EARLIEST_POSSIBLE[n] = "2025-12-29";
 const NESTED = "((?:[^()]|\\([^()]*\\))*)";
 const IMG_RE = new RegExp(`!\\[[^\\]]*\\]\\(${NESTED}\\)`, "g");
 const LINK_RE = new RegExp(`(?<!!)\\[([^\\]]*)\\]\\(${NESTED}\\)`, "g");
+
+/**
+ * A picture somebody pasted rather than uploaded.
+ *
+ * Notion files those inside the markdown itself, as a LINK whose href is a data
+ * URI — `[Bild](data:image/jpeg;base64,…)` — not as an image. Week 17's
+ * "Vanessa CRs" page carries two, 5KB and 55KB, and before this they were
+ * dropped twice over: the media scan wanted a file extension on the href and a
+ * base64 payload has none, and `plain()` kept the label, so the description
+ * ended up with the word "Bild" standing where a screenshot used to be.
+ */
+const DATA_URI_RE = /^data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/i;
 const PROP_RE =
   /^(Status|Hours Worked|Assignee|Reviewer|Deadline|Story Type|Grouping|deployment link|Priority|Due date|status|deadline):\s*(.*)$/;
 const CHECK_RE = /^(\s*)-\s*\[( |x)\]\s*(.*)$/;
@@ -244,6 +287,9 @@ function plain(text) {
   t = t.replace(LINK_RE, (_m, label, url) => {
     const l = (label ?? "").trim();
     const u = (url ?? "").trim();
+    // The picture itself is carried into the thread by `readPage`. Leaving the
+    // label behind would print "Bild" where a screenshot used to be.
+    if (DATA_URI_RE.test(u)) return "";
     if (!/^(https?:|mailto:)/.test(u)) return l;
     if (!l || l.replace(/\/$/, "") === u.replace(/\/$/, "")) return u;
     // Notion auto-links anything shaped like a hostname, so "Adam.Nafie" is
@@ -270,9 +316,30 @@ function plain(text) {
 const DISCUSS_RE =
   /discuss|reach out|contact me|tell me|let me know|before implement|do not implement|don.t implement|please only|what do you think|confirm|ask me|talk about this/i;
 
+/**
+ * One picture or file referenced by a page, as either a path into the export or
+ * the bytes themselves.
+ *
+ * Two shapes rather than one because Notion uses two: nearly everything is a
+ * file beside the page, and a pasted image is a base64 payload in the markdown.
+ * Everything downstream reads `bytes` and does not care which it was.
+ */
+function mediaRef(raw) {
+  const value = (raw ?? "").trim();
+  const inline = DATA_URI_RE.exec(value);
+  if (inline) {
+    return { inline: true, mime: inline[1].toLowerCase(), base64: inline[2] };
+  }
+  return { ref: value };
+}
+
+/** Notion names every exported page `<title> <32 hex>.md`. That id is the identity. */
+const PAGE_ID_RE = /\s([0-9a-f]{32})\.md$/i;
+
 function readPage(path) {
   const lines = readFileSync(path, "utf8").split("\n");
   const title = lines[0].replace(/^#+/, "").trim();
+  const pageId = (PAGE_ID_RE.exec(basename(path))?.[1] ?? "").toLowerCase() || null;
 
   let i = 1;
   while (i < lines.length) {
@@ -290,12 +357,16 @@ function readPage(path) {
   const media = [];
 
   for (const line of lines.slice(i)) {
-    for (const m of line.matchAll(IMG_RE)) media.push(m[1]);
+    for (const m of line.matchAll(IMG_RE)) media.push(mediaRef(m[1]));
     for (const m of line.matchAll(LINK_RE)) {
       const ref = (m[2] ?? "").trim();
+      if (DATA_URI_RE.test(ref)) {
+        media.push(mediaRef(ref));
+        continue;
+      }
       // A local file link is an attachment too — the Week 15 requirements PDF
       // arrives this way rather than as an embedded image.
-      if (ref && !/^(https?:|mailto:)/.test(ref) && /\.[a-z0-9]{2,5}$/i.test(ref)) media.push(ref);
+      if (ref && !/^(https?:|mailto:)/.test(ref) && /\.[a-z0-9]{2,5}$/i.test(ref)) media.push(mediaRef(ref));
     }
     const bare = line.replace(IMG_RE, "").replace(/\s+$/, "");
     const check = CHECK_RE.exec(bare);
@@ -323,6 +394,7 @@ function readPage(path) {
 
   return {
     title,
+    pageId,
     description: plain(description.join("\n\n")) || null,
     highlight: plain(highlight.join("\n\n")) || null,
     criteria,
@@ -375,6 +447,110 @@ function sanitise(title) {
     .replace(/[:?*"<>|]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pictures                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * ## Why an imported picture becomes a comment
+ *
+ * The export's pictures used to land in `public.attachments`, pointed at the
+ * private `work-attachments` bucket — and **no screen in this app renders that
+ * table**. `06-PROGRESS.md` says so outright about the client side
+ * ("`view_attachments` is a capability with nothing behind it"), and it is just
+ * as true internally: 103 screenshots the team actually filed against their work
+ * were in the database, in storage, and on no page.
+ *
+ * The one place this app draws a picture is the comment thread, through
+ * `/api/attachments/<key>` — which serves the `comment-images` bucket only, and
+ * only for keys shaped `<profile uuid>/<object uuid>.<ext>`. So an imported
+ * image is written where that route can reach it and referenced from a comment,
+ * which is the same shape `POST /api/uploads` produces for an image somebody
+ * drags into the composer. Nothing bespoke renders these.
+ *
+ * The comment is the one row in this file that Notion does not literally
+ * contain, and it is a **carrier**, not content: its author is the person Notion
+ * names on the item, its date is the day the item's logged time is filed
+ * against, and its only prose says where the pictures came from. Everything a
+ * reader sees inside it — the pictures, their order — is transcribed.
+ *
+ * A file the route cannot serve (the Week 15 requirements PDF) stays in
+ * `work-attachments` and stays a row, because a comment that links to something
+ * nothing can open is worse than no comment.
+ */
+const COMMENT_IMAGE_BUCKET = "comment-images";
+const WORK_ATTACHMENT_BUCKET = "work-attachments";
+
+/** Mirrors `attachmentObjectKey` in lib/attachments.ts — the route serves these five. */
+const SERVABLE = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "image/avif": "avif" };
+
+/**
+ * A uuid derived from what the thing IS, not from when it was imported.
+ *
+ * `crypto.randomUUID()` would make every run of this script rewrite every
+ * storage key and every comment id in a 144KB file that is read as a diff. The
+ * seed has to be a pure function of the export or it cannot be reviewed.
+ */
+function stableUuid(seed) {
+  const h = createHash("md5").update(seed).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+/**
+ * Width and height out of the file's own header.
+ *
+ * `lib/images.ts` is the authority on this and covers five formats; the export
+ * holds PNG, JPEG and one GIF, so this covers three. It exists separately
+ * because that module is TypeScript and this is a plain build script — if a
+ * fourth format ever appears here, read it there rather than growing this.
+ *
+ * They are worth carrying: `comment-body.tsx` reserves the thumbnail's box from
+ * these attrs, and a thread that reflows while somebody is reading it is the
+ * worst version of the feature.
+ */
+function intrinsicSize(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (bytes.length > 24 && bytes[0] === 0x89 && bytes[1] === 0x50) {
+    return { width: view.getUint32(16), height: view.getUint32(20) };
+  }
+  if (bytes.length > 10 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
+    return { width: view.getUint16(6, true), height: view.getUint16(8, true) };
+  }
+  if (bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    let at = 2;
+    while (at + 9 < bytes.length) {
+      if (bytes[at] !== 0xff) { at += 1; continue; }
+      const marker = bytes[at + 1];
+      const isFrame = marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker);
+      if (isFrame) return { width: view.getUint16(at + 7), height: view.getUint16(at + 5) };
+      if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd9) || marker === 0x01 || marker === 0xff) {
+        at += 2;
+        continue;
+      }
+      at += 2 + view.getUint16(at + 2);
+    }
+  }
+  return null;
+}
+
+/**
+ * `flattenToText` from lib/blocks/schema.ts, for the node types emitted here.
+ *
+ * `body_text` is not a convenience copy — it is what search, the CSV and
+ * Markdown exports, and the notification preview all read. Deriving it with a
+ * different rule than the app uses is how the two quietly disagree, so this
+ * reproduces that function exactly: a paragraph ends in a newline, an image
+ * flattens to its alt in brackets and does not.
+ */
+function flattenDoc(node) {
+  if (node.type === "text") return node.text ?? "";
+  if (node.type === "image") return node.attrs?.alt ? `[image: ${node.attrs.alt}]` : "[image]";
+  const inner = (node.content ?? []).map(flattenDoc).join("");
+  return ["paragraph", "heading", "listItem", "blockquote", "codeBlock", "horizontalRule"].includes(node.type)
+    ? `${inner}\n`
+    : inner;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -466,7 +642,7 @@ for (const name of weekDirs) {
     if (!page) problems.push(`${where}: no page found`);
 
     const statusRaw = raw["Status"] || raw["status"] || "";
-    const status = STATUS[norm(statusRaw)];
+    const status = norm(statusRaw) === "" ? STATUS_WHEN_BLANK : STATUS[norm(statusRaw)];
     if (!status) problems.push(`${where}: unknown status "${statusRaw}"`);
 
     const typeRaw = raw["Story Type"] || "";
@@ -491,7 +667,8 @@ for (const name of weekDirs) {
     items.push({
       order,
       title,
-      status: status ?? "todo",
+      pageId: page?.pageId ?? null,
+      status: status ?? STATUS_WHEN_BLANK,
       type: type ?? "story",
       assignee,
       reviewer,
@@ -501,7 +678,7 @@ for (const name of weekDirs) {
       description,
       highlight: page?.highlight ?? null,
       criteria: page?.criteria ?? [],
-      media: (page?.media ?? []).map((ref) => ({ ref, dir: page.dir })),
+      media: (page?.media ?? []).map((m) => ({ ...m, dir: page.dir })),
     });
   });
 
@@ -529,7 +706,8 @@ if (existsSync(conversoDir)) {
     conversoItems.push({
       order,
       title,
-      status: STATUS[norm(raw["Status"])] ?? "todo",
+      pageId: page?.pageId ?? null,
+      status: STATUS[norm(raw["Status"])] ?? STATUS_WHEN_BLANK,
       type: "story",
       assignee: null,
       reviewer: null,
@@ -539,7 +717,7 @@ if (existsSync(conversoDir)) {
       description: page?.description ?? null,
       highlight: page?.highlight ?? null,
       criteria: page?.criteria ?? [],
-      media: (page?.media ?? []).map((ref) => ({ ref, dir: page.dir })),
+      media: (page?.media ?? []).map((m) => ({ ...m, dir: page.dir })),
     });
   });
 }
@@ -587,7 +765,72 @@ const attachments = [];
  * from this instead of parsing SQL back out of the seed.
  */
 const payload = { clients: [], projects: [], sprints: [] };
-let nextKey = 140;
+
+/* -------------------------------------------------------------------------- */
+/* Keys                                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * ## Why keys are remembered rather than counted
+ *
+ * Keys used to be handed out in walk order: first item of Week 3 is COD-140,
+ * and so on to the end. That is stable only while the export is, and the export
+ * is a Notion board somebody re-sorts. The "Week 17, after done" re-export moved
+ * fourteen rows into a different order and added three, and re-running this
+ * script would have silently pointed COD-230 at a different piece of work —
+ * every bookmark, every screenshot, every number quoted in a review, wrong, with
+ * nothing in the diff saying "this is a rename" rather than "this is an edit".
+ *
+ * So the assignment lives in `supabase/notion-keys.json` and is written back on
+ * every run. An item that has been imported before keeps the key it was given;
+ * a new one takes the lowest number nobody holds.
+ *
+ * ## Identity is the Notion page id
+ *
+ * Not the title: Week 17 renamed `[React] Redakteurkalendar` to
+ * `[React] Redaktionskalendar` and recased `Banner Intranet Mode`, and a
+ * title-keyed ledger would have called the first of those a new item and
+ * orphaned COD-242. Notion names every exported page `<title> <32 hex>.md` and
+ * that id survives renames, reorders and re-exports.
+ *
+ * A row with no page at all falls back to its normalised title, scoped to its
+ * sprint — that is all the identity such a row has.
+ *
+ * An empty ledger reproduces the original numbering exactly, which is what makes
+ * this safe to adopt: it is the counter, plus a memory.
+ */
+const KEYS_PATH = join(import.meta.dirname, "..", "supabase", "notion-keys.json");
+const ledger = existsSync(KEYS_PATH) ? JSON.parse(readFileSync(KEYS_PATH, "utf8")).keys ?? {} : {};
+
+const identityOf = (sprintSlug, item) =>
+  `${sprintSlug}/${item.pageId ?? `title:${norm(item.title)}`}`;
+
+const FIRST_KEY = 140;
+const claimed = new Set();
+const assigned = {};
+let nextFree = FIRST_KEY;
+
+function keyFor(sprintSlug, item) {
+  const identity = identityOf(sprintSlug, item);
+  const remembered = ledger[identity];
+  if (typeof remembered === "number") {
+    if (claimed.has(remembered)) {
+      problems.push(`${item.title}: COD-${remembered} is claimed twice — the ledger disagrees with itself`);
+    }
+    claimed.add(remembered);
+    assigned[identity] = remembered;
+    return remembered;
+  }
+  return identity;
+}
+
+/** Second pass: everything the ledger did not name takes the lowest free number. */
+function allocate(identity) {
+  while (claimed.has(nextFree)) nextFree += 1;
+  claimed.add(nextFree);
+  assigned[identity] = nextFree;
+  return nextFree;
+}
 
 out.push(`-- Coditu — seed.
 --
@@ -734,12 +977,13 @@ out.push(sprintRows.join(",\n") + ";\n");
 const itemRows = [];
 const criteriaRows = [];
 const timeRows = [];
+const commentRows = [];
 
 function emitItems(list, sprintId, sprintNumber, windowEnd, bucket) {
   for (const item of list) {
-    const id = uuid("60000000-0000-4000-8000", nextKey);
-    const key = `COD-${nextKey}`;
-    nextKey += 1;
+    const number = KEY_OF.get(item);
+    const id = uuid("60000000-0000-4000-8000", number);
+    const key = `COD-${number}`;
     const carried = {
       title: item.title,
       description: item.description,
@@ -756,6 +1000,7 @@ function emitItems(list, sprintId, sprintNumber, windowEnd, bucket) {
       criteria: [],
       time: null,
       media: [],
+      comment: null,
     };
     bucket.push(carried);
 
@@ -791,42 +1036,168 @@ function emitItems(list, sprintId, sprintNumber, windowEnd, bucket) {
       };
     }
 
+    // `uploaded_by`, and the comment's author, is the item's assignee where the
+    // export names one. Notion does not record who attached a file, so an
+    // unassigned item's files are filed under the workspace owner rather than
+    // invented.
+    const by = item.assignee ? PROFILE_ID[item.assignee] : PROFILE_ID.MT;
+    const pictures = [];
+
     item.media.forEach((m, index) => {
-      const file = join(m.dir, decodeURIComponent(m.ref));
-      if (!existsSync(file)) {
-        problems.push(`${item.title}: attachment not found — ${m.ref}`);
-        return;
+      let bytes;
+      let name;
+      let mime;
+      let source = null;
+
+      if (m.inline) {
+        // A pasted picture has no file in the export to point at, so one is
+        // written here. Not into the export — this script only reads that — and
+        // not as base64 inside the manifest, which would put a 170KB screenshot
+        // through JSON twice, in two committed files, unreviewable.
+        bytes = Buffer.from(m.base64, "base64");
+        mime = m.mime;
+        name = `pasted-${index}.${SERVABLE[mime] ?? "bin"}`;
+        source = null;
+      } else {
+        const file = join(m.dir, decodeURIComponent(m.ref));
+        if (!existsSync(file)) {
+          problems.push(`${item.title}: attachment not found — ${m.ref}`);
+          return;
+        }
+        bytes = readFileSync(file);
+        name = basename(file);
+        source = relative(EXPORT_ROOT, file);
+        const ext = extname(name).toLowerCase();
+        mime =
+          ext === ".png" ? "image/png"
+          : ext === ".gif" ? "image/gif"
+          : ext === ".jpg" || ext === ".jpeg" ? "image/jpeg"
+          : ext === ".pdf" ? "application/pdf"
+          : ext === ".mp4" ? "video/mp4"
+          : "application/octet-stream";
       }
-      const name = basename(file);
-      const ext = extname(name).toLowerCase();
-      const mime =
-        ext === ".png" ? "image/png"
-        : ext === ".gif" ? "image/gif"
-        : ext === ".jpg" || ext === ".jpeg" ? "image/jpeg"
-        : ext === ".pdf" ? "application/pdf"
-        : ext === ".mp4" ? "video/mp4"
-        : "application/octet-stream";
+
+      const servable = SERVABLE[mime];
       const slug = name.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-|-$/g, "");
-      const path = `${id}/${index}-${slug}`;
-      attachments.push({ path, source: relative(EXPORT_ROOT, file), mime });
+
+      // Named after the file, not after where it is used, so one picture
+      // referenced by two items is one object rather than two copies.
+      const object = `${stableUuid(source ?? `${id}:${index}`)}.${servable ?? "bin"}`;
+
+      // Two destinations, decided by one question: can `/api/attachments` serve
+      // it? A picture goes where the thread can read it. Anything else keeps the
+      // old home, because a comment that links to something nothing can open is
+      // worse than no comment.
+      const objectKey = servable ? `${by}/${object}` : `${id}/${index}-${slug}`;
+      const bucket = servable ? COMMENT_IMAGE_BUCKET : WORK_ATTACHMENT_BUCKET;
+
+      // A pasted picture is written into the repo and named relative to it;
+      // everything else is named relative to the export, as before. Both
+      // uploaders read whichever of the two an entry carries.
+      let repoSource = null;
+      if (!source) {
+        repoSource = `supabase/notion-inline/${object}`;
+        mkdirSync(join(import.meta.dirname, "..", "supabase", "notion-inline"), { recursive: true });
+        writeFileSync(join(import.meta.dirname, "..", repoSource), bytes);
+        inlineWritten.add(object);
+      }
+
+      attachments.push({ bucket, path: objectKey, ...(source ? { source } : { repoSource }), mime });
       carried.media.push({
-        source: relative(EXPORT_ROOT, file),
+        source,
+        repoSource,
         file_name: name,
         mime,
-        bytes: statSync(file).size,
-        slug: `${index}-${slug}`,
+        bytes: bytes.length,
+        bucket,
+        // The seed can name a profile uuid because it creates the profiles.
+        // Production cannot, so the push script is handed the half of the key
+        // that does not depend on who the author turns out to be.
+        slug: servable ? object : `${index}-${slug}`,
       });
-      // `uploaded_by` is the item's assignee where the export names one; Notion
-      // does not record who attached a file, so an unassigned item's files are
-      // filed under the workspace owner rather than invented.
-      const by = item.assignee ? PROFILE_ID[item.assignee] : PROFILE_ID.MT;
+
+      // `storage_path` carries its bucket. It did not before — the imported rows
+      // held a bare path while `POST /api/uploads` wrote `comment-images/<key>` —
+      // and one column meaning two things is only harmless until somebody reads it.
       itemAttachmentRows.push(
-        `  ('${id}', ${q(path)}, ${q(name)}, '${mime}', ${statSync(file).size}, '${by}')`
+        `  ('${id}', ${q(`${bucket}/${objectKey}`)}, ${q(name)}, '${mime}', ${bytes.length}, '${by}')`
       );
+
+      if (!servable) return;
+      const size = intrinsicSize(bytes);
+      // Carried so the push script does not have to re-read every file to
+      // rebuild the same document against production's profile ids.
+      const carriedMedia = carried.media[carried.media.length - 1];
+      carriedMedia.width = size?.width ?? null;
+      carriedMedia.height = size?.height ?? null;
+      pictures.push({
+        src: `/api/attachments/${objectKey}`,
+        // The file names are `image.png`, `image 1.png`, `CleanShot_2025-…png`.
+        // None of them describes a picture to somebody who cannot see it, and
+        // alt text is what the item is about, so it says that. `file_name` on
+        // the attachment row keeps what Notion actually called the file.
+        alt: `${item.title} — image ${pictures.length + 1}`,
+        width: size?.width ?? null,
+        height: size?.height ?? null,
+      });
     });
+
+    if (pictures.length) {
+      const anchored = item.deadline ?? windowEnd;
+      const day = anchored ?? EARLIEST_POSSIBLE[sprintNumber] ?? "2025-12-29";
+      const doc = {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{
+              type: "text",
+              text: pictures.length === 1
+                ? "Imported from Notion — the screen on this item's page."
+                : `Imported from Notion — the ${pictures.length} screens on this item's page.`,
+            }],
+          },
+          ...pictures.map((picture) => ({ type: "image", attrs: picture })),
+        ],
+      };
+      // 09:00Z is noon in Africa/Cairo, which is the timezone every date in this
+      // app renders in. A bare date would be midnight UTC and would show as the
+      // previous evening — invariant 5, in the one column here that is a
+      // timestamptz rather than a `date`.
+      commentRows.push(
+        `  ('${stableUuid(`comment:${id}`)}', '${id}', '${by}',\n   ${q(JSON.stringify(doc))}::jsonb,\n   ${q(flattenDoc(doc).trim())},\n   '${day} 09:00:00+00')`
+      );
+      carried.comment = { author: FULL_NAME[item.assignee ?? "MT"], created_at: `${day} 09:00:00+00`, pictures };
+    }
   }
 }
 
+/**
+ * Keys, for the whole import, before a single row is written.
+ *
+ * Two passes rather than one: everything the ledger already names claims its
+ * number first, so a new item cannot be handed a key that an existing item is
+ * about to reclaim. The second pass walks in export order, which is what makes
+ * an empty ledger reproduce the original 140-upward numbering exactly.
+ */
+const KEY_OF = new Map();
+function claimKeys(list, sprintSlug) {
+  const pending = [];
+  for (const item of list) {
+    const got = keyFor(sprintSlug, item);
+    if (typeof got === "number") KEY_OF.set(item, got);
+    else pending.push([item, got]);
+  }
+  return pending;
+}
+const pendingKeys = [
+  ...sprints.flatMap((sprint) => claimKeys(sprint.items, `meinevim/${sprint.number}`)),
+  ...claimKeys(conversoItems, "converso/1"),
+];
+for (const [item, identity] of pendingKeys) KEY_OF.set(item, allocate(identity));
+const highestKey = Math.max(...claimed);
+
+const inlineWritten = new Set();
 const itemAttachmentRows = [];
 for (const sprint of sprints) {
   const [from, to] = SPRINT_WINDOW[sprint.number] ?? [null, null];
@@ -883,7 +1254,7 @@ ${itemRows.join(",\n\n")};
 
 -- Keep the sequence ahead of the transcribed keys. Without this a new item
 -- collides with one of them on its very first insert.
-select setval('public.work_item_key_seq', ${nextKey}, false);
+select setval('public.work_item_key_seq', ${highestKey + 1}, false);
 
 -- Give each project the prefix its own items already use, and start its counter
 -- above them. The projects were inserted before the items, so the insert-time
@@ -921,23 +1292,65 @@ out.push(`
 -- ---------------------------------------------------------------------------
 -- Attachments.
 --
--- Rows only. The bytes live in the private \`work-attachments\` bucket and are
--- pushed there by scripts/upload-notion-attachments.mjs, which has to run again
--- after \`db:reset\` — resetting the database clears \`storage.objects\` even
--- though the files themselves survive.
+-- Rows only. The bytes live in two private buckets and are pushed there by
+-- scripts/upload-notion-attachments.mjs, which has to run again after
+-- \`db:reset\` — resetting the database clears \`storage.objects\` even though the
+-- files themselves survive.
+--
+-- Which bucket is decided by whether \`/api/attachments\` can serve the file.
+-- Pictures go to \`comment-images\` under the key shape that route accepts, so
+-- the comment below can show them; the one PDF stays in \`work-attachments\`,
+-- where it is a record and not yet a link. \`storage_path\` names its bucket —
+-- these rows used not to, while \`POST /api/uploads\` always did.
 -- ---------------------------------------------------------------------------
 
 insert into public.attachments (work_item_id, storage_path, file_name, mime_type, bytes, uploaded_by) values
 ${itemAttachmentRows.join(",\n")};
 `);
 
+out.push(`
+-- ---------------------------------------------------------------------------
+-- The pictures, as thread.
+--
+-- One comment per item that has any, because the comment thread is the only
+-- surface in this app that draws a picture — \`public.attachments\` is written by
+-- three code paths and read by none. Before this, every screenshot the team
+-- filed against its work was in the database and on no page.
+--
+-- This is the only row here that Notion does not literally contain, and it
+-- carries rather than says: the author is the person Notion names on the item,
+-- the date is the day that item's logged time is filed against, and the prose is
+-- one sentence of provenance in the same voice as \`time_entries.note\`. The
+-- pictures, and their order, are transcribed.
+--
+-- \`body_text\` is derived the way the app derives it — \`flattenToText\` in
+-- lib/blocks/schema.ts — because search, both exports and the notification
+-- preview read that column and not the document.
+-- ---------------------------------------------------------------------------
+
+insert into public.comments (id, work_item_id, author_id, body_json, body_text, created_at) values
+${commentRows.join(",\n")};
+`);
+
+// A pasted picture that has left the export leaves its file behind otherwise,
+// and nothing would ever say which of these are still referenced.
+const inlineDir = join(import.meta.dirname, "..", "supabase", "notion-inline");
+if (existsSync(inlineDir)) {
+  for (const name of readdirSync(inlineDir)) {
+    if (!inlineWritten.has(name)) rmSync(join(inlineDir, name));
+  }
+}
+
 const sql = out.join("\n");
 assertNoSecrets(sql);
 
 writeFileSync(join(import.meta.dirname, "..", "supabase", "seed.sql"), sql);
+// `bucket` per file, not one for the manifest: pictures and the PDF land in
+// different places, for the reason the attachments section above gives. The
+// top-level key stays as the default so an older uploader still works.
 writeFileSync(
   join(import.meta.dirname, "..", "supabase", "notion-attachments.json"),
-  JSON.stringify({ bucket: "work-attachments", files: attachments }, null, 1) + "\n"
+  JSON.stringify({ bucket: WORK_ATTACHMENT_BUCKET, files: attachments }, null, 1) + "\n"
 );
 
 // The same five clients the seed carries. EVIM and Converso hold the imported
@@ -966,9 +1379,22 @@ writeFileSync(
   JSON.stringify(payload, null, 1) + "\n"
 );
 
+// Written back every run, sorted, so the next import keeps these keys and the
+// diff shows only what was actually added. An item that leaves the export keeps
+// its entry: the number stays retired rather than being handed to something else.
+writeFileSync(
+  KEYS_PATH,
+  JSON.stringify(
+    { keys: Object.fromEntries(Object.entries({ ...ledger, ...assigned }).sort(([a], [b]) => (a < b ? -1 : 1))) },
+    null,
+    1
+  ) + "\n"
+);
+
 const totalMinutes = timeRows.reduce((sum, row) => sum + Number(/, (\d+), '/.exec(row)[1]), 0);
 console.log(`sprints:      ${sprints.length + 1}`);
-console.log(`work items:   ${itemRows.length}   (keys COD-140 … COD-${nextKey - 1})`);
+console.log(`work items:   ${itemRows.length}   (keys COD-${Math.min(...claimed)} … COD-${highestKey}, ${pendingKeys.length} newly assigned)`);
 console.log(`criteria:     ${criteriaRows.length}`);
 console.log(`time entries: ${timeRows.length}   (${totalMinutes} minutes = ${(totalMinutes / 60).toFixed(1)} h)`);
-console.log(`attachments:  ${attachments.length}`);
+console.log(`attachments:  ${attachments.length}   (${attachments.filter((a) => a.bucket === COMMENT_IMAGE_BUCKET).length} servable pictures)`);
+console.log(`comments:     ${commentRows.length}`);

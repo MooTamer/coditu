@@ -62,24 +62,31 @@ test.describe("sprint table", () => {
 
   test("filters live in the URL and survive a reload", async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`${SPRINT}?status=ready`);
+    // A status the sprint actually holds. It filtered on `ready` until Week 17
+    // closed, and a filter that matches nothing does not test a filter — the
+    // empty table draws one explanatory row, so the count assertion passes for
+    // the wrong reason.
+    await page.goto(`${SPRINT}?status=${SEED.filterableStatus}`);
 
-    const readyCount = Number(
+    const matching = Number(
       (
         await query<{ n: string }>(
           `select count(*)::text as n from work_items w
            join sprints s on s.id = w.sprint_id
            join projects p on p.id = s.project_id
-           where p.slug = 'meinevim' and s.number = 17 and w.status = 'ready'`
+           where p.slug = 'meinevim' and s.number = 17 and w.status = $1`,
+          [SEED.filterableStatus]
         )
       )[0].n
     );
+    expect(matching, "the filtered status has to match something").toBeGreaterThan(0);
+    expect(matching, "…and not everything, or nothing is filtered out").toBeLessThan(SEED.itemCount);
 
-    await expect(page.locator("tbody tr")).toHaveCount(readyCount);
+    await expect(page.locator("tbody tr")).toHaveCount(matching);
     await expect(page.locator("tfoot tr")).toContainText("(filtered)");
 
     await page.reload();
-    await expect(page.locator("tbody tr")).toHaveCount(readyCount);
+    await expect(page.locator("tbody tr")).toHaveCount(matching);
   });
 
   test("the table becomes cards below a 900px CONTAINER, not viewport", async ({ adminPage: page }) => {
@@ -293,8 +300,10 @@ test.describe("sprint table", () => {
     await page.goto(SPRINT);
 
     const bar = page.getByRole("img", { name: /Status distribution/ });
-    await expect(bar).toHaveAttribute("aria-label", new RegExp(`in progress ${SEED.inProgressCount}`));
-    await expect(bar).toHaveAttribute("aria-label", new RegExp(`peer review ${SEED.peerReviewCount}`));
+    // The statuses the sprint actually holds. `statusDistribution` emits a slice
+    // per status PRESENT, so naming one the sprint has none of asserts nothing.
+    await expect(bar).toHaveAttribute("aria-label", new RegExp(`done ${SEED.doneCount}`));
+    await expect(bar).toHaveAttribute("aria-label", new RegExp(`draft ${SEED.draftCount}`));
 
     const burn = page.getByRole("img", { name: /Cumulative hours logged/ });
     // Nothing in the Notion export is estimated, so the burn-up line sits at 0.
@@ -556,7 +565,7 @@ test.describe("filtering the sprint table", () => {
     // otherwise it reads as a broken page rather than as an answer.
     await page.goto(`${SPRINT}?q=kachel+height`);
     await expect(page.locator("tbody")).toContainText("No story here matches these filters");
-    await expect(page.locator("tbody")).toContainText("14 in the sprint");
+    await expect(page.locator("tbody")).toContainText(`${SEED.itemCount} in the sprint`);
 
     await page.locator("tbody").getByRole("button", { name: "clear the filters" }).click();
     await expect(page).not.toHaveURL(/[?&]q=/);

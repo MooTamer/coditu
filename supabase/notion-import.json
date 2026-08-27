@@ -91,7 +91,8 @@
      "order_index": 0,
      "criteria": [],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Process and Timeline",
@@ -106,7 +107,8 @@
      "order_index": 1,
      "criteria": [],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "LinkedIn Feed",
@@ -121,7 +123,8 @@
      "order_index": 2,
      "criteria": [],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Heading and Separator",
@@ -136,7 +139,8 @@
      "order_index": 3,
      "criteria": [],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Banner with News changes",
@@ -151,7 +155,8 @@
      "order_index": 4,
      "criteria": [],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     }
    ]
   },
@@ -191,12 +196,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Changes Collapser/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 35952,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "2dd27274-8c23-cc0a-76f0-e4db2374d485.png",
+       "width": 1479,
+       "height": 519
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-11-16 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/2dd27274-8c23-cc0a-76f0-e4db2374d485.png",
+        "alt": "Changes: Collapser — image 1",
+        "width": 1479,
+        "height": 519
+       }
+      ]
+     }
     },
     {
      "title": "Changes: Carousel with expanding Links",
@@ -225,12 +246,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Changes Carousel with expanding Links/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 882249,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "3df06bc9-4ab0-475f-16ec-b4e5bdb93b07.png",
+       "width": 1487,
+       "height": 559
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-11-16 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/3df06bc9-4ab0-475f-16ec-b4e5bdb93b07.png",
+        "alt": "Changes: Carousel with expanding Links — image 1",
+        "width": 1487,
+        "height": 559
+       }
+      ]
+     }
     },
     {
      "title": "Changes: User feedback",
@@ -259,12 +296,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Changes User feedback/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 11188,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "85e6eb4d-49a6-7660-c78e-a5d99bbd19ae.png",
+       "width": 834,
+       "height": 288
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-11-16 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/85e6eb4d-49a6-7660-c78e-a5d99bbd19ae.png",
+        "alt": "Changes: User feedback — image 1",
+        "width": 834,
+        "height": 288
+       }
+      ]
+     }
     },
     {
      "title": "Changes: Finder",
@@ -290,7 +343,8 @@
       }
      ],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Changes: Video Carousel",
@@ -316,7 +370,8 @@
       }
      ],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Changes: LinkedIn Feed",
@@ -385,12 +440,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 3/image 9.png",
+       "repoSource": null,
        "file_name": "image 9.png",
        "mime": "image/png",
        "bytes": 614661,
-       "slug": "0-image-9.png"
+       "bucket": "comment-images",
+       "slug": "815ad663-6ff4-affb-6ce2-c23aed962074.png",
+       "width": 1742,
+       "height": 504
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2025-11-16 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/815ad663-6ff4-affb-6ce2-c23aed962074.png",
+        "alt": "Changes: LinkedIn Feed — image 1",
+        "width": 1742,
+        "height": 504
+       }
+      ]
+     }
     },
     {
      "title": "Urgent Alert",
@@ -405,7 +476,8 @@
      "order_index": 6,
      "criteria": [],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Instagram Feed",
@@ -420,7 +492,8 @@
      "order_index": 7,
      "criteria": [],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Anniversaries",
@@ -438,12 +511,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Anniversaries/c590ea65f5a0b9d49b3ca7fdb2c88f195b7981fe.gif",
+       "repoSource": null,
        "file_name": "c590ea65f5a0b9d49b3ca7fdb2c88f195b7981fe.gif",
        "mime": "image/gif",
        "bytes": 1369822,
-       "slug": "0-c590ea65f5a0b9d49b3ca7fdb2c88f195b7981fe.gif"
+       "bucket": "comment-images",
+       "slug": "c7fecaa4-2a6c-99db-5cb3-72d1e31a68b7.gif",
+       "width": 588,
+       "height": 692
       }
-     ]
+     ],
+     "comment": {
+      "author": "Adam Nafie",
+      "created_at": "2025-11-16 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000002/c7fecaa4-2a6c-99db-5cb3-72d1e31a68b7.gif",
+        "alt": "Anniversaries — image 1",
+        "width": 588,
+        "height": 692
+       }
+      ]
+     }
     },
     {
      "title": "Banner WITHOUT News",
@@ -472,12 +561,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Banner WITHOUT News/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 434295,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "a2f9bdf4-51e7-9f07-ee34-ece1dd326770.png",
+       "width": 1500,
+       "height": 305
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-11-16 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/a2f9bdf4-51e7-9f07-ee34-ece1dd326770.png",
+        "alt": "Banner WITHOUT News — image 1",
+        "width": 1500,
+        "height": 305
+       }
+      ]
+     }
     },
     {
      "title": "Org Chart",
@@ -556,12 +661,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Org Chart/CleanShot_2025-11-12_at_13.28.14.png",
+       "repoSource": null,
        "file_name": "CleanShot_2025-11-12_at_13.28.14.png",
        "mime": "image/png",
        "bytes": 196036,
-       "slug": "0-cleanshot-2025-11-12-at-13.28.14.png"
+       "bucket": "comment-images",
+       "slug": "53ce3cd3-f20e-0a68-890c-7d523adf1416.png",
+       "width": 606,
+       "height": 456
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-11-16 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/53ce3cd3-f20e-0a68-890c-7d523adf1416.png",
+        "alt": "Org Chart — image 1",
+        "width": 606,
+        "height": 456
+       }
+      ]
+     }
     },
     {
      "title": "Embed Plus",
@@ -585,12 +706,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Embed Plus/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 57920,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "3783b63b-f856-e552-2473-abcf785774fc.png",
+       "width": 1150,
+       "height": 510
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2025-11-16 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/3783b63b-f856-e552-2473-abcf785774fc.png",
+        "alt": "Embed Plus — image 1",
+        "width": 1150,
+        "height": 510
+       }
+      ]
+     }
     },
     {
      "title": "Main Navigation",
@@ -649,18 +786,34 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 4/Dashboard/Main Navigation/CleanShot_2025-11-12_at_13.33.15.png",
+       "repoSource": null,
        "file_name": "CleanShot_2025-11-12_at_13.33.15.png",
        "mime": "image/png",
        "bytes": 59507,
-       "slug": "0-cleanshot-2025-11-12-at-13.33.15.png"
+       "bucket": "comment-images",
+       "slug": "435f3fab-760f-65a3-7d86-8c1f761a69be.png",
+       "width": 595,
+       "height": 146
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-11-16 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/435f3fab-760f-65a3-7d86-8c1f761a69be.png",
+        "alt": "Main Navigation — image 1",
+        "width": 595,
+        "height": 146
+       }
+      ]
+     }
     },
     {
      "title": "Interactive Video",
      "description": "Reference: https://community.origamiconnect.com/t/video-on-hover-autoplay/872\n\nAcceptance Criteria:\n• A video uploaded to Sharepoint can have its stream embed added to the property pane\n• Video only plays on hover, no sound\n• Video roundness dynamic",
      "highlight": null,
-     "status": "todo",
+     "status": "ready",
      "type": "story",
      "assignee": "Adam Nafie",
      "reviewer": null,
@@ -669,7 +822,8 @@
      "order_index": 13,
      "criteria": [],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     }
    ]
   },
@@ -703,12 +857,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 5/Dashboard/News Center/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 846226,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "6eeb8f51-b4f1-d1c0-02ff-037ec8d46c94.png",
+       "width": 1339,
+       "height": 654
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/6eeb8f51-b4f1-d1c0-02ff-037ec8d46c94.png",
+        "alt": "News Center — image 1",
+        "width": 1339,
+        "height": 654
+       }
+      ]
+     }
     },
     {
      "title": "Social Corner",
@@ -731,12 +901,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 5/Dashboard/Social Corner/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 188991,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "c9c3bad1-5d9e-2e58-c0a1-d6c40012d529.png",
+       "width": 613,
+       "height": 440
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/c9c3bad1-5d9e-2e58-c0a1-d6c40012d529.png",
+        "alt": "Social Corner — image 1",
+        "width": 613,
+        "height": 440
+       }
+      ]
+     }
     },
     {
      "title": "Interactive Video",
@@ -756,7 +942,8 @@
       "note": "Imported from Notion — one sprint total; the exact day was never recorded",
       "who": "Adam Nafie"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Expanding Links WITHOUT Carousel",
@@ -779,12 +966,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 5/Dashboard/Expanding Links WITHOUT Carousel/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 248572,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "69e0ce7d-2d10-b621-f3d2-8335b45176db.png",
+       "width": 1272,
+       "height": 749
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/69e0ce7d-2d10-b621-f3d2-8335b45176db.png",
+        "alt": "Expanding Links WITHOUT Carousel — image 1",
+        "width": 1272,
+        "height": 749
+       }
+      ]
+     }
     },
     {
      "title": "KPI and Metrics",
@@ -807,12 +1010,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 5/Dashboard/KPI and Metrics/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 80699,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "3d26b7e4-2d3c-611c-99f4-865d70a0f442.png",
+       "width": 992,
+       "height": 157
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/3d26b7e4-2d3c-611c-99f4-865d70a0f442.png",
+        "alt": "KPI and Metrics — image 1",
+        "width": 992,
+        "height": 157
+       }
+      ]
+     }
     },
     {
      "title": "Tabs",
@@ -835,12 +1054,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 5/Dashboard/Tabs/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 293807,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "d4064922-44db-71f2-6539-b62ffbf3923b.png",
+       "width": 1100,
+       "height": 670
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/d4064922-44db-71f2-6539-b62ffbf3923b.png",
+        "alt": "Tabs — image 1",
+        "width": 1100,
+        "height": 670
+       }
+      ]
+     }
     },
     {
      "title": "Tabs with Cards",
@@ -863,12 +1098,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 5/Dashboard/Tabs with Cards/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 62667,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "d3bc6e09-42da-1892-94ba-2057e621dd0b.png",
+       "width": 1279,
+       "height": 443
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/d3bc6e09-42da-1892-94ba-2057e621dd0b.png",
+        "alt": "Tabs with Cards — image 1",
+        "width": 1279,
+        "height": 443
+       }
+      ]
+     }
     }
    ]
   },
@@ -899,7 +1150,8 @@
       "note": "Imported from Notion — one sprint total; the exact day was never recorded",
       "who": "Mohamed Tamer"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Fix: Instagram Feed",
@@ -922,19 +1174,45 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix Instagram Feed/CleanShot_2025-11-29_at_17.58.29.png",
+       "repoSource": null,
        "file_name": "CleanShot_2025-11-29_at_17.58.29.png",
        "mime": "image/png",
        "bytes": 24625,
-       "slug": "0-cleanshot-2025-11-29-at-17.58.29.png"
+       "bucket": "comment-images",
+       "slug": "bbacb8af-83ef-9edf-f0b6-67eb3e0787d8.png",
+       "width": 548,
+       "height": 237
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix Instagram Feed/CleanShot_2025-11-29_at_18.21.02.png",
+       "repoSource": null,
        "file_name": "CleanShot_2025-11-29_at_18.21.02.png",
        "mime": "image/png",
        "bytes": 543905,
-       "slug": "1-cleanshot-2025-11-29-at-18.21.02.png"
+       "bucket": "comment-images",
+       "slug": "6ae44bce-a63d-597c-bab4-3bf89ed0d27a.png",
+       "width": 1301,
+       "height": 851
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/bbacb8af-83ef-9edf-f0b6-67eb3e0787d8.png",
+        "alt": "Fix: Instagram Feed — image 1",
+        "width": 548,
+        "height": 237
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/6ae44bce-a63d-597c-bab4-3bf89ed0d27a.png",
+        "alt": "Fix: Instagram Feed — image 2",
+        "width": 1301,
+        "height": 851
+       }
+      ]
+     }
     },
     {
      "title": "Fix: Anniverseries",
@@ -957,12 +1235,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix Anniverseries/CleanShot_2025-11-29_at_18.22.03.png",
+       "repoSource": null,
        "file_name": "CleanShot_2025-11-29_at_18.22.03.png",
        "mime": "image/png",
        "bytes": 72896,
-       "slug": "0-cleanshot-2025-11-29-at-18.22.03.png"
+       "bucket": "comment-images",
+       "slug": "b400a138-e28d-b677-b84a-6764904caf63.png",
+       "width": 503,
+       "height": 626
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/b400a138-e28d-b677-b84a-6764904caf63.png",
+        "alt": "Fix: Anniverseries — image 1",
+        "width": 503,
+        "height": 626
+       }
+      ]
+     }
     },
     {
      "title": "Fix: LinkedIn Feed",
@@ -985,12 +1279,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix LinkedIn Feed/CleanShot_2025-11-29_at_18.00.33.png",
+       "repoSource": null,
        "file_name": "CleanShot_2025-11-29_at_18.00.33.png",
        "mime": "image/png",
        "bytes": 202488,
-       "slug": "0-cleanshot-2025-11-29-at-18.00.33.png"
+       "bucket": "comment-images",
+       "slug": "2f57626b-28cb-8628-b604-d56dc4ae6763.png",
+       "width": 566,
+       "height": 613
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/2f57626b-28cb-8628-b604-d56dc4ae6763.png",
+        "alt": "Fix: LinkedIn Feed — image 1",
+        "width": 566,
+        "height": 613
+       }
+      ]
+     }
     },
     {
      "title": "Fix: Process and Timeline",
@@ -1013,12 +1323,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix Process and Timeline/CleanShot_2025-11-29_at_18.01.41.png",
+       "repoSource": null,
        "file_name": "CleanShot_2025-11-29_at_18.01.41.png",
        "mime": "image/png",
        "bytes": 320820,
-       "slug": "0-cleanshot-2025-11-29-at-18.01.41.png"
+       "bucket": "comment-images",
+       "slug": "672a6a93-b6df-fbda-1efb-86e2d705085e.png",
+       "width": 559,
+       "height": 773
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/672a6a93-b6df-fbda-1efb-86e2d705085e.png",
+        "alt": "Fix: Process and Timeline — image 1",
+        "width": 559,
+        "height": 773
+       }
+      ]
+     }
     },
     {
      "title": "Fix: news center",
@@ -1041,19 +1367,45 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix news center/CleanShot_2025-11-29_at_18.24.35.png",
+       "repoSource": null,
        "file_name": "CleanShot_2025-11-29_at_18.24.35.png",
        "mime": "image/png",
        "bytes": 177122,
-       "slug": "0-cleanshot-2025-11-29-at-18.24.35.png"
+       "bucket": "comment-images",
+       "slug": "2a755142-74cc-c039-0d2f-c379c57b5c01.png",
+       "width": 520,
+       "height": 590
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix news center/Arc_2025-11-29_18.24.17.png",
+       "repoSource": null,
        "file_name": "Arc_2025-11-29_18.24.17.png",
        "mime": "image/png",
        "bytes": 150302,
-       "slug": "1-arc-2025-11-29-18.24.17.png"
+       "bucket": "comment-images",
+       "slug": "218e5c5b-2dff-375e-ef49-d8dadf4e2798.png",
+       "width": 433,
+       "height": 388
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/2a755142-74cc-c039-0d2f-c379c57b5c01.png",
+        "alt": "Fix: news center — image 1",
+        "width": 520,
+        "height": 590
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/218e5c5b-2dff-375e-ef49-d8dadf4e2798.png",
+        "alt": "Fix: news center — image 2",
+        "width": 433,
+        "height": 388
+       }
+      ]
+     }
     },
     {
      "title": "Banner Half-image",
@@ -1076,12 +1428,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Banner Half-image/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 173876,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "d9bcf478-aa55-c535-a3b1-a39aef2d5b4f.png",
+       "width": 694,
+       "height": 206
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/d9bcf478-aa55-c535-a3b1-a39aef2d5b4f.png",
+        "alt": "Banner Half-image — image 1",
+        "width": 694,
+        "height": 206
+       }
+      ]
+     }
     },
     {
      "title": "Promo Alert",
@@ -1135,26 +1503,62 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Promo Alert/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 92552,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "79c470db-7ba2-cfcc-802b-22315df636b6.png",
+       "width": 1690,
+       "height": 188
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Promo Alert/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 77310,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "cc0c3481-0393-dcdc-a177-771db1eb1624.png",
+       "width": 1035,
+       "height": 509
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Promo Alert/image 2.png",
+       "repoSource": null,
        "file_name": "image 2.png",
        "mime": "image/png",
        "bytes": 320046,
-       "slug": "2-image-2.png"
+       "bucket": "comment-images",
+       "slug": "42338ca5-c705-fea6-d1e2-da6096890e0d.png",
+       "width": 683,
+       "height": 284
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/79c470db-7ba2-cfcc-802b-22315df636b6.png",
+        "alt": "Promo Alert — image 1",
+        "width": 1690,
+        "height": 188
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/cc0c3481-0393-dcdc-a177-771db1eb1624.png",
+        "alt": "Promo Alert — image 2",
+        "width": 1035,
+        "height": 509
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/42338ca5-c705-fea6-d1e2-da6096890e0d.png",
+        "alt": "Promo Alert — image 3",
+        "width": 683,
+        "height": 284
+       }
+      ]
+     }
     },
     {
      "title": "Button Link Plus",
@@ -1177,12 +1581,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Button Link Plus/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 6531,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "65e96f1d-f894-8541-4514-869310edfb19.png",
+       "width": 273,
+       "height": 71
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/65e96f1d-f894-8541-4514-869310edfb19.png",
+        "alt": "Button Link Plus — image 1",
+        "width": 273,
+        "height": 71
+       }
+      ]
+     }
     },
     {
      "title": "Poll",
@@ -1205,18 +1625,34 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Poll/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 34801,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "4d3edc54-13e1-bfd5-e033-1660655e0b0f.png",
+       "width": 426,
+       "height": 337
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/4d3edc54-13e1-bfd5-e033-1660655e0b0f.png",
+        "alt": "Poll — image 1",
+        "width": 426,
+        "height": 337
+       }
+      ]
+     }
     },
     {
      "title": "Fix: links Carousel",
      "description": "• remove fade on the left/right\n• add option to adjust background opacity/brightness of each \"card\", so that he can make for example first card darker, second card lighter ---> do u think it makes sense to actually just give the option to control the color of a card separately?\n• would it be possible to have several rows? he would like to decide which link goes in which row\n• make the shadow height less, because the the shadow is being cut by the webpart border",
      "highlight": null,
-     "status": "todo",
+     "status": "ready",
      "type": "bug_fix",
      "assignee": "Mohamed Tamer",
      "reviewer": null,
@@ -1230,13 +1666,14 @@
       "note": "Imported from Notion — one sprint total; the exact day was never recorded",
       "who": "Mohamed Tamer"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Fix: Banner with news",
      "description": "• on smaller the banner is much more like a square, this is not the right implementation\n• try to make the image fit, or fill to make it optional on smaller screens to let the bg image visible on smaller screen",
      "highlight": null,
-     "status": "todo",
+     "status": "ready",
      "type": "change_request",
      "assignee": "Abdelrahman Elkhateeb",
      "reviewer": null,
@@ -1253,19 +1690,45 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix Banner with news/CleanShot_2025-11-29_at_18.05.51.png",
+       "repoSource": null,
        "file_name": "CleanShot_2025-11-29_at_18.05.51.png",
        "mime": "image/png",
        "bytes": 446367,
-       "slug": "0-cleanshot-2025-11-29-at-18.05.51.png"
+       "bucket": "comment-images",
+       "slug": "3a518004-16d7-2633-8016-708c689e9845.png",
+       "width": 1252,
+       "height": 409
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 6/Dashboard/Fix Banner with news/Arc_2025-11-29_18.05.49.png",
+       "repoSource": null,
        "file_name": "Arc_2025-11-29_18.05.49.png",
        "mime": "image/png",
        "bytes": 299307,
-       "slug": "1-arc-2025-11-29-18.05.49.png"
+       "bucket": "comment-images",
+       "slug": "dfb826fb-b201-1eea-34ba-3583b87429d1.png",
+       "width": 692,
+       "height": 709
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-11-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/3a518004-16d7-2633-8016-708c689e9845.png",
+        "alt": "Fix: Banner with news — image 1",
+        "width": 1252,
+        "height": 409
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/dfb826fb-b201-1eea-34ba-3583b87429d1.png",
+        "alt": "Fix: Banner with news — image 2",
+        "width": 692,
+        "height": 709
+       }
+      ]
+     }
     }
    ]
   },
@@ -1282,7 +1745,7 @@
      "title": "CR: Instagram / LinkedIn Feed",
      "description": "Removing autoplay for videos (NOT slideshow)",
      "highlight": null,
-     "status": "dev_started",
+     "status": "in_progress",
      "type": "change_request",
      "assignee": "Abdelrahman Elkhateeb",
      "reviewer": null,
@@ -1296,7 +1759,8 @@
       "note": "Imported from Notion — one sprint total, not a daily log",
       "who": "Abdelrahman Elkhateeb"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "CR: Banner",
@@ -1319,19 +1783,45 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Banner/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 43315,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "02cc0ae2-6b8e-772e-ca28-fcf354c24c6a.png",
+       "width": 380,
+       "height": 99
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Banner/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 30627,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "fa49ba2a-823a-f9a4-04e9-da61670db215.png",
+       "width": 207,
+       "height": 222
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-28 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/02cc0ae2-6b8e-772e-ca28-fcf354c24c6a.png",
+        "alt": "CR: Banner — image 1",
+        "width": 380,
+        "height": 99
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/fa49ba2a-823a-f9a4-04e9-da61670db215.png",
+        "alt": "CR: Banner — image 2",
+        "width": 207,
+        "height": 222
+       }
+      ]
+     }
     },
     {
      "title": "CR: Contact Cards",
@@ -1354,12 +1844,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Contact Cards/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 9144,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "47f14832-3ea4-c00a-8b80-468684270765.png",
+       "width": 163,
+       "height": 102
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/47f14832-3ea4-c00a-8b80-468684270765.png",
+        "alt": "CR: Contact Cards — image 1",
+        "width": 163,
+        "height": 102
+       }
+      ]
+     }
     },
     {
      "title": "CR: Button Link Plus",
@@ -1379,7 +1885,8 @@
       "note": "Imported from Notion — one sprint total, not a daily log",
       "who": "Abdelrahman Elkhateeb"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "CR: Banner Half-Image",
@@ -1402,12 +1909,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Banner Half-Image/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 170915,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "f9adcb2c-e8ae-b752-55de-6764ef787398.png",
+       "width": 718,
+       "height": 257
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/f9adcb2c-e8ae-b752-55de-6764ef787398.png",
+        "alt": "CR: Banner Half-Image — image 1",
+        "width": 718,
+        "height": 257
+       }
+      ]
+     }
     },
     {
      "title": "CR: Links Carousel / Carousel with expanding Links",
@@ -1430,19 +1953,45 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Links Carousel Carousel with expanding Links/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 159529,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "0bde2c1c-9f28-6a0b-2915-8dd785b5e3a7.png",
+       "width": 1269,
+       "height": 458
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Links Carousel Carousel with expanding Links/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 6439,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "44c32c69-f83c-5cc5-8248-e7d168aa873f.png",
+       "width": 203,
+       "height": 72
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/0bde2c1c-9f28-6a0b-2915-8dd785b5e3a7.png",
+        "alt": "CR: Links Carousel / Carousel with expanding Links — image 1",
+        "width": 1269,
+        "height": 458
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/44c32c69-f83c-5cc5-8248-e7d168aa873f.png",
+        "alt": "CR: Links Carousel / Carousel with expanding Links — image 2",
+        "width": 203,
+        "height": 72
+       }
+      ]
+     }
     },
     {
      "title": "CR: Collapser",
@@ -1465,12 +2014,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Collapser/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 16325,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "7fcbb5ff-9c6d-e0b2-de47-83a144146acf.png",
+       "width": 705,
+       "height": 93
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/7fcbb5ff-9c6d-e0b2-de47-83a144146acf.png",
+        "alt": "CR: Collapser — image 1",
+        "width": 705,
+        "height": 93
+       }
+      ]
+     }
     },
     {
      "title": "CR: Banner with News",
@@ -1490,7 +2055,8 @@
       "note": "Imported from Notion — one sprint total, not a daily log",
       "who": "Mohamed Tamer"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "CR: Quick Links Plus",
@@ -1513,12 +2079,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 7/Dashboard/CR Quick Links Plus/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 2245,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "d5d4db53-0438-8683-b7a1-90c0225ee83f.png",
+       "width": 73,
+       "height": 74
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/d5d4db53-0438-8683-b7a1-90c0225ee83f.png",
+        "alt": "CR: Quick Links Plus — image 1",
+        "width": 73,
+        "height": 74
+       }
+      ]
+     }
     }
    ]
   },
@@ -1547,12 +2129,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 8/Dashboard/Banner with News/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 314991,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "d032f618-2ed3-f51d-bc71-59f30fe28313.png",
+       "width": 590,
+       "height": 1278
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/d032f618-2ed3-f51d-bc71-59f30fe28313.png",
+        "alt": "Banner with News — image 1",
+        "width": 590,
+        "height": 1278
+       }
+      ]
+     }
     },
     {
      "title": "Quick Links",
@@ -1570,12 +2168,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 8/Dashboard/Quick Links/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 61067,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "49869057-2525-6013-45b3-0568db9937c4.png",
+       "width": 1600,
+       "height": 240
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/49869057-2525-6013-45b3-0568db9937c4.png",
+        "alt": "Quick Links — image 1",
+        "width": 1600,
+        "height": 240
+       }
+      ]
+     }
     }
    ]
   },
@@ -1622,7 +2236,8 @@
       "note": "Imported from Notion — one sprint total; the exact day was never recorded",
       "who": "Abdelrahman Elkhateeb"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Banner Half-Image",
@@ -1651,12 +2266,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 9/Dashboard/Banner Half-Image/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 357900,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "594fad73-0d4e-ecb2-20ff-3badcb2238f6.png",
+       "width": 918,
+       "height": 401
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/594fad73-0d4e-ecb2-20ff-3badcb2238f6.png",
+        "alt": "Banner Half-Image — image 1",
+        "width": 918,
+        "height": 401
+       }
+      ]
+     }
     },
     {
      "title": "New: Copier",
@@ -1697,7 +2328,8 @@
       "note": "Imported from Notion — one sprint total; the exact day was never recorded",
       "who": "Abdelrahman Elkhateeb"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Embed Plus",
@@ -1726,12 +2358,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 9/Dashboard/Embed Plus/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 574474,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "bd057563-2a95-34f1-27d4-e9fba6aa3cae.png",
+       "width": 1179,
+       "height": 2556
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/bd057563-2a95-34f1-27d4-e9fba6aa3cae.png",
+        "alt": "Embed Plus — image 1",
+        "width": 1179,
+        "height": 2556
+       }
+      ]
+     }
     },
     {
      "title": "Video Carousel",
@@ -1760,12 +2408,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 9/Dashboard/Video Carousel/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 176016,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "e5785ba3-3a56-20b4-1c74-c77f0c5aeae1.png",
+       "width": 1143,
+       "height": 528
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/e5785ba3-3a56-20b4-1c74-c77f0c5aeae1.png",
+        "alt": "Video Carousel — image 1",
+        "width": 1143,
+        "height": 528
+       }
+      ]
+     }
     },
     {
      "title": "Alerts.",
@@ -1794,12 +2458,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 9/Dashboard/Alerts/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 49428,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "35e8421a-58b4-9d7d-b0c8-ecdf9863a9d0.png",
+       "width": 701,
+       "height": 120
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/35e8421a-58b4-9d7d-b0c8-ecdf9863a9d0.png",
+        "alt": "Alerts. — image 1",
+        "width": 701,
+        "height": 120
+       }
+      ]
+     }
     },
     {
      "title": "Quick Links",
@@ -1828,12 +2508,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 9/Dashboard/Quick Links/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 32141,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "b89ee1bf-c8ac-267d-6852-8fe789eaea85.png",
+       "width": 646,
+       "height": 397
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/b89ee1bf-c8ac-267d-6852-8fe789eaea85.png",
+        "alt": "Quick Links — image 1",
+        "width": 646,
+        "height": 397
+       }
+      ]
+     }
     },
     {
      "title": "Banner with News",
@@ -1862,12 +2558,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 9/Dashboard/Banner with News/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 710551,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "c478bf45-eb37-2d2d-dcd8-84411d18bc52.png",
+       "width": 1277,
+       "height": 691
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/c478bf45-eb37-2d2d-dcd8-84411d18bc52.png",
+        "alt": "Banner with News — image 1",
+        "width": 1277,
+        "height": 691
+       }
+      ]
+     }
     }
    ]
   },
@@ -1884,7 +2596,7 @@
      "title": "Finder",
      "description": null,
      "highlight": null,
-     "status": "dev_started",
+     "status": "in_progress",
      "type": "story",
      "assignee": "Mohamed Tamer",
      "reviewer": null,
@@ -1904,13 +2616,14 @@
       }
      ],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Calendar",
      "description": null,
      "highlight": null,
-     "status": "dev_started",
+     "status": "in_progress",
      "type": "story",
      "assignee": "Mohamed Tamer",
      "reviewer": null,
@@ -1930,13 +2643,14 @@
       }
      ],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "New webpart: EVIM Lists",
      "description": null,
      "highlight": null,
-     "status": "dev_started",
+     "status": "in_progress",
      "type": "story",
      "assignee": "Mohamed Tamer",
      "reviewer": null,
@@ -1961,13 +2675,14 @@
       "note": "Imported from Notion — one sprint total; the exact day was never recorded",
       "who": "Mohamed Tamer"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Links Carousel",
      "description": null,
      "highlight": null,
-     "status": "dev_started",
+     "status": "in_progress",
      "type": "story",
      "assignee": "Mohamed Tamer",
      "reviewer": null,
@@ -1982,7 +2697,8 @@
       }
      ],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     }
    ]
   },
@@ -2034,7 +2750,8 @@
       "note": "Imported from Notion — one sprint total; the exact day was never recorded",
       "who": "Mohamed Tamer"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "New webpart: EVIM Lists",
@@ -2065,7 +2782,8 @@
       "note": "Imported from Notion — one sprint total; the exact day was never recorded",
       "who": "Mohamed Tamer"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Calendar",
@@ -2114,12 +2832,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 11/Dashboard/Calendar/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 140395,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "2bab3fb3-7e5f-222e-dbcc-60631c00dfa8.png",
+       "width": 704,
+       "height": 671
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/2bab3fb3-7e5f-222e-dbcc-60631c00dfa8.png",
+        "alt": "Calendar — image 1",
+        "width": 704,
+        "height": 671
+       }
+      ]
+     }
     },
     {
      "title": "Links Carousel",
@@ -2145,7 +2879,8 @@
       "note": "Imported from Notion — one sprint total; the exact day was never recorded",
       "who": "Mohamed Tamer"
      },
-     "media": []
+     "media": [],
+     "comment": null
     }
    ]
   },
@@ -2179,12 +2914,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 12/Dashboard/Link Carousel Make into grid/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 197561,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "babb3160-a2a5-c971-bcd9-58732ec835cb.png",
+       "width": 906,
+       "height": 772
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/babb3160-a2a5-c971-bcd9-58732ec835cb.png",
+        "alt": "Link Carousel: Make into grid — image 1",
+        "width": 906,
+        "height": 772
+       }
+      ]
+     }
     },
     {
      "title": "Finder: Handle urls",
@@ -2213,12 +2964,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 12/Dashboard/Finder Handle urls/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 43042,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "35f6b16a-f6e2-e87b-3316-045bfb02aa01.png",
+       "width": 1199,
+       "height": 526
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/35f6b16a-f6e2-e87b-3316-045bfb02aa01.png",
+        "alt": "Finder: Handle urls — image 1",
+        "width": 1199,
+        "height": 526
+       }
+      ]
+     }
     }
    ]
   },
@@ -2273,19 +3040,45 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 13/Dashboard/EVIM Banner Intranet Mode Edits/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 37428,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "1c2b6f7a-223b-e320-cd61-35fe4762880a.png",
+       "width": 397,
+       "height": 58
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 13/Dashboard/EVIM Banner Intranet Mode Edits/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 9189,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "7071224e-8508-5e49-1338-bd532ad79eb0.png",
+       "width": 368,
+       "height": 97
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/1c2b6f7a-223b-e320-cd61-35fe4762880a.png",
+        "alt": "EVIM Banner: Intranet Mode Edits — image 1",
+        "width": 397,
+        "height": 58
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/7071224e-8508-5e49-1338-bd532ad79eb0.png",
+        "alt": "EVIM Banner: Intranet Mode Edits — image 2",
+        "width": 368,
+        "height": 97
+       }
+      ]
+     }
     },
     {
      "title": "EVIM Banner: Modes",
@@ -2308,26 +3101,113 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 13/Dashboard/EVIM Banner Modes/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 164519,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "6172407f-7f63-f618-ef79-a665135aee18.png",
+       "width": 778,
+       "height": 164
+      },
+      {
+       "source": null,
+       "repoSource": "supabase/notion-inline/a684c9c8-305b-1957-c250-00eecfc3b1f1.png",
+       "file_name": "pasted-1.png",
+       "mime": "image/png",
+       "bytes": 170789,
+       "bucket": "comment-images",
+       "slug": "a684c9c8-305b-1957-c250-00eecfc3b1f1.png",
+       "width": 778,
+       "height": 164
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 13/Dashboard/EVIM Banner Modes/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 16880,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "8d812a36-eedd-0253-a880-41e76dedc8bf.png",
+       "width": 209,
+       "height": 133
+      },
+      {
+       "source": null,
+       "repoSource": "supabase/notion-inline/507e7d16-b3a2-a515-8089-194a3a8d0861.png",
+       "file_name": "pasted-3.png",
+       "mime": "image/png",
+       "bytes": 17875,
+       "bucket": "comment-images",
+       "slug": "507e7d16-b3a2-a515-8089-194a3a8d0861.png",
+       "width": 209,
+       "height": 133
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 13/Dashboard/EVIM Banner Modes/image 2.png",
+       "repoSource": null,
        "file_name": "image 2.png",
        "mime": "image/png",
        "bytes": 20200,
-       "slug": "2-image-2.png"
+       "bucket": "comment-images",
+       "slug": "04a6659b-dafc-e983-6188-717406beaf56.png",
+       "width": 263,
+       "height": 192
+      },
+      {
+       "source": null,
+       "repoSource": "supabase/notion-inline/9acccb73-eb67-6f4e-e7a6-5255791019b6.png",
+       "file_name": "pasted-5.png",
+       "mime": "image/png",
+       "bytes": 21742,
+       "bucket": "comment-images",
+       "slug": "9acccb73-eb67-6f4e-e7a6-5255791019b6.png",
+       "width": 263,
+       "height": 192
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/6172407f-7f63-f618-ef79-a665135aee18.png",
+        "alt": "EVIM Banner: Modes — image 1",
+        "width": 778,
+        "height": 164
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/a684c9c8-305b-1957-c250-00eecfc3b1f1.png",
+        "alt": "EVIM Banner: Modes — image 2",
+        "width": 778,
+        "height": 164
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/8d812a36-eedd-0253-a880-41e76dedc8bf.png",
+        "alt": "EVIM Banner: Modes — image 3",
+        "width": 209,
+        "height": 133
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/507e7d16-b3a2-a515-8089-194a3a8d0861.png",
+        "alt": "EVIM Banner: Modes — image 4",
+        "width": 209,
+        "height": 133
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/04a6659b-dafc-e983-6188-717406beaf56.png",
+        "alt": "EVIM Banner: Modes — image 5",
+        "width": 263,
+        "height": 192
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/9acccb73-eb67-6f4e-e7a6-5255791019b6.png",
+        "alt": "EVIM Banner: Modes — image 6",
+        "width": 263,
+        "height": 192
+       }
+      ]
+     }
     }
    ]
   },
@@ -2344,7 +3224,7 @@
      "title": "EVIM LinkedIn and Instagram Backend",
      "description": null,
      "highlight": null,
-     "status": "todo",
+     "status": "ready",
      "type": "story",
      "assignee": "Adam Nafie",
      "reviewer": null,
@@ -2353,13 +3233,14 @@
      "order_index": 0,
      "criteria": [],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "EVIM Locale unifying in Quick Links Plus",
      "description": "• Create locale .json file which will be saved in Sharepoint\n• Create webpart to edit .json locale\n• Make field labels in Quick Links editable via locale\n• Note: Check permissions",
      "highlight": null,
-     "status": "in_review",
+     "status": "in_qa",
      "type": "story",
      "assignee": "Abdelrahman Elkhateeb",
      "reviewer": null,
@@ -2373,7 +3254,8 @@
       "note": "Imported from Notion — one sprint total; the exact day was never recorded",
       "who": "Abdelrahman Elkhateeb"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "EVIM Collapser (restoring after mistake)",
@@ -2427,12 +3309,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Collapser (restoring after mistake)/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 197782,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "36499faa-7b44-75db-c3c7-e124194106d9.png",
+       "width": 582,
+       "height": 1072
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/36499faa-7b44-75db-c3c7-e124194106d9.png",
+        "alt": "EVIM Collapser (restoring after mistake) — image 1",
+        "width": 582,
+        "height": 1072
+       }
+      ]
+     }
     },
     {
      "title": "EVIM Finder",
@@ -2452,7 +3350,8 @@
       "note": "Imported from Notion — one sprint total; the exact day was never recorded",
       "who": "Mohamed Tamer"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "EVIM Tabs with Cards",
@@ -2511,19 +3410,45 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Tabs with Cards/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 5166,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "3482003d-0a6a-fd01-27fe-27f7d6809a97.png",
+       "width": 157,
+       "height": 49
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Tabs with Cards/Screenshot_2026-08-04_at_8.17.06_PM.png",
+       "repoSource": null,
        "file_name": "Screenshot_2026-08-04_at_8.17.06_PM.png",
        "mime": "image/png",
        "bytes": 243270,
-       "slug": "1-screenshot-2026-08-04-at-8.17.06-pm.png"
+       "bucket": "comment-images",
+       "slug": "6079f35e-c8c9-f198-86bf-4e0846850594.png",
+       "width": 796,
+       "height": 1670
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/3482003d-0a6a-fd01-27fe-27f7d6809a97.png",
+        "alt": "EVIM Tabs with Cards — image 1",
+        "width": 157,
+        "height": 49
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/6079f35e-c8c9-f198-86bf-4e0846850594.png",
+        "alt": "EVIM Tabs with Cards — image 2",
+        "width": 796,
+        "height": 1670
+       }
+      ]
+     }
     },
     {
      "title": "EVIM Button Link Plus",
@@ -2592,26 +3517,62 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Button Link Plus/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 74523,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "d55647cb-2f1f-fcb1-6da5-fe2a1cc58e5b.png",
+       "width": 732,
+       "height": 142
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Button Link Plus/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 70171,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "590edc6a-fe02-9c70-2fa8-3328a3fb9e66.png",
+       "width": 778,
+       "height": 425
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Button Link Plus/image 2.png",
+       "repoSource": null,
        "file_name": "image 2.png",
        "mime": "image/png",
        "bytes": 7310,
-       "slug": "2-image-2.png"
+       "bucket": "comment-images",
+       "slug": "02b48429-83de-6130-c2d0-bcc75fdfe854.png",
+       "width": 583,
+       "height": 239
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/d55647cb-2f1f-fcb1-6da5-fe2a1cc58e5b.png",
+        "alt": "EVIM Button Link Plus — image 1",
+        "width": 732,
+        "height": 142
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/590edc6a-fe02-9c70-2fa8-3328a3fb9e66.png",
+        "alt": "EVIM Button Link Plus — image 2",
+        "width": 778,
+        "height": 425
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/02b48429-83de-6130-c2d0-bcc75fdfe854.png",
+        "alt": "EVIM Button Link Plus — image 3",
+        "width": 583,
+        "height": 239
+       }
+      ]
+     }
     },
     {
      "title": "EVIM Quick Links Plus",
@@ -2655,26 +3616,62 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Quick Links Plus/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 20709,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "7bad9061-c3a9-fecb-990a-fb502db1778b.png",
+       "width": 362,
+       "height": 861
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Quick Links Plus/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 14572,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "75881981-b509-a6e1-d79a-2fdf88dd9bd5.png",
+       "width": 439,
+       "height": 85
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 14/Dashboard/EVIM Quick Links Plus/image 2.png",
+       "repoSource": null,
        "file_name": "image 2.png",
        "mime": "image/png",
        "bytes": 8934,
-       "slug": "2-image-2.png"
+       "bucket": "comment-images",
+       "slug": "9de2278d-3d38-d25b-1cfc-e8916c69866c.png",
+       "width": 240,
+       "height": 97
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2025-12-29 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/7bad9061-c3a9-fecb-990a-fb502db1778b.png",
+        "alt": "EVIM Quick Links Plus — image 1",
+        "width": 362,
+        "height": 861
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/75881981-b509-a6e1-d79a-2fdf88dd9bd5.png",
+        "alt": "EVIM Quick Links Plus — image 2",
+        "width": 439,
+        "height": 85
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/9de2278d-3d38-d25b-1cfc-e8916c69866c.png",
+        "alt": "EVIM Quick Links Plus — image 3",
+        "width": 240,
+        "height": 97
+       }
+      ]
+     }
     },
     {
      "title": "EVIM Banner Intranet Mode",
@@ -2700,7 +3697,8 @@
       "note": "Imported from Notion — one sprint total; the exact day was never recorded",
       "who": "Abdelrahman Elkhateeb"
      },
-     "media": []
+     "media": [],
+     "comment": null
     }
    ]
   },
@@ -2729,12 +3727,15 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 15/Dashboard/req form/Anforderungs_Dok_1_v0.3.pdf",
+       "repoSource": null,
        "file_name": "Anforderungs_Dok_1_v0.3.pdf",
        "mime": "application/pdf",
        "bytes": 299235,
+       "bucket": "work-attachments",
        "slug": "0-anforderungs-dok-1-v0.3.pdf"
       }
-     ]
+     ],
+     "comment": null
     },
     {
      "title": "EVIM Link Kachel",
@@ -2765,7 +3766,8 @@
       "note": "Imported from Notion — one sprint total, not a daily log",
       "who": "Mohamed Tamer"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "Webparts bug",
@@ -2783,12 +3785,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 15/Dashboard/Webparts bug/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 8479,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "37e51f68-3063-075f-7957-680654df2359.png",
+       "width": 441,
+       "height": 147
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2026-08-09 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/37e51f68-3063-075f-7957-680654df2359.png",
+        "alt": "Webparts bug — image 1",
+        "width": 441,
+        "height": 147
+       }
+      ]
+     }
     }
    ]
   },
@@ -2928,19 +3946,45 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Newspart/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 9183,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "78c7f165-4549-e89c-b6c0-51585986fe3d.png",
+       "width": 647,
+       "height": 58
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Newspart/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 40998,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "d120553b-5a00-53e0-20b2-7ba57916d6b3.png",
+       "width": 562,
+       "height": 414
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2026-08-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/78c7f165-4549-e89c-b6c0-51585986fe3d.png",
+        "alt": "EVIM Newspart — image 1",
+        "width": 647,
+        "height": 58
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/d120553b-5a00-53e0-20b2-7ba57916d6b3.png",
+        "alt": "EVIM Newspart — image 2",
+        "width": 562,
+        "height": 414
+       }
+      ]
+     }
     },
     {
      "title": "EVIM Newspart Changes",
@@ -3014,26 +4058,62 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Newspart Changes/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 18244,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "15dbf229-7193-8245-37b4-e5dc14edb5d8.png",
+       "width": 1432,
+       "height": 109
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Newspart Changes/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 3179,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "4c726413-dcbf-3c82-65a8-bd2044888cd3.png",
+       "width": 178,
+       "height": 75
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Newspart Changes/image 2.png",
+       "repoSource": null,
        "file_name": "image 2.png",
        "mime": "image/png",
        "bytes": 10553,
-       "slug": "2-image-2.png"
+       "bucket": "comment-images",
+       "slug": "ae79209e-1668-5485-7c7e-c85f2fe648cd.png",
+       "width": 671,
+       "height": 96
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2026-08-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/15dbf229-7193-8245-37b4-e5dc14edb5d8.png",
+        "alt": "EVIM Newspart Changes — image 1",
+        "width": 1432,
+        "height": 109
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/4c726413-dcbf-3c82-65a8-bd2044888cd3.png",
+        "alt": "EVIM Newspart Changes — image 2",
+        "width": 178,
+        "height": 75
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/ae79209e-1668-5485-7c7e-c85f2fe648cd.png",
+        "alt": "EVIM Newspart Changes — image 3",
+        "width": 671,
+        "height": 96
+       }
+      ]
+     }
     },
     {
      "title": "EVIM Banner news mode",
@@ -3112,26 +4192,62 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Banner news mode/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 13910,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "5b24555b-1edb-c3ec-7db2-e233a2dc4cc2.png",
+       "width": 658,
+       "height": 126
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Banner news mode/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 5292,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "6188ffa2-eaa9-31b3-bbe0-f672f60c772a.png",
+       "width": 315,
+       "height": 137
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Banner news mode/image 2.png",
+       "repoSource": null,
        "file_name": "image 2.png",
        "mime": "image/png",
        "bytes": 23619,
-       "slug": "2-image-2.png"
+       "bucket": "comment-images",
+       "slug": "6a894f39-bfec-cab1-86d0-fd2226bd21a4.png",
+       "width": 325,
+       "height": 309
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2026-08-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/5b24555b-1edb-c3ec-7db2-e233a2dc4cc2.png",
+        "alt": "EVIM Banner news mode — image 1",
+        "width": 658,
+        "height": 126
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/6188ffa2-eaa9-31b3-bbe0-f672f60c772a.png",
+        "alt": "EVIM Banner news mode — image 2",
+        "width": 315,
+        "height": 137
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/6a894f39-bfec-cab1-86d0-fd2226bd21a4.png",
+        "alt": "EVIM Banner news mode — image 3",
+        "width": 325,
+        "height": 309
+       }
+      ]
+     }
     },
     {
      "title": "Change all text color in ALL webparts to black",
@@ -3151,7 +4267,8 @@
       "note": "Imported from Notion — one sprint total, not a daily log",
       "who": "Ahmed Yehia"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
      "title": "[REACT] EVIM News Redakteurseite",
@@ -3174,12 +4291,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/[REACT] EVIM News Redakteurseite/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 19701,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "a1c9881d-3388-24ef-34eb-763a99c6dc46.png",
+       "width": 720,
+       "height": 266
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2026-08-14 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/a1c9881d-3388-24ef-34eb-763a99c6dc46.png",
+        "alt": "[REACT] EVIM News Redakteurseite — image 1",
+        "width": 720,
+        "height": 266
+       }
+      ]
+     }
     },
     {
      "title": "EVIM Tabs with Cards",
@@ -3293,19 +4426,45 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Tabs with Cards/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 191298,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "3833e82a-9e2d-a604-32a3-95bba78f9c4b.png",
+       "width": 1185,
+       "height": 756
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Tabs with Cards/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 9292,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "117d23da-b60e-9d68-88df-3100e2a2087d.png",
+       "width": 394,
+       "height": 261
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2026-08-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/3833e82a-9e2d-a604-32a3-95bba78f9c4b.png",
+        "alt": "EVIM Tabs with Cards — image 1",
+        "width": 1185,
+        "height": 756
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/117d23da-b60e-9d68-88df-3100e2a2087d.png",
+        "alt": "EVIM Tabs with Cards — image 2",
+        "width": 394,
+        "height": 261
+       }
+      ]
+     }
     },
     {
      "title": "EVIM Akkordeon (Collapser)",
@@ -3369,12 +4528,28 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Akkordeon (Collapser)/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 21076,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "6a1bd278-d886-ccc8-26fc-4a0bb13e144c.png",
+       "width": 689,
+       "height": 103
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2026-08-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/6a1bd278-d886-ccc8-26fc-4a0bb13e144c.png",
+        "alt": "EVIM Akkordeon (Collapser) — image 1",
+        "width": 689,
+        "height": 103
+       }
+      ]
+     }
     },
     {
      "title": "EVIM Link Kachel",
@@ -3463,33 +4638,79 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Link Kachel/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 4178,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "653638e4-41dc-5e4e-19c2-477792d99adc.png",
+       "width": 131,
+       "height": 36
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Link Kachel/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 57616,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "e1245da1-6165-2d09-957a-11916520df31.png",
+       "width": 778,
+       "height": 156
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Link Kachel/image 2.png",
+       "repoSource": null,
        "file_name": "image 2.png",
        "mime": "image/png",
        "bytes": 14435,
-       "slug": "2-image-2.png"
+       "bucket": "comment-images",
+       "slug": "d9634328-86d9-c431-49b5-cfccac42c486.png",
+       "width": 1268,
+       "height": 633
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Link Kachel/image 3.png",
+       "repoSource": null,
        "file_name": "image 3.png",
        "mime": "image/png",
        "bytes": 9860,
-       "slug": "3-image-3.png"
+       "bucket": "comment-images",
+       "slug": "e1f88eef-9def-2b97-c93a-3ab24f40d0fd.png",
+       "width": 408,
+       "height": 274
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2026-08-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/653638e4-41dc-5e4e-19c2-477792d99adc.png",
+        "alt": "EVIM Link Kachel — image 1",
+        "width": 131,
+        "height": 36
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/e1245da1-6165-2d09-957a-11916520df31.png",
+        "alt": "EVIM Link Kachel — image 2",
+        "width": 778,
+        "height": 156
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/d9634328-86d9-c431-49b5-cfccac42c486.png",
+        "alt": "EVIM Link Kachel — image 3",
+        "width": 1268,
+        "height": 633
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/e1f88eef-9def-2b97-c93a-3ab24f40d0fd.png",
+        "alt": "EVIM Link Kachel — image 4",
+        "width": 408,
+        "height": 274
+       }
+      ]
+     }
     },
     {
      "title": "EVIM Quick Links Plus",
@@ -3538,19 +4759,45 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Quick Links Plus/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 9603,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "85632d11-5bd3-fa00-8a11-619924b3b4de.png",
+       "width": 232,
+       "height": 81
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 16/Dashboard/EVIM Quick Links Plus/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 33198,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "96302d7b-7ae1-ecb1-bc93-105e9ffc90d6.png",
+       "width": 635,
+       "height": 773
       }
-     ]
+     ],
+     "comment": {
+      "author": "Ahmed Yehia",
+      "created_at": "2026-08-17 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/85632d11-5bd3-fa00-8a11-619924b3b4de.png",
+        "alt": "EVIM Quick Links Plus — image 1",
+        "width": 232,
+        "height": 81
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000004/96302d7b-7ae1-ecb1-bc93-105e9ffc90d6.png",
+        "alt": "EVIM Quick Links Plus — image 2",
+        "width": 635,
+        "height": 773
+       }
+      ]
+     }
     }
    ]
   },
@@ -3561,16 +4808,16 @@
    "starts_on": "2026-08-17",
    "ends_on": "2026-08-23",
    "status": "active",
-   "notes": "@Abdelrahman Elkhateeb @Mohamed Tamer @Ahmed Yehia\n\n• please work this sprint on the issues in the order they are sorted in.\n\n• Stories with the same color/grouping are preferred to be implemented by the same developer because they overlap in some logic/UI.\n\n• In the stories, there are highlighted sections, which means you need to discuss something with me and not implement immediately. So please reach out",
+   "notes": "@Abdelrahman Elkhateeb @Mohamed Tamer @Ahmed Yehia\n\n• please work this sprint on the issues in the order they are sorted in.\n\n• Stories with the same color/grouping are preferred to be implemented by the same developer because they overlap in some logic/UI.\n\n• In the stories, there are highlighted sections, which means you need to discuss something with me and not implement immediately. So please reach out.\n\n@Abdelrahman Elkhateeb @Mohamed Tamer @Ahmed Yehia   I added new status “need to discuss”, where we need to call to clear misconfusions in the requirement",
    "items": [
     {
      "title": "Add optional titles to all webparts",
-     "description": "We want to add a unified optional title field to all webparts.\n\nAcceptance Criteria:",
+     "description": "We want to add a unified optional title field to all webparts.\n\nAcceptance Criteria:\n\nReview checklist:",
      "highlight": null,
-     "status": "in_review",
+     "status": "done",
      "type": "story",
-     "assignee": "Mohamed Tamer",
-     "reviewer": "Abdelrahman Elkhateeb",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": "Mohamed Tamer",
      "deadline": "2026-08-23",
      "grouping": null,
      "order_index": 0,
@@ -3599,35 +4846,321 @@
        "body": "When toggle is on, make sure your implementation behaves exactly like the Title which is added when adding Sharepoint standard Webpart “Events” for example. PLEASE do not implement before trying out the “Events” webpart. This is an AC.",
        "is_done": false,
        "order_index": 4
+      },
+      {
+       "body": "Quick Links Plus",
+       "is_done": true,
+       "order_index": 5
+      },
+      {
+       "body": "Link Kachel",
+       "is_done": true,
+       "order_index": 6
+      },
+      {
+       "body": "Tabs with Cards",
+       "is_done": true,
+       "order_index": 7
+      },
+      {
+       "body": "Newspart",
+       "is_done": true,
+       "order_index": 8
+      },
+      {
+       "body": "Calendar",
+       "is_done": true,
+       "order_index": 9
+      },
+      {
+       "body": "Akkordeon (colapser)",
+       "is_done": true,
+       "order_index": 10
+      },
+      {
+       "body": "Finder",
+       "is_done": true,
+       "order_index": 11
+      },
+      {
+       "body": "Rollover Contact Cards",
+       "is_done": true,
+       "order_index": 12
       }
      ],
      "time": {
-      "minutes": 480,
+      "minutes": 540,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Add optional titles to all webparts/image.png",
+       "repoSource": null,
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 44505,
+       "bucket": "comment-images",
+       "slug": "3b322b02-2d38-e243-09be-139ccd3a6e09.png",
+       "width": 1128,
+       "height": 494
+      }
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/3b322b02-2d38-e243-09be-139ccd3a6e09.png",
+        "alt": "Add optional titles to all webparts — image 1",
+        "width": 1128,
+        "height": 494
+       }
+      ]
+     }
+    },
+    {
+     "title": "New mode: Rollover Contact Cards",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 1,
+     "criteria": [],
+     "time": {
+      "minutes": 300,
       "worked_on": "2026-08-23",
       "note": "Imported from Notion — one sprint total, not a daily log",
       "who": "Mohamed Tamer"
      },
      "media": [
       {
-       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Add optional titles to all webparts/image.png",
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/New mode Rollover Contact Cards/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
-       "bytes": 44505,
-       "slug": "0-image.png"
+       "bytes": 95447,
+       "bucket": "comment-images",
+       "slug": "c27aa010-7ad9-99e2-0689-ed4e26ea4b7f.png",
+       "width": 1115,
+       "height": 541
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/New mode Rollover Contact Cards/image 1.png",
+       "repoSource": null,
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 18992,
+       "bucket": "comment-images",
+       "slug": "104e48e9-a3d0-d0f4-d959-203292b10e78.png",
+       "width": 778,
+       "height": 541
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/c27aa010-7ad9-99e2-0689-ed4e26ea4b7f.png",
+        "alt": "New mode: Rollover Contact Cards — image 1",
+        "width": 1115,
+        "height": 541
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/104e48e9-a3d0-d0f4-d959-203292b10e78.png",
+        "alt": "New mode: Rollover Contact Cards — image 2",
+        "width": 778,
+        "height": 541
+       }
+      ]
+     }
+    },
+    {
+     "title": "[React] Redaktionskalendar",
+     "description": "As a user of a Redakteurseitie I want to have an internal calendar to plan publications in a weekly calendar.\n\nPictures:\n\nWe want a calendar like the one in the back:\n\nsource: https://scompler.com/en/features-and-functions/",
+     "highlight": null,
+     "status": "done",
+     "type": "story",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 2,
+     "criteria": [
+      {
+       "body": "I want a new page/route in the Redakteurseite to be shown in the navigation called Redakteurcalendar",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "I want to have a weekly calendar where each column is the days of the week in German starting Montag, dd.mm.yy",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "We separate each days by type of publication. There is a row with its own color for each of",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "— “Veranstaltung”",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "— “LinkedIn”",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "— “Instagram”",
+       "is_done": false,
+       "order_index": 5
+      },
+      {
+       "body": "— “News”",
+       "is_done": false,
+       "order_index": 6
+      },
+      {
+       "body": "The days and types of publications now create a grid in the calendar. When I hover over a position in the grid I want a plus sign to appear with the color of the publication row with a + add icon.",
+       "is_done": false,
+       "order_index": 7
+      },
+      {
+       "body": "When the add icon is clicked, I want a publication to be added ONLY in this calendar as card.",
+       "is_done": false,
+       "order_index": 8
+      },
+      {
+       "body": "Each publication card has the following definition (in blue in diagramm below), which prompted by a pop when adding the publication:",
+       "is_done": false,
+       "order_index": 9
+      },
+      {
+       "body": "— Title (Titel)",
+       "is_done": false,
+       "order_index": 10
+      },
+      {
+       "body": "— Department (Bereich)",
+       "is_done": false,
+       "order_index": 11
+      },
+      {
+       "body": "— Date (Datum)",
+       "is_done": false,
+       "order_index": 12
+      },
+      {
+       "body": "— Author (Redakteur)",
+       "is_done": false,
+       "order_index": 13
+      },
+      {
+       "body": "— Status",
+       "is_done": false,
+       "order_index": 14
+      },
+      {
+       "body": "As a prototype save added calendar events as cache in local storage, so that browser refresh doesn’t lose testing events added. We will connect to an API in the next weeks.",
+       "is_done": false,
+       "order_index": 15
+      }
+     ],
+     "time": {
+      "minutes": 660,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/[React] Redaktionskalendar/image.png",
+       "repoSource": null,
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 53321,
+       "bucket": "comment-images",
+       "slug": "899dbe38-355f-5bc5-8030-19bbf34f9cfd.png",
+       "width": 759,
+       "height": 751
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/[React] Redaktionskalendar/image 1.png",
+       "repoSource": null,
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 488177,
+       "bucket": "comment-images",
+       "slug": "024185a0-b750-a4aa-8a99-119ebb7801f4.png",
+       "width": 1536,
+       "height": 1024
+      }
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/899dbe38-355f-5bc5-8030-19bbf34f9cfd.png",
+        "alt": "[React] Redaktionskalendar — image 1",
+        "width": 759,
+        "height": 751
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/024185a0-b750-a4aa-8a99-119ebb7801f4.png",
+        "alt": "[React] Redaktionskalendar — image 2",
+        "width": 1536,
+        "height": 1024
+       }
+      ]
+     }
+    },
+    {
+     "title": "Quick Links Plus Open New Tab bug",
+     "description": "When Open New Tab for a link is toggled, any link with base URL evimwi.sharepoint.com does not open in a new tab.\n\nExpected behavior:\n\nAfter fixing this bug please contact me so that we can solve this for all webparts as this is a recurring issue!!!",
+     "highlight": null,
+     "status": "done",
+     "type": "bug_fix",
+     "assignee": "Abdelrahman Elkhateeb",
+     "reviewer": null,
+     "deadline": "2026-08-23",
+     "grouping": null,
+     "order_index": 3,
+     "criteria": [
+      {
+       "body": "When open new tab is toggled on anywhere, then ALL links regardless of base url should open in a new tab",
+       "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": {
+      "minutes": 30,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Abdelrahman Elkhateeb"
+     },
+     "media": [],
+     "comment": null
     },
     {
      "title": "Tabs with Cards",
      "description": "Change title font size to 22px",
      "highlight": null,
-     "status": "ready_for_peer_review",
+     "status": "done",
      "type": "change_request",
      "assignee": "Mohamed Tamer",
      "reviewer": "Abdelrahman Elkhateeb",
      "deadline": "2026-08-23",
      "grouping": null,
-     "order_index": 1,
+     "order_index": 4,
      "criteria": [],
      "time": {
       "minutes": 30,
@@ -3635,34 +5168,115 @@
       "note": "Imported from Notion — one sprint total, not a daily log",
       "who": "Mohamed Tamer"
      },
-     "media": []
+     "media": [],
+     "comment": null
     },
     {
-     "title": "Tabs with Cards: height logic fix",
-     "description": "The height logic is great, thank you for implementing last time. We have an issue though:\n\nWhen you add 4 cards and the 4th card does not have any description, it overflows to a new row but its height is different to the heights in the first row.\n\nExpected behavior:",
+     "title": "Rollover Contact Cards",
+     "description": null,
      "highlight": null,
-     "status": "ready_for_peer_review",
-     "type": "bug_fix",
+     "status": "done",
+     "type": "change_request",
      "assignee": "Mohamed Tamer",
      "reviewer": "Abdelrahman Elkhateeb",
      "deadline": "2026-08-23",
-     "grouping": 1,
-     "order_index": 2,
+     "grouping": null,
+     "order_index": 5,
      "criteria": [
       {
-       "body": "All Link Kachels must have same height, even if they are not in same row",
+       "body": "Remove username Adam.Nafie",
        "is_done": false,
+       "order_index": 0
+      }
+     ],
+     "time": {
+      "minutes": 30,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Rollover Contact Cards/image.png",
+       "repoSource": null,
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 43819,
+       "bucket": "comment-images",
+       "slug": "489b16f5-1f0a-adde-3e81-928c7ac7316b.png",
+       "width": 536,
+       "height": 344
+      }
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/489b16f5-1f0a-adde-3e81-928c7ac7316b.png",
+        "alt": "Rollover Contact Cards — image 1",
+        "width": 536,
+        "height": 344
+       }
+      ]
+     }
+    },
+    {
+     "title": "Banner News Mode",
+     "description": "Implement all the following changes only in News mode. Our goal is to carryover the Banner Half-Image webpart with EVIM corporate design to our Banner News mode logic:\n\nrow 1: date     <pill with department name>\n\nrow 2: Category with bigger font size\n\nrow 3: Title with biggest font size (do not change its current size)\n\nrow 4: Teaser",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": null,
+     "deadline": "2026-08-23",
+     "grouping": 2,
+     "order_index": 6,
+     "criteria": [
+      {
+       "body": "Make sure Banner is same width across ALL modes.",
+       "is_done": true,
        "order_index": 0
       },
       {
-       "body": "The height is determined by the Link Kachel which has the most text (the least acceptable height for it to show properly)",
-       "is_done": false,
+       "body": "— Currently News mode is narrower than Intranet mode for example",
+       "is_done": true,
        "order_index": 1
       },
       {
-       "body": "There is no min height",
-       "is_done": false,
+       "body": "News Banner should be same height as Intranet mode",
+       "is_done": true,
        "order_index": 2
+      },
+      {
+       "body": "Right side of the banner should be the image fetched from the list with same ratio as banner half-image",
+       "is_done": true,
+       "order_index": 3
+      },
+      {
+       "body": "— Corners of image all rounded",
+       "is_done": true,
+       "order_index": 4
+      },
+      {
+       "body": "— I personally prefer the following way of representing the image, but Vanessa prefers the screenshot above. Can you show us a comparison between both?",
+       "is_done": true,
+       "order_index": 5
+      },
+      {
+       "body": "MAV department to take EVIM beige department color",
+       "is_done": true,
+       "order_index": 6
+      },
+      {
+       "body": "Layout from the upper left corner to be like the text in the news part",
+       "is_done": true,
+       "order_index": 7
+      },
+      {
+       "body": "Change text color in entire news mode to Nachtblau",
+       "is_done": true,
+       "order_index": 8
       }
      ],
      "time": {
@@ -3671,109 +5285,163 @@
       "note": "Imported from Notion — one sprint total, not a daily log",
       "who": "Mohamed Tamer"
      },
-     "media": []
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner News Mode/image.png",
+       "repoSource": null,
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 175843,
+       "bucket": "comment-images",
+       "slug": "22f0ad53-e865-4b9d-3125-c0a4e36ef7a1.png",
+       "width": 591,
+       "height": 284
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner News Mode/image 1.png",
+       "repoSource": null,
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 122883,
+       "bucket": "comment-images",
+       "slug": "e18afa5d-6891-6366-4f91-d28ea0c8fbdf.png",
+       "width": 609,
+       "height": 243
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner News Mode/image 2.png",
+       "repoSource": null,
+       "file_name": "image 2.png",
+       "mime": "image/png",
+       "bytes": 1026729,
+       "bucket": "comment-images",
+       "slug": "1677538a-3d29-6b06-d7da-2ec7a7e17345.png",
+       "width": 1390,
+       "height": 656
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner News Mode/image 3.png",
+       "repoSource": null,
+       "file_name": "image 3.png",
+       "mime": "image/png",
+       "bytes": 31927,
+       "bucket": "comment-images",
+       "slug": "968e1ad4-0fe4-077d-8b99-657a6d83e31f.png",
+       "width": 620,
+       "height": 149
+      }
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/22f0ad53-e865-4b9d-3125-c0a4e36ef7a1.png",
+        "alt": "Banner News Mode — image 1",
+        "width": 591,
+        "height": 284
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/e18afa5d-6891-6366-4f91-d28ea0c8fbdf.png",
+        "alt": "Banner News Mode — image 2",
+        "width": 609,
+        "height": 243
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/1677538a-3d29-6b06-d7da-2ec7a7e17345.png",
+        "alt": "Banner News Mode — image 3",
+        "width": 1390,
+        "height": 656
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/968e1ad4-0fe4-077d-8b99-657a6d83e31f.png",
+        "alt": "Banner News Mode — image 4",
+        "width": 620,
+        "height": 149
+       }
+      ]
+     }
     },
     {
-     "title": "Link Kachel changes",
-     "description": "• Our goal is to avoid this space as much as possible:",
+     "title": "Unifying pill button: arrow and animation",
+     "description": "The EVIM pill button used is in Quick Links Plus, Link Kachel and Newspart\n\nAcceptance Criteria:\n\nTechnical Requirement:",
      "highlight": null,
-     "status": "ready_for_peer_review",
-     "type": "change_request",
+     "status": "done",
+     "type": "story",
      "assignee": "Mohamed Tamer",
      "reviewer": "Abdelrahman Elkhateeb",
      "deadline": "2026-08-23",
-     "grouping": 1,
-     "order_index": 3,
+     "grouping": null,
+     "order_index": 7,
      "criteria": [
       {
-       "body": "Change character limit for text to be 85 chars instead of 30 chars",
+       "body": "Arrow is the same svg and boldness in all pills. The correct arrow is currently in Quick Links Plus",
        "is_done": false,
        "order_index": 0
       },
       {
-       "body": "Überschrift font size to be fixed at 22px",
+       "body": "Animation on hover is same in all pills. The correct animation is currently in Link Kachel (text moves to the right)",
        "is_done": false,
        "order_index": 1
       },
       {
-       "body": "Add toggle “Button Link” in specific Link Kachel settings",
+       "body": "Have a unified css class and/or components for buttons of this type",
        "is_done": false,
        "order_index": 2
-      },
-      {
-       "body": "— If toggle on, show extra a text field “Linkbeschriftung” which is the label of the pill by default “Zum Download”",
-       "is_done": false,
-       "order_index": 3
-      },
-      {
-       "body": "— If toggle off, do not show text field “Linkbeschriftung” and do not show the “Zum Download” pill at all",
-       "is_done": false,
-       "order_index": 4
-      },
-      {
-       "body": "Decrease height of Link Kachel. We want the height logic to work like the logic from “Tabs with Cards” webpart:",
-       "is_done": false,
-       "order_index": 5
-      },
-      {
-       "body": "— All Link Kachels must have same height, even if they are not in same row",
-       "is_done": false,
-       "order_index": 6
-      },
-      {
-       "body": "— The height is determined by the Link Kachel which has the most text (the least acceptable height for it to show properly)",
-       "is_done": false,
-       "order_index": 7
-      },
-      {
-       "body": "— There is no min height",
-       "is_done": false,
-       "order_index": 8
       }
      ],
      "time": {
-      "minutes": 180,
+      "minutes": 60,
       "worked_on": "2026-08-23",
       "note": "Imported from Notion — one sprint total, not a daily log",
       "who": "Mohamed Tamer"
      },
      "media": [
       {
-       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Link Kachel changes/image.png",
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Unifying pill button arrow and animation/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
-       "bytes": 27229,
-       "slug": "0-image.png"
-      },
-      {
-       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Link Kachel changes/image 1.png",
-       "file_name": "image 1.png",
-       "mime": "image/png",
-       "bytes": 12953,
-       "slug": "1-image-1.png"
+       "bytes": 3412,
+       "bucket": "comment-images",
+       "slug": "55c45614-a0fa-c3bc-8826-c1f1ab06a09e.png",
+       "width": 207,
+       "height": 53
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/55c45614-a0fa-c3bc-8826-c1f1ab06a09e.png",
+        "alt": "Unifying pill button: arrow and animation — image 1",
+        "width": 207,
+        "height": 53
+       }
+      ]
+     }
     },
     {
      "title": "Newspart changes",
      "description": null,
      "highlight": null,
-     "status": "dev_started",
+     "status": "done",
      "type": "change_request",
-     "assignee": "Mohamed Tamer",
+     "assignee": "Abdelrahman Elkhateeb",
      "reviewer": null,
      "deadline": "2026-08-23",
      "grouping": 2,
-     "order_index": 4,
+     "order_index": 8,
      "criteria": [
       {
        "body": "Change name to “EVIM News”",
-       "is_done": false,
+       "is_done": true,
        "order_index": 0
       },
       {
        "body": "We want to make the filter pills have less padding so they’re less bulky. We want to stick to evim corporate design",
-       "is_done": false,
+       "is_done": true,
        "order_index": 1
       },
       {
@@ -3798,176 +5466,164 @@
       },
       {
        "body": "Filter pills starting from Vorstand till the end should have Aprikot color instead of EVIM Kirschrot",
-       "is_done": false,
+       "is_done": true,
        "order_index": 6
       },
       {
        "body": "Completely replace “Kommunikation” department with “MAV”",
-       "is_done": false,
+       "is_done": true,
        "order_index": 7
       },
       {
        "body": "Completely remove department “Servicestelle Drittmittel”",
-       "is_done": false,
+       "is_done": true,
        "order_index": 8
       },
       {
        "body": "We want to change where the “category” is shown. In the example screenshot below the category is “test”. We want it to show in a separate row before the title with size 16px and bold style. Date and Department pill stay the same",
-       "is_done": false,
+       "is_done": true,
        "order_index": 9
       },
       {
        "body": "Remove any sharp corners and make all the corners round with roundness of Link Kachel.",
-       "is_done": false,
+       "is_done": true,
        "order_index": 10
       },
       {
        "body": "— Basically: Replicate the on hover shape to be standard. Remove any animation to the news card",
-       "is_done": false,
+       "is_done": true,
        "order_index": 11
       },
       {
        "body": "— Please make sure roundness is visually unified everywhere as Newspart shouldn’t appear different than Link Kachel nor Tabs with Cards!!!",
-       "is_done": false,
+       "is_done": true,
        "order_index": 12
       },
       {
        "body": "On narrow screens:",
-       "is_done": false,
+       "is_done": true,
        "order_index": 13
       },
       {
        "body": "— Replace filter pills with a pill dropdown with the same style and padding",
-       "is_done": false,
+       "is_done": true,
        "order_index": 14
       }
      ],
-     "time": null,
+     "time": {
+      "minutes": 180,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Abdelrahman Elkhateeb"
+     },
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Newspart changes/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 20360,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "3f483415-61c3-0989-fa20-3ed1775cebd4.png",
+       "width": 1037,
+       "height": 102
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Newspart changes/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 31927,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "b9388080-1976-0410-596b-9253ed194184.png",
+       "width": 620,
+       "height": 149
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Newspart changes/image 2.png",
+       "repoSource": null,
        "file_name": "image 2.png",
        "mime": "image/png",
        "bytes": 80032,
-       "slug": "2-image-2.png"
+       "bucket": "comment-images",
+       "slug": "495591b5-1d1e-42e4-8d34-d04116e4fde6.png",
+       "width": 749,
+       "height": 642
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/3f483415-61c3-0989-fa20-3ed1775cebd4.png",
+        "alt": "Newspart changes — image 1",
+        "width": 1037,
+        "height": 102
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/b9388080-1976-0410-596b-9253ed194184.png",
+        "alt": "Newspart changes — image 2",
+        "width": 620,
+        "height": 149
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/495591b5-1d1e-42e4-8d34-d04116e4fde6.png",
+        "alt": "Newspart changes — image 3",
+        "width": 749,
+        "height": 642
+       }
+      ]
+     }
     },
     {
-     "title": "Banner News Mode",
-     "description": "Implement all the following changes only in News mode. Our goal is to carryover the Banner Half-Image webpart with EVIM corporate design to our Banner News mode logic:\n\nrow 1: date     <pill with department name>\n\nrow 2: Category with bigger font size\n\nrow 3: Title with biggest font size (do not change its current size)\n\nrow 4: Teaser",
+     "title": "Tabs with Cards: height logic fix",
+     "description": "The height logic is great, thank you for implementing last time. We have an issue though:\n\nWhen you add 4 cards and the 4th card does not have any description, it overflows to a new row but its height is different to the heights in the first row.\n\nExpected behavior:",
      "highlight": null,
-     "status": "dev_started",
-     "type": "change_request",
+     "status": "done",
+     "type": "bug_fix",
      "assignee": "Mohamed Tamer",
-     "reviewer": null,
+     "reviewer": "Abdelrahman Elkhateeb",
      "deadline": "2026-08-23",
-     "grouping": 2,
-     "order_index": 5,
+     "grouping": 1,
+     "order_index": 9,
      "criteria": [
       {
-       "body": "Make sure Banner is same width across ALL modes.",
+       "body": "All Cardss must have same height, even if they are not in same row",
        "is_done": false,
        "order_index": 0
       },
       {
-       "body": "— Currently News mode is narrower than Intranet mode for example",
+       "body": "The height is determined by the card which has the most text (the least acceptable height for it to show properly)",
        "is_done": false,
        "order_index": 1
       },
       {
-       "body": "News Banner should be same height as Intranet mode",
+       "body": "There is no min height",
        "is_done": false,
        "order_index": 2
-      },
-      {
-       "body": "Right side of the banner should be the image fetched from the list with same ratio as banner half-image",
-       "is_done": false,
-       "order_index": 3
-      },
-      {
-       "body": "— Corners of image all rounded",
-       "is_done": false,
-       "order_index": 4
-      },
-      {
-       "body": "— I personally prefer the following way of representing the image, but Vanessa prefers the screenshot above. Can you show us a comparison between both?",
-       "is_done": false,
-       "order_index": 5
-      },
-      {
-       "body": "MAV department to take EVIM beige department color",
-       "is_done": false,
-       "order_index": 6
-      },
-      {
-       "body": "Layout from the upper left corner to be like the text in the news part",
-       "is_done": false,
-       "order_index": 7
-      },
-      {
-       "body": "Change text color in entire news mode to Nachtblau",
-       "is_done": false,
-       "order_index": 8
       }
      ],
-     "time": null,
-     "media": [
-      {
-       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner News Mode/image.png",
-       "file_name": "image.png",
-       "mime": "image/png",
-       "bytes": 175843,
-       "slug": "0-image.png"
-      },
-      {
-       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner News Mode/image 1.png",
-       "file_name": "image 1.png",
-       "mime": "image/png",
-       "bytes": 122883,
-       "slug": "1-image-1.png"
-      },
-      {
-       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner News Mode/image 2.png",
-       "file_name": "image 2.png",
-       "mime": "image/png",
-       "bytes": 1026729,
-       "slug": "2-image-2.png"
-      },
-      {
-       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner News Mode/image 3.png",
-       "file_name": "image 3.png",
-       "mime": "image/png",
-       "bytes": 31927,
-       "slug": "3-image-3.png"
-      }
-     ]
+     "time": {
+      "minutes": 60,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": [],
+     "comment": null
     },
     {
      "title": "Responsiveness for Link Kachel, Tabs with Cards, Newspart",
-     "description": "Link Kachel:\n\nLink Kachel, Tabs with Cards, Newspart:\n\nIn all 3 webparts I have cards which are shown in a grid (In Newspart the card takes up all the grid columns). I want unified responsiveness logic for all the 3 webparts IF AND ONLY IF there is more than 1 card defined.",
+     "description": "Link Kachel:\n\nLink Kachel, Tabs with Cards, Newspart:\n\non mobile only:\n\nIn all 3 webparts I have cards which are shown in a grid (In Newspart the card takes up all the grid columns). I want unified responsiveness logic for all the 3 webparts IF AND ONLY IF there is more than 1 card defined.\n\n/ news part changes\nadd swipe icon\nfix responsiveness card list view to be integrated with dropdown\nfix carousel\nfix shadow\nalso check the new navigation on the other components\n@Mohamed Tamer\n————newspart need arrow animation to have from right rather than left",
      "highlight": null,
-     "status": "ready_for_peer_review",
+     "status": "done",
      "type": "story",
      "assignee": "Abdelrahman Elkhateeb",
      "reviewer": "Mohamed Tamer",
      "deadline": "2026-08-23",
      "grouping": null,
-     "order_index": 6,
+     "order_index": 10,
      "criteria": [
       {
        "body": "When I add a single Link Kachel in a section with 3 or 2 columns it is not filling up the entire space. I want it to fill up the entire space.",
@@ -3990,13 +5646,13 @@
        "order_index": 3
       },
       {
-       "body": "Add a toggle to be able to display the cards below each other instead of in a carousel, but carousel by default",
+       "body": "Add a toggle to be able to display the cards below each other instead of in a carousel, but carousel by default for the user in the ui itself",
        "is_done": false,
        "order_index": 4
       }
      ],
      "time": {
-      "minutes": 240,
+      "minutes": 420,
       "worked_on": "2026-08-23",
       "note": "Imported from Notion — one sprint total, not a daily log",
       "who": "Abdelrahman Elkhateeb"
@@ -4004,42 +5660,197 @@
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Responsiveness for Link Kachel, Tabs with Cards, N/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 18574,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "c61bf51d-17de-4a99-e979-11d475534f5a.png",
+       "width": 420,
+       "height": 331
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Responsiveness for Link Kachel, Tabs with Cards, N/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 439,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "41547d8b-b41d-8b6f-11aa-9f2fff889850.png",
+       "width": 89,
+       "height": 25
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Responsiveness for Link Kachel, Tabs with Cards, N/image 2.png",
+       "repoSource": null,
        "file_name": "image 2.png",
        "mime": "image/png",
        "bytes": 32355,
-       "slug": "2-image-2.png"
+       "bucket": "comment-images",
+       "slug": "75b3a8da-19e8-95d1-ed50-a7fe5e792044.png",
+       "width": 222,
+       "height": 743
       }
-     ]
+     ],
+     "comment": {
+      "author": "Abdelrahman Elkhateeb",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/c61bf51d-17de-4a99-e979-11d475534f5a.png",
+        "alt": "Responsiveness for Link Kachel, Tabs with Cards, Newspart — image 1",
+        "width": 420,
+        "height": 331
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/41547d8b-b41d-8b6f-11aa-9f2fff889850.png",
+        "alt": "Responsiveness for Link Kachel, Tabs with Cards, Newspart — image 2",
+        "width": 89,
+        "height": 25
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000003/75b3a8da-19e8-95d1-ed50-a7fe5e792044.png",
+        "alt": "Responsiveness for Link Kachel, Tabs with Cards, Newspart — image 3",
+        "width": 222,
+        "height": 743
+       }
+      ]
+     }
+    },
+    {
+     "title": "Banner Intranet mode",
+     "description": "In Banner Intranet mode change the right part of the title back to Nachtblau from black.",
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": "Abdelrahman Elkhateeb",
+     "deadline": "2026-08-23",
+     "grouping": null,
+     "order_index": 11,
+     "criteria": [],
+     "time": {
+      "minutes": 30,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner Intranet mode/image.png",
+       "repoSource": null,
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 169569,
+       "bucket": "comment-images",
+       "slug": "ac6c67fd-3526-0d77-8325-44e972f17ef3.png",
+       "width": 596,
+       "height": 146
+      }
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/ac6c67fd-3526-0d77-8325-44e972f17ef3.png",
+        "alt": "Banner Intranet mode — image 1",
+        "width": 596,
+        "height": 146
+       }
+      ]
+     }
+    },
+    {
+     "title": "[React] Redakteurseite",
+     "description": null,
+     "highlight": null,
+     "status": "done",
+     "type": "change_request",
+     "assignee": "Mohamed Tamer",
+     "reviewer": "Abdelrahman Elkhateeb",
+     "deadline": "2026-08-23",
+     "grouping": null,
+     "order_index": 12,
+     "criteria": [
+      {
+       "body": "Filter pills from Vorstand till IT&Digitalisierung are switched from EVIM Kirschrot to EVIM Aprikot color",
+       "is_done": false,
+       "order_index": 0
+      },
+      {
+       "body": "— Filter pills on start page",
+       "is_done": false,
+       "order_index": 1
+      },
+      {
+       "body": "— Filter pills after clicking “Neuer Beitrag”",
+       "is_done": false,
+       "order_index": 2
+      },
+      {
+       "body": "Completely replace “Kommunikation” department with “MAV”",
+       "is_done": false,
+       "order_index": 3
+      },
+      {
+       "body": "Completely remove department “Servicestelle Drittmittel”",
+       "is_done": false,
+       "order_index": 4
+      },
+      {
+       "body": "In “Kategorie” dropdown add the option “Veranstaltung”",
+       "is_done": false,
+       "order_index": 5
+      }
+     ],
+     "time": {
+      "minutes": 60,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": [
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/[React] Redakteurseite/image.png",
+       "repoSource": null,
+       "file_name": "image.png",
+       "mime": "image/png",
+       "bytes": 37048,
+       "bucket": "comment-images",
+       "slug": "dcbcc9dd-92d8-fd2e-aeef-27a5f8f18c29.png",
+       "width": 1880,
+       "height": 137
+      }
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/dcbcc9dd-92d8-fd2e-aeef-27a5f8f18c29.png",
+        "alt": "[React] Redakteurseite — image 1",
+        "width": 1880,
+        "height": 137
+       }
+      ]
+     }
     },
     {
      "title": "Calendar",
      "description": "We want to update EVIM Calendar webpart. Really important: We will be displaying the EVIM calendar in 1 column next to EVIM Newspart in 2 columns. Please make sure the UI and UX of both calendar and newspart are fitting. Follow Corporate Design from Figma",
      "highlight": "Below the AC for EVIM Calendar new mode “Startseite”, please only make changes in this mode!!",
-     "status": "dev_started",
+     "status": "done",
      "type": "story",
-     "assignee": "Abdelrahman Elkhateeb",
-     "reviewer": null,
+     "assignee": "Mohamed Tamer",
+     "reviewer": "Abdelrahman Elkhateeb",
      "deadline": "2026-08-23",
      "grouping": null,
-     "order_index": 7,
+     "order_index": 13,
      "criteria": [
       {
        "body": "Create Mode “Startseite” for EVIM Calendar, current mode becomes “Custom” and custom is default mode",
-       "is_done": false,
+       "is_done": true,
        "order_index": 0
       },
       {
@@ -4048,12 +5859,12 @@
        "order_index": 1
       },
       {
-       "body": "— The hardcoded calendar has a “Bereich” property",
+       "body": "— The hardcoded calendar has for each event a “Bereich”/ Department property: one of Altenhilfe, Teilhabe, Jugendhilfe, Bildung, Verein",
        "is_done": false,
        "order_index": 2
       },
       {
-       "body": "Ability to filter shown Events by Bereich",
+       "body": "Ability to filter shown Events by Bereich in the ui",
        "is_done": false,
        "order_index": 3
       },
@@ -4113,200 +5924,182 @@
        "order_index": 14
       }
      ],
-     "time": null,
+     "time": {
+      "minutes": 480,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
      "media": [
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Calendar/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
        "bytes": 30845,
-       "slug": "0-image.png"
+       "bucket": "comment-images",
+       "slug": "115614ac-8603-3e13-ebc7-b68a43b1bca5.png",
+       "width": 381,
+       "height": 135
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Calendar/image 1.png",
+       "repoSource": null,
        "file_name": "image 1.png",
        "mime": "image/png",
        "bytes": 735,
-       "slug": "1-image-1.png"
+       "bucket": "comment-images",
+       "slug": "5b844407-48b6-db7b-0747-425452b4ab83.png",
+       "width": 154,
+       "height": 48
       },
       {
        "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Calendar/image 2.png",
+       "repoSource": null,
        "file_name": "image 2.png",
        "mime": "image/png",
        "bytes": 24390,
-       "slug": "2-image-2.png"
-      }
-     ]
-    },
-    {
-     "title": "Unifying pill button: arrow and animation",
-     "description": "The EVIM pill button used is in Quick Links Plus, Link Kachel and Newspart\n\nAcceptance Criteria:\n\nTechnical Requirement:",
-     "highlight": null,
-     "status": "todo",
-     "type": "story",
-     "assignee": null,
-     "reviewer": null,
-     "deadline": "2026-08-23",
-     "grouping": null,
-     "order_index": 8,
-     "criteria": [
-      {
-       "body": "Arrow is the same svg and boldness in all pills. The correct arrow is currently in Quick Links Plus",
-       "is_done": false,
-       "order_index": 0
-      },
-      {
-       "body": "Animation on hover is same in all pills. The correct animation is currently in Link Kachel (text moves to the right)",
-       "is_done": false,
-       "order_index": 1
-      },
-      {
-       "body": "Have a unified css class and/or components for buttons of this type",
-       "is_done": false,
-       "order_index": 2
+       "bucket": "comment-images",
+       "slug": "beef64cb-3f3a-9597-4bf3-bbf27251eeba.png",
+       "width": 282,
+       "height": 410
       }
      ],
-     "time": null,
-     "media": [
-      {
-       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Unifying pill button arrow and animation/image.png",
-       "file_name": "image.png",
-       "mime": "image/png",
-       "bytes": 3412,
-       "slug": "0-image.png"
-      }
-     ]
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/115614ac-8603-3e13-ebc7-b68a43b1bca5.png",
+        "alt": "Calendar — image 1",
+        "width": 381,
+        "height": 135
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/5b844407-48b6-db7b-0747-425452b4ab83.png",
+        "alt": "Calendar — image 2",
+        "width": 154,
+        "height": 48
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/beef64cb-3f3a-9597-4bf3-bbf27251eeba.png",
+        "alt": "Calendar — image 3",
+        "width": 282,
+        "height": 410
+       }
+      ]
+     }
     },
     {
-     "title": "Banner Intranet Mode",
-     "description": "In Banner Intranet mode change the right part of the title back to Nachtblau from black.",
+     "title": "Link Kachel changes",
+     "description": "• Our goal is to avoid this space as much as possible:",
      "highlight": null,
-     "status": "todo",
+     "status": "done",
      "type": "change_request",
-     "assignee": null,
-     "reviewer": null,
+     "assignee": "Mohamed Tamer",
+     "reviewer": "Abdelrahman Elkhateeb",
      "deadline": "2026-08-23",
-     "grouping": null,
-     "order_index": 9,
-     "criteria": [],
-     "time": null,
-     "media": [
-      {
-       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Banner Intranet Mode/image.png",
-       "file_name": "image.png",
-       "mime": "image/png",
-       "bytes": 169569,
-       "slug": "0-image.png"
-      }
-     ]
-    },
-    {
-     "title": "[React] Redakteurseite",
-     "description": null,
-     "highlight": null,
-     "status": "draft",
-     "type": "change_request",
-     "assignee": null,
-     "reviewer": null,
-     "deadline": "2026-08-23",
-     "grouping": null,
-     "order_index": 10,
+     "grouping": 1,
+     "order_index": 14,
      "criteria": [
       {
-       "body": "Filter pills from Vorstand till IT&Digitalisierung are switched from EVIM Kirschrot to EVIM Aprikot color",
-       "is_done": false,
+       "body": "Change character limit for text to be 85 chars instead of 30 chars",
+       "is_done": true,
        "order_index": 0
       },
       {
-       "body": "— Filter pills on start page",
-       "is_done": false,
+       "body": "Überschrift font size to be fixed at 22px",
+       "is_done": true,
        "order_index": 1
       },
       {
-       "body": "— Filter pills after clicking “Neuer Beitrag”",
-       "is_done": false,
+       "body": "Add toggle “Button Link” in specific Link Kachel settings",
+       "is_done": true,
        "order_index": 2
       },
       {
-       "body": "Completely replace “Kommunikation” department with “MAV”",
-       "is_done": false,
+       "body": "— If toggle on, show extra a text field “Linkbeschriftung” which is the label of the pill by default “Zum Download”",
+       "is_done": true,
        "order_index": 3
       },
       {
-       "body": "Completely remove department “Servicestelle Drittmittel”",
+       "body": "— If toggle off, do not show text field “Linkbeschriftung” and do not show the “Zum Download” pill at all",
        "is_done": false,
        "order_index": 4
       },
       {
-       "body": "In “Kategorie” dropdown add the option “Veranstaltung”",
-       "is_done": false,
+       "body": "Decrease height of Link Kachel. We want the height logic to work like the logic from “Tabs with Cards” webpart:",
+       "is_done": true,
        "order_index": 5
+      },
+      {
+       "body": "— All Link Kachels must have same height, even if they are not in same row",
+       "is_done": true,
+       "order_index": 6
+      },
+      {
+       "body": "— The height is determined by the Link Kachel which has the most text (the least acceptable height for it to show properly)",
+       "is_done": true,
+       "order_index": 7
+      },
+      {
+       "body": "— There is no min height",
+       "is_done": true,
+       "order_index": 8
       }
      ],
-     "time": null,
+     "time": {
+      "minutes": 180,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
      "media": [
       {
-       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/[React] Redakteurseite/image.png",
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Link Kachel changes/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
-       "bytes": 37048,
-       "slug": "0-image.png"
-      }
-     ]
-    },
-    {
-     "title": "Rollover Contact Cards",
-     "description": null,
-     "highlight": null,
-     "status": "todo",
-     "type": "change_request",
-     "assignee": null,
-     "reviewer": null,
-     "deadline": "2026-08-23",
-     "grouping": null,
-     "order_index": 11,
-     "criteria": [
+       "bytes": 27229,
+       "bucket": "comment-images",
+       "slug": "fcae2039-582b-b786-b71d-91b0e17aa0de.png",
+       "width": 560,
+       "height": 665
+      },
       {
-       "body": "Remove username Adam.Nafie",
-       "is_done": false,
-       "order_index": 0
-      }
-     ],
-     "time": null,
-     "media": [
-      {
-       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Rollover Contact Cards/image.png",
-       "file_name": "image.png",
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Link Kachel changes/image 1.png",
+       "repoSource": null,
+       "file_name": "image 1.png",
        "mime": "image/png",
-       "bytes": 43819,
-       "slug": "0-image.png"
-      }
-     ]
-    },
-    {
-     "title": "Quick Links Plus Open New Tab bug",
-     "description": "When Open New Tab for a link is toggled, any link with base URL evimwi.sharepoint.com does not open in a new tab.\n\nExpected behavior:\n\nAfter fixing this bug please contact me so that we can solve this for all webparts as this is a recurring issue!!!",
-     "highlight": null,
-     "status": "todo",
-     "type": "bug_fix",
-     "assignee": null,
-     "reviewer": null,
-     "deadline": "2026-08-23",
-     "grouping": null,
-     "order_index": 12,
-     "criteria": [
-      {
-       "body": "When open new tab is toggled on anywhere, then ALL links regardless of base url should open in a new tab",
-       "is_done": false,
-       "order_index": 0
+       "bytes": 12953,
+       "bucket": "comment-images",
+       "slug": "774cff8d-aacd-81f3-396f-984cd95abaca.png",
+       "width": 350,
+       "height": 239
       }
      ],
-     "time": null,
-     "media": []
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/fcae2039-582b-b786-b71d-91b0e17aa0de.png",
+        "alt": "Link Kachel changes — image 1",
+        "width": 560,
+        "height": 665
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/774cff8d-aacd-81f3-396f-984cd95abaca.png",
+        "alt": "Link Kachel changes — image 2",
+        "width": 350,
+        "height": 239
+       }
+      ]
+     }
     },
     {
-     "title": "[React] Redakteurkalendar",
-     "description": "As a Redakteur I want to have an internal calendar to plan",
+     "title": "Vanessa CRs",
+     "description": "• Change wording to „Redaktionskalendar“ instead of „Redakteurkalendar“\n• Change wording of „Redakteur“ when planning a new post into „Redakteur:in“\n• Also add thin vertical lines between the days, not only horizontal, and one thicker line under the days (like in outlook)\n\n====\n• Remove title from Banner\n\n====\n• maintain the same differences between the three different party (title, text and button). it seems that the difference beween text and button is less than between title and text —> Solution reached: Add slider\n\n====\n• Unifying font colors in title webpart\n\n====\n\nMake pill in Redaktionskalendar red like in \"Neuer Beitrag”",
      "highlight": null,
      "status": "draft",
      "type": "story",
@@ -4314,18 +6107,111 @@
      "reviewer": null,
      "deadline": null,
      "grouping": null,
-     "order_index": 13,
+     "order_index": 15,
      "criteria": [],
-     "time": null,
+     "time": {
+      "minutes": 180,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
      "media": [
       {
-       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/[React] Redakteurkalendar/image.png",
+       "source": null,
+       "repoSource": "supabase/notion-inline/121a51ff-5e7d-934d-58bf-66803b4f289a.jpg",
+       "file_name": "pasted-0.jpg",
+       "mime": "image/jpeg",
+       "bytes": 5105,
+       "bucket": "comment-images",
+       "slug": "121a51ff-5e7d-934d-58bf-66803b4f289a.jpg",
+       "width": 227,
+       "height": 133
+      },
+      {
+       "source": null,
+       "repoSource": "supabase/notion-inline/2995e136-ccdd-4f7b-94c6-2416d59447f8.jpg",
+       "file_name": "pasted-1.jpg",
+       "mime": "image/jpeg",
+       "bytes": 54970,
+       "bucket": "comment-images",
+       "slug": "2995e136-ccdd-4f7b-94c6-2416d59447f8.jpg",
+       "width": 800,
+       "height": 696
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Vanessa CRs/image.png",
+       "repoSource": null,
        "file_name": "image.png",
        "mime": "image/png",
-       "bytes": 53321,
-       "slug": "0-image.png"
+       "bytes": 587364,
+       "bucket": "comment-images",
+       "slug": "b8e48120-35fb-3299-c101-a8017278c5a8.png",
+       "width": 1337,
+       "height": 394
+      },
+      {
+       "source": "Private & Shared/Global Stack team/EVIM Webparts/Week 17/Dashboard/Vanessa CRs/image 1.png",
+       "repoSource": null,
+       "file_name": "image 1.png",
+       "mime": "image/png",
+       "bytes": 38494,
+       "bucket": "comment-images",
+       "slug": "11d940f5-744d-89ef-8bb7-6114ba890101.png",
+       "width": 463,
+       "height": 244
       }
-     ]
+     ],
+     "comment": {
+      "author": "Mohamed Tamer",
+      "created_at": "2026-08-23 09:00:00+00",
+      "pictures": [
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/121a51ff-5e7d-934d-58bf-66803b4f289a.jpg",
+        "alt": "Vanessa CRs — image 1",
+        "width": 227,
+        "height": 133
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/2995e136-ccdd-4f7b-94c6-2416d59447f8.jpg",
+        "alt": "Vanessa CRs — image 2",
+        "width": 800,
+        "height": 696
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/b8e48120-35fb-3299-c101-a8017278c5a8.png",
+        "alt": "Vanessa CRs — image 3",
+        "width": 1337,
+        "height": 394
+       },
+       {
+        "src": "/api/attachments/a0000000-0000-4000-8000-000000000001/11d940f5-744d-89ef-8bb7-6114ba890101.png",
+        "alt": "Vanessa CRs — image 4",
+        "width": 463,
+        "height": 244
+       }
+      ]
+     }
+    },
+    {
+     "title": "Meeting with Vanessa",
+     "description": null,
+     "highlight": null,
+     "status": "draft",
+     "type": "story",
+     "assignee": null,
+     "reviewer": null,
+     "deadline": null,
+     "grouping": null,
+     "order_index": 16,
+     "criteria": [],
+     "time": {
+      "minutes": 120,
+      "worked_on": "2026-08-23",
+      "note": "Imported from Notion — one sprint total, not a daily log",
+      "who": "Mohamed Tamer"
+     },
+     "media": [],
+     "comment": null
     }
    ]
   },
@@ -4342,7 +6228,7 @@
      "title": "Evaluate existing frontend performance",
      "description": "• login: [redacted]\n• pass: [redacted] [redacted] PLEASE KEEP SECRET",
      "highlight": null,
-     "status": "todo",
+     "status": "ready",
      "type": "story",
      "assignee": null,
      "reviewer": null,
@@ -4362,7 +6248,8 @@
       }
      ],
      "time": null,
-     "media": []
+     "media": [],
+     "comment": null
     }
    ]
   }

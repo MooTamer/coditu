@@ -1,11 +1,16 @@
 -- Coditu — the seed must reproduce the Notion export exactly.
 --
--- Every number below was read off the export, not off the database: 104 items
--- across fifteen EVIM sprints and one Converso sprint, 275 acceptance criteria,
--- 280 hours logged. If one of these fails, either the seed drifted or somebody
+-- Every number below was read off the export, not off the database: 107 items
+-- across fifteen EVIM sprints and one Converso sprint, 299 acceptance criteria,
+-- 320.5 hours logged. If one of these fails, either the seed drifted or somebody
 -- "corrected" a figure that was right. Re-generate with
 -- `node scripts/import-notion-export.mjs <export-dir>` rather than editing
 -- supabase/seed.sql by hand.
+--
+-- They moved on 2026-08-27, when the team re-exported Week 17 after the sprint
+-- closed: three rows added, and hours filled in on rows that had none. What did
+-- NOT move is any item's key — `supabase/notion-keys.json` remembers those now,
+-- so a reordered board no longer renumbers the sprint.
 --
 -- Run with: npm run db:test
 
@@ -32,28 +37,28 @@ select plan(26);
 
 select is(
   (select count(*)::int from public.work_items),
-  104,
-  '104 work items came across — 103 EVIM, 1 Converso'
+  107,
+  '107 work items came across — 106 EVIM, 1 Converso'
 );
 
 select is(
   (select count(*)::int from public.work_items w
    join public.sprints s on s.id = w.sprint_id where s.number = 17),
-  14,
-  'Week 17 has 14 items'
+  17,
+  'Week 17 has 17 items'
 );
 
 select is(
   (select round(sum(w.minutes_logged) / 60.0, 1) from public.work_items w
    join public.sprints s on s.id = w.sprint_id where s.number = 17),
-  17.5,
-  'the Week 17 footer reads 17.5 hours logged'
+  58.0,
+  'the Week 17 footer reads 58.0 hours logged'
 );
 
 select is(
   (select round(sum(minutes) / 60.0, 1) from public.time_entries),
-  280.0,
-  '280 hours of logged effort across every sprint'
+  320.5,
+  '320.5 hours of logged effort across every sprint'
 );
 
 -- Invariant 2, end to end: the denormalised rollup must equal the entries it
@@ -82,8 +87,8 @@ select is(
    join public.work_items w on w.id = t.work_item_id
    join public.sprints s on s.id = w.sprint_id
    where s.number = 17 and t.profile_id = public.seeded_profile('mohamed@coditu.com')),
-  13.5,
-  'per person: Mohamed logged 13.5h in Week 17'
+  27.5,
+  'per person: Mohamed logged 27.5h in Week 17'
 );
 
 select is(
@@ -91,8 +96,8 @@ select is(
    join public.work_items w on w.id = t.work_item_id
    join public.sprints s on s.id = w.sprint_id
    where s.number = 17 and t.profile_id = public.seeded_profile('abdelrahman@coditu.com')),
-  4.0,
-  'per person: Abdelrahman logged 4.0h in Week 17'
+  30.5,
+  'per person: Abdelrahman logged 30.5h in Week 17'
 );
 
 -- Time is attributed to the person who did the work, never to whoever ran the
@@ -146,17 +151,17 @@ select is(
 
 select is(
   (select count(*)::int from public.acceptance_criteria),
-  275, '275 acceptance criteria came across'
+  299, '299 acceptance criteria came across'
 );
 
 select is(
   (select count(*)::int from public.acceptance_criteria where is_done),
-  95, '95 of them were already ticked in Notion'
+  132, '132 of them were already ticked in Notion'
 );
 
 select is(
   (select count(*)::int from public.attachments),
-  104, '104 attachments — every image, GIF and PDF embedded in an item'
+  114, '114 attachments — every picture, GIF and PDF embedded in an item'
 );
 
 -- An attachment row whose path is empty points at nothing, and the item detail

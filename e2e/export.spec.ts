@@ -103,15 +103,20 @@ test.describe("the client report", () => {
     const body = page.locator(".report-body");
     await expect(body).toContainText("Sprint report");
     await expect(body).toContainText("Prepared for EVIM");
-    await expect(body).toContainText("In progress");
-    await expect(body).toContainText("In peer review");
+    // The statuses this sprint holds, in the words a client reads. It named
+    // "In progress" and "In peer review" while Week 17 was in flight; the
+    // report draws a heading per status PRESENT, so after the sprint closed
+    // those two were assertions about headings that are not there.
+    await expect(body).toContainText("Done");
     await expect(body).toContainText("Not scoped yet");
 
-    // Client-facing means client-facing.
+    // Client-facing means client-facing. The enum spellings are refused whether
+    // or not the sprint currently holds them — that is the point of the list.
     const text = await body.innerText();
     expect(text).not.toContain("COD-");
     expect(text).not.toContain("in_progress");
     expect(text).not.toContain("in_peer_review");
+    expect(text).not.toContain("draft");
     // No reviewer names, and no per-person hours.
     expect(text).not.toContain("Abdelrahman Elkhateeb");
     // No internal comments.
@@ -145,7 +150,7 @@ test.describe("the client report", () => {
 
   test("charts carry aria-labels naming the real values", async ({ adminPage: page }) => {
     await page.goto(`${SPRINT}/report`);
-    await expect(page.getByRole("img", { name: new RegExp(`Status distribution: In progress ${SEED.inProgressCount}`) })).toBeVisible();
+    await expect(page.getByRole("img", { name: new RegExp(`Status distribution: .*Done ${SEED.doneCount}`) })).toBeVisible();
     await expect(
       page.getByRole("img", { name: /Cumulative hours logged across the sprint/ })
     ).toBeVisible();

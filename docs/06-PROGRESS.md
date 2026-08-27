@@ -4546,3 +4546,164 @@ failure and sent the first hypothesis in the wrong direction. Both steps, in ord
 suite is measuring the harness.
 
 **No provider configuration was changed, and infrastructure backup remains unapplied.**
+
+---
+
+## Week 17, after it was done — the re-import
+
+**2026-08-27.** The team re-exported Week 17 from Notion once the sprint closed. The board is the same
+one — every page carries the same Notion id — but fifteen rows are now `done`, one is
+`Ready for deployment`, hours are filled in, assignees and reviewers moved, criteria are ticked, two
+items were renamed, and three rows were added: `New mode: Rollover Contact Cards`, `Vanessa CRs`,
+`Meeting with Vanessa`.
+
+`scripts/import-notion-export.mjs` regenerates the whole seed, so the export was merged back into the
+full workspace export and the script re-run. **58.0h across 17 items**, up from 17.5h across 14.
+
+### Two bugs the re-run found before it wrote anything
+
+**The importer had drifted from the schema.** Run against the *pristine* export — the one the committed
+seed was built from — it rewrote 23 rows: `ready → todo`, `in_progress → dev_started`,
+`in_peer_review → ready_for_peer_review`, `in_qa → in_review`. `20260825100000_rename_work_item_statuses.sql`
+renamed those four values and the seed was updated with it; the generator was not. Nothing was wrong
+until somebody ran the script.
+
+`supabase/notion-import.json` carried the same 23 rows, and that file is what
+`scripts/push-notion-import.mjs` sends to the hosted project — so a production push would have inserted
+`dev_started` into an enum that had not held that value since 25 August. Both are fixed, and
+`07-FIELD-NOTES.md` records the one-line check that finds this class of drift.
+
+**Keys were about to move.** Notion had re-sorted the board, and keys were handed out in walk order, so
+`COD-230` would have become "New mode: Rollover Contact Cards" and every Week 17 key after it would
+have shifted. `supabase/notion-keys.json` now remembers which Notion **page id** owns which number.
+Every existing key held, including through the two renames; the three new rows took 244, 245, 246.
+Against the pristine export the ledger is a no-op — `work_items`, `acceptance_criteria`,
+`time_entries`, `sprints`, `clients` and `projects` all regenerate byte-identical.
+
+### The pictures were in the database and on no page
+
+`public.attachments` is written by three code paths and read by none — the same finding this file
+already records about `view_attachments` on the client side, and just as true internally. 103
+screenshots the team filed against their own work were in storage and on no screen.
+
+The one surface that draws a picture is the comment thread, through `/api/attachments`, which serves
+`comment-images` only and only for keys shaped `<profile uuid>/<object uuid>.<ext>`. So an imported
+picture is written there and referenced from one comment per item — the same shape `POST /api/uploads`
+produces for an image dragged into the composer. Nothing bespoke renders these. `05-DECISIONS.md` has
+what that costs and why the comment is a carrier rather than content.
+
+**Five pictures were being dropped entirely.** Notion inlines a *pasted* image as a link whose href is
+a data URI, and the media scan wanted a file extension. `plain()` then kept the label, so a Week 17
+description read "Bild" where a screenshot should have been. They are decoded into
+`supabase/notion-inline/` and carried like any other file.
+
+### Verified
+
+`lint`, `typecheck` clean · `test` **422** (was 416). Importer re-run is idempotent — a second run
+against the same export changes no byte of `seed.sql`, `notion-keys.json` or `notion-import.json`.
+
+The six new ones are `tests/seed-pictures.test.ts`, and they exist because the two files that decide
+whether a picture is ever seen are written by one script and checked by nothing: the `src` in
+`seed.sql` has to be a key `/api/attachments` will serve, and `notion-attachments.json` has to push an
+object to that key in that bucket. It also asserts `body_text` is `flattenToText(body_json)` — the
+column search and both exports read — and that no picture is pushed which no comment refers to. Each
+assertion was made to fail on purpose before it was kept: a bad `src`, an orphaned object, a
+`body_text` desynced from its document.
+
+After `db:reset` and `db:attachments`: **17 items, 58.0h, 70 comments, 114 objects** across two
+buckets. Opened in a browser at `COD-234`, which renders its comment and **all four EVIM banner
+screenshots**, each at the intrinsic size the seed recorded; `/api/attachments` answers 200 with the
+right bytes.
+
+`db:test` **407**, after `supabase/tests/seed.sql` was updated: it asserts the export's own figures,
+and nine of them were the old sprint's. 107 items, 299 criteria, 132 ticked, 320.5h, 114 attachments,
+Week 17 at 58.0h over 17 rows.
+
+### The specs the closed sprint invalidated
+
+Nine e2e specs failed on the first clean run, every one of them naming something Week 17 no longer
+has. Each was re-chosen rather than renumbered, and each says so where it stands:
+
+- **No row has zero logged time.** `editable.spec.ts` asserted a corrected entry left the rollup at
+  exactly 30 minutes, which was only ever true because `unstarted` had none of its own. It reads the
+  row's existing total first now and asserts `before + 30`.
+- **"rollover" stopped being unique.** Week 17 added "New mode: Rollover Contact Cards". The palette
+  test asserts *exactly one* option, and the palette matches a **subsequence**, so uniqueness is
+  stricter than "appears in one title" — "meeting" matches two items, "meeting with" matches one.
+  Checked against all 107 with `fuzzyScore` itself.
+- **The status spread is `done 15, draft 2`.** `statusDistribution` emits a slice per status
+  *present*, so the sprint table and the client report were asserting against slices the bar does not
+  draw. They name `done` and `draft` now. `?status=ready` matched nothing for the same reason, and a
+  filter that matches nothing does not test a filter — the empty table draws one explanatory row, so
+  the count assertion passed for the wrong reason.
+- **Two fixtures were coupled without saying so.** `components.spec.ts` had "EVIM Themen Kachel"
+  written into it three times, which was `otherItem`'s component only while `otherItem` was "Tabs
+  with Cards". Two of those read the fixture now; the third reads the row out of the database, since
+  the test already knew which component page it was on.
+- **One count was hard-coded** — "14 in the sprint" — and is `SEED.itemCount`.
+
+`npx playwright test --project=chromium sprint-table export components palette-realtime editable
+new-item` — **74 passed**, which is every spec that consumes a fixture this import moved.
+
+**Four more failures were the environment, not the sprint**, and it took an A/B to say so: the seven
+sorting specs failed mid-session and passed against *both* the old seed and the new one when the
+machine was quiet. Every worktree shares one local Supabase, and a parallel agent's `db:reset` drops
+the schema underneath a running suite — which surfaces as `Database error querying schema` from
+GoTrue and as clicks that land before hydration. `07-FIELD-NOTES.md` records how to tell that apart
+from your own work.
+
+**The full chromium suite has NOT been run green.** Three attempts were each destroyed part-way by a
+parallel agent resetting the shared database — twice the schema was dropped mid-run, once the dev
+server died. The last parallel attempt reached 358/433 with 56 failures spread across `marketing`,
+`motion` and `access`, none of which can depend on Week 17's data, and `access` failed with `system`
+as the actor rather than a person — the global-sign-out hazard two parallel suites produce for each
+other. Whoever picks this up should run `npx playwright test --project=chromium` on a quiet machine
+before trusting a number; the serial run of the fixture-sensitive subset above is what this work
+actually stands on.
+
+### Pushed — and the script that must not be used to do it again
+
+**`scripts/push-notion-import.mjs` is no longer safe to run against production.** It REPLACES the
+delivery data: delete clients, projects, sprints, work items, re-insert. That was right once, against
+an empty project. Run on 2026-08-27 it would have destroyed
+
+- a comment Mohamed wrote that morning on COD-241, and the screenshot attached to it,
+- **216 rows of activity** — the whole audit history,
+- the **Week 18 sprint the team had already created in the app**,
+- a document revision, and every in-app status edit (production's Week 17 carried
+  `changes_requested` on COD-243 and its own row order),
+
+and renumbered every key on the way, because PostgREST cannot move a sequence.
+
+`scripts/push-sprint-update.mjs` does it in place instead. It matches on normalised title with
+renames named explicitly, **refuses to run** if any item's `description_json`/`highlight_json` is set
+or if any time entry on the sprint was logged in the app — the export may only overwrite what the
+export still owns — and stops rather than silently creating or orphaning a row it cannot match.
+Comments carry a deterministic `idempotency_key`, so a second run updates rather than re-posts.
+
+Two facts made this simple, and both are worth knowing: production's profiles use **the same UUIDs as
+the seed**, so the storage keys and comment `src` values need no rewriting; and production's Week 17
+is COD-241…254 against local's COD-229…242, a constant +12 offset that is *not* what the matching
+relies on.
+
+**Committed 2026-08-27** after a dry run: 14 items updated (both renames included), 3 inserted, 96
+criteria and 17 time entries replacing 72 and 5, 28 pictures uploaded, 13 comments. Week 17
+`closed`, `ends_on` 2026-08-23 → **2026-08-26**; Week 18 `planned` → **active**; the sprint note
+re-imported.
+
+Verified independently afterwards, not from the script's own output: **17 items / 58.0h** on Week 17,
+`comments` 1 → 14 with Mohamed's 07:29 comment intact, `activity` 216 → **247** (grown, not wiped),
+`attachments` 105 → 133, and every picture `src` taken out of a stored document signs 200 against
+`comment-images`.
+
+### What is NOT done, stated plainly
+
+- **Local and production still number the same item differently**, and this push did not change that:
+  local COD-229…246, production COD-241…258. Never quote a key from one at somebody looking at the
+  other.
+- **The full chromium e2e suite has still not been run green** — see above.
+- **`threadPerProject` ran out of quiet rows.** The import writes a comment to every item that has
+  pictures, and Week 17 has only four rows without any. Five slots want one, so `mobile-chrome` holds
+  a row that is not quiet. Every spec there deletes the row's comments before seeding its own, so the
+  test is unaffected — a `mobile-chrome` run drops COD-238's imported screenshot until the next
+  `db:reset`, and that is the whole cost.

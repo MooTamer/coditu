@@ -502,7 +502,9 @@ August 4, 2026 6:24 PM  → @Ahmed Yehia  make all ticket dev started, will chec
 
 • Stories with the same color/grouping are preferred to be implemented by the same developer because they overlap in some logic/UI.
 
-• In the stories, there are highlighted sections, which means you need to discuss something with me and not implement immediately. So please reach out', null),
+• In the stories, there are highlighted sections, which means you need to discuss something with me and not implement immediately. So please reach out.
+
+@Abdelrahman Elkhateeb @Mohamed Tamer @Ahmed Yehia   I added new status “need to discuss”, where we need to call to clear misconfusions in the requirement', null),
   ('51000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000005', 1,
    'Sprint — Converso review', null, null, 'planned', null, null);
 
@@ -1785,47 +1787,63 @@ Deployed at: https://evim-redaktion.vercel.app/',
    'Add optional titles to all webparts',
    'We want to add a unified optional title field to all webparts.
 
-Acceptance Criteria:',
+Acceptance Criteria:
+
+Review checklist:',
    null,
-   'in_qa', 'story',
-   'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
+   'done', 'story',
+   'a0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000001',
    '2026-08-23', null, null, 0),
+
+  ('60000000-0000-4000-8000-000000000244', '50000000-0000-4000-8000-000000000017', 'COD-244',
+   'New mode: Rollover Contact Cards',
+   null,
+   null,
+   'done', 'story',
+   'a0000000-0000-4000-8000-000000000001', null,
+   null, null, null, 1),
+
+  ('60000000-0000-4000-8000-000000000242', '50000000-0000-4000-8000-000000000017', 'COD-242',
+   '[React] Redaktionskalendar',
+   'As a user of a Redakteurseitie I want to have an internal calendar to plan publications in a weekly calendar.
+
+Pictures:
+
+We want a calendar like the one in the back:
+
+source: https://scompler.com/en/features-and-functions/',
+   null,
+   'done', 'story',
+   'a0000000-0000-4000-8000-000000000003', null,
+   null, null, null, 2),
+
+  ('60000000-0000-4000-8000-000000000241', '50000000-0000-4000-8000-000000000017', 'COD-241',
+   'Quick Links Plus Open New Tab bug',
+   'When Open New Tab for a link is toggled, any link with base URL evimwi.sharepoint.com does not open in a new tab.
+
+Expected behavior:
+
+After fixing this bug please contact me so that we can solve this for all webparts as this is a recurring issue!!!',
+   null,
+   'done', 'bug_fix',
+   'a0000000-0000-4000-8000-000000000003', null,
+   '2026-08-23', null, null, 3),
 
   ('60000000-0000-4000-8000-000000000230', '50000000-0000-4000-8000-000000000017', 'COD-230',
    'Tabs with Cards',
    'Change title font size to 22px',
    null,
-   'in_peer_review', 'change_request',
+   'done', 'change_request',
    'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
-   '2026-08-23', null, null, 1),
+   '2026-08-23', null, null, 4),
 
-  ('60000000-0000-4000-8000-000000000231', '50000000-0000-4000-8000-000000000017', 'COD-231',
-   'Tabs with Cards: height logic fix',
-   'The height logic is great, thank you for implementing last time. We have an issue though:
-
-When you add 4 cards and the 4th card does not have any description, it overflows to a new row but its height is different to the heights in the first row.
-
-Expected behavior:',
+  ('60000000-0000-4000-8000-000000000240', '50000000-0000-4000-8000-000000000017', 'COD-240',
+   'Rollover Contact Cards',
    null,
-   'in_peer_review', 'bug_fix',
+   null,
+   'done', 'change_request',
    'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
-   '2026-08-23', null, 1, 2),
-
-  ('60000000-0000-4000-8000-000000000232', '50000000-0000-4000-8000-000000000017', 'COD-232',
-   'Link Kachel changes',
-   '• Our goal is to avoid this space as much as possible:',
-   null,
-   'in_peer_review', 'change_request',
-   'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
-   '2026-08-23', null, 1, 3),
-
-  ('60000000-0000-4000-8000-000000000233', '50000000-0000-4000-8000-000000000017', 'COD-233',
-   'Newspart changes',
-   null,
-   null,
-   'in_progress', 'change_request',
-   'a0000000-0000-4000-8000-000000000001', null,
-   '2026-08-23', null, 2, 4),
+   '2026-08-23', null, null, 5),
 
   ('60000000-0000-4000-8000-000000000234', '50000000-0000-4000-8000-000000000017', 'COD-234',
    'Banner News Mode',
@@ -1839,29 +1857,9 @@ row 3: Title with biggest font size (do not change its current size)
 
 row 4: Teaser',
    null,
-   'in_progress', 'change_request',
+   'done', 'change_request',
    'a0000000-0000-4000-8000-000000000001', null,
-   '2026-08-23', null, 2, 5),
-
-  ('60000000-0000-4000-8000-000000000235', '50000000-0000-4000-8000-000000000017', 'COD-235',
-   'Responsiveness for Link Kachel, Tabs with Cards, Newspart',
-   'Link Kachel:
-
-Link Kachel, Tabs with Cards, Newspart:
-
-In all 3 webparts I have cards which are shown in a grid (In Newspart the card takes up all the grid columns). I want unified responsiveness logic for all the 3 webparts IF AND ONLY IF there is more than 1 card defined.',
-   null,
-   'in_peer_review', 'story',
-   'a0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000001',
-   '2026-08-23', null, null, 6),
-
-  ('60000000-0000-4000-8000-000000000236', '50000000-0000-4000-8000-000000000017', 'COD-236',
-   'Calendar',
-   'We want to update EVIM Calendar webpart. Really important: We will be displaying the EVIM calendar in 1 column next to EVIM Newspart in 2 columns. Please make sure the UI and UX of both calendar and newspart are fitting. Follow Corporate Design from Figma',
-   'Below the AC for EVIM Calendar new mode “Startseite”, please only make changes in this mode!!',
-   'in_progress', 'story',
-   'a0000000-0000-4000-8000-000000000003', null,
-   '2026-08-23', null, null, 7),
+   '2026-08-23', null, 2, 6),
 
   ('60000000-0000-4000-8000-000000000237', '50000000-0000-4000-8000-000000000017', 'COD-237',
    'Unifying pill button: arrow and animation',
@@ -1871,53 +1869,115 @@ Acceptance Criteria:
 
 Technical Requirement:',
    null,
-   'ready', 'story',
-   null, null,
-   '2026-08-23', null, null, 8),
+   'done', 'story',
+   'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
+   '2026-08-23', null, null, 7),
+
+  ('60000000-0000-4000-8000-000000000233', '50000000-0000-4000-8000-000000000017', 'COD-233',
+   'Newspart changes',
+   null,
+   null,
+   'done', 'change_request',
+   'a0000000-0000-4000-8000-000000000003', null,
+   '2026-08-23', null, 2, 8),
+
+  ('60000000-0000-4000-8000-000000000231', '50000000-0000-4000-8000-000000000017', 'COD-231',
+   'Tabs with Cards: height logic fix',
+   'The height logic is great, thank you for implementing last time. We have an issue though:
+
+When you add 4 cards and the 4th card does not have any description, it overflows to a new row but its height is different to the heights in the first row.
+
+Expected behavior:',
+   null,
+   'done', 'bug_fix',
+   'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
+   '2026-08-23', null, 1, 9),
+
+  ('60000000-0000-4000-8000-000000000235', '50000000-0000-4000-8000-000000000017', 'COD-235',
+   'Responsiveness for Link Kachel, Tabs with Cards, Newspart',
+   'Link Kachel:
+
+Link Kachel, Tabs with Cards, Newspart:
+
+on mobile only:
+
+In all 3 webparts I have cards which are shown in a grid (In Newspart the card takes up all the grid columns). I want unified responsiveness logic for all the 3 webparts IF AND ONLY IF there is more than 1 card defined.
+
+/ news part changes
+add swipe icon
+fix responsiveness card list view to be integrated with dropdown
+fix carousel
+fix shadow
+also check the new navigation on the other components
+@Mohamed Tamer
+————newspart need arrow animation to have from right rather than left',
+   null,
+   'done', 'story',
+   'a0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000001',
+   '2026-08-23', null, null, 10),
 
   ('60000000-0000-4000-8000-000000000238', '50000000-0000-4000-8000-000000000017', 'COD-238',
-   'Banner Intranet Mode',
+   'Banner Intranet mode',
    'In Banner Intranet mode change the right part of the title back to Nachtblau from black.',
    null,
-   'ready', 'change_request',
-   null, null,
-   '2026-08-23', null, null, 9),
+   'done', 'change_request',
+   'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
+   '2026-08-23', null, null, 11),
 
   ('60000000-0000-4000-8000-000000000239', '50000000-0000-4000-8000-000000000017', 'COD-239',
    '[React] Redakteurseite',
    null,
    null,
-   'draft', 'change_request',
-   null, null,
-   '2026-08-23', null, null, 10),
-
-  ('60000000-0000-4000-8000-000000000240', '50000000-0000-4000-8000-000000000017', 'COD-240',
-   'Rollover Contact Cards',
-   null,
-   null,
-   'ready', 'change_request',
-   null, null,
-   '2026-08-23', null, null, 11),
-
-  ('60000000-0000-4000-8000-000000000241', '50000000-0000-4000-8000-000000000017', 'COD-241',
-   'Quick Links Plus Open New Tab bug',
-   'When Open New Tab for a link is toggled, any link with base URL evimwi.sharepoint.com does not open in a new tab.
-
-Expected behavior:
-
-After fixing this bug please contact me so that we can solve this for all webparts as this is a recurring issue!!!',
-   null,
-   'ready', 'bug_fix',
-   null, null,
+   'done', 'change_request',
+   'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
    '2026-08-23', null, null, 12),
 
-  ('60000000-0000-4000-8000-000000000242', '50000000-0000-4000-8000-000000000017', 'COD-242',
-   '[React] Redakteurkalendar',
-   'As a Redakteur I want to have an internal calendar to plan',
+  ('60000000-0000-4000-8000-000000000236', '50000000-0000-4000-8000-000000000017', 'COD-236',
+   'Calendar',
+   'We want to update EVIM Calendar webpart. Really important: We will be displaying the EVIM calendar in 1 column next to EVIM Newspart in 2 columns. Please make sure the UI and UX of both calendar and newspart are fitting. Follow Corporate Design from Figma',
+   'Below the AC for EVIM Calendar new mode “Startseite”, please only make changes in this mode!!',
+   'done', 'story',
+   'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
+   '2026-08-23', null, null, 13),
+
+  ('60000000-0000-4000-8000-000000000232', '50000000-0000-4000-8000-000000000017', 'COD-232',
+   'Link Kachel changes',
+   '• Our goal is to avoid this space as much as possible:',
+   null,
+   'done', 'change_request',
+   'a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003',
+   '2026-08-23', null, 1, 14),
+
+  ('60000000-0000-4000-8000-000000000245', '50000000-0000-4000-8000-000000000017', 'COD-245',
+   'Vanessa CRs',
+   '• Change wording to „Redaktionskalendar“ instead of „Redakteurkalendar“
+• Change wording of „Redakteur“ when planning a new post into „Redakteur:in“
+• Also add thin vertical lines between the days, not only horizontal, and one thicker line under the days (like in outlook)
+
+====
+• Remove title from Banner
+
+====
+• maintain the same differences between the three different party (title, text and button). it seems that the difference beween text and button is less than between title and text —> Solution reached: Add slider
+
+====
+• Unifying font colors in title webpart
+
+====
+
+Make pill in Redaktionskalendar red like in "Neuer Beitrag”',
    null,
    'draft', 'story',
    null, null,
-   null, null, null, 13),
+   null, null, null, 15),
+
+  ('60000000-0000-4000-8000-000000000246', '50000000-0000-4000-8000-000000000017', 'COD-246',
+   'Meeting with Vanessa',
+   null,
+   null,
+   'draft', 'story',
+   null, null,
+   null, null, null, 16),
 
   ('60000000-0000-4000-8000-000000000243', '51000000-0000-4000-8000-000000000001', 'COD-243',
    'Evaluate existing frontend performance',
@@ -1930,7 +1990,7 @@ After fixing this bug please contact me so that we can solve this for all webpar
 
 -- Keep the sequence ahead of the transcribed keys. Without this a new item
 -- collides with one of them on its very first insert.
-select setval('public.work_item_key_seq', 244, false);
+select setval('public.work_item_key_seq', 247, false);
 
 -- Give each project the prefix its own items already use, and start its counter
 -- above them. The projects were inserted before the items, so the insert-time
@@ -2151,51 +2211,77 @@ insert into public.acceptance_criteria (work_item_id, body, is_done, order_index
   ('60000000-0000-4000-8000-000000000229', 'When the “Show Title” toggle is on, then the title should show above the webpart directly.', false, 2),
   ('60000000-0000-4000-8000-000000000229', 'When ?Mode=Edit then the title should be editable from the webpart directly like in screenshot below, with same options', false, 3),
   ('60000000-0000-4000-8000-000000000229', 'When toggle is on, make sure your implementation behaves exactly like the Title which is added when adding Sharepoint standard Webpart “Events” for example. PLEASE do not implement before trying out the “Events” webpart. This is an AC.', false, 4),
-  ('60000000-0000-4000-8000-000000000231', 'All Link Kachels must have same height, even if they are not in same row', false, 0),
-  ('60000000-0000-4000-8000-000000000231', 'The height is determined by the Link Kachel which has the most text (the least acceptable height for it to show properly)', false, 1),
-  ('60000000-0000-4000-8000-000000000231', 'There is no min height', false, 2),
-  ('60000000-0000-4000-8000-000000000232', 'Change character limit for text to be 85 chars instead of 30 chars', false, 0),
-  ('60000000-0000-4000-8000-000000000232', 'Überschrift font size to be fixed at 22px', false, 1),
-  ('60000000-0000-4000-8000-000000000232', 'Add toggle “Button Link” in specific Link Kachel settings', false, 2),
-  ('60000000-0000-4000-8000-000000000232', '— If toggle on, show extra a text field “Linkbeschriftung” which is the label of the pill by default “Zum Download”', false, 3),
-  ('60000000-0000-4000-8000-000000000232', '— If toggle off, do not show text field “Linkbeschriftung” and do not show the “Zum Download” pill at all', false, 4),
-  ('60000000-0000-4000-8000-000000000232', 'Decrease height of Link Kachel. We want the height logic to work like the logic from “Tabs with Cards” webpart:', false, 5),
-  ('60000000-0000-4000-8000-000000000232', '— All Link Kachels must have same height, even if they are not in same row', false, 6),
-  ('60000000-0000-4000-8000-000000000232', '— The height is determined by the Link Kachel which has the most text (the least acceptable height for it to show properly)', false, 7),
-  ('60000000-0000-4000-8000-000000000232', '— There is no min height', false, 8),
-  ('60000000-0000-4000-8000-000000000233', 'Change name to “EVIM News”', false, 0),
-  ('60000000-0000-4000-8000-000000000233', 'We want to make the filter pills have less padding so they’re less bulky. We want to stick to evim corporate design', false, 1),
+  ('60000000-0000-4000-8000-000000000229', 'Quick Links Plus', true, 5),
+  ('60000000-0000-4000-8000-000000000229', 'Link Kachel', true, 6),
+  ('60000000-0000-4000-8000-000000000229', 'Tabs with Cards', true, 7),
+  ('60000000-0000-4000-8000-000000000229', 'Newspart', true, 8),
+  ('60000000-0000-4000-8000-000000000229', 'Calendar', true, 9),
+  ('60000000-0000-4000-8000-000000000229', 'Akkordeon (colapser)', true, 10),
+  ('60000000-0000-4000-8000-000000000229', 'Finder', true, 11),
+  ('60000000-0000-4000-8000-000000000229', 'Rollover Contact Cards', true, 12),
+  ('60000000-0000-4000-8000-000000000242', 'I want a new page/route in the Redakteurseite to be shown in the navigation called Redakteurcalendar', false, 0),
+  ('60000000-0000-4000-8000-000000000242', 'I want to have a weekly calendar where each column is the days of the week in German starting Montag, dd.mm.yy', false, 1),
+  ('60000000-0000-4000-8000-000000000242', 'We separate each days by type of publication. There is a row with its own color for each of', false, 2),
+  ('60000000-0000-4000-8000-000000000242', '— “Veranstaltung”', false, 3),
+  ('60000000-0000-4000-8000-000000000242', '— “LinkedIn”', false, 4),
+  ('60000000-0000-4000-8000-000000000242', '— “Instagram”', false, 5),
+  ('60000000-0000-4000-8000-000000000242', '— “News”', false, 6),
+  ('60000000-0000-4000-8000-000000000242', 'The days and types of publications now create a grid in the calendar. When I hover over a position in the grid I want a plus sign to appear with the color of the publication row with a + add icon.', false, 7),
+  ('60000000-0000-4000-8000-000000000242', 'When the add icon is clicked, I want a publication to be added ONLY in this calendar as card.', false, 8),
+  ('60000000-0000-4000-8000-000000000242', 'Each publication card has the following definition (in blue in diagramm below), which prompted by a pop when adding the publication:', false, 9),
+  ('60000000-0000-4000-8000-000000000242', '— Title (Titel)', false, 10),
+  ('60000000-0000-4000-8000-000000000242', '— Department (Bereich)', false, 11),
+  ('60000000-0000-4000-8000-000000000242', '— Date (Datum)', false, 12),
+  ('60000000-0000-4000-8000-000000000242', '— Author (Redakteur)', false, 13),
+  ('60000000-0000-4000-8000-000000000242', '— Status', false, 14),
+  ('60000000-0000-4000-8000-000000000242', 'As a prototype save added calendar events as cache in local storage, so that browser refresh doesn’t lose testing events added. We will connect to an API in the next weeks.', false, 15),
+  ('60000000-0000-4000-8000-000000000241', 'When open new tab is toggled on anywhere, then ALL links regardless of base url should open in a new tab', false, 0),
+  ('60000000-0000-4000-8000-000000000240', 'Remove username Adam.Nafie', false, 0),
+  ('60000000-0000-4000-8000-000000000234', 'Make sure Banner is same width across ALL modes.', true, 0),
+  ('60000000-0000-4000-8000-000000000234', '— Currently News mode is narrower than Intranet mode for example', true, 1),
+  ('60000000-0000-4000-8000-000000000234', 'News Banner should be same height as Intranet mode', true, 2),
+  ('60000000-0000-4000-8000-000000000234', 'Right side of the banner should be the image fetched from the list with same ratio as banner half-image', true, 3),
+  ('60000000-0000-4000-8000-000000000234', '— Corners of image all rounded', true, 4),
+  ('60000000-0000-4000-8000-000000000234', '— I personally prefer the following way of representing the image, but Vanessa prefers the screenshot above. Can you show us a comparison between both?', true, 5),
+  ('60000000-0000-4000-8000-000000000234', 'MAV department to take EVIM beige department color', true, 6),
+  ('60000000-0000-4000-8000-000000000234', 'Layout from the upper left corner to be like the text in the news part', true, 7),
+  ('60000000-0000-4000-8000-000000000234', 'Change text color in entire news mode to Nachtblau', true, 8),
+  ('60000000-0000-4000-8000-000000000237', 'Arrow is the same svg and boldness in all pills. The correct arrow is currently in Quick Links Plus', false, 0),
+  ('60000000-0000-4000-8000-000000000237', 'Animation on hover is same in all pills. The correct animation is currently in Link Kachel (text moves to the right)', false, 1),
+  ('60000000-0000-4000-8000-000000000237', 'Have a unified css class and/or components for buttons of this type', false, 2),
+  ('60000000-0000-4000-8000-000000000233', 'Change name to “EVIM News”', true, 0),
+  ('60000000-0000-4000-8000-000000000233', 'We want to make the filter pills have less padding so they’re less bulky. We want to stick to evim corporate design', true, 1),
   ('60000000-0000-4000-8000-000000000233', '— Remove filter pill min height', false, 2),
   ('60000000-0000-4000-8000-000000000233', '— make the top-bottom padding --evimds-space-200', false, 3),
   ('60000000-0000-4000-8000-000000000233', '— make right-left padding --evimds-space-150', false, 4),
   ('60000000-0000-4000-8000-000000000233', '— please contact me after implementing to talk about this for future implementation', false, 5),
-  ('60000000-0000-4000-8000-000000000233', 'Filter pills starting from Vorstand till the end should have Aprikot color instead of EVIM Kirschrot', false, 6),
-  ('60000000-0000-4000-8000-000000000233', 'Completely replace “Kommunikation” department with “MAV”', false, 7),
-  ('60000000-0000-4000-8000-000000000233', 'Completely remove department “Servicestelle Drittmittel”', false, 8),
-  ('60000000-0000-4000-8000-000000000233', 'We want to change where the “category” is shown. In the example screenshot below the category is “test”. We want it to show in a separate row before the title with size 16px and bold style. Date and Department pill stay the same', false, 9),
-  ('60000000-0000-4000-8000-000000000233', 'Remove any sharp corners and make all the corners round with roundness of Link Kachel.', false, 10),
-  ('60000000-0000-4000-8000-000000000233', '— Basically: Replicate the on hover shape to be standard. Remove any animation to the news card', false, 11),
-  ('60000000-0000-4000-8000-000000000233', '— Please make sure roundness is visually unified everywhere as Newspart shouldn’t appear different than Link Kachel nor Tabs with Cards!!!', false, 12),
-  ('60000000-0000-4000-8000-000000000233', 'On narrow screens:', false, 13),
-  ('60000000-0000-4000-8000-000000000233', '— Replace filter pills with a pill dropdown with the same style and padding', false, 14),
-  ('60000000-0000-4000-8000-000000000234', 'Make sure Banner is same width across ALL modes.', false, 0),
-  ('60000000-0000-4000-8000-000000000234', '— Currently News mode is narrower than Intranet mode for example', false, 1),
-  ('60000000-0000-4000-8000-000000000234', 'News Banner should be same height as Intranet mode', false, 2),
-  ('60000000-0000-4000-8000-000000000234', 'Right side of the banner should be the image fetched from the list with same ratio as banner half-image', false, 3),
-  ('60000000-0000-4000-8000-000000000234', '— Corners of image all rounded', false, 4),
-  ('60000000-0000-4000-8000-000000000234', '— I personally prefer the following way of representing the image, but Vanessa prefers the screenshot above. Can you show us a comparison between both?', false, 5),
-  ('60000000-0000-4000-8000-000000000234', 'MAV department to take EVIM beige department color', false, 6),
-  ('60000000-0000-4000-8000-000000000234', 'Layout from the upper left corner to be like the text in the news part', false, 7),
-  ('60000000-0000-4000-8000-000000000234', 'Change text color in entire news mode to Nachtblau', false, 8),
+  ('60000000-0000-4000-8000-000000000233', 'Filter pills starting from Vorstand till the end should have Aprikot color instead of EVIM Kirschrot', true, 6),
+  ('60000000-0000-4000-8000-000000000233', 'Completely replace “Kommunikation” department with “MAV”', true, 7),
+  ('60000000-0000-4000-8000-000000000233', 'Completely remove department “Servicestelle Drittmittel”', true, 8),
+  ('60000000-0000-4000-8000-000000000233', 'We want to change where the “category” is shown. In the example screenshot below the category is “test”. We want it to show in a separate row before the title with size 16px and bold style. Date and Department pill stay the same', true, 9),
+  ('60000000-0000-4000-8000-000000000233', 'Remove any sharp corners and make all the corners round with roundness of Link Kachel.', true, 10),
+  ('60000000-0000-4000-8000-000000000233', '— Basically: Replicate the on hover shape to be standard. Remove any animation to the news card', true, 11),
+  ('60000000-0000-4000-8000-000000000233', '— Please make sure roundness is visually unified everywhere as Newspart shouldn’t appear different than Link Kachel nor Tabs with Cards!!!', true, 12),
+  ('60000000-0000-4000-8000-000000000233', 'On narrow screens:', true, 13),
+  ('60000000-0000-4000-8000-000000000233', '— Replace filter pills with a pill dropdown with the same style and padding', true, 14),
+  ('60000000-0000-4000-8000-000000000231', 'All Cardss must have same height, even if they are not in same row', false, 0),
+  ('60000000-0000-4000-8000-000000000231', 'The height is determined by the card which has the most text (the least acceptable height for it to show properly)', false, 1),
+  ('60000000-0000-4000-8000-000000000231', 'There is no min height', false, 2),
   ('60000000-0000-4000-8000-000000000235', 'When I add a single Link Kachel in a section with 3 or 2 columns it is not filling up the entire space. I want it to fill up the entire space.', false, 0),
   ('60000000-0000-4000-8000-000000000235', 'For more than 1 card we want to have a swipe carousel similar to instagram posts with slides.', false, 1),
   ('60000000-0000-4000-8000-000000000235', '— We already implemented this for Banner and News webpart before, as well as LinkedIn Feed and Instagram Feed. We want to carry over the “dots”', false, 2),
   ('60000000-0000-4000-8000-000000000235', '— Make sure the cards still appear in the carousel with same shape (EVIM shape)', false, 3),
-  ('60000000-0000-4000-8000-000000000235', 'Add a toggle to be able to display the cards below each other instead of in a carousel, but carousel by default', false, 4),
-  ('60000000-0000-4000-8000-000000000236', 'Create Mode “Startseite” for EVIM Calendar, current mode becomes “Custom” and custom is default mode', false, 0),
+  ('60000000-0000-4000-8000-000000000235', 'Add a toggle to be able to display the cards below each other instead of in a carousel, but carousel by default for the user in the ui itself', false, 4),
+  ('60000000-0000-4000-8000-000000000239', 'Filter pills from Vorstand till IT&Digitalisierung are switched from EVIM Kirschrot to EVIM Aprikot color', false, 0),
+  ('60000000-0000-4000-8000-000000000239', '— Filter pills on start page', false, 1),
+  ('60000000-0000-4000-8000-000000000239', '— Filter pills after clicking “Neuer Beitrag”', false, 2),
+  ('60000000-0000-4000-8000-000000000239', 'Completely replace “Kommunikation” department with “MAV”', false, 3),
+  ('60000000-0000-4000-8000-000000000239', 'Completely remove department “Servicestelle Drittmittel”', false, 4),
+  ('60000000-0000-4000-8000-000000000239', 'In “Kategorie” dropdown add the option “Veranstaltung”', false, 5),
+  ('60000000-0000-4000-8000-000000000236', 'Create Mode “Startseite” for EVIM Calendar, current mode becomes “Custom” and custom is default mode', true, 0),
   ('60000000-0000-4000-8000-000000000236', 'Hardcode 1 Calendar and remove page 2 (Calendar Sources) from the sidepane entirely', false, 1),
-  ('60000000-0000-4000-8000-000000000236', '— The hardcoded calendar has a “Bereich” property', false, 2),
-  ('60000000-0000-4000-8000-000000000236', 'Ability to filter shown Events by Bereich', false, 3),
+  ('60000000-0000-4000-8000-000000000236', '— The hardcoded calendar has for each event a “Bereich”/ Department property: one of Altenhilfe, Teilhabe, Jugendhilfe, Bildung, Verein', false, 2),
+  ('60000000-0000-4000-8000-000000000236', 'Ability to filter shown Events by Bereich in the ui', false, 3),
   ('60000000-0000-4000-8000-000000000236', 'Shown events take on a color based on department', false, 4),
   ('60000000-0000-4000-8000-000000000236', '— Text color is black (even for date)', false, 5),
   ('60000000-0000-4000-8000-000000000236', '— Pill background color takes on department color (also EVIM pill shape)', false, 6),
@@ -2207,17 +2293,15 @@ insert into public.acceptance_criteria (work_item_id, body, is_done, order_index
   ('60000000-0000-4000-8000-000000000236', '— day abbreviation in German', false, 12),
   ('60000000-0000-4000-8000-000000000236', '— Example: Fr, 06.08.26', false, 13),
   ('60000000-0000-4000-8000-000000000236', 'German locale:', false, 14),
-  ('60000000-0000-4000-8000-000000000237', 'Arrow is the same svg and boldness in all pills. The correct arrow is currently in Quick Links Plus', false, 0),
-  ('60000000-0000-4000-8000-000000000237', 'Animation on hover is same in all pills. The correct animation is currently in Link Kachel (text moves to the right)', false, 1),
-  ('60000000-0000-4000-8000-000000000237', 'Have a unified css class and/or components for buttons of this type', false, 2),
-  ('60000000-0000-4000-8000-000000000239', 'Filter pills from Vorstand till IT&Digitalisierung are switched from EVIM Kirschrot to EVIM Aprikot color', false, 0),
-  ('60000000-0000-4000-8000-000000000239', '— Filter pills on start page', false, 1),
-  ('60000000-0000-4000-8000-000000000239', '— Filter pills after clicking “Neuer Beitrag”', false, 2),
-  ('60000000-0000-4000-8000-000000000239', 'Completely replace “Kommunikation” department with “MAV”', false, 3),
-  ('60000000-0000-4000-8000-000000000239', 'Completely remove department “Servicestelle Drittmittel”', false, 4),
-  ('60000000-0000-4000-8000-000000000239', 'In “Kategorie” dropdown add the option “Veranstaltung”', false, 5),
-  ('60000000-0000-4000-8000-000000000240', 'Remove username Adam.Nafie', false, 0),
-  ('60000000-0000-4000-8000-000000000241', 'When open new tab is toggled on anywhere, then ALL links regardless of base url should open in a new tab', false, 0),
+  ('60000000-0000-4000-8000-000000000232', 'Change character limit for text to be 85 chars instead of 30 chars', true, 0),
+  ('60000000-0000-4000-8000-000000000232', 'Überschrift font size to be fixed at 22px', true, 1),
+  ('60000000-0000-4000-8000-000000000232', 'Add toggle “Button Link” in specific Link Kachel settings', true, 2),
+  ('60000000-0000-4000-8000-000000000232', '— If toggle on, show extra a text field “Linkbeschriftung” which is the label of the pill by default “Zum Download”', true, 3),
+  ('60000000-0000-4000-8000-000000000232', '— If toggle off, do not show text field “Linkbeschriftung” and do not show the “Zum Download” pill at all', false, 4),
+  ('60000000-0000-4000-8000-000000000232', 'Decrease height of Link Kachel. We want the height logic to work like the logic from “Tabs with Cards” webpart:', true, 5),
+  ('60000000-0000-4000-8000-000000000232', '— All Link Kachels must have same height, even if they are not in same row', true, 6),
+  ('60000000-0000-4000-8000-000000000232', '— The height is determined by the Link Kachel which has the most text (the least acceptable height for it to show properly)', true, 7),
+  ('60000000-0000-4000-8000-000000000232', '— There is no min height', true, 8),
   ('60000000-0000-4000-8000-000000000243', 'Home page: https://www.converso.ai/', false, 0),
   ('60000000-0000-4000-8000-000000000243', 'Platform for testing: https://develop.app.converso.ai/', false, 1);
 
@@ -2295,124 +2379,524 @@ insert into public.time_entries (work_item_id, profile_id, minutes, worked_on, n
   ('60000000-0000-4000-8000-000000000226', 'a0000000-0000-4000-8000-000000000004', 120, '2026-08-17', 'Imported from Notion — one sprint total, not a daily log'),
   ('60000000-0000-4000-8000-000000000227', 'a0000000-0000-4000-8000-000000000004', 210, '2026-08-17', 'Imported from Notion — one sprint total, not a daily log'),
   ('60000000-0000-4000-8000-000000000228', 'a0000000-0000-4000-8000-000000000004', 210, '2026-08-17', 'Imported from Notion — one sprint total, not a daily log'),
-  ('60000000-0000-4000-8000-000000000229', 'a0000000-0000-4000-8000-000000000001', 480, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000229', 'a0000000-0000-4000-8000-000000000003', 540, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000244', 'a0000000-0000-4000-8000-000000000001', 300, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000242', 'a0000000-0000-4000-8000-000000000003', 660, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000241', 'a0000000-0000-4000-8000-000000000003', 30, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
   ('60000000-0000-4000-8000-000000000230', 'a0000000-0000-4000-8000-000000000001', 30, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
-  ('60000000-0000-4000-8000-000000000231', 'a0000000-0000-4000-8000-000000000001', 120, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000240', 'a0000000-0000-4000-8000-000000000001', 30, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000234', 'a0000000-0000-4000-8000-000000000001', 120, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000237', 'a0000000-0000-4000-8000-000000000001', 60, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000233', 'a0000000-0000-4000-8000-000000000003', 180, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000231', 'a0000000-0000-4000-8000-000000000001', 60, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000235', 'a0000000-0000-4000-8000-000000000003', 420, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000238', 'a0000000-0000-4000-8000-000000000001', 30, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000239', 'a0000000-0000-4000-8000-000000000001', 60, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000236', 'a0000000-0000-4000-8000-000000000001', 480, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
   ('60000000-0000-4000-8000-000000000232', 'a0000000-0000-4000-8000-000000000001', 180, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
-  ('60000000-0000-4000-8000-000000000235', 'a0000000-0000-4000-8000-000000000003', 240, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log');
+  ('60000000-0000-4000-8000-000000000245', 'a0000000-0000-4000-8000-000000000001', 180, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log'),
+  ('60000000-0000-4000-8000-000000000246', 'a0000000-0000-4000-8000-000000000001', 120, '2026-08-23', 'Imported from Notion — one sprint total, not a daily log');
 
 
 -- ---------------------------------------------------------------------------
 -- Attachments.
 --
--- Rows only. The bytes live in the private `work-attachments` bucket and are
--- pushed there by scripts/upload-notion-attachments.mjs, which has to run again
--- after `db:reset` — resetting the database clears `storage.objects` even
--- though the files themselves survive.
+-- Rows only. The bytes live in two private buckets and are pushed there by
+-- scripts/upload-notion-attachments.mjs, which has to run again after
+-- `db:reset` — resetting the database clears `storage.objects` even though the
+-- files themselves survive.
+--
+-- Which bucket is decided by whether `/api/attachments` can serve the file.
+-- Pictures go to `comment-images` under the key shape that route accepts, so
+-- the comment below can show them; the one PDF stays in `work-attachments`,
+-- where it is a record and not yet a link. `storage_path` names its bucket —
+-- these rows used not to, while `POST /api/uploads` always did.
 -- ---------------------------------------------------------------------------
 
 insert into public.attachments (work_item_id, storage_path, file_name, mime_type, bytes, uploaded_by) values
-  ('60000000-0000-4000-8000-000000000145', '60000000-0000-4000-8000-000000000145/0-image.png', 'image.png', 'image/png', 35952, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000146', '60000000-0000-4000-8000-000000000146/0-image.png', 'image.png', 'image/png', 882249, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000147', '60000000-0000-4000-8000-000000000147/0-image.png', 'image.png', 'image/png', 11188, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000150', '60000000-0000-4000-8000-000000000150/0-image-9.png', 'image 9.png', 'image/png', 614661, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000153', '60000000-0000-4000-8000-000000000153/0-c590ea65f5a0b9d49b3ca7fdb2c88f195b7981fe.gif', 'c590ea65f5a0b9d49b3ca7fdb2c88f195b7981fe.gif', 'image/gif', 1369822, 'a0000000-0000-4000-8000-000000000002'),
-  ('60000000-0000-4000-8000-000000000154', '60000000-0000-4000-8000-000000000154/0-image.png', 'image.png', 'image/png', 434295, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000155', '60000000-0000-4000-8000-000000000155/0-cleanshot-2025-11-12-at-13.28.14.png', 'CleanShot_2025-11-12_at_13.28.14.png', 'image/png', 196036, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000156', '60000000-0000-4000-8000-000000000156/0-image.png', 'image.png', 'image/png', 57920, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000157', '60000000-0000-4000-8000-000000000157/0-cleanshot-2025-11-12-at-13.33.15.png', 'CleanShot_2025-11-12_at_13.33.15.png', 'image/png', 59507, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000159', '60000000-0000-4000-8000-000000000159/0-image.png', 'image.png', 'image/png', 846226, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000160', '60000000-0000-4000-8000-000000000160/0-image.png', 'image.png', 'image/png', 188991, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000162', '60000000-0000-4000-8000-000000000162/0-image.png', 'image.png', 'image/png', 248572, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000163', '60000000-0000-4000-8000-000000000163/0-image.png', 'image.png', 'image/png', 80699, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000164', '60000000-0000-4000-8000-000000000164/0-image.png', 'image.png', 'image/png', 293807, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000165', '60000000-0000-4000-8000-000000000165/0-image.png', 'image.png', 'image/png', 62667, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000167', '60000000-0000-4000-8000-000000000167/0-cleanshot-2025-11-29-at-17.58.29.png', 'CleanShot_2025-11-29_at_17.58.29.png', 'image/png', 24625, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000167', '60000000-0000-4000-8000-000000000167/1-cleanshot-2025-11-29-at-18.21.02.png', 'CleanShot_2025-11-29_at_18.21.02.png', 'image/png', 543905, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000168', '60000000-0000-4000-8000-000000000168/0-cleanshot-2025-11-29-at-18.22.03.png', 'CleanShot_2025-11-29_at_18.22.03.png', 'image/png', 72896, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000169', '60000000-0000-4000-8000-000000000169/0-cleanshot-2025-11-29-at-18.00.33.png', 'CleanShot_2025-11-29_at_18.00.33.png', 'image/png', 202488, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000170', '60000000-0000-4000-8000-000000000170/0-cleanshot-2025-11-29-at-18.01.41.png', 'CleanShot_2025-11-29_at_18.01.41.png', 'image/png', 320820, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000171', '60000000-0000-4000-8000-000000000171/0-cleanshot-2025-11-29-at-18.24.35.png', 'CleanShot_2025-11-29_at_18.24.35.png', 'image/png', 177122, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000171', '60000000-0000-4000-8000-000000000171/1-arc-2025-11-29-18.24.17.png', 'Arc_2025-11-29_18.24.17.png', 'image/png', 150302, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000172', '60000000-0000-4000-8000-000000000172/0-image.png', 'image.png', 'image/png', 173876, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000173', '60000000-0000-4000-8000-000000000173/0-image.png', 'image.png', 'image/png', 92552, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000173', '60000000-0000-4000-8000-000000000173/1-image-1.png', 'image 1.png', 'image/png', 77310, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000173', '60000000-0000-4000-8000-000000000173/2-image-2.png', 'image 2.png', 'image/png', 320046, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000174', '60000000-0000-4000-8000-000000000174/0-image.png', 'image.png', 'image/png', 6531, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000175', '60000000-0000-4000-8000-000000000175/0-image.png', 'image.png', 'image/png', 34801, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000177', '60000000-0000-4000-8000-000000000177/0-cleanshot-2025-11-29-at-18.05.51.png', 'CleanShot_2025-11-29_at_18.05.51.png', 'image/png', 446367, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000177', '60000000-0000-4000-8000-000000000177/1-arc-2025-11-29-18.05.49.png', 'Arc_2025-11-29_18.05.49.png', 'image/png', 299307, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000179', '60000000-0000-4000-8000-000000000179/0-image.png', 'image.png', 'image/png', 43315, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000179', '60000000-0000-4000-8000-000000000179/1-image-1.png', 'image 1.png', 'image/png', 30627, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000180', '60000000-0000-4000-8000-000000000180/0-image.png', 'image.png', 'image/png', 9144, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000182', '60000000-0000-4000-8000-000000000182/0-image.png', 'image.png', 'image/png', 170915, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000183', '60000000-0000-4000-8000-000000000183/0-image.png', 'image.png', 'image/png', 159529, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000183', '60000000-0000-4000-8000-000000000183/1-image-1.png', 'image 1.png', 'image/png', 6439, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000184', '60000000-0000-4000-8000-000000000184/0-image.png', 'image.png', 'image/png', 16325, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000186', '60000000-0000-4000-8000-000000000186/0-image.png', 'image.png', 'image/png', 2245, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000187', '60000000-0000-4000-8000-000000000187/0-image.png', 'image.png', 'image/png', 314991, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000188', '60000000-0000-4000-8000-000000000188/0-image.png', 'image.png', 'image/png', 61067, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000190', '60000000-0000-4000-8000-000000000190/0-image.png', 'image.png', 'image/png', 357900, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000192', '60000000-0000-4000-8000-000000000192/0-image.png', 'image.png', 'image/png', 574474, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000193', '60000000-0000-4000-8000-000000000193/0-image.png', 'image.png', 'image/png', 176016, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000194', '60000000-0000-4000-8000-000000000194/0-image.png', 'image.png', 'image/png', 49428, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000195', '60000000-0000-4000-8000-000000000195/0-image.png', 'image.png', 'image/png', 32141, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000196', '60000000-0000-4000-8000-000000000196/0-image.png', 'image.png', 'image/png', 710551, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000203', '60000000-0000-4000-8000-000000000203/0-image.png', 'image.png', 'image/png', 140395, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000205', '60000000-0000-4000-8000-000000000205/0-image.png', 'image.png', 'image/png', 197561, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000206', '60000000-0000-4000-8000-000000000206/0-image.png', 'image.png', 'image/png', 43042, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000207', '60000000-0000-4000-8000-000000000207/0-image.png', 'image.png', 'image/png', 37428, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000207', '60000000-0000-4000-8000-000000000207/1-image-1.png', 'image 1.png', 'image/png', 9189, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000208', '60000000-0000-4000-8000-000000000208/0-image.png', 'image.png', 'image/png', 164519, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000208', '60000000-0000-4000-8000-000000000208/1-image-1.png', 'image 1.png', 'image/png', 16880, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000208', '60000000-0000-4000-8000-000000000208/2-image-2.png', 'image 2.png', 'image/png', 20200, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000211', '60000000-0000-4000-8000-000000000211/0-image.png', 'image.png', 'image/png', 197782, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000213', '60000000-0000-4000-8000-000000000213/0-image.png', 'image.png', 'image/png', 5166, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000213', '60000000-0000-4000-8000-000000000213/1-screenshot-2026-08-04-at-8.17.06-pm.png', 'Screenshot_2026-08-04_at_8.17.06_PM.png', 'image/png', 243270, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000214', '60000000-0000-4000-8000-000000000214/0-image.png', 'image.png', 'image/png', 74523, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000214', '60000000-0000-4000-8000-000000000214/1-image-1.png', 'image 1.png', 'image/png', 70171, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000214', '60000000-0000-4000-8000-000000000214/2-image-2.png', 'image 2.png', 'image/png', 7310, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000215', '60000000-0000-4000-8000-000000000215/0-image.png', 'image.png', 'image/png', 20709, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000215', '60000000-0000-4000-8000-000000000215/1-image-1.png', 'image 1.png', 'image/png', 14572, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000215', '60000000-0000-4000-8000-000000000215/2-image-2.png', 'image 2.png', 'image/png', 8934, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000217', '60000000-0000-4000-8000-000000000217/0-anforderungs-dok-1-v0.3.pdf', 'Anforderungs_Dok_1_v0.3.pdf', 'application/pdf', 299235, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000219', '60000000-0000-4000-8000-000000000219/0-image.png', 'image.png', 'image/png', 8479, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000220', '60000000-0000-4000-8000-000000000220/0-image.png', 'image.png', 'image/png', 9183, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000220', '60000000-0000-4000-8000-000000000220/1-image-1.png', 'image 1.png', 'image/png', 40998, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000221', '60000000-0000-4000-8000-000000000221/0-image.png', 'image.png', 'image/png', 18244, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000221', '60000000-0000-4000-8000-000000000221/1-image-1.png', 'image 1.png', 'image/png', 3179, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000221', '60000000-0000-4000-8000-000000000221/2-image-2.png', 'image 2.png', 'image/png', 10553, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000222', '60000000-0000-4000-8000-000000000222/0-image.png', 'image.png', 'image/png', 13910, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000222', '60000000-0000-4000-8000-000000000222/1-image-1.png', 'image 1.png', 'image/png', 5292, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000222', '60000000-0000-4000-8000-000000000222/2-image-2.png', 'image 2.png', 'image/png', 23619, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000224', '60000000-0000-4000-8000-000000000224/0-image.png', 'image.png', 'image/png', 19701, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000225', '60000000-0000-4000-8000-000000000225/0-image.png', 'image.png', 'image/png', 191298, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000225', '60000000-0000-4000-8000-000000000225/1-image-1.png', 'image 1.png', 'image/png', 9292, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000226', '60000000-0000-4000-8000-000000000226/0-image.png', 'image.png', 'image/png', 21076, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000227', '60000000-0000-4000-8000-000000000227/0-image.png', 'image.png', 'image/png', 4178, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000227', '60000000-0000-4000-8000-000000000227/1-image-1.png', 'image 1.png', 'image/png', 57616, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000227', '60000000-0000-4000-8000-000000000227/2-image-2.png', 'image 2.png', 'image/png', 14435, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000227', '60000000-0000-4000-8000-000000000227/3-image-3.png', 'image 3.png', 'image/png', 9860, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000228', '60000000-0000-4000-8000-000000000228/0-image.png', 'image.png', 'image/png', 9603, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000228', '60000000-0000-4000-8000-000000000228/1-image-1.png', 'image 1.png', 'image/png', 33198, 'a0000000-0000-4000-8000-000000000004'),
-  ('60000000-0000-4000-8000-000000000229', '60000000-0000-4000-8000-000000000229/0-image.png', 'image.png', 'image/png', 44505, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000232', '60000000-0000-4000-8000-000000000232/0-image.png', 'image.png', 'image/png', 27229, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000232', '60000000-0000-4000-8000-000000000232/1-image-1.png', 'image 1.png', 'image/png', 12953, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000233', '60000000-0000-4000-8000-000000000233/0-image.png', 'image.png', 'image/png', 20360, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000233', '60000000-0000-4000-8000-000000000233/1-image-1.png', 'image 1.png', 'image/png', 31927, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000233', '60000000-0000-4000-8000-000000000233/2-image-2.png', 'image 2.png', 'image/png', 80032, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000234', '60000000-0000-4000-8000-000000000234/0-image.png', 'image.png', 'image/png', 175843, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000234', '60000000-0000-4000-8000-000000000234/1-image-1.png', 'image 1.png', 'image/png', 122883, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000234', '60000000-0000-4000-8000-000000000234/2-image-2.png', 'image 2.png', 'image/png', 1026729, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000234', '60000000-0000-4000-8000-000000000234/3-image-3.png', 'image 3.png', 'image/png', 31927, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000235', '60000000-0000-4000-8000-000000000235/0-image.png', 'image.png', 'image/png', 18574, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000235', '60000000-0000-4000-8000-000000000235/1-image-1.png', 'image 1.png', 'image/png', 439, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000235', '60000000-0000-4000-8000-000000000235/2-image-2.png', 'image 2.png', 'image/png', 32355, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000236', '60000000-0000-4000-8000-000000000236/0-image.png', 'image.png', 'image/png', 30845, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000236', '60000000-0000-4000-8000-000000000236/1-image-1.png', 'image 1.png', 'image/png', 735, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000236', '60000000-0000-4000-8000-000000000236/2-image-2.png', 'image 2.png', 'image/png', 24390, 'a0000000-0000-4000-8000-000000000003'),
-  ('60000000-0000-4000-8000-000000000237', '60000000-0000-4000-8000-000000000237/0-image.png', 'image.png', 'image/png', 3412, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000238', '60000000-0000-4000-8000-000000000238/0-image.png', 'image.png', 'image/png', 169569, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000239', '60000000-0000-4000-8000-000000000239/0-image.png', 'image.png', 'image/png', 37048, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000240', '60000000-0000-4000-8000-000000000240/0-image.png', 'image.png', 'image/png', 43819, 'a0000000-0000-4000-8000-000000000001'),
-  ('60000000-0000-4000-8000-000000000242', '60000000-0000-4000-8000-000000000242/0-image.png', 'image.png', 'image/png', 53321, 'a0000000-0000-4000-8000-000000000001');
+  ('60000000-0000-4000-8000-000000000145', 'comment-images/a0000000-0000-4000-8000-000000000001/2dd27274-8c23-cc0a-76f0-e4db2374d485.png', 'image.png', 'image/png', 35952, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000146', 'comment-images/a0000000-0000-4000-8000-000000000001/3df06bc9-4ab0-475f-16ec-b4e5bdb93b07.png', 'image.png', 'image/png', 882249, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000147', 'comment-images/a0000000-0000-4000-8000-000000000001/85e6eb4d-49a6-7660-c78e-a5d99bbd19ae.png', 'image.png', 'image/png', 11188, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000150', 'comment-images/a0000000-0000-4000-8000-000000000004/815ad663-6ff4-affb-6ce2-c23aed962074.png', 'image 9.png', 'image/png', 614661, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000153', 'comment-images/a0000000-0000-4000-8000-000000000002/c7fecaa4-2a6c-99db-5cb3-72d1e31a68b7.gif', 'c590ea65f5a0b9d49b3ca7fdb2c88f195b7981fe.gif', 'image/gif', 1369822, 'a0000000-0000-4000-8000-000000000002'),
+  ('60000000-0000-4000-8000-000000000154', 'comment-images/a0000000-0000-4000-8000-000000000003/a2f9bdf4-51e7-9f07-ee34-ece1dd326770.png', 'image.png', 'image/png', 434295, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000155', 'comment-images/a0000000-0000-4000-8000-000000000001/53ce3cd3-f20e-0a68-890c-7d523adf1416.png', 'CleanShot_2025-11-12_at_13.28.14.png', 'image/png', 196036, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000156', 'comment-images/a0000000-0000-4000-8000-000000000004/3783b63b-f856-e552-2473-abcf785774fc.png', 'image.png', 'image/png', 57920, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000157', 'comment-images/a0000000-0000-4000-8000-000000000003/435f3fab-760f-65a3-7d86-8c1f761a69be.png', 'CleanShot_2025-11-12_at_13.33.15.png', 'image/png', 59507, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000159', 'comment-images/a0000000-0000-4000-8000-000000000001/6eeb8f51-b4f1-d1c0-02ff-037ec8d46c94.png', 'image.png', 'image/png', 846226, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000160', 'comment-images/a0000000-0000-4000-8000-000000000004/c9c3bad1-5d9e-2e58-c0a1-d6c40012d529.png', 'image.png', 'image/png', 188991, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000162', 'comment-images/a0000000-0000-4000-8000-000000000003/69e0ce7d-2d10-b621-f3d2-8335b45176db.png', 'image.png', 'image/png', 248572, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000163', 'comment-images/a0000000-0000-4000-8000-000000000003/3d26b7e4-2d3c-611c-99f4-865d70a0f442.png', 'image.png', 'image/png', 80699, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000164', 'comment-images/a0000000-0000-4000-8000-000000000003/d4064922-44db-71f2-6539-b62ffbf3923b.png', 'image.png', 'image/png', 293807, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000165', 'comment-images/a0000000-0000-4000-8000-000000000004/d3bc6e09-42da-1892-94ba-2057e621dd0b.png', 'image.png', 'image/png', 62667, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000167', 'comment-images/a0000000-0000-4000-8000-000000000001/bbacb8af-83ef-9edf-f0b6-67eb3e0787d8.png', 'CleanShot_2025-11-29_at_17.58.29.png', 'image/png', 24625, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000167', 'comment-images/a0000000-0000-4000-8000-000000000001/6ae44bce-a63d-597c-bab4-3bf89ed0d27a.png', 'CleanShot_2025-11-29_at_18.21.02.png', 'image/png', 543905, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000168', 'comment-images/a0000000-0000-4000-8000-000000000001/b400a138-e28d-b677-b84a-6764904caf63.png', 'CleanShot_2025-11-29_at_18.22.03.png', 'image/png', 72896, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000169', 'comment-images/a0000000-0000-4000-8000-000000000001/2f57626b-28cb-8628-b604-d56dc4ae6763.png', 'CleanShot_2025-11-29_at_18.00.33.png', 'image/png', 202488, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000170', 'comment-images/a0000000-0000-4000-8000-000000000001/672a6a93-b6df-fbda-1efb-86e2d705085e.png', 'CleanShot_2025-11-29_at_18.01.41.png', 'image/png', 320820, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000171', 'comment-images/a0000000-0000-4000-8000-000000000001/2a755142-74cc-c039-0d2f-c379c57b5c01.png', 'CleanShot_2025-11-29_at_18.24.35.png', 'image/png', 177122, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000171', 'comment-images/a0000000-0000-4000-8000-000000000001/218e5c5b-2dff-375e-ef49-d8dadf4e2798.png', 'Arc_2025-11-29_18.24.17.png', 'image/png', 150302, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000172', 'comment-images/a0000000-0000-4000-8000-000000000003/d9bcf478-aa55-c535-a3b1-a39aef2d5b4f.png', 'image.png', 'image/png', 173876, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000173', 'comment-images/a0000000-0000-4000-8000-000000000003/79c470db-7ba2-cfcc-802b-22315df636b6.png', 'image.png', 'image/png', 92552, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000173', 'comment-images/a0000000-0000-4000-8000-000000000003/cc0c3481-0393-dcdc-a177-771db1eb1624.png', 'image 1.png', 'image/png', 77310, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000173', 'comment-images/a0000000-0000-4000-8000-000000000003/42338ca5-c705-fea6-d1e2-da6096890e0d.png', 'image 2.png', 'image/png', 320046, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000174', 'comment-images/a0000000-0000-4000-8000-000000000003/65e96f1d-f894-8541-4514-869310edfb19.png', 'image.png', 'image/png', 6531, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000175', 'comment-images/a0000000-0000-4000-8000-000000000003/4d3edc54-13e1-bfd5-e033-1660655e0b0f.png', 'image.png', 'image/png', 34801, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000177', 'comment-images/a0000000-0000-4000-8000-000000000003/3a518004-16d7-2633-8016-708c689e9845.png', 'CleanShot_2025-11-29_at_18.05.51.png', 'image/png', 446367, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000177', 'comment-images/a0000000-0000-4000-8000-000000000003/dfb826fb-b201-1eea-34ba-3583b87429d1.png', 'Arc_2025-11-29_18.05.49.png', 'image/png', 299307, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000179', 'comment-images/a0000000-0000-4000-8000-000000000001/02cc0ae2-6b8e-772e-ca28-fcf354c24c6a.png', 'image.png', 'image/png', 43315, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000179', 'comment-images/a0000000-0000-4000-8000-000000000001/fa49ba2a-823a-f9a4-04e9-da61670db215.png', 'image 1.png', 'image/png', 30627, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000180', 'comment-images/a0000000-0000-4000-8000-000000000003/47f14832-3ea4-c00a-8b80-468684270765.png', 'image.png', 'image/png', 9144, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000182', 'comment-images/a0000000-0000-4000-8000-000000000003/f9adcb2c-e8ae-b752-55de-6764ef787398.png', 'image.png', 'image/png', 170915, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000183', 'comment-images/a0000000-0000-4000-8000-000000000001/0bde2c1c-9f28-6a0b-2915-8dd785b5e3a7.png', 'image.png', 'image/png', 159529, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000183', 'comment-images/a0000000-0000-4000-8000-000000000001/44c32c69-f83c-5cc5-8248-e7d168aa873f.png', 'image 1.png', 'image/png', 6439, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000184', 'comment-images/a0000000-0000-4000-8000-000000000003/7fcbb5ff-9c6d-e0b2-de47-83a144146acf.png', 'image.png', 'image/png', 16325, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000186', 'comment-images/a0000000-0000-4000-8000-000000000001/d5d4db53-0438-8683-b7a1-90c0225ee83f.png', 'image.png', 'image/png', 2245, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000187', 'comment-images/a0000000-0000-4000-8000-000000000003/d032f618-2ed3-f51d-bc71-59f30fe28313.png', 'image.png', 'image/png', 314991, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000188', 'comment-images/a0000000-0000-4000-8000-000000000001/49869057-2525-6013-45b3-0568db9937c4.png', 'image.png', 'image/png', 61067, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000190', 'comment-images/a0000000-0000-4000-8000-000000000001/594fad73-0d4e-ecb2-20ff-3badcb2238f6.png', 'image.png', 'image/png', 357900, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000192', 'comment-images/a0000000-0000-4000-8000-000000000003/bd057563-2a95-34f1-27d4-e9fba6aa3cae.png', 'image.png', 'image/png', 574474, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000193', 'comment-images/a0000000-0000-4000-8000-000000000003/e5785ba3-3a56-20b4-1c74-c77f0c5aeae1.png', 'image.png', 'image/png', 176016, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000194', 'comment-images/a0000000-0000-4000-8000-000000000001/35e8421a-58b4-9d7d-b0c8-ecdf9863a9d0.png', 'image.png', 'image/png', 49428, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000195', 'comment-images/a0000000-0000-4000-8000-000000000001/b89ee1bf-c8ac-267d-6852-8fe789eaea85.png', 'image.png', 'image/png', 32141, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000196', 'comment-images/a0000000-0000-4000-8000-000000000001/c478bf45-eb37-2d2d-dcd8-84411d18bc52.png', 'image.png', 'image/png', 710551, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000203', 'comment-images/a0000000-0000-4000-8000-000000000001/2bab3fb3-7e5f-222e-dbcc-60631c00dfa8.png', 'image.png', 'image/png', 140395, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000205', 'comment-images/a0000000-0000-4000-8000-000000000001/babb3160-a2a5-c971-bcd9-58732ec835cb.png', 'image.png', 'image/png', 197561, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000206', 'comment-images/a0000000-0000-4000-8000-000000000001/35f6b16a-f6e2-e87b-3316-045bfb02aa01.png', 'image.png', 'image/png', 43042, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000207', 'comment-images/a0000000-0000-4000-8000-000000000001/1c2b6f7a-223b-e320-cd61-35fe4762880a.png', 'image.png', 'image/png', 37428, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000207', 'comment-images/a0000000-0000-4000-8000-000000000001/7071224e-8508-5e49-1338-bd532ad79eb0.png', 'image 1.png', 'image/png', 9189, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000208', 'comment-images/a0000000-0000-4000-8000-000000000003/6172407f-7f63-f618-ef79-a665135aee18.png', 'image.png', 'image/png', 164519, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000208', 'comment-images/a0000000-0000-4000-8000-000000000003/a684c9c8-305b-1957-c250-00eecfc3b1f1.png', 'pasted-1.png', 'image/png', 170789, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000208', 'comment-images/a0000000-0000-4000-8000-000000000003/8d812a36-eedd-0253-a880-41e76dedc8bf.png', 'image 1.png', 'image/png', 16880, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000208', 'comment-images/a0000000-0000-4000-8000-000000000003/507e7d16-b3a2-a515-8089-194a3a8d0861.png', 'pasted-3.png', 'image/png', 17875, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000208', 'comment-images/a0000000-0000-4000-8000-000000000003/04a6659b-dafc-e983-6188-717406beaf56.png', 'image 2.png', 'image/png', 20200, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000208', 'comment-images/a0000000-0000-4000-8000-000000000003/9acccb73-eb67-6f4e-e7a6-5255791019b6.png', 'pasted-5.png', 'image/png', 21742, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000211', 'comment-images/a0000000-0000-4000-8000-000000000004/36499faa-7b44-75db-c3c7-e124194106d9.png', 'image.png', 'image/png', 197782, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000213', 'comment-images/a0000000-0000-4000-8000-000000000004/3482003d-0a6a-fd01-27fe-27f7d6809a97.png', 'image.png', 'image/png', 5166, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000213', 'comment-images/a0000000-0000-4000-8000-000000000004/6079f35e-c8c9-f198-86bf-4e0846850594.png', 'Screenshot_2026-08-04_at_8.17.06_PM.png', 'image/png', 243270, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000214', 'comment-images/a0000000-0000-4000-8000-000000000001/d55647cb-2f1f-fcb1-6da5-fe2a1cc58e5b.png', 'image.png', 'image/png', 74523, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000214', 'comment-images/a0000000-0000-4000-8000-000000000001/590edc6a-fe02-9c70-2fa8-3328a3fb9e66.png', 'image 1.png', 'image/png', 70171, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000214', 'comment-images/a0000000-0000-4000-8000-000000000001/02b48429-83de-6130-c2d0-bcc75fdfe854.png', 'image 2.png', 'image/png', 7310, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000215', 'comment-images/a0000000-0000-4000-8000-000000000004/7bad9061-c3a9-fecb-990a-fb502db1778b.png', 'image.png', 'image/png', 20709, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000215', 'comment-images/a0000000-0000-4000-8000-000000000004/75881981-b509-a6e1-d79a-2fdf88dd9bd5.png', 'image 1.png', 'image/png', 14572, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000215', 'comment-images/a0000000-0000-4000-8000-000000000004/9de2278d-3d38-d25b-1cfc-e8916c69866c.png', 'image 2.png', 'image/png', 8934, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000217', 'work-attachments/60000000-0000-4000-8000-000000000217/0-anforderungs-dok-1-v0.3.pdf', 'Anforderungs_Dok_1_v0.3.pdf', 'application/pdf', 299235, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000219', 'comment-images/a0000000-0000-4000-8000-000000000004/37e51f68-3063-075f-7957-680654df2359.png', 'image.png', 'image/png', 8479, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000220', 'comment-images/a0000000-0000-4000-8000-000000000004/78c7f165-4549-e89c-b6c0-51585986fe3d.png', 'image.png', 'image/png', 9183, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000220', 'comment-images/a0000000-0000-4000-8000-000000000004/d120553b-5a00-53e0-20b2-7ba57916d6b3.png', 'image 1.png', 'image/png', 40998, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000221', 'comment-images/a0000000-0000-4000-8000-000000000003/15dbf229-7193-8245-37b4-e5dc14edb5d8.png', 'image.png', 'image/png', 18244, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000221', 'comment-images/a0000000-0000-4000-8000-000000000003/4c726413-dcbf-3c82-65a8-bd2044888cd3.png', 'image 1.png', 'image/png', 3179, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000221', 'comment-images/a0000000-0000-4000-8000-000000000003/ae79209e-1668-5485-7c7e-c85f2fe648cd.png', 'image 2.png', 'image/png', 10553, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000222', 'comment-images/a0000000-0000-4000-8000-000000000004/5b24555b-1edb-c3ec-7db2-e233a2dc4cc2.png', 'image.png', 'image/png', 13910, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000222', 'comment-images/a0000000-0000-4000-8000-000000000004/6188ffa2-eaa9-31b3-bbe0-f672f60c772a.png', 'image 1.png', 'image/png', 5292, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000222', 'comment-images/a0000000-0000-4000-8000-000000000004/6a894f39-bfec-cab1-86d0-fd2226bd21a4.png', 'image 2.png', 'image/png', 23619, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000224', 'comment-images/a0000000-0000-4000-8000-000000000004/a1c9881d-3388-24ef-34eb-763a99c6dc46.png', 'image.png', 'image/png', 19701, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000225', 'comment-images/a0000000-0000-4000-8000-000000000001/3833e82a-9e2d-a604-32a3-95bba78f9c4b.png', 'image.png', 'image/png', 191298, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000225', 'comment-images/a0000000-0000-4000-8000-000000000001/117d23da-b60e-9d68-88df-3100e2a2087d.png', 'image 1.png', 'image/png', 9292, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000226', 'comment-images/a0000000-0000-4000-8000-000000000004/6a1bd278-d886-ccc8-26fc-4a0bb13e144c.png', 'image.png', 'image/png', 21076, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000227', 'comment-images/a0000000-0000-4000-8000-000000000004/653638e4-41dc-5e4e-19c2-477792d99adc.png', 'image.png', 'image/png', 4178, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000227', 'comment-images/a0000000-0000-4000-8000-000000000004/e1245da1-6165-2d09-957a-11916520df31.png', 'image 1.png', 'image/png', 57616, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000227', 'comment-images/a0000000-0000-4000-8000-000000000004/d9634328-86d9-c431-49b5-cfccac42c486.png', 'image 2.png', 'image/png', 14435, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000227', 'comment-images/a0000000-0000-4000-8000-000000000004/e1f88eef-9def-2b97-c93a-3ab24f40d0fd.png', 'image 3.png', 'image/png', 9860, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000228', 'comment-images/a0000000-0000-4000-8000-000000000004/85632d11-5bd3-fa00-8a11-619924b3b4de.png', 'image.png', 'image/png', 9603, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000228', 'comment-images/a0000000-0000-4000-8000-000000000004/96302d7b-7ae1-ecb1-bc93-105e9ffc90d6.png', 'image 1.png', 'image/png', 33198, 'a0000000-0000-4000-8000-000000000004'),
+  ('60000000-0000-4000-8000-000000000229', 'comment-images/a0000000-0000-4000-8000-000000000003/3b322b02-2d38-e243-09be-139ccd3a6e09.png', 'image.png', 'image/png', 44505, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000244', 'comment-images/a0000000-0000-4000-8000-000000000001/c27aa010-7ad9-99e2-0689-ed4e26ea4b7f.png', 'image.png', 'image/png', 95447, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000244', 'comment-images/a0000000-0000-4000-8000-000000000001/104e48e9-a3d0-d0f4-d959-203292b10e78.png', 'image 1.png', 'image/png', 18992, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000242', 'comment-images/a0000000-0000-4000-8000-000000000003/899dbe38-355f-5bc5-8030-19bbf34f9cfd.png', 'image.png', 'image/png', 53321, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000242', 'comment-images/a0000000-0000-4000-8000-000000000003/024185a0-b750-a4aa-8a99-119ebb7801f4.png', 'image 1.png', 'image/png', 488177, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000240', 'comment-images/a0000000-0000-4000-8000-000000000001/489b16f5-1f0a-adde-3e81-928c7ac7316b.png', 'image.png', 'image/png', 43819, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000234', 'comment-images/a0000000-0000-4000-8000-000000000001/22f0ad53-e865-4b9d-3125-c0a4e36ef7a1.png', 'image.png', 'image/png', 175843, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000234', 'comment-images/a0000000-0000-4000-8000-000000000001/e18afa5d-6891-6366-4f91-d28ea0c8fbdf.png', 'image 1.png', 'image/png', 122883, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000234', 'comment-images/a0000000-0000-4000-8000-000000000001/1677538a-3d29-6b06-d7da-2ec7a7e17345.png', 'image 2.png', 'image/png', 1026729, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000234', 'comment-images/a0000000-0000-4000-8000-000000000001/968e1ad4-0fe4-077d-8b99-657a6d83e31f.png', 'image 3.png', 'image/png', 31927, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000237', 'comment-images/a0000000-0000-4000-8000-000000000001/55c45614-a0fa-c3bc-8826-c1f1ab06a09e.png', 'image.png', 'image/png', 3412, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000233', 'comment-images/a0000000-0000-4000-8000-000000000003/3f483415-61c3-0989-fa20-3ed1775cebd4.png', 'image.png', 'image/png', 20360, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000233', 'comment-images/a0000000-0000-4000-8000-000000000003/b9388080-1976-0410-596b-9253ed194184.png', 'image 1.png', 'image/png', 31927, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000233', 'comment-images/a0000000-0000-4000-8000-000000000003/495591b5-1d1e-42e4-8d34-d04116e4fde6.png', 'image 2.png', 'image/png', 80032, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000235', 'comment-images/a0000000-0000-4000-8000-000000000003/c61bf51d-17de-4a99-e979-11d475534f5a.png', 'image.png', 'image/png', 18574, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000235', 'comment-images/a0000000-0000-4000-8000-000000000003/41547d8b-b41d-8b6f-11aa-9f2fff889850.png', 'image 1.png', 'image/png', 439, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000235', 'comment-images/a0000000-0000-4000-8000-000000000003/75b3a8da-19e8-95d1-ed50-a7fe5e792044.png', 'image 2.png', 'image/png', 32355, 'a0000000-0000-4000-8000-000000000003'),
+  ('60000000-0000-4000-8000-000000000238', 'comment-images/a0000000-0000-4000-8000-000000000001/ac6c67fd-3526-0d77-8325-44e972f17ef3.png', 'image.png', 'image/png', 169569, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000239', 'comment-images/a0000000-0000-4000-8000-000000000001/dcbcc9dd-92d8-fd2e-aeef-27a5f8f18c29.png', 'image.png', 'image/png', 37048, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000236', 'comment-images/a0000000-0000-4000-8000-000000000001/115614ac-8603-3e13-ebc7-b68a43b1bca5.png', 'image.png', 'image/png', 30845, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000236', 'comment-images/a0000000-0000-4000-8000-000000000001/5b844407-48b6-db7b-0747-425452b4ab83.png', 'image 1.png', 'image/png', 735, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000236', 'comment-images/a0000000-0000-4000-8000-000000000001/beef64cb-3f3a-9597-4bf3-bbf27251eeba.png', 'image 2.png', 'image/png', 24390, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000232', 'comment-images/a0000000-0000-4000-8000-000000000001/fcae2039-582b-b786-b71d-91b0e17aa0de.png', 'image.png', 'image/png', 27229, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000232', 'comment-images/a0000000-0000-4000-8000-000000000001/774cff8d-aacd-81f3-396f-984cd95abaca.png', 'image 1.png', 'image/png', 12953, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000245', 'comment-images/a0000000-0000-4000-8000-000000000001/121a51ff-5e7d-934d-58bf-66803b4f289a.jpg', 'pasted-0.jpg', 'image/jpeg', 5105, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000245', 'comment-images/a0000000-0000-4000-8000-000000000001/2995e136-ccdd-4f7b-94c6-2416d59447f8.jpg', 'pasted-1.jpg', 'image/jpeg', 54970, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000245', 'comment-images/a0000000-0000-4000-8000-000000000001/b8e48120-35fb-3299-c101-a8017278c5a8.png', 'image.png', 'image/png', 587364, 'a0000000-0000-4000-8000-000000000001'),
+  ('60000000-0000-4000-8000-000000000245', 'comment-images/a0000000-0000-4000-8000-000000000001/11d940f5-744d-89ef-8bb7-6114ba890101.png', 'image 1.png', 'image/png', 38494, 'a0000000-0000-4000-8000-000000000001');
+
+
+-- ---------------------------------------------------------------------------
+-- The pictures, as thread.
+--
+-- One comment per item that has any, because the comment thread is the only
+-- surface in this app that draws a picture — `public.attachments` is written by
+-- three code paths and read by none. Before this, every screenshot the team
+-- filed against its work was in the database and on no page.
+--
+-- This is the only row here that Notion does not literally contain, and it
+-- carries rather than says: the author is the person Notion names on the item,
+-- the date is the day that item's logged time is filed against, and the prose is
+-- one sentence of provenance in the same voice as `time_entries.note`. The
+-- pictures, and their order, are transcribed.
+--
+-- `body_text` is derived the way the app derives it — `flattenToText` in
+-- lib/blocks/schema.ts — because search, both exports and the notification
+-- preview read that column and not the document.
+-- ---------------------------------------------------------------------------
+
+insert into public.comments (id, work_item_id, author_id, body_json, body_text, created_at) values
+  ('11ad5187-623b-e018-4d21-f2bfc380e30f', '60000000-0000-4000-8000-000000000145', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/2dd27274-8c23-cc0a-76f0-e4db2374d485.png","alt":"Changes: Collapser — image 1","width":1479,"height":519}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Changes: Collapser — image 1]',
+   '2025-11-16 09:00:00+00'),
+  ('5ecdd8af-3df4-3d50-524a-df60b1ee0531', '60000000-0000-4000-8000-000000000146', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/3df06bc9-4ab0-475f-16ec-b4e5bdb93b07.png","alt":"Changes: Carousel with expanding Links — image 1","width":1487,"height":559}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Changes: Carousel with expanding Links — image 1]',
+   '2025-11-16 09:00:00+00'),
+  ('154b98f7-83a7-1f45-9297-76a4d04c4e84', '60000000-0000-4000-8000-000000000147', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/85e6eb4d-49a6-7660-c78e-a5d99bbd19ae.png","alt":"Changes: User feedback — image 1","width":834,"height":288}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Changes: User feedback — image 1]',
+   '2025-11-16 09:00:00+00'),
+  ('794e1631-aa01-2fda-7612-2e1fdc0a6c96', '60000000-0000-4000-8000-000000000150', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/815ad663-6ff4-affb-6ce2-c23aed962074.png","alt":"Changes: LinkedIn Feed — image 1","width":1742,"height":504}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Changes: LinkedIn Feed — image 1]',
+   '2025-11-16 09:00:00+00'),
+  ('9d7faf8a-04e0-716f-a87e-86dde87ba713', '60000000-0000-4000-8000-000000000153', 'a0000000-0000-4000-8000-000000000002',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000002/c7fecaa4-2a6c-99db-5cb3-72d1e31a68b7.gif","alt":"Anniversaries — image 1","width":588,"height":692}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Anniversaries — image 1]',
+   '2025-11-16 09:00:00+00'),
+  ('c098220f-386a-00fd-e6fb-193c907379c4', '60000000-0000-4000-8000-000000000154', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/a2f9bdf4-51e7-9f07-ee34-ece1dd326770.png","alt":"Banner WITHOUT News — image 1","width":1500,"height":305}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Banner WITHOUT News — image 1]',
+   '2025-11-16 09:00:00+00'),
+  ('ea6bde43-a4c9-aab9-9408-2b5fd39f8ffc', '60000000-0000-4000-8000-000000000155', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/53ce3cd3-f20e-0a68-890c-7d523adf1416.png","alt":"Org Chart — image 1","width":606,"height":456}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Org Chart — image 1]',
+   '2025-11-16 09:00:00+00'),
+  ('e9961b80-f642-0bf4-c2b5-868eba661b38', '60000000-0000-4000-8000-000000000156', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/3783b63b-f856-e552-2473-abcf785774fc.png","alt":"Embed Plus — image 1","width":1150,"height":510}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Embed Plus — image 1]',
+   '2025-11-16 09:00:00+00'),
+  ('4db1fa64-c3ef-38b6-6c28-604f46dbc6f0', '60000000-0000-4000-8000-000000000157', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/435f3fab-760f-65a3-7d86-8c1f761a69be.png","alt":"Main Navigation — image 1","width":595,"height":146}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Main Navigation — image 1]',
+   '2025-11-16 09:00:00+00'),
+  ('a50f83ff-9ac9-f402-ecfd-4a9bba1cbff0', '60000000-0000-4000-8000-000000000159', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/6eeb8f51-b4f1-d1c0-02ff-037ec8d46c94.png","alt":"News Center — image 1","width":1339,"height":654}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: News Center — image 1]',
+   '2025-11-17 09:00:00+00'),
+  ('5b4d8fca-e535-e82c-bf9d-c5b31c469032', '60000000-0000-4000-8000-000000000160', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/c9c3bad1-5d9e-2e58-c0a1-d6c40012d529.png","alt":"Social Corner — image 1","width":613,"height":440}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Social Corner — image 1]',
+   '2025-11-17 09:00:00+00'),
+  ('e58a226c-a48f-fa03-d3be-12c3f34a3da5', '60000000-0000-4000-8000-000000000162', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/69e0ce7d-2d10-b621-f3d2-8335b45176db.png","alt":"Expanding Links WITHOUT Carousel — image 1","width":1272,"height":749}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Expanding Links WITHOUT Carousel — image 1]',
+   '2025-11-17 09:00:00+00'),
+  ('56b7407c-76f0-4336-9846-e42b40493029', '60000000-0000-4000-8000-000000000163', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/3d26b7e4-2d3c-611c-99f4-865d70a0f442.png","alt":"KPI and Metrics — image 1","width":992,"height":157}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: KPI and Metrics — image 1]',
+   '2025-11-17 09:00:00+00'),
+  ('d93e4fa2-4e5d-bd61-e2c9-998c5b6c2157', '60000000-0000-4000-8000-000000000164', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/d4064922-44db-71f2-6539-b62ffbf3923b.png","alt":"Tabs — image 1","width":1100,"height":670}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Tabs — image 1]',
+   '2025-11-17 09:00:00+00'),
+  ('2ab2292d-859b-06bf-3327-ac36fb1904ec', '60000000-0000-4000-8000-000000000165', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/d3bc6e09-42da-1892-94ba-2057e621dd0b.png","alt":"Tabs with Cards — image 1","width":1279,"height":443}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Tabs with Cards — image 1]',
+   '2025-11-17 09:00:00+00'),
+  ('3c37e491-fc2b-a59f-1432-31be429d45fb', '60000000-0000-4000-8000-000000000167', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/bbacb8af-83ef-9edf-f0b6-67eb3e0787d8.png","alt":"Fix: Instagram Feed — image 1","width":548,"height":237}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/6ae44bce-a63d-597c-bab4-3bf89ed0d27a.png","alt":"Fix: Instagram Feed — image 2","width":1301,"height":851}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: Fix: Instagram Feed — image 1][image: Fix: Instagram Feed — image 2]',
+   '2025-11-17 09:00:00+00'),
+  ('1e9db2ca-2f85-aa7c-8b86-497923868063', '60000000-0000-4000-8000-000000000168', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/b400a138-e28d-b677-b84a-6764904caf63.png","alt":"Fix: Anniverseries — image 1","width":503,"height":626}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Fix: Anniverseries — image 1]',
+   '2025-11-17 09:00:00+00'),
+  ('ee4665e2-f82f-5623-4b31-4363cbde5209', '60000000-0000-4000-8000-000000000169', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/2f57626b-28cb-8628-b604-d56dc4ae6763.png","alt":"Fix: LinkedIn Feed — image 1","width":566,"height":613}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Fix: LinkedIn Feed — image 1]',
+   '2025-11-17 09:00:00+00'),
+  ('6eced67f-1407-1488-0527-c3b9c25456f5', '60000000-0000-4000-8000-000000000170', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/672a6a93-b6df-fbda-1efb-86e2d705085e.png","alt":"Fix: Process and Timeline — image 1","width":559,"height":773}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Fix: Process and Timeline — image 1]',
+   '2025-11-17 09:00:00+00'),
+  ('1f4f1406-ccac-7e70-26b9-747a15071348', '60000000-0000-4000-8000-000000000171', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/2a755142-74cc-c039-0d2f-c379c57b5c01.png","alt":"Fix: news center — image 1","width":520,"height":590}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/218e5c5b-2dff-375e-ef49-d8dadf4e2798.png","alt":"Fix: news center — image 2","width":433,"height":388}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: Fix: news center — image 1][image: Fix: news center — image 2]',
+   '2025-11-17 09:00:00+00'),
+  ('786c32cb-058b-81c5-f046-b2c4749310ae', '60000000-0000-4000-8000-000000000172', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/d9bcf478-aa55-c535-a3b1-a39aef2d5b4f.png","alt":"Banner Half-image — image 1","width":694,"height":206}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Banner Half-image — image 1]',
+   '2025-11-17 09:00:00+00'),
+  ('f342bdcd-432f-c98a-e315-fe24b8a0a719', '60000000-0000-4000-8000-000000000173', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 3 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/79c470db-7ba2-cfcc-802b-22315df636b6.png","alt":"Promo Alert — image 1","width":1690,"height":188}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/cc0c3481-0393-dcdc-a177-771db1eb1624.png","alt":"Promo Alert — image 2","width":1035,"height":509}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/42338ca5-c705-fea6-d1e2-da6096890e0d.png","alt":"Promo Alert — image 3","width":683,"height":284}}]}'::jsonb,
+   'Imported from Notion — the 3 screens on this item''s page.
+[image: Promo Alert — image 1][image: Promo Alert — image 2][image: Promo Alert — image 3]',
+   '2025-11-17 09:00:00+00'),
+  ('bfd604f5-094e-c393-006b-ea3181e5bfcb', '60000000-0000-4000-8000-000000000174', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/65e96f1d-f894-8541-4514-869310edfb19.png","alt":"Button Link Plus — image 1","width":273,"height":71}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Button Link Plus — image 1]',
+   '2025-11-17 09:00:00+00'),
+  ('036733a4-229b-468e-1785-ae42a429707c', '60000000-0000-4000-8000-000000000175', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/4d3edc54-13e1-bfd5-e033-1660655e0b0f.png","alt":"Poll — image 1","width":426,"height":337}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Poll — image 1]',
+   '2025-11-17 09:00:00+00'),
+  ('244a8cc3-c62e-8abc-ffcb-abbbee20ee3f', '60000000-0000-4000-8000-000000000177', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/3a518004-16d7-2633-8016-708c689e9845.png","alt":"Fix: Banner with news — image 1","width":1252,"height":409}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/dfb826fb-b201-1eea-34ba-3583b87429d1.png","alt":"Fix: Banner with news — image 2","width":692,"height":709}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: Fix: Banner with news — image 1][image: Fix: Banner with news — image 2]',
+   '2025-11-17 09:00:00+00'),
+  ('b0c4115a-fb41-2ec6-5ac8-96801a63f9fa', '60000000-0000-4000-8000-000000000179', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/02cc0ae2-6b8e-772e-ca28-fcf354c24c6a.png","alt":"CR: Banner — image 1","width":380,"height":99}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/fa49ba2a-823a-f9a4-04e9-da61670db215.png","alt":"CR: Banner — image 2","width":207,"height":222}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: CR: Banner — image 1][image: CR: Banner — image 2]',
+   '2025-12-28 09:00:00+00'),
+  ('e39c8cfa-0fe8-9721-270d-b6dbff0bdad1', '60000000-0000-4000-8000-000000000180', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/47f14832-3ea4-c00a-8b80-468684270765.png","alt":"CR: Contact Cards — image 1","width":163,"height":102}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: CR: Contact Cards — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('74ab72f9-da28-aa2a-cbd3-ef5aae4f57a0', '60000000-0000-4000-8000-000000000182', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/f9adcb2c-e8ae-b752-55de-6764ef787398.png","alt":"CR: Banner Half-Image — image 1","width":718,"height":257}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: CR: Banner Half-Image — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('76453013-a48f-4b66-f738-f4188e7db4cc', '60000000-0000-4000-8000-000000000183', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/0bde2c1c-9f28-6a0b-2915-8dd785b5e3a7.png","alt":"CR: Links Carousel / Carousel with expanding Links — image 1","width":1269,"height":458}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/44c32c69-f83c-5cc5-8248-e7d168aa873f.png","alt":"CR: Links Carousel / Carousel with expanding Links — image 2","width":203,"height":72}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: CR: Links Carousel / Carousel with expanding Links — image 1][image: CR: Links Carousel / Carousel with expanding Links — image 2]',
+   '2025-12-29 09:00:00+00'),
+  ('de916069-e0d5-0769-1039-8a4445fb3843', '60000000-0000-4000-8000-000000000184', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/7fcbb5ff-9c6d-e0b2-de47-83a144146acf.png","alt":"CR: Collapser — image 1","width":705,"height":93}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: CR: Collapser — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('fd3cedd7-d00a-9104-24ce-b66f56cdd5dd', '60000000-0000-4000-8000-000000000186', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/d5d4db53-0438-8683-b7a1-90c0225ee83f.png","alt":"CR: Quick Links Plus — image 1","width":73,"height":74}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: CR: Quick Links Plus — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('c9744f66-c9b0-a61d-5bb0-8e9b46f58142', '60000000-0000-4000-8000-000000000187', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/d032f618-2ed3-f51d-bc71-59f30fe28313.png","alt":"Banner with News — image 1","width":590,"height":1278}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Banner with News — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('77a536c5-6364-f7e3-7259-5c1ecb3ba866', '60000000-0000-4000-8000-000000000188', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/49869057-2525-6013-45b3-0568db9937c4.png","alt":"Quick Links — image 1","width":1600,"height":240}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Quick Links — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('001f16f2-1687-f135-b264-d84ebc9575c3', '60000000-0000-4000-8000-000000000190', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/594fad73-0d4e-ecb2-20ff-3badcb2238f6.png","alt":"Banner Half-Image — image 1","width":918,"height":401}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Banner Half-Image — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('227db5f3-a9a1-53e8-c49a-5193c3b27c0d', '60000000-0000-4000-8000-000000000192', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/bd057563-2a95-34f1-27d4-e9fba6aa3cae.png","alt":"Embed Plus — image 1","width":1179,"height":2556}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Embed Plus — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('6f9e090a-69f1-2f5d-d4c8-c5d9fd2d48c2', '60000000-0000-4000-8000-000000000193', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/e5785ba3-3a56-20b4-1c74-c77f0c5aeae1.png","alt":"Video Carousel — image 1","width":1143,"height":528}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Video Carousel — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('a83d5456-bc3d-58b2-9bfa-009e5d79e890', '60000000-0000-4000-8000-000000000194', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/35e8421a-58b4-9d7d-b0c8-ecdf9863a9d0.png","alt":"Alerts. — image 1","width":701,"height":120}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Alerts. — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('636de61b-24f2-968d-66db-487670b4a7e9', '60000000-0000-4000-8000-000000000195', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/b89ee1bf-c8ac-267d-6852-8fe789eaea85.png","alt":"Quick Links — image 1","width":646,"height":397}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Quick Links — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('7da901a7-19bd-61c1-6aba-87d7cb3e6ef3', '60000000-0000-4000-8000-000000000196', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/c478bf45-eb37-2d2d-dcd8-84411d18bc52.png","alt":"Banner with News — image 1","width":1277,"height":691}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Banner with News — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('1d36c458-27b1-0825-073e-c056c110a531', '60000000-0000-4000-8000-000000000203', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/2bab3fb3-7e5f-222e-dbcc-60631c00dfa8.png","alt":"Calendar — image 1","width":704,"height":671}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Calendar — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('2609a1ea-2944-5256-eba8-13ef84db1976', '60000000-0000-4000-8000-000000000205', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/babb3160-a2a5-c971-bcd9-58732ec835cb.png","alt":"Link Carousel: Make into grid — image 1","width":906,"height":772}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Link Carousel: Make into grid — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('a157bced-5237-6a8d-50b2-6925ea9246c1', '60000000-0000-4000-8000-000000000206', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/35f6b16a-f6e2-e87b-3316-045bfb02aa01.png","alt":"Finder: Handle urls — image 1","width":1199,"height":526}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Finder: Handle urls — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('a7cb7535-2e52-ed7c-e20b-094b88d37d14', '60000000-0000-4000-8000-000000000207', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/1c2b6f7a-223b-e320-cd61-35fe4762880a.png","alt":"EVIM Banner: Intranet Mode Edits — image 1","width":397,"height":58}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/7071224e-8508-5e49-1338-bd532ad79eb0.png","alt":"EVIM Banner: Intranet Mode Edits — image 2","width":368,"height":97}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: EVIM Banner: Intranet Mode Edits — image 1][image: EVIM Banner: Intranet Mode Edits — image 2]',
+   '2025-12-29 09:00:00+00'),
+  ('79549f9f-b6b9-24c7-5fa6-52fb02ba5f12', '60000000-0000-4000-8000-000000000208', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 6 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/6172407f-7f63-f618-ef79-a665135aee18.png","alt":"EVIM Banner: Modes — image 1","width":778,"height":164}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/a684c9c8-305b-1957-c250-00eecfc3b1f1.png","alt":"EVIM Banner: Modes — image 2","width":778,"height":164}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/8d812a36-eedd-0253-a880-41e76dedc8bf.png","alt":"EVIM Banner: Modes — image 3","width":209,"height":133}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/507e7d16-b3a2-a515-8089-194a3a8d0861.png","alt":"EVIM Banner: Modes — image 4","width":209,"height":133}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/04a6659b-dafc-e983-6188-717406beaf56.png","alt":"EVIM Banner: Modes — image 5","width":263,"height":192}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/9acccb73-eb67-6f4e-e7a6-5255791019b6.png","alt":"EVIM Banner: Modes — image 6","width":263,"height":192}}]}'::jsonb,
+   'Imported from Notion — the 6 screens on this item''s page.
+[image: EVIM Banner: Modes — image 1][image: EVIM Banner: Modes — image 2][image: EVIM Banner: Modes — image 3][image: EVIM Banner: Modes — image 4][image: EVIM Banner: Modes — image 5][image: EVIM Banner: Modes — image 6]',
+   '2025-12-29 09:00:00+00'),
+  ('ddbfa248-fcf6-c033-e7d6-9b8fa183966f', '60000000-0000-4000-8000-000000000211', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/36499faa-7b44-75db-c3c7-e124194106d9.png","alt":"EVIM Collapser (restoring after mistake) — image 1","width":582,"height":1072}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: EVIM Collapser (restoring after mistake) — image 1]',
+   '2025-12-29 09:00:00+00'),
+  ('36716ff6-43e8-bd47-777f-6ff7a1f7496e', '60000000-0000-4000-8000-000000000213', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/3482003d-0a6a-fd01-27fe-27f7d6809a97.png","alt":"EVIM Tabs with Cards — image 1","width":157,"height":49}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/6079f35e-c8c9-f198-86bf-4e0846850594.png","alt":"EVIM Tabs with Cards — image 2","width":796,"height":1670}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: EVIM Tabs with Cards — image 1][image: EVIM Tabs with Cards — image 2]',
+   '2025-12-29 09:00:00+00'),
+  ('a3912649-4552-9d93-c99a-10283caa7ccc', '60000000-0000-4000-8000-000000000214', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 3 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/d55647cb-2f1f-fcb1-6da5-fe2a1cc58e5b.png","alt":"EVIM Button Link Plus — image 1","width":732,"height":142}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/590edc6a-fe02-9c70-2fa8-3328a3fb9e66.png","alt":"EVIM Button Link Plus — image 2","width":778,"height":425}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/02b48429-83de-6130-c2d0-bcc75fdfe854.png","alt":"EVIM Button Link Plus — image 3","width":583,"height":239}}]}'::jsonb,
+   'Imported from Notion — the 3 screens on this item''s page.
+[image: EVIM Button Link Plus — image 1][image: EVIM Button Link Plus — image 2][image: EVIM Button Link Plus — image 3]',
+   '2025-12-29 09:00:00+00'),
+  ('78863793-59e7-6b69-64ac-1f09995e66c1', '60000000-0000-4000-8000-000000000215', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 3 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/7bad9061-c3a9-fecb-990a-fb502db1778b.png","alt":"EVIM Quick Links Plus — image 1","width":362,"height":861}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/75881981-b509-a6e1-d79a-2fdf88dd9bd5.png","alt":"EVIM Quick Links Plus — image 2","width":439,"height":85}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/9de2278d-3d38-d25b-1cfc-e8916c69866c.png","alt":"EVIM Quick Links Plus — image 3","width":240,"height":97}}]}'::jsonb,
+   'Imported from Notion — the 3 screens on this item''s page.
+[image: EVIM Quick Links Plus — image 1][image: EVIM Quick Links Plus — image 2][image: EVIM Quick Links Plus — image 3]',
+   '2025-12-29 09:00:00+00'),
+  ('55f3fd13-7d17-3ab4-d244-ffedf16ef8e7', '60000000-0000-4000-8000-000000000219', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/37e51f68-3063-075f-7957-680654df2359.png","alt":"Webparts bug — image 1","width":441,"height":147}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Webparts bug — image 1]',
+   '2026-08-09 09:00:00+00'),
+  ('051e5bf4-4145-9498-ac7b-cb261a4e9638', '60000000-0000-4000-8000-000000000220', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/78c7f165-4549-e89c-b6c0-51585986fe3d.png","alt":"EVIM Newspart — image 1","width":647,"height":58}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/d120553b-5a00-53e0-20b2-7ba57916d6b3.png","alt":"EVIM Newspart — image 2","width":562,"height":414}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: EVIM Newspart — image 1][image: EVIM Newspart — image 2]',
+   '2026-08-17 09:00:00+00'),
+  ('150d9d49-534e-f5d5-c61b-a121c6cb4bc9', '60000000-0000-4000-8000-000000000221', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 3 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/15dbf229-7193-8245-37b4-e5dc14edb5d8.png","alt":"EVIM Newspart Changes — image 1","width":1432,"height":109}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/4c726413-dcbf-3c82-65a8-bd2044888cd3.png","alt":"EVIM Newspart Changes — image 2","width":178,"height":75}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/ae79209e-1668-5485-7c7e-c85f2fe648cd.png","alt":"EVIM Newspart Changes — image 3","width":671,"height":96}}]}'::jsonb,
+   'Imported from Notion — the 3 screens on this item''s page.
+[image: EVIM Newspart Changes — image 1][image: EVIM Newspart Changes — image 2][image: EVIM Newspart Changes — image 3]',
+   '2026-08-17 09:00:00+00'),
+  ('7e91937a-2c94-7680-7585-37588e89adfd', '60000000-0000-4000-8000-000000000222', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 3 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/5b24555b-1edb-c3ec-7db2-e233a2dc4cc2.png","alt":"EVIM Banner news mode — image 1","width":658,"height":126}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/6188ffa2-eaa9-31b3-bbe0-f672f60c772a.png","alt":"EVIM Banner news mode — image 2","width":315,"height":137}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/6a894f39-bfec-cab1-86d0-fd2226bd21a4.png","alt":"EVIM Banner news mode — image 3","width":325,"height":309}}]}'::jsonb,
+   'Imported from Notion — the 3 screens on this item''s page.
+[image: EVIM Banner news mode — image 1][image: EVIM Banner news mode — image 2][image: EVIM Banner news mode — image 3]',
+   '2026-08-17 09:00:00+00'),
+  ('f15963fb-2ef1-1b0b-f846-8694cd4755ce', '60000000-0000-4000-8000-000000000224', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/a1c9881d-3388-24ef-34eb-763a99c6dc46.png","alt":"[REACT] EVIM News Redakteurseite — image 1","width":720,"height":266}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: [REACT] EVIM News Redakteurseite — image 1]',
+   '2026-08-14 09:00:00+00'),
+  ('5aec97f8-5c81-ae7a-8460-ca4bd564cc7a', '60000000-0000-4000-8000-000000000225', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/3833e82a-9e2d-a604-32a3-95bba78f9c4b.png","alt":"EVIM Tabs with Cards — image 1","width":1185,"height":756}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/117d23da-b60e-9d68-88df-3100e2a2087d.png","alt":"EVIM Tabs with Cards — image 2","width":394,"height":261}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: EVIM Tabs with Cards — image 1][image: EVIM Tabs with Cards — image 2]',
+   '2026-08-17 09:00:00+00'),
+  ('4da301ac-b818-b781-90c7-6a0ab1d5eea6', '60000000-0000-4000-8000-000000000226', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/6a1bd278-d886-ccc8-26fc-4a0bb13e144c.png","alt":"EVIM Akkordeon (Collapser) — image 1","width":689,"height":103}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: EVIM Akkordeon (Collapser) — image 1]',
+   '2026-08-17 09:00:00+00'),
+  ('d21c7b73-115b-7ad7-b916-a4dbe205b494', '60000000-0000-4000-8000-000000000227', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 4 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/653638e4-41dc-5e4e-19c2-477792d99adc.png","alt":"EVIM Link Kachel — image 1","width":131,"height":36}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/e1245da1-6165-2d09-957a-11916520df31.png","alt":"EVIM Link Kachel — image 2","width":778,"height":156}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/d9634328-86d9-c431-49b5-cfccac42c486.png","alt":"EVIM Link Kachel — image 3","width":1268,"height":633}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/e1f88eef-9def-2b97-c93a-3ab24f40d0fd.png","alt":"EVIM Link Kachel — image 4","width":408,"height":274}}]}'::jsonb,
+   'Imported from Notion — the 4 screens on this item''s page.
+[image: EVIM Link Kachel — image 1][image: EVIM Link Kachel — image 2][image: EVIM Link Kachel — image 3][image: EVIM Link Kachel — image 4]',
+   '2026-08-17 09:00:00+00'),
+  ('2fed0267-a0d0-03e3-0534-ec5a3478ae79', '60000000-0000-4000-8000-000000000228', 'a0000000-0000-4000-8000-000000000004',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/85632d11-5bd3-fa00-8a11-619924b3b4de.png","alt":"EVIM Quick Links Plus — image 1","width":232,"height":81}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000004/96302d7b-7ae1-ecb1-bc93-105e9ffc90d6.png","alt":"EVIM Quick Links Plus — image 2","width":635,"height":773}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: EVIM Quick Links Plus — image 1][image: EVIM Quick Links Plus — image 2]',
+   '2026-08-17 09:00:00+00'),
+  ('befbae45-4407-53fb-8752-c6e73c170c4f', '60000000-0000-4000-8000-000000000229', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/3b322b02-2d38-e243-09be-139ccd3a6e09.png","alt":"Add optional titles to all webparts — image 1","width":1128,"height":494}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Add optional titles to all webparts — image 1]',
+   '2026-08-23 09:00:00+00'),
+  ('d56a4d32-d6a0-074f-c57a-4cb6b0c194d4', '60000000-0000-4000-8000-000000000244', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/c27aa010-7ad9-99e2-0689-ed4e26ea4b7f.png","alt":"New mode: Rollover Contact Cards — image 1","width":1115,"height":541}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/104e48e9-a3d0-d0f4-d959-203292b10e78.png","alt":"New mode: Rollover Contact Cards — image 2","width":778,"height":541}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: New mode: Rollover Contact Cards — image 1][image: New mode: Rollover Contact Cards — image 2]',
+   '2026-08-23 09:00:00+00'),
+  ('3ab11bdb-2add-b30a-20c8-bdb1c2b81952', '60000000-0000-4000-8000-000000000242', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/899dbe38-355f-5bc5-8030-19bbf34f9cfd.png","alt":"[React] Redaktionskalendar — image 1","width":759,"height":751}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/024185a0-b750-a4aa-8a99-119ebb7801f4.png","alt":"[React] Redaktionskalendar — image 2","width":1536,"height":1024}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: [React] Redaktionskalendar — image 1][image: [React] Redaktionskalendar — image 2]',
+   '2026-08-23 09:00:00+00'),
+  ('97ffbd29-c5f1-4ec7-9ed0-6d70892041b3', '60000000-0000-4000-8000-000000000240', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/489b16f5-1f0a-adde-3e81-928c7ac7316b.png","alt":"Rollover Contact Cards — image 1","width":536,"height":344}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Rollover Contact Cards — image 1]',
+   '2026-08-23 09:00:00+00'),
+  ('cf45f9b4-809b-738c-5367-7e202b9d808a', '60000000-0000-4000-8000-000000000234', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 4 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/22f0ad53-e865-4b9d-3125-c0a4e36ef7a1.png","alt":"Banner News Mode — image 1","width":591,"height":284}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/e18afa5d-6891-6366-4f91-d28ea0c8fbdf.png","alt":"Banner News Mode — image 2","width":609,"height":243}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/1677538a-3d29-6b06-d7da-2ec7a7e17345.png","alt":"Banner News Mode — image 3","width":1390,"height":656}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/968e1ad4-0fe4-077d-8b99-657a6d83e31f.png","alt":"Banner News Mode — image 4","width":620,"height":149}}]}'::jsonb,
+   'Imported from Notion — the 4 screens on this item''s page.
+[image: Banner News Mode — image 1][image: Banner News Mode — image 2][image: Banner News Mode — image 3][image: Banner News Mode — image 4]',
+   '2026-08-23 09:00:00+00'),
+  ('85ea1b95-b089-9a98-9e94-bf836c63b8c6', '60000000-0000-4000-8000-000000000237', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/55c45614-a0fa-c3bc-8826-c1f1ab06a09e.png","alt":"Unifying pill button: arrow and animation — image 1","width":207,"height":53}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Unifying pill button: arrow and animation — image 1]',
+   '2026-08-23 09:00:00+00'),
+  ('22f67ee8-573e-cb25-c7d0-eeb4d3b7fd97', '60000000-0000-4000-8000-000000000233', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 3 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/3f483415-61c3-0989-fa20-3ed1775cebd4.png","alt":"Newspart changes — image 1","width":1037,"height":102}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/b9388080-1976-0410-596b-9253ed194184.png","alt":"Newspart changes — image 2","width":620,"height":149}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/495591b5-1d1e-42e4-8d34-d04116e4fde6.png","alt":"Newspart changes — image 3","width":749,"height":642}}]}'::jsonb,
+   'Imported from Notion — the 3 screens on this item''s page.
+[image: Newspart changes — image 1][image: Newspart changes — image 2][image: Newspart changes — image 3]',
+   '2026-08-23 09:00:00+00'),
+  ('cd0a1038-ce48-8a98-0648-0b9e3bdb6c59', '60000000-0000-4000-8000-000000000235', 'a0000000-0000-4000-8000-000000000003',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 3 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/c61bf51d-17de-4a99-e979-11d475534f5a.png","alt":"Responsiveness for Link Kachel, Tabs with Cards, Newspart — image 1","width":420,"height":331}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/41547d8b-b41d-8b6f-11aa-9f2fff889850.png","alt":"Responsiveness for Link Kachel, Tabs with Cards, Newspart — image 2","width":89,"height":25}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000003/75b3a8da-19e8-95d1-ed50-a7fe5e792044.png","alt":"Responsiveness for Link Kachel, Tabs with Cards, Newspart — image 3","width":222,"height":743}}]}'::jsonb,
+   'Imported from Notion — the 3 screens on this item''s page.
+[image: Responsiveness for Link Kachel, Tabs with Cards, Newspart — image 1][image: Responsiveness for Link Kachel, Tabs with Cards, Newspart — image 2][image: Responsiveness for Link Kachel, Tabs with Cards, Newspart — image 3]',
+   '2026-08-23 09:00:00+00'),
+  ('490119e5-9a5c-1c6c-3e86-f595867a6008', '60000000-0000-4000-8000-000000000238', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/ac6c67fd-3526-0d77-8325-44e972f17ef3.png","alt":"Banner Intranet mode — image 1","width":596,"height":146}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: Banner Intranet mode — image 1]',
+   '2026-08-23 09:00:00+00'),
+  ('6f4ec868-e04b-47d4-24a5-288059d1783c', '60000000-0000-4000-8000-000000000239', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the screen on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/dcbcc9dd-92d8-fd2e-aeef-27a5f8f18c29.png","alt":"[React] Redakteurseite — image 1","width":1880,"height":137}}]}'::jsonb,
+   'Imported from Notion — the screen on this item''s page.
+[image: [React] Redakteurseite — image 1]',
+   '2026-08-23 09:00:00+00'),
+  ('94ac0863-6a73-0821-c2c3-7c26e083fb0c', '60000000-0000-4000-8000-000000000236', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 3 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/115614ac-8603-3e13-ebc7-b68a43b1bca5.png","alt":"Calendar — image 1","width":381,"height":135}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/5b844407-48b6-db7b-0747-425452b4ab83.png","alt":"Calendar — image 2","width":154,"height":48}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/beef64cb-3f3a-9597-4bf3-bbf27251eeba.png","alt":"Calendar — image 3","width":282,"height":410}}]}'::jsonb,
+   'Imported from Notion — the 3 screens on this item''s page.
+[image: Calendar — image 1][image: Calendar — image 2][image: Calendar — image 3]',
+   '2026-08-23 09:00:00+00'),
+  ('dfecd9d1-583a-e2a5-ad28-4b53c05e2e41', '60000000-0000-4000-8000-000000000232', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 2 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/fcae2039-582b-b786-b71d-91b0e17aa0de.png","alt":"Link Kachel changes — image 1","width":560,"height":665}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/774cff8d-aacd-81f3-396f-984cd95abaca.png","alt":"Link Kachel changes — image 2","width":350,"height":239}}]}'::jsonb,
+   'Imported from Notion — the 2 screens on this item''s page.
+[image: Link Kachel changes — image 1][image: Link Kachel changes — image 2]',
+   '2026-08-23 09:00:00+00'),
+  ('59c7f350-ffcc-5954-419c-d60f0efcc5c6', '60000000-0000-4000-8000-000000000245', 'a0000000-0000-4000-8000-000000000001',
+   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Imported from Notion — the 4 screens on this item''s page."}]},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/121a51ff-5e7d-934d-58bf-66803b4f289a.jpg","alt":"Vanessa CRs — image 1","width":227,"height":133}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/2995e136-ccdd-4f7b-94c6-2416d59447f8.jpg","alt":"Vanessa CRs — image 2","width":800,"height":696}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/b8e48120-35fb-3299-c101-a8017278c5a8.png","alt":"Vanessa CRs — image 3","width":1337,"height":394}},{"type":"image","attrs":{"src":"/api/attachments/a0000000-0000-4000-8000-000000000001/11d940f5-744d-89ef-8bb7-6114ba890101.png","alt":"Vanessa CRs — image 4","width":463,"height":244}}]}'::jsonb,
+   'Imported from Notion — the 4 screens on this item''s page.
+[image: Vanessa CRs — image 1][image: Vanessa CRs — image 2][image: Vanessa CRs — image 3][image: Vanessa CRs — image 4]',
+   '2026-08-23 09:00:00+00');

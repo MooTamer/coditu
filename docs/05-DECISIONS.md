@@ -4234,3 +4234,100 @@ the two long browser passes for use mid-change; the unqualified command is the
 one that gates a handoff.
 
 A check that only runs when somebody remembers is not a check.
+
+---
+
+## 2026-08-27 · The Notion import assigns keys from a ledger, not from a counter
+
+**Decision.** `supabase/notion-keys.json` records which Notion page owns which `COD-` number, and
+`scripts/import-notion-export.mjs` reads it before it writes anything. An item that has been imported
+before keeps the key it was given; a new one takes the lowest number nobody holds. Identity is the
+Notion **page id** — the 32 hex characters Notion appends to every exported filename — falling back to
+the normalised title, scoped to its sprint, for a row with no page at all.
+
+**Why.** Keys were handed out in walk order: first row of Week 3 is `COD-140`, and so on. That is
+stable only while the export is, and the export is a board somebody re-sorts. The "Week 17, after
+done" re-export moved fourteen rows into a different order and added three, and re-running the
+importer would have pointed `COD-230` at a different piece of work — every bookmark, every screenshot,
+every number quoted in a review, silently wrong, with nothing in the diff to say "this is a rename"
+rather than "this is an edit". `e2e/fixtures.ts` already carried a note about the last time this
+happened and cost thirty-nine specs.
+
+The page id rather than the title because this very export renamed two items:
+`[React] Redakteurkalendar` → `[React] Redaktionskalendar`, and `Banner Intranet Mode` recased. A
+title-keyed ledger would have called the first a new item and orphaned `COD-242`.
+
+**What was rejected.** Keeping the counter and re-deriving `e2e/fixtures.ts` after every import — that
+is the status quo, and it treats a renumbering as a fixture chore rather than as data loss. Also
+rejected: writing the key into the Notion board, which means asking the team to maintain a column for
+this app's benefit.
+
+**Property worth keeping.** An empty ledger reproduces the original numbering exactly. It is the
+counter, plus a memory, which is what makes it safe to adopt against a seed already in use.
+
+---
+
+## 2026-08-27 · An imported picture becomes a comment, because that is the only place this app draws one
+
+**Decision.** Every work item whose Notion page carries pictures gets one seeded comment holding them,
+authored by the person Notion names on the item and dated to the day that item's logged time is filed
+against. The bytes go to the private `comment-images` bucket under `<profile uuid>/<object uuid>.<ext>` —
+the only key shape `/api/attachments` will serve — which is the same shape `POST /api/uploads` writes
+for an image dragged into the composer. A file that route cannot serve (the Week 15 requirements PDF)
+stays in `work-attachments` and stays a row.
+
+**Why.** The pictures used to land in `public.attachments` pointed at `work-attachments`, and **no
+screen renders that table**. `06-PROGRESS.md` says so of the client side — "`view_attachments` is a
+capability with nothing behind it" — and it was equally true internally: 103 screenshots the team filed
+against their own work were in the database, in storage, and on no page. Transcribing something into a
+column nothing reads is not transcribing it.
+
+**What this costs, stated plainly.** The comment is the one row the import writes that Notion does not
+literally contain. It is a **carrier**, not content: its only prose is one sentence of provenance, in
+the same voice as `time_entries.note`, which the import has always written. Everything a reader sees
+inside it — the pictures, their order — is transcribed. Nothing invents a discussion that did not
+happen.
+
+**What was rejected.** Building an attachments strip on the item detail so `public.attachments` finally
+renders — that is app work, not a data import, and it would still need a second decision about what a
+client may see. Rejected too: leaving the pictures where they were, which is the option that keeps
+them invisible.
+
+**Consequence for alt text.** The file names are `image.png`, `image 1.png`, `CleanShot_2025-…png`.
+None describes a picture to somebody who cannot see it, so the alt text is `<item title> — image N`.
+`attachments.file_name` keeps what Notion actually called the file.
+
+---
+
+## 2026-08-27 · A Notion row with no Status is `draft`
+
+**Decision.** A row whose Status cell is present but empty imports as `draft`. A status this app has
+never seen still refuses to write, as before.
+
+**Why.** Week 17 has two such rows — "Meeting with Vanessa" and "Vanessa CRs" — both carrying logged
+hours and neither carrying a status, an assignee or a story type. They are time-tracking rows somebody
+added to the board, not tickets anybody moved through it. Where the export is silent this import
+writes NULL; `work_items.status` is NOT NULL, and `draft` is the one value in the enum that claims
+nothing about progress.
+
+**What was rejected.** `done`, which asserts something the export does not say about work nobody
+marked finished. And `ready`, which says "not started" about three hours somebody spent.
+
+**And a divergence worth naming rather than discovering.** `lib/import/notion.ts` — the *in-app*
+importer, the one behind `/app/import` — maps a blank status to `ready`, and stays that way. The two
+answer different questions. Somebody pasting a CSV into the Import screen is importing a plan, and an
+unstated status there means "not started yet"; this script transcribes a board of work that already
+happened, and an unstated status there means nobody ever said. Same input, different claim.
+
+---
+
+## 2026-08-27 · `attachments.storage_path` carries its bucket
+
+**Decision.** `storage_path` is `<bucket>/<key>` everywhere.
+
+**Why.** The imported rows held a bare key while `POST /api/uploads` had always written
+`comment-images/<key>`. One column meaning two things is harmless only until somebody reads it, and
+the import now writes into two buckets, so there is no longer a default to assume.
+
+**What was rejected.** A separate `bucket` column, which is the tidier schema and a migration nothing
+else needs.

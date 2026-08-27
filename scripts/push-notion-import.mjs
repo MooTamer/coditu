@@ -15,7 +15,8 @@
  * never changes a role. It resolves the four people who are already there by
  * name, refuses to run if any of them is missing or ambiguous, and imports only
  * delivery data: clients, projects, sprints, work items, criteria, logged time
- * and attachments.
+ * and attachments — plus the one comment per item that carries its pictures, for
+ * the reason the generated seed's attachments section gives.
  *
  * Reads NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY from the
  * environment, or from `.env.production.local`.
@@ -243,19 +244,34 @@ if (entries.length) await insert("time_entries", entries);
 console.log(`  time      ${entries.length}`);
 
 /* Attachment bytes first, rows second: a row pointing at an object that is not
-   there renders as a broken link with nothing to say why. */
+   there renders as a broken link with nothing to say why.
+
+   The bucket, and therefore the key, is decided by whether `/api/attachments`
+   can serve the file — the importer's `bucket` field says which. A picture goes
+   to `comment-images` under `<profile>/<object>.<ext>`, the only shape that
+   route accepts, so the comment below can show it. The profile half is resolved
+   HERE and not taken from the import: production's people are real accounts and
+   the seed's UUIDs are not theirs. */
 let uploaded = 0;
 const attachmentRows = [];
+const commentRows = [];
 for (const { id, item } of itemIds) {
+  const by = item.assignee ? byName.get(item.assignee) : byName.get("Mohamed Tamer");
+  const pictures = [];
+
   for (const media of item.media) {
-    const source = join(EXPORT_ROOT, media.source);
+    // `repoSource` is a picture pasted into Notion rather than uploaded: it has
+    // no file in the export, so the importer decoded it into the repo.
+    const source = media.repoSource ? join(root, media.repoSource) : join(EXPORT_ROOT, media.source);
     if (!existsSync(source)) {
-      console.error(`  !! missing source ${media.source}`);
+      console.error(`  !! missing source ${media.repoSource ?? media.source}`);
       continue;
     }
-    const path = `${id}/${media.slug}`;
+    const bucket = media.bucket ?? "work-attachments";
+    const servable = bucket === "comment-images";
+    const path = servable ? `${by}/${media.slug}` : `${id}/${media.slug}`;
     const response = await fetch(
-      `${URL_BASE}/storage/v1/object/work-attachments/${path.split("/").map(encodeURIComponent).join("/")}`,
+      `${URL_BASE}/storage/v1/object/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}`,
       {
         method: "POST",
         headers: { apikey: KEY, authorization: `Bearer ${KEY}`, "content-type": media.mime, "x-upsert": "true" },
@@ -269,15 +285,51 @@ for (const { id, item } of itemIds) {
     uploaded += 1;
     attachmentRows.push({
       work_item_id: id,
-      storage_path: path,
+      storage_path: `${bucket}/${path}`,
       file_name: media.file_name,
       mime_type: media.mime,
       bytes: media.bytes,
-      uploaded_by: item.assignee ? byName.get(item.assignee) : byName.get("Mohamed Tamer"),
+      uploaded_by: by,
     });
+    if (servable) {
+      pictures.push({
+        src: `/api/attachments/${path}`,
+        alt: `${item.title} — image ${pictures.length + 1}`,
+        width: media.width ?? null,
+        height: media.height ?? null,
+      });
+    }
   }
+
+  // The document is built here rather than shipped ready-made, because every
+  // `src` in it names a profile this script has just resolved.
+  if (!pictures.length || !item.comment) continue;
+  const doc = {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [{
+          type: "text",
+          text: pictures.length === 1
+            ? "Imported from Notion — the screen on this item's page."
+            : `Imported from Notion — the ${pictures.length} screens on this item's page.`,
+        }],
+      },
+      ...pictures.map((picture) => ({ type: "image", attrs: picture })),
+    ],
+  };
+  commentRows.push({
+    work_item_id: id,
+    author_id: by,
+    body_json: doc,
+    body_text: [doc.content[0].content[0].text, ...pictures.map((p) => `[image: ${p.alt}]`)].join("\n"),
+    created_at: item.comment.created_at,
+  });
 }
 if (attachmentRows.length) await insert("attachments", attachmentRows);
 console.log(`  files     ${uploaded} uploaded, ${attachmentRows.length} rows`);
+if (commentRows.length) await insert("comments", commentRows);
+console.log(`  comments  ${commentRows.length}`);
 
 console.log("\ndone.");

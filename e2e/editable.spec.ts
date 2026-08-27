@@ -242,6 +242,14 @@ test.describe("a time entry can be corrected", () => {
       `select id from public.profiles where full_name = 'Mohamed Tamer'`
     );
 
+    // What the row already carries. Week 17 closed with time logged against
+    // every one of its items, so an absolute assertion below would be reading
+    // this row's own imported hours as if the correction had produced them.
+    const [{ minutes_logged: before }] = await query<{ minutes_logged: number }>(
+      `select minutes_logged from public.work_items where id = $1`,
+      [item.id]
+    );
+
     const [entry] = await query<{ id: string }>(
       `insert into public.time_entries (work_item_id, profile_id, minutes, worked_on)
        values ($1, $2, 480, current_date) returning id`,
@@ -276,7 +284,7 @@ test.describe("a time entry can be corrected", () => {
         `select minutes_logged from public.work_items where id = $1`,
         [item.id]
       );
-      expect(Number(rolled.minutes_logged)).toBe(30);
+      expect(Number(rolled.minutes_logged)).toBe(Number(before) + 30);
     } finally {
       await query(`delete from public.time_entries where id = $1`, [entry.id]);
     }

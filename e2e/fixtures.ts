@@ -21,14 +21,22 @@ export const SEED_ENGINEER = { email: "ahmed@coditu.com", password: "coditu" };
  * The seed's item keys, named by the role each one plays in a test.
  *
  * They used to be written out as `COD-140` in twelve different spec files, and
- * re-importing the Notion export moved every one of them — Week 17 now runs
- * COD-229 to COD-242, because the import numbers all fifteen sprints in order
- * and Week 3 comes first. Thirty-nine specs failed for one reason.
+ * re-importing the Notion export moved every one of them. Thirty-nine specs
+ * failed for one reason. So the keys live here once: a test asks for the item
+ * with the property it needs, and an import changes this block and nothing
+ * else. Anything a test can read from the database at run time it still should —
+ * these are only for choosing *which* row to look at.
  *
- * So the keys live here once. A test asks for the item with the property it
- * needs, and the next import changes this block and nothing else. Anything a
- * test can read from the database at run time it still should — these are only
- * for choosing *which* row to look at.
+ * ## The 2026-08-27 re-import
+ *
+ * The keys themselves no longer move. `supabase/notion-keys.json` remembers
+ * which Notion page owns which COD- number, so a re-sorted board reorders rows
+ * and renumbers nothing. What moved this time is the sprint's SHAPE: Week 17
+ * finished. Fifteen rows are `done`, three rows were added, and every row now
+ * has logged time.
+ *
+ * Three fixtures lost their subject to that and had to be re-chosen rather than
+ * renamed, and each says so where it stands.
  */
 export const SEED = {
   sprint: "/app/projects/meinevim/sprints/17",
@@ -36,19 +44,44 @@ export const SEED = {
   /** First row of Week 17. Has criteria, logged time, an assignee and a reviewer. */
   item: "COD-229",
   /** Second row, for "navigate to a different item" assertions. */
-  otherItem: "COD-230",
+  otherItem: "COD-244",
+  /**
+   * The component `supabase/seeds/item-components.sql` attributes to `otherItem`.
+   *
+   * `components.spec.ts` needs a row that already has one, to prove that ticking
+   * a second ADDS rather than swaps. It had "EVIM Themen Kachel" written into it
+   * twice, which was `otherItem`'s component only for as long as `otherItem` was
+   * "Tabs with Cards".
+   */
+  otherItemComponent: "EVIM Rollover Contact Cards",
   /** Carries grouping 1, so its row is tinted. */
   grouped: "COD-231",
   /** A criterion on `grouped`, verbatim — the tick-and-persist target. */
   groupedCriterion: "There is no min height",
-  /** Nothing logged against it yet, so a test may log an hour and take it back. */
+  /**
+   * A row whose title a test may rewrite and put back.
+   *
+   * It used to be the one row with nothing logged against it, and after the
+   * sprint closed there is no such row — all seventeen carry time. Nothing
+   * actually depended on that; `editable.spec.ts` only edits the title and
+   * restores it. Named for what it is used for now.
+   */
   unstarted: "COD-237",
   /**
    * Two quiet items with no thread of their own. The composer and comment-
    * rendering suites each seed and clear comments on one of them, so they have
    * to be different rows or the two suites race.
+   *
+   * "Quiet" now means something stronger than it did: the import writes one
+   * comment per item that has pictures on its Notion page, so a row is only
+   * empty if its page had none. Week 17 has exactly four such rows and five
+   * slots below want one, which is why `mobile-chrome` holds a row that is not
+   * quiet — see there.
+   *
+   * `thread` also has to be the row `uniqueTerm` finds: `palette-realtime.spec.ts`
+   * presses Enter on the first result and asserts it lands here.
    */
-  thread: "COD-240",
+  thread: "COD-246",
   hostileThread: "COD-241",
   /**
    * One quiet item per Playwright PROJECT, for a spec that runs on more than
@@ -58,11 +91,16 @@ export const SEED = {
    * spec like that runs under two projects in parallel the two workers delete
    * each other's fixture mid-assertion. Splitting the row is cheaper than
    * serialising the projects.
+   *
+   * `mobile-chrome` is the exception: Week 17 ran out of rows with no imported
+   * comment. Every spec here deletes the row's comments before seeding its own,
+   * so the test is unaffected — but a `mobile-chrome` run does drop COD-238's
+   * imported screenshot until the next `db:reset`, and that is the whole cost.
    */
   threadPerProject: {
-    chromium: "COD-235",
-    "mobile-safari": "COD-238",
-    "mobile-chrome": "COD-239",
+    chromium: "COD-230",
+    "mobile-safari": "COD-231",
+    "mobile-chrome": "COD-238",
   } as Record<string, string>,
   hostileThreadTitle: "Quick Links Plus Open New Tab bug",
   /** A key prefix that matches several Week 17 rows, for palette fuzzy search. */
@@ -70,30 +108,57 @@ export const SEED = {
   /**
    * A word appearing in exactly one item title across the whole project, and a
    * subsequence of that same title. The palette searches every sprint and caps
-   * at twelve results, so a term like "banner" now fills the list from fifteen
+   * at twelve results, so a term like "banner" fills the list from fifteen
    * sprints of web parts and says nothing about whether matching works.
+   *
+   * It used to be "rollover" on `Rollover Contact Cards`. Week 17 added
+   * "New mode: Rollover Contact Cards", so that word now matches two titles and
+   * the uniqueness assertion it exists for was quietly meaningless.
+   *
+   * These three and `thread` move together: the palette test asserts the term
+   * yields exactly ONE option, that it reads `uniqueTitle`, and that Enter
+   * navigates to `thread`.
+   *
+   * "Exactly one" is stricter than it looks, because the palette matches a
+   * SUBSEQUENCE and not a substring: a short term like "meeting" appears in one
+   * title and still matches a second item whose letters happen to fall in that
+   * order. Checked against all 107 seeded items with `fuzzyScore` itself —
+   * "meeting with" matches one, "meeting" matches two.
    */
-  uniqueTerm: "rollover",
-  uniqueSubsequence: "rlvrcntct",
-  uniqueTitle: "Rollover Contact Cards",
+  uniqueTerm: "meeting with",
+  uniqueSubsequence: "mtngwthvns",
+  uniqueTitle: "Meeting with Vanessa",
   /** The one Week 17 item carrying a discuss-before-implementing highlight. */
   highlighted: "COD-236",
   highlightText: "please only make changes in this mode",
   /** Last row of the sprint. */
-  last: "COD-242",
+  last: "COD-246",
   /** Highest key in the seed; a newly created item must exceed it. */
-  highestKey: 243,
+  highestKey: 246,
 
   /** Week 17's footer: hours logged over hours estimated. */
-  totals: "17.5 / 0.0",
+  totals: "58.0 / 0.0",
   /** How many rows Week 17 holds, and how many survive "drop drafts". */
-  itemCount: 14,
-  nonDraftCount: 12,
+  itemCount: 17,
+  nonDraftCount: 15,
   /** A Week 17 row in `draft`, so "drop drafts" removes it from an export. */
-  draft: "COD-242",
-  /** Week 17's status spread, as the sprint table and the report each phrase it. */
-  inProgressCount: 3,
-  peerReviewCount: 4,
+  draft: "COD-245",
+  /**
+   * Week 17's status spread, as the sprint table and the report each phrase it.
+   *
+   * `statusDistribution` emits only the statuses a sprint actually holds, so
+   * these have to name statuses that are there. The sprint used to be in flight
+   * and these read `inProgressCount` and `peerReviewCount`; it has closed, and
+   * asserting "in progress 0" would have asserted against a slice the bar does
+   * not draw at all.
+   */
+  doneCount: 15,
+  draftCount: 2,
+  /**
+   * A status to filter the sprint table by: one the sprint holds, and does not
+   * hold entirely, or "(filtered)" is a claim about nothing.
+   */
+  filterableStatus: "done",
 } as const;
 
 async function anonKey(): Promise<string> {
