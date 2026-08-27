@@ -4009,3 +4009,26 @@ window, not a regression; it passed twice over once warm. And the first version
 of the assertion failed as a strict-mode violation with two matches, which was
 the update arriving *twice* — once in the description, once as `+ added: …` in
 the version-history diff refreshing beside it.
+
+### The client-portal specs are in git
+
+Thirty-four specs across four files, and the fixture that builds two companies,
+two contacts and a grant, had been running every phase and committed by none of
+them: `.gitignore` held `/e2e/client-*.spec.ts` with the note *local-only until
+they are explicitly asked for in git*.
+
+They are asked for now. They are the only automated proof that a client contact
+cannot reach `/app`, cannot see another company's project, cannot read an
+internal comment or an unpublished component, and cannot reach a figure — and
+coverage that exists on one laptop is not coverage. A teammate cloning this
+repository could not run the tests that guard the boundary the whole client
+feature rests on.
+
+`client-fixtures.local.ts` is `client-fixtures.ts` now. The suffix was the claim,
+and the claim changed.
+
+Still ignored, and still should be: `/e2e/*.local.spec.ts` for one-off browser
+diagnostics, the screenshot helper, and every trace, video and report. The two
+probes that found the realtime gap were written under that rule and are not here.
+
+34 passed before the rename and 34 after.

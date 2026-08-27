@@ -62,11 +62,13 @@ next-env.d.ts
 # local screenshot helper — verification only, never committed
 /scripts/.shot.local.mjs
 
-# Client-portal browser verification — specs and fixtures are local-only until
-# they are explicitly asked for in git. They run, they gate the work, and they
-# are not committed.
-/e2e/client-*.spec.ts
-/e2e/client-fixtures.local.ts
+# Client-portal browser verification is IN git now. It was local-only until it
+# was explicitly asked for, which the 2026-08-27 audit did: these thirty-four
+# specs are the only automated proof that a client contact cannot reach /app,
+# another company's project, an internal comment, an unpublished component or a
+# figure — and coverage nobody but one laptop can run is not coverage.
+# `client-fixtures.ts` lost its `.local` suffix with them, because the name was
+# the claim.
 /scripts/.*.local.mjs
 
 # One-off browser diagnostics — verification only, never committed
