@@ -4331,3 +4331,56 @@ the import now writes into two buckets, so there is no longer a default to assum
 
 **What was rejected.** A separate `bucket` column, which is the tidier schema and a migration nothing
 else needs.
+
+---
+
+## 2026-08-28 · The visual evidence lives in three specs git does not carry
+
+**Decision.** `.gitignore:75` keeps `/e2e/*.local.spec.ts` out of the repository, and it stays that
+way. The consequence is stated here rather than discovered: the Fifth and Sixth passes of
+`08-GAP-MATRIX.md` rest on three files that exist only on the machine that wrote them —
+`e2e/home-shell.local.spec.ts`, `e2e/measures.local.spec.ts`, `e2e/touch-targets.local.spec.ts` —
+and **no cloud session, teammate or fresh clone can re-run a single row that cites them.**
+
+**What the arrangement buys.** These are diagnostics, not guards. A local spec can be written at the
+speed of the question it answers, assert a `getComputedStyle` at one width against one seeded
+database, be deliberately failed to find something, and then be thrown away — none of which a suite
+other people have to keep green can afford. `playwright.config.ts`'s `testIgnore` is the other half
+of it: without the gitignore they would still *run*, because `testDir` is a directory and gitignore
+is not a test filter, so a sweep somebody left red would turn `npm run e2e` red for everybody who
+never had the file. Nobody inherits an obligation for a measurement somebody took once.
+
+**What it costs, stated plainly.** `git clone && npm ci && npm run gate` reproduces every number in
+this audit except the visual ones. A reviewer can re-run the unit fixtures in `tests/home.test.ts`
+and every committed spec; they cannot re-run the cell that reads **16 passed**. For anybody but this
+Mac those cells are not evidence — they are testimony. An audit whose strongest rows are the ones
+nobody else can check has the problem backwards, and writing that down is the minimum honest
+response to it.
+
+**Which rows depend on it today.**
+
+| Depends on | Rows |
+|---|---|
+| `e2e/home-shell.local.spec.ts` | **V-B1, V-B2, V-B3, V-B5, V-B7, V-C2, V-C3, V-C4, V-C5, V-C6** entirely; **V-B4** and **V-B6** for their rendered half only — the fixtures behind both are in the committed `tests/home.test.ts`. Also the Sixth pass's three whole-run rows: `16 passed` three times over, the eight-width light-and-dark sweep, and the two-context cross-route presence check |
+| `e2e/measures.local.spec.ts` | **V-A1 – V-A15**, the fifteen page measures at 1920 |
+| `e2e/touch-targets.local.spec.ts` | **V-G7**, and the Sixth pass's aggregate 21-route coarse-pointer sweep |
+
+Everything else in both passes cites a committed spec, a committed unit test, `npm run budgets`, or a
+commit SHA, and survives a clone.
+
+**What was rejected.**
+
+*Committing the three files as they are.* They would join `npm run e2e`, which makes them guards:
+somebody would have to keep `font-size: 26px` green through the next type change, and a diagnostic
+written to fail on purpose would break the gate. That is a real cost and it buys reproducibility of
+the *file*, not of the *measurement* — the specs read a seeded local database on a dev server at a
+fixed viewport, and CI has none of those.
+
+*Pasting the runs into `docs/`.* A transcript is not a re-run. It moves the same testimony into a
+file where it looks more official, which is worse.
+
+*Promoting the assertions into the committed suite.* This is the right long-term answer and it is a
+different piece of work: the durable claims (the 320px column, the tablist keyboard contract, the
+drawer's focus trap, the fifteen measures) belong in `e2e/navigation.spec.ts` and `a11y.spec.ts`
+where the gate already runs them, and the throwaway ones do not belong anywhere. Named here so that
+somebody chooses it rather than defaults into it.
