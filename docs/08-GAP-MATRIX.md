@@ -732,10 +732,83 @@ first version reported numbers for all four; those numbers are withdrawn, not
 because they were wrong but because this pass cannot stand behind them. They are
 owed on an isolated, resettable database.
 
-**No database was reset, and nothing was written to it.** The local stack remains
-non-pristine from an earlier three-project mobile run: `COD-238` has zero
-comments where `supabase/seed.sql` seeds one, and six comment revisions exist
-that the seed does not describe.
+**No database was reset, and nothing was written to it.** The counts below were
+re-measured on 2026-08-28 in a `PGOPTIONS='-c default_transaction_read_only=on'`
+psql session against the shared stack on `:54422`, because the paragraph that
+stood here was wrong.
+
+It claimed "six comment revisions exist that the seed does not describe."
+**Six** is the count of `document_revisions` with `surface = 'sprint_notes'` —
+a different surface, read off the wrong row of a `group by surface`. The real
+drift is an order of magnitude larger, and it is three numbers, not one:
+
+```sql
+select count(*) from public.comments;                              -- 68
+select count(*) from public.document_revisions
+  where surface = 'comment';                                       -- 112
+select count(*) from public.document_revisions r                   -- 44
+ where r.surface = 'comment'
+   and not exists (select 1 from public.comments c where c.id = r.entity_id);
+```
+
+- **68 comments, where `supabase/seed.sql` inserts 70.** The `insert into
+  public.comments` block at `seed.sql:2552` carries 70 rows across 70 distinct
+  `work_item_id`s — one comment each for 70 of the 107 work items. All 68
+  survivors are seeded ids, none is soft-deleted, and nothing has been added, so
+  the deficit is exactly two deletions:
+  `490119e5-9a5c-1c6c-3e86-f595867a6008` on **`COD-238`** and
+  `97ffbd29-c5f1-4ec7-9ed0-6d70892041b3` on **`COD-240`** — two different items,
+  not two comments on `COD-238`.
+- **112 comment revisions, where a fresh reset leaves 70.** `seed.sql` writes no
+  `document_revisions` itself, but `record_comment_revision` — an `after insert
+  or update of body_json, body_text` trigger — writes one for every comment, so
+  the 70 seeded comments leave 70 revisions, all at `revision_no = 1`. That
+  baseline is **measured, not assumed**: a `supabase db reset` on an isolated
+  stack gives `comments 70 · comment revisions 70 · orphans 0`. So 42 of the 112
+  are the suite's. The whole table on the shared stack reads
+  `acceptance_criterion 304 · comment 112 · work_item_description 79 ·
+  sprint_notes 6 · work_item_highlight 2`.
+- **44 of those 112 are orphans**, across 44 distinct `entity_id`s — nothing
+  cascades `document_revisions` when a comment goes. **Two** are baseline
+  revisions left behind by the two deletions above. The other **42** name
+  comment ids the seed never defines: comments the suite created and then
+  removed. The arithmetic closes exactly — 70 baseline + 42 suite = 112 revisions,
+  and 2 + 42 = 44 orphans, against 70 - 2 = 68 comments.
+
+The 68/112/44 numbers come straight from the three statements above. The 70, the
+two named ids, and the 2/42 split of the orphans need the seed's own id list, so
+that the next reader can re-run it rather than take it on trust:
+
+```bash
+# the 70 comment ids the seed defines
+awk 'NR>2552' supabase/seed.sql | awk '/^insert into/{exit} {print}' \
+  | grep -oE "^\s*\('[0-9a-f-]{36}'" | grep -oE '[0-9a-f-]{36}' > /tmp/seeded.txt
+
+IDS=$(awk '{printf "%s(\047%s\047::uuid)", (NR>1?",":""), $0}' /tmp/seeded.txt)
+PGOPTIONS='-c default_transaction_read_only=on' \
+psql "postgresql://postgres:postgres@127.0.0.1:54422/postgres" <<SQL
+with seeded(id) as (values $IDS)
+select s.id, wi.key from seeded s
+  left join public.comments c on c.id = s.id
+  left join lateral (select work_item_id from public.document_revisions dr
+                      where dr.entity_id = s.id limit 1) r on true
+  left join public.work_items wi on wi.id = r.work_item_id
+ where c.id is null;                       -- the two deletions, with their items
+
+with seeded(id) as (values $IDS)
+select count(*) filter (where s.id is not null) as from_seeded_comments,
+       count(*) filter (where s.id is null)     as from_unseeded_comments
+  from public.document_revisions r left join seeded s on s.id = r.entity_id
+ where r.surface = 'comment'
+   and not exists (select 1 from public.comments c where c.id = r.entity_id);
+SQL
+```
+
+None of this is a defect in the application: it is the residue of e2e runs on a
+stack nobody reset. It is also why "the seed inserts none" is the wrong baseline
+to reason from — a trigger, not the seed, is what puts the first 70 there. It is recorded because it is the reason the four withdrawn
+suites could not be trusted here, and because a stale count in an audit is worth
+no more than no count at all.
 
 ## What the instruments got wrong, and what that cost
 
