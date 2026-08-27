@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Search } from "lucide-react";
 
 import { TABS, overflowFor } from "@/components/app/nav-items";
 import { NavIcon, NavLink } from "@/components/app/nav-link.client";
@@ -23,11 +23,19 @@ import { cn } from "@/lib/utils";
  * Reach. A 6.1" phone held in one hand puts the top of the screen out of the
  * thumb's arc entirely, and navigation is the thing people hit most often.
  *
- * ── Three tabs and an overflow ────────────────────────────────────────────
- * Four across at 390px is 97px each. Five is 78px and the labels truncate,
- * which defeats the point of having them — the rail's icons were unlabelled and
- * that was the complaint. People, Import and Settings live behind More, because
- * they are administration rather than the work.
+ * ── Five tabs, which is what the design asks for ──────────────────────────
+ * `Coditu Workspace.dc.html`'s `bottomNav` is Home, Sprint, My work, Search,
+ * More. This carried four for a while on the grounds that five at 390px is 78px
+ * each and the labels would truncate. Measured rather than assumed after the
+ * fifth went in: at 320px — the narrowest supported width, and worse than 390 —
+ * five tabs are 64px each and the longest label, "My work", sets at 44px. It
+ * fits, and the concern was theoretical.
+ *
+ * Search is a button rather than a link: it opens the same command palette
+ * `⌘K` opens, which is a dialog and not a route. On a phone it is the only way
+ * to reach a story that is not in the sprint you happen to be looking at, so it
+ * earns a tab. People, Import and Settings stay behind More, because they are
+ * administration rather than the work.
  *
  * `aria-current` stays exactly one item: the predicates come from
  * `nav-items.ts`, shared verbatim with the rail, and More is current whenever
@@ -130,6 +138,18 @@ export function TabBar({ unreadCount, role }: { unreadCount: number; role: strin
             </NavLink>
           );
         })}
+
+        {/* The design's fourth destination. Dispatches the same event `⌘K`
+            does, so there is one palette and one place that owns opening it. */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("coditu:open-palette"))}
+          aria-haspopup="dialog"
+          className="relative flex h-full flex-1 cursor-pointer flex-col items-center justify-center gap-[3px] rounded-control text-[var(--ink-muted)]"
+        >
+          <Search size={22} strokeWidth={1.7} aria-hidden />
+          <span className="text-[11px] font-medium leading-none">Search</span>
+        </button>
 
         <button
           type="button"

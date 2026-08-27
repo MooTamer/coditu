@@ -32,7 +32,7 @@ export function SprintBoard({ rows, basePath }: { rows: WorkItemRow[]; basePath:
   const present = STATUS_DISPLAY_ORDER.filter((status) => rows.some((row) => row.status === status));
 
   return (
-    <section className="grid snap-x snap-mandatory auto-cols-[minmax(240px,1fr)] grid-flow-col items-start gap-[14px] overflow-x-auto @min-[900px]:grid-flow-row @min-[900px]:grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))]">
+    <section className="grid snap-x snap-mandatory auto-cols-[minmax(264px,1fr)] grid-flow-col items-start gap-3 overflow-x-auto pb-[6px]">
       {present.map((status) => {
         const items = rows.filter((row) => row.status === status);
         return (

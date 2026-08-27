@@ -40,7 +40,7 @@ export function SprintCards({
   const estimate = summed.reduce((total, row) => total + row.estimateMinutes, 0);
 
   return (
-    <section className="hidden flex-col gap-[10px] @max-[900px]:flex">
+    <section className="hidden flex-col gap-[10px] max-md:flex">
       {/* The same answer the table gives, because a phone can reach the same
           empty state and a screen with nothing on it explains nothing. No
           "clear the filters" here: the control that set them is a sheet the

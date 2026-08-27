@@ -81,8 +81,16 @@ export function Topbar({
       event.preventDefault();
       setPaletteOpen((open) => !open);
     };
+    // The phone has no ⌘K. Its bottom bar's Search tab dispatches this instead,
+    // so both routes into the palette end at the one piece of state that owns
+    // it rather than the tab bar growing a second copy of the dialog.
+    const onRequest = () => setPaletteOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("coditu:open-palette", onRequest);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("coditu:open-palette", onRequest);
+    };
   }, []);
 
   const match = /^\/app\/projects\/([^/]+)(?:\/sprints\/(\d+))?/.exec(pathname);

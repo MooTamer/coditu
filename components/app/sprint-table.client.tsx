@@ -286,7 +286,7 @@ export function SprintTable({
   const estimate = summed.reduce((total, row) => total + row.estimateMinutes, 0);
 
   const table = (
-    <section className="overflow-auto rounded-section border border-[var(--hairline)] bg-[var(--raised)] @max-[900px]:hidden">
+    <section className="overflow-auto rounded-section border border-[var(--hairline)] bg-[var(--raised)] max-md:hidden">
       <table className="w-full border-collapse">
         <caption className="sr-only">
           {`Sprint work items. ${rows.length} of ${allRows.length} shown.` +
@@ -409,7 +409,7 @@ export function SprintTable({
       <p
         role="status"
         data-drag-paused
-        className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-[var(--hairline)] bg-[var(--raised)] px-4 py-[10px] text-[12.5px] leading-[1.5] text-[var(--ink-muted)] @max-[900px]:hidden"
+        className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-[var(--hairline)] bg-[var(--raised)] px-4 py-[10px] text-[12.5px] leading-[1.5] text-[var(--ink-muted)] max-md:hidden"
       >
         Manual drag order is paused while a sort is active — the order you see comes from the
         sort, not from the stored positions.
