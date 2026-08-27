@@ -1934,3 +1934,66 @@ Fixtures that will be deleted during a test get a **fixed uuid**, the way
 `supabase/tests/revisions.sql` gives its story one. Anything that reads its own
 fixture back through RLS is asserting the policy as well as the behaviour, and
 only one of those is what the test is about.
+
+---
+
+## The auth container caches the database it was just handed
+
+**Found 2026-08-27.** `kong-caches-db-after-reset` above records a 502 from the
+auth API after `db:reset`. GoTrue has its own version of it, and it is not a 502:
+
+```
+sign-in failed: 500 {"code":500,"error_code":"unexpected_failure",
+                     "msg":"Database error querying schema"}
+```
+
+Every spec then dies in `signIn()` in `e2e/fixtures.ts`, which reads as the
+application being broken. It is the container holding connections to the
+database `db reset` dropped out from under it.
+
+**Before any suite run that follows a reset:**
+
+```bash
+npx supabase db reset
+docker restart supabase_auth_coditu supabase_rest_coditu
+# then poll until it answers 200 — usually one try
+```
+
+`npm run gate` runs `db:test` and does **not** do this, so a gate run straight
+after a reset can fail this way and look like a regression.
+
+---
+
+## A parallel e2e failure count measures the harness, not the code
+
+**Measured 2026-08-27, so nobody has to argue about it again.**
+
+Two runs of the **same 29 spec files**, the same 2 workers, the same freshly
+reset stack:
+
+| | failures |
+|---|---|
+| run A | **54** |
+| run B | **4** |
+| in both | **1** |
+
+Fifty-three of A's fifty-four did not reproduce. Full-suite runs the same day
+gave **87**, then **10**, then **54** from identical code.
+
+**So: never report a parallel failure count, and never chase an individual
+failure out of one.** The only numbers worth writing down come from
+`--workers=1` or a per-file re-run. What survives isolation is real; what does
+not is the harness.
+
+### What the cross-worker failures actually are
+
+The one test that failed in both runs — `access.spec.ts:113` — still passed
+**3/3 alone**. Seven spec files write `allowed_emails` and read the same
+`access_events` table, and several clear their probe address with a **direct SQL
+delete from the harness**. That delete carries no session, so
+`record_allowlist_access_event()`'s `auth.uid()` is null and it writes a
+`system …` row straight to the top of the history another worker is
+mid-assertion on.
+
+That is the shape of nearly every cross-worker failure in this suite: one spec's
+cleanup writing an audit row into another spec's screen.
