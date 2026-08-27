@@ -4308,6 +4308,7 @@ themselves for weeks, and one of them was failing the whole time.
 | `npm run db:types` | regenerated, committed |
 | `npm run components:check` | in step |
 | `npm run budgets` | OK — marketing 13.6/20, app shell 78.6/110 own, 218.6/220 total |
+| `npm run e2e` | **631 passed · 0 failed · 7 skipped**, 23.6m at `--workers=1` |
 | `npm run e2e:bundle` | 2 passed |
 | `npm run degraded` | OK |
 
