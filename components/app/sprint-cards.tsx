@@ -10,7 +10,7 @@ import { calendarDate, hours } from "@/lib/format";
 import { groupingHue, groupingTint } from "@/lib/work-items";
 
 /**
- * The stacked card layout, shown below 900px.
+ * The stacked card layout, shown below 768px.
  *
  * ── Why nothing in here is `--ink-faint` ──────────────────────────────────
  * A grouped card carries a 5% hue tint, and `--ink-faint` measures **4.46:1**
@@ -19,11 +19,17 @@ import { groupingHue, groupingTint } from "@/lib/work-items";
  * does not exist. `--ink-muted` is 5.25:1 on the same tint. Exactly the shape of
  * the bug `cell-popover.client.tsx` already documents for the sticky column.
  *
- * Driven by a CONTAINER query, not a viewport breakpoint. The table's own
- * width is what decides whether it fits, and that width changes when the rail
- * pins open — a viewport breakpoint would keep showing a squeezed table on a
- * wide screen with an expanded rail, and switch to cards on a narrow screen
- * where the table would actually have fitted.
+ * Driven by the VIEWPORT at `md`, which is 768px, because that is where
+ * `Coditu Workspace.dc.html` switches: its 768-1023 row is *"Full table, sticky
+ * Task column"* and only below 768 does it say *"Story cards"*.
+ *
+ * This was a 900px container query, on the reasoning that the table's own width
+ * is what decides whether it fits and that width changes when the rail pins
+ * open. Reasonable, and wrong in practice: with the rail expanded the container
+ * at an 834px viewport measures ~727px, so the whole 768-1023 band showed cards
+ * — and the sticky Task column, which is implemented correctly, was never once
+ * on screen. The table scrolls inside its own card, so a squeezed table is not
+ * the failure the container query was protecting against.
  */
 export function SprintCards({
   rows,

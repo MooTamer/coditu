@@ -872,6 +872,12 @@
      deliberately part of a denser arrangement. */
   button:not([data-dense]),
   [role="button"]:not([data-dense]),
+  /* `summary` is a control the browser gives you for free, which is exactly
+     why this list had never named it: nothing declares it, so nothing thought
+     to size it. The sprint's burn-up disclosure measured 308x17 on a phone —
+     found by the aggregate coarse-pointer sweep, on the first run after the
+     sweep itself was repaired to use a real touch context. */
+  summary:not([data-dense]),
   a[href]:not([data-dense]):not(p a) {
     min-height: 44px;
     min-width: 44px;

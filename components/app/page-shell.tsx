@@ -87,13 +87,30 @@ export function PageShell({
   /** Extra classes on the centred inner column — usually the gap. */
   innerClassName?: string;
   /**
-   * Opt into a container-query context. The sprint table and board size
-   * themselves against their column, not the viewport, so they need it.
+   * Opt into a container-query context.
+   *
+   * The sprint route asks for it because its header still sizes two clusters
+   * against their own column at 640px. The table and the board used to be the
+   * reason and are not any more — they switch on the viewport now, at the 768px
+   * the design specifies.
    */
   container?: boolean;
 }) {
   return (
-    <main className={cn("flex flex-1 flex-col p-[var(--app-gutter)]", className)}>
+    <main
+      // The readiness marker, and it exists because `networkidle` is not one.
+      //
+      // Every `loading.tsx` renders `<main data-loading-skeleton>`, so while a
+      // route streams there are two `<main>` elements and
+      // `document.querySelector("main")` finds the skeleton's. A sweep that
+      // measured then read a half-rendered screen and reported it clean — a
+      // cold run of the measures spec saw 11 of 15 for exactly that reason.
+      //
+      // Waiting on this attribute waits for the real surface. It is on the
+      // element the measure sits on, so it cannot drift from what it certifies.
+      data-page-shell
+      className={cn("flex flex-1 flex-col p-[var(--app-gutter)]", className)}
+    >
       <div
         className={cn(
           "mx-auto flex w-full max-w-[var(--measure)] flex-1 flex-col gap-5",

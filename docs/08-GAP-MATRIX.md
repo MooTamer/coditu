@@ -492,40 +492,48 @@ Supabase, signed in as `mohamed@coditu.com`. Nothing here is assumed; each row s
 | 7 | **Touch targets, all designed mobile routes** | **`gap` — fails on 11 of 11** | See the table below. |
 | 8 | **Presence, two authenticated contexts** | **`met`** | `npx playwright test e2e/presence.spec.ts --workers=1` → **5 passed**: two people on one sprint see each other; leaving removes the avatar; a story names who is on it and what they are doing; nothing typed reaches the socket; the channel join is authorised in SQL. Behaviour conforms — only *placement* is a gap (V-B5, V-D1). |
 
-### V-G7 — touch targets at 390, measured
+### V-G7 — touch targets: **the first measurement was invalid and is withdrawn**
 
-`>= 44 x 44` is the handoff's rule below 768 (`tap: narrow ? "44px" : "34px"`). Counted with a
-local-only spec, signed in as admin, on the routes the design gives a mobile state. Zero horizontal
-overflow on all eleven — that half holds.
+**Struck.** This section carried a table of per-route counts — 115 on `/app/history`, 31 on
+`/app/projects`, 30 on `/app/people`, and so on down to 3. **Not one of those numbers was real**,
+and they must not be cited again.
 
-| Route | Controls under 44 | The ones that matter |
-|---|---|---|
-| `/app/history` | **115** | `Open COD-…` 89×15, `Restore as a new version` 146×29 |
-| `/app/projects` | 31 | row `Edit` 35×32, `New client` 98×32 |
-| `/app/people` | 30 | role `<select>` 91×28, hours ± 20×20, `Deactivate` 104×36 |
-| `/app/settings` | 15 | number inputs 110×34 |
-| `/app` | 10 | My-work rows 316×33, `open view →` 68×18 |
-| `/app/profile` | 7 | `Choose a picture` 160×38 |
-| `/app/settings/recovery` | 7 | checkboxes 16×16 |
-| `/app/import` | 5 | `Choose a file` 113×36 |
-| `/app/my-work`, `/app/earnings`, `/app/trash` | 3 each | the shell trio only |
+The sweep that produced them measured through the `adminPage` fixture, which is a plain desktop
+context: no `hasTouch`, no `isMobile`. `app/globals.css` puts the 44px floor behind
+`@media (pointer: coarse)`, so on that context **the rule was never in effect** — the sweep measured
+the fine-pointer sizes the design asks for at that width and called every one of them a failure. It
+also had no semantic exemptions (visually-hidden file inputs, checkboxes targeted through their
+label, links inline in a sentence) and it asserted per route, so it stopped at the first.
 
-**The shell trio is on every route and is one fix:** theme toggle 34×34, `Export` 44×34,
-`New item` 42×34 — the topbar keeps its desktop `34px` height below 768 instead of the designed 44.
+`e2e/touch-targets.local.spec.ts` has been rewritten to use a real coarse-pointer context, the same
+four exemptions and the same 43.5px tolerance as the canonical sweep in `e2e/mobile.spec.ts`, and to
+**aggregate every route into one assertion** so a run says everything that is wrong rather than the
+first thing.
 
-Excluded as false positives: `1×1` file `<input>`s behind styled labels on `/app/profile` and
-`/app/import` — the label is the real target.
+**What the repaired sweep actually found, across all 21 routes:**
 
-**Also found, outside the eleven:** `/login` at 390 has five controls under 44 — the
-`Sign in` / `Create account` tabs at 167×30 and the email, password and submit at 342×38. The
-design does not cover `/login`, so this is recorded rather than scheduled.
+```
+/app/sprint                          — summary "Burn-up · hours logged0%" 308×17
+/app/projects/meinevim/sprints/17    — summary "Burn-up · hours logged0%" 308×17
+```
+
+Two entries, one control, the same surface reached two ways — and it was **introduced by this
+branch**, in the commit that made the burn-up a collapsible `<details>`. `<summary>` is a control
+the browser gives you for free, which is exactly why the 44px block in `globals.css` had never named
+it: nothing declares it, so nothing thought to size it. It is named now, beside `button`,
+`[role=button]` and `a[href]`, so every future disclosure inherits the floor.
+
+Re-run after the fix: **1 passed**, all 21 routes, zero targets under 44px.
+
+The `/login` note below the old table was produced by the same invalid method and is withdrawn with
+it. Whether `/login` conforms on a coarse pointer is now simply unmeasured.
 
 ### What this changes in the plan
 
 - V-D6 and V-D7 move from "read from the handoff table, not measured" to **measured**, and V-D7 is
   a single-threshold fix rather than new work: `@max-[900px]` container → `< 768px` viewport.
-- **A new phase-0 item:** touch targets. It is a shell fix plus five route fixes, it is the largest
-  count in the whole matrix, and no row above had it.
+- ~~A new phase-0 item: touch targets.~~ **Withdrawn** — the counts it rested on were invalid. See
+  the struck V-G7 section.
 - Checks 4 and 8 are **closed as conforming** — the editor and presence engines do not need work;
   only where their output is placed does.
 
@@ -553,7 +561,7 @@ Branch `visual-conformance`, from `origin/main` at `b63f4c7`.
 | **Locked 3** | Export in the sprint header only | as V-C8 |
 | **Locked 4** | Sprint notes are their route; the duplicated inline panel is gone | Browser: `inlineNotesEditor: false`, `notesLink: true` |
 | **Locked 5** | Burn-up is a closed `<details>` below the designed header | Browser: `burnUpDetails: true`, `burnUpOpen: false`. Works before hydration |
-| **V-G7, shell only** | Topbar controls, theme toggle and account trigger are 44px below `md` | Source; the route-level targets are **still failing** — see Outstanding |
+| **V-G7** | Topbar controls, theme toggle and account trigger are 44px below `md`; `summary` added to the coarse-pointer floor in `globals.css` | `e2e/touch-targets.local.spec.ts` — **1 passed**, 21 routes aggregated, real `hasTouch` + `isMobile` context, zero targets under 44px |
 
 ## Outstanding — nothing below has been implemented
 
@@ -567,7 +575,7 @@ Ordered as the plan orders them. Every one is still a gap.
 | **V-D1 – V-D3** | Sprint presence column, saved-views menu, sort-stack panel |
 | **V-D8 – V-D11** | My work, People and Projects as database-style tables; People's six sections; the Projects list/cards toggle |
 | **V-F1** | Recovery Centre structure. **The truthful copy is untouched and must stay that way** — the four-card header may be adopted, none of the prototype's values may be |
-| **V-G7, routes** | 115 sub-44px targets on `/app/history`, 31 on `/app/projects`, 30 on `/app/people`, 15 on `/app/settings`, 7 on `/app/profile` and `/app/settings/recovery` |
+| ~~**V-G7, routes**~~ | **Closed, and it was never open.** The per-route counts were an artefact of measuring without a coarse pointer — see the struck section above. The repaired aggregate sweep is green on all 21 routes. |
 | **Phase 9** | Editor, mention, slash, presence, empty, loading, offline and failure states in their designed placements |
 | **`--tint` sweep** | 27 files still hover with `--canvas`. Left because it is a 27-file visual change I could not verify in one pass, not because it is right |
 
@@ -580,5 +588,30 @@ The plan lists twelve checks. These have **not** been run:
 - **Lead, Engineer and Client boundaries** against the new shell.
 - 200% zoom, multi-user presence, offline and failed-save states.
 - **Production bundle budgets** (`npm run budgets`) — `PageShell` is a server component and should be free, but that is reasoning, not a measurement.
-- **The full serial browser suite.** Attempted twice on `mobile.spec.ts` + `a11y.spec.ts`: 83 passed / 13 failed, then 87 passed / 13 failed **with a different thirteen**. A spec that passed alone on a warm server (`axe: the export dialog`) had failed in the first run, so the cold-compile half is noise.
-  `06-PROGRESS.md` already records that only a serial run from a fresh `db:reset`, with the auth container restarted and the PostgREST cache reloaded, produces a number worth keeping. **That reset was not run: the local database is shared with a second session's worktree, and wiping it is not this branch's call.** The one persistent, real failure across both runs is `mobile.spec.ts:357 › every target clears 44px`, which is V-G7 and is a known open gap, not a regression.
+- **The full serial browser suite.** Attempted twice on `mobile.spec.ts` + `a11y.spec.ts`:
+  83 passed / 13 failed, then 87 passed / 13 failed **with a different thirteen**.
+
+  Those runs mixed together two failure kinds that have nothing to do with each other, and the
+  earlier entry here wrongly implied one cure for both. They are:
+
+  **Cold-render races — a compilation and streaming problem, and a `db:reset` does nothing for it.**
+  The dev server compiles a route the first time it is asked for, and while a route streams its
+  `loading.tsx` renders `<main data-loading-skeleton>`. A spec that waits only on `networkidle`
+  can measure the skeleton. Three separate observations, all of them this:
+  - `e2e/measures.local.spec.ts` cold: **11 of 15**. Warm: 15 of 15, same rows.
+  - `e2e/navigation.spec.ts` cold: **13 passed, 2 failed, 1 skipped**. Both failures passed warm.
+  - `a11y.spec.ts › axe: the export dialog` failed in a cold run and passed alone warm.
+
+  The cure is a readiness marker, and it is in now: `PageShell` renders `data-page-shell` on the
+  `<main>` that carries the measure, and the local specs wait for it rather than for the network.
+
+  **Database determinism** is the separate thing: the suite writes rows, three browser projects run
+  against one local Supabase, and only a serial run from a fresh `db:reset` — auth container
+  restarted, PostgREST cache reloaded — produces a number `06-PROGRESS.md` would keep. **That reset
+  has not been run and will not be from this branch: the local stack is shared with a second
+  session's worktree.** No claim about the suite total is made here.
+
+  The one failure that survived both runs was `mobile.spec.ts:357 › every target clears 44px`. It
+  was neither of the above: it was a **real regression introduced by this branch** — the burn-up
+  `<summary>` at 308×17 — recorded at the time as a pre-existing gap, which it was not.
+  Fixed; see the struck V-G7 section.
