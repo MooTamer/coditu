@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="border: 1px solid var(--hairline); border-radius: 14px; background: var(--raised); overflow: auto; font-family: Satoshi, 'Instrument Sans', sans-serif;">
+  <table style="border-collapse: collapse; width: 100%;">
+    <thead>
+      <tr style="border-bottom: 1px solid var(--hairline-strong);">
+        <sc-for list="{{ cols }}" as="c" hint-placeholder-count="5">
+          <th scope="col" style="text-align: {{ c.align }}; padding: 10px 14px; white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); width: {{ c.width }};">{{ c.label }}</th>
+        </sc-for>
+      </tr>
+    </thead>
+    <tbody>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+        <tr style="border-bottom: 1px solid var(--hairline); background: {{ r.bg }};" style-hover="background: var(--tint);">
+          <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5">
+            <td style="padding: 11px 14px; text-align: {{ c.align }}; vertical-align: middle;">
+              <sc-if value="{{ c.isText }}" hint-placeholder-val="{{ true }}">
+                <span style="display: block; min-width: 0;">
+                  <sc-if value="{{ c.isLink }}" hint-placeholder-val="{{ false }}">
+                    <button type="button" onClick="{{ c.run }}" style="border: none; background: transparent; padding: 0; font-family: {{ c.font }}; font-size: {{ c.size }}; font-weight: {{ c.weight }}; color: {{ c.color }}; cursor: pointer; text-align: left;" style-hover="color: var(--accent);">{{ c.v }}</button>
+                  </sc-if>
+                  <sc-if value="{{ c.plain }}" hint-placeholder-val="{{ true }}">
+                    <span style="font-family: {{ c.font }}; font-size: {{ c.size }}; font-weight: {{ c.weight }}; color: {{ c.color }}; font-variant-numeric: tabular-nums;">{{ c.v }}</span>
+                  </sc-if>
+                  <sc-if value="{{ c.hasSub }}" hint-placeholder-val="{{ false }}">
+                    <span style="display: block; margin-top: 2px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--ink-faint);">{{ c.sub }}</span>
+                  </sc-if>
+                </span>
+              </sc-if>
+
+              <sc-if value="{{ c.isChip }}" hint-placeholder-val="{{ false }}">
+                <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 6px; background: {{ c.bg2 }}; color: {{ c.color }}; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; white-space: nowrap;">
+                  <sc-if value="{{ c.hasDot }}" hint-placeholder-val="{{ true }}">
+                    <span style="width: 6px; height: 6px; border-radius: 999px; background: currentColor;"></span>
+                  </sc-if>{{ c.v }}
+                </span>
+              </sc-if>
+
+              <sc-if value="{{ c.isChips }}" hint-placeholder-val="{{ false }}">
+                <span style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+                  <sc-for list="{{ c.chips }}" as="k" hint-placeholder-count="2">
+                    <span style="padding: 3px 8px; border-radius: 6px; border: 1px solid var(--hairline); background: var(--canvas); font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--ink-muted); white-space: nowrap;">{{ k.v }}</span>
+                  </sc-for>
+                </span>
+              </sc-if>
+
+              <sc-if value="{{ c.isPeople }}" hint-placeholder-val="{{ false }}">
+                <span style="display: flex; align-items: center;">
+                  <sc-for list="{{ c.people }}" as="p" hint-placeholder-count="3">
+                    <span title="{{ p.title }}" style="display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: -5px; border-radius: 999px; border: 2px solid var(--raised); background: var(--canvas); font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink-muted); box-shadow: 0 0 0 1px var(--hairline);">{{ p.initials }}</span>
+                  </sc-for>
+                </span>
+              </sc-if>
+
+              <sc-if value="{{ c.isProgress }}" hint-placeholder-val="{{ false }}">
+                <span style="display: inline-flex; align-items: center; gap: 8px;">
+                  <span style="width: 56px; height: 5px; border-radius: 999px; background: var(--hairline); overflow: hidden;"><span style="display: block; height: 100%; width: {{ c.pct }}; background: {{ c.color }};"></span></span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-muted);">{{ c.v }}</span>
+                </span>
+              </sc-if>
+
+              <sc-if value="{{ c.isActions }}" hint-placeholder-val="{{ false }}">
+                <span style="display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end; flex-wrap: wrap;">
+                  <sc-for list="{{ c.buttons }}" as="b" hint-placeholder-count="2">
+                    <button type="button" onClick="{{ b.run }}" disabled="{{ b.disabled }}" title="{{ b.tip }}" style="min-height: 30px; padding: 0 10px; border-radius: 7px; border: 1px solid {{ b.border }}; background: {{ b.bg }}; color: {{ b.color }}; font-size: 12px; cursor: {{ b.cursor }}; white-space: nowrap;" style-hover="background: var(--tint);">{{ b.label }}</button>
+                  </sc-for>
+                </span>
+              </sc-if>
+            </td>
+          </sc-for>
+        </tr>
+      </sc-for>
+    </tbody>
+  </table>
+  <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+    <div style="padding: 34px 18px; text-align: center;">
+      <p style="font-size: 13.5px; color: var(--ink-muted);">{{ emptyTitle }}</p>
+      <p style="margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);">{{ emptyHint }}</p>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:900,&quot;height&quot;:320},&quot;cols&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;Col[]&quot;},&quot;rows&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;Row[]&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;emptyTitle&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Nothing here yet&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;emptyHint&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;}}"></script>
+</body>
+</html>
