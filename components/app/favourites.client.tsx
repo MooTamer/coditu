@@ -71,7 +71,7 @@ export function Favourites({ links }: { links: FavouriteLink[] }) {
                 "flex h-8 items-center gap-[9px] rounded-control px-[10px] text-[13px] outline-offset-2",
                 here
                   ? "bg-[var(--canvas)] font-medium text-[var(--ink)]"
-                  : "text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
+                  : "text-[var(--ink-muted)] hover:bg-[var(--tint)]"
               )}
             >
               <Mono size="meta" className="w-[26px] shrink-0 text-[9.5px] text-[var(--ink-faint)]">

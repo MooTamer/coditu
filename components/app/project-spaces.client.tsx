@@ -124,7 +124,7 @@ function Space({
       <div
         className={cn(
           "flex items-center rounded-control",
-          inside ? "bg-[var(--canvas)]" : "hover:bg-[var(--canvas)]"
+          inside ? "bg-[var(--canvas)]" : "hover:bg-[var(--tint)]"
         )}
       >
         <button
@@ -196,7 +196,7 @@ function Space({
                   "flex h-[30px] items-center gap-[9px] rounded-control px-[10px] text-[12.5px] outline-offset-2",
                   here
                     ? "bg-[var(--canvas)] font-medium text-[var(--ink)]"
-                    : "text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
+                    : "text-[var(--ink-muted)] hover:bg-[var(--tint)]"
                 )}
               >
                 <Mono size="meta" className="w-[22px] shrink-0 text-[9.5px] text-[var(--ink-faint)]">

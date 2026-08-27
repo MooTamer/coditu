@@ -156,7 +156,7 @@ export function Rail({
           aria-label={collapsed ? "Show navigation labels" : "Collapse the navigation"}
           title={collapsed ? "Show navigation labels" : "Collapse the navigation"}
           data-rail-toggle
-          className="hidden size-8 shrink-0 items-center justify-center rounded-control text-[var(--ink-faint)] hover:bg-[var(--canvas)] hover:text-[var(--ink)]"
+          className="hidden size-8 shrink-0 items-center justify-center rounded-control text-[var(--ink-faint)] hover:bg-[var(--tint)] hover:text-[var(--ink)]"
         >
           <PanelLeft size={16} strokeWidth={1.9} aria-hidden />
         </button>
@@ -178,7 +178,7 @@ export function Rail({
                 active={active}
                 className={cn(
                   "flex h-11 items-center gap-[14px] overflow-hidden whitespace-nowrap rounded-control px-3 transition-colors",
-                  active ? "bg-[var(--canvas)] text-[var(--ink)]" : "text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
+                  active ? "bg-[var(--canvas)] text-[var(--ink)]" : "text-[var(--ink-muted)] hover:bg-[var(--tint)]"
                 )}
                 // The tapped item takes the active surface immediately. That is
                 // the half of the pending state that survives reduced motion,

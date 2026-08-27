@@ -106,6 +106,14 @@
   --group-2-sticky: #f2f9f8;
   --group-chip-bg: rgba(11, 14, 20, 0.04);
 
+  /* --- the hover wash --------------------------------------------------
+     `--tint` in `Coditu Workspace.dc.html`, and every hover in that prototype
+     is `background: var(--tint)`. The build had no such token and reached for
+     `--canvas` instead: on a `--raised` card that reads as a *darker* panel
+     rather than a wash, and on the canvas itself it reads as nothing at all.
+     It is ink at 3.5% and white at 5%, which is what the design uses. --- */
+  --tint: rgba(11, 14, 20, 0.035);
+
   /* --- elevation ------------------------------------------------------- */
   --shadow-overlay: 0 24px 64px -24px rgba(0, 0, 0, 0.35);
 
@@ -126,7 +134,9 @@
   /* Where the sidebar earns its labels. Below this it is icons only, and below
      768 it is not there at all — the bottom bar takes over. */
   --rail-wide: 1180px;
-  --topbar-h: 60px;
+  /* A minimum, not a fixed height — the design's topbar is
+     `min-height: 56px` and grows when the breadcrumb trail wraps. */
+  --topbar-h: 56px;
   /* The phone's bottom navigation. The safe-area inset is added on top of it
      wherever it is used, rather than baked in here — `env()` is 0 on a desk. */
   --tabbar-h: 60px;
@@ -187,6 +197,7 @@
   --overlay: #111826;
   --hairline: rgba(255, 255, 255, 0.07);
   --hairline-strong: rgba(255, 255, 255, 0.13);
+  --tint: rgba(255, 255, 255, 0.05);
 
   /* 34% white measures 3.01:1 at the worst of the four tint layers on the
      darkest surface. See the note beside its light-theme counterpart. */

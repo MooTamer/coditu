@@ -60,7 +60,7 @@ export function Recents({ items }: { items: RecentView[] }) {
                 "flex min-h-11 items-center gap-[9px] rounded-inner px-2 text-[13px] outline-offset-2",
                 here
                   ? "bg-[var(--canvas)] font-medium text-[var(--ink)]"
-                  : "text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
+                  : "text-[var(--ink-muted)] hover:bg-[var(--tint)]"
               )}
             >
               <Mono size="meta" className="w-[26px] shrink-0 text-[11px] text-[var(--ink-faint)]">

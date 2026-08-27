@@ -148,7 +148,7 @@ export function AccountMenu({ me }: { me: AccountIdentity }) {
         aria-label={`${me.fullName} — account`}
         // 44px on every pointer, not just a coarse one. This is the control that
         // holds the only way to sign out on a phone.
-        className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-control hover:bg-[var(--canvas)]"
+        className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-control hover:bg-[var(--tint)] md:size-[34px]"
       >
         <PersonAvatar person={me} size={28} fontSize={11} />
       </button>
@@ -196,7 +196,7 @@ export function AccountMenu({ me }: { me: AccountIdentity }) {
                   href="/app/profile"
                   prefetch={false}
                   onClick={() => setOpen(false)}
-                  className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
+                  className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--tint)]"
                 >
                   <UserRound size={15} strokeWidth={1.9} aria-hidden />
                   Profile
@@ -213,7 +213,7 @@ export function AccountMenu({ me }: { me: AccountIdentity }) {
                   href="/app/earnings"
                   prefetch={false}
                   onClick={() => setOpen(false)}
-                  className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
+                  className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--tint)]"
                 >
                   <Wallet size={15} strokeWidth={1.9} aria-hidden />
                   My earnings
@@ -231,7 +231,7 @@ export function AccountMenu({ me }: { me: AccountIdentity }) {
                     href="/app/settings"
                     prefetch={false}
                     onClick={() => setOpen(false)}
-                    className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
+                    className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--tint)]"
                   >
                     <Settings size={15} strokeWidth={1.9} aria-hidden />
                     Workspace settings
@@ -247,7 +247,7 @@ export function AccountMenu({ me }: { me: AccountIdentity }) {
                   href="/app/trash"
                   prefetch={false}
                   onClick={() => setOpen(false)}
-                  className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--canvas)]"
+                  className="flex h-11 items-center gap-3 rounded-control px-3 text-[13.5px] font-medium hover:bg-[var(--tint)]"
                 >
                   <Trash2 size={15} strokeWidth={1.9} aria-hidden />
                   Trash
@@ -259,7 +259,7 @@ export function AccountMenu({ me }: { me: AccountIdentity }) {
                   disabled={signingOut}
                   aria-busy={signingOut}
                   onClick={() => startSignOut(() => void signOut())}
-                  className="flex h-11 cursor-pointer items-center gap-3 rounded-control px-3 text-left text-[13.5px] font-medium hover:bg-[var(--canvas)] disabled:opacity-60"
+                  className="flex h-11 cursor-pointer items-center gap-3 rounded-control px-3 text-left text-[13.5px] font-medium hover:bg-[var(--tint)] disabled:opacity-60"
                 >
                   <LogOut size={15} strokeWidth={1.9} aria-hidden />
                   {signingOut ? "Signing out…" : "Sign out"}
