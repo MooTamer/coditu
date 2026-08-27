@@ -20,8 +20,21 @@ export const metadata = { title: "Backup & recovery" };
  * **Infrastructure** — managed database backups, point-in-time recovery, and
  * Storage, which managed database backups do not cover at all. This
  * application cannot verify any of that from inside itself, so **it does not
- * claim it**. The card says what is known and what is not, and the one fact it
- * states was read from the hosting provider by hand rather than assumed.
+ * claim it**. The card says what is known and what is not, and the two facts it
+ * states were read from the hosting provider directly rather than assumed.
+ *
+ * ## What this card got wrong, and why it is worth a paragraph
+ *
+ * Until 2026-08-27 it said that without PITR "the recoverable position is
+ * whatever the last daily backup holds". There is no daily backup.
+ * `supabase backups list` returns `pitr_enabled: false` and an empty `backups`
+ * array, and Supabase's daily backups are a Pro/Team/Enterprise feature — this
+ * project is on Free, where the documented advice is to export your own copy.
+ *
+ * So the screen was offering a fallback that does not exist. Everything below
+ * about not inventing a number is about the same failure in the other
+ * direction: an invented figure is believed, and a *reassuring* one is believed
+ * hardest. `docs/09-BACKUP-PROPOSAL.md` §1 carries the command and its output.
  *
  * **Application recovery** — the four things the app owns, and a rehearsal
  * that exercises them. That half is real, is checked on demand, and records
@@ -81,21 +94,27 @@ export default async function RecoveryPage() {
 
         <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
           Coditu cannot see its own hosting from inside itself, so nothing on this card is a claim
-          the application is making. One thing has been read from the provider by hand, and it is
-          the one that matters most:
+          the application is making. The first two were read from the provider directly, and
+          together they are the ones that matter most:
         </p>
 
         <dl className="mt-4 flex flex-col gap-2.5">
           <Fact
             label="Point-in-time recovery"
             value="off"
-            detail="Read from the hosted project on 2026-08-26. Without it, the recoverable position is whatever the last daily backup holds, not the last minute."
+            detail="Read from the hosted project on 2026-08-27: pitr_enabled is false. Nothing can be wound back to the moment before a mistake."
+            tone="amber"
+          />
+          <Fact
+            label="Provider-held backups"
+            value="none"
+            detail="The same read returned an empty set — no backup the provider could restore from. Its daily backups cover the Pro, Team and Enterprise plans; this project is on Free, where the documented advice is to export your own copy, and nobody has. There is no restore point: not last night's, not any. `docs/09-BACKUP-PROPOSAL.md` §1 carries the command, its output, and what it would take to fix."
             tone="amber"
           />
           <Fact
             label="Storage buckets"
             value="not covered"
-            detail="Managed database backups cover the database. Avatars and work attachments live in Storage and are not in them — which is why the rehearsal checks attachments separately."
+            detail="A managed database backup covers the database and nothing else. Avatars and work attachments live in Storage and would not be inside one even if this project had one — which is why the rehearsal checks attachments separately."
             tone="amber"
           />
           <Fact
@@ -116,7 +135,7 @@ export default async function RecoveryPage() {
           It protects against somebody changing their mind. It protects against nothing that
           happens to the database itself — every version, every binned story and every access
           event is a row in the same project, and a project that is gone takes all three with it.
-          That is what the three facts above are about, and it is why none of them is something
+          That is what the four facts above are about, and it is why none of them is something
           this application can fix from inside itself.
         </p>
       </Reveal>

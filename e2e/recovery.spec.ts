@@ -76,6 +76,22 @@ test.describe("backup and recovery", () => {
       expect(body, `the screen invented ${invented}`).not.toContain(invented);
     }
     await expect(card).toContainText("not set");
+
+    // The same rule, in the direction that is easier to miss. Until 2026-08-27
+    // this card said "the recoverable position is whatever the last daily
+    // backup holds" — offering a fallback that does not exist. The provider
+    // returns `pitr_enabled: false` and an empty `backups` array, and Supabase's
+    // daily backups are a Pro/Team/Enterprise feature; this project is on Free.
+    //
+    // An invented figure and a false reassurance fail identically, except that
+    // the reassuring one is believed harder and is only ever tested on the
+    // worst day. `docs/09-BACKUP-PROPOSAL.md` §1 holds the command and output.
+    await expect(card).toContainText("Provider-held backups");
+    await expect(card).toContainText("There is no restore point");
+    expect(
+      await card.innerText(),
+      "the card is offering a recovery position again",
+    ).not.toContain("recoverable position");
   });
 
   test("a rehearsal that passes, and one that fails, and neither changes a live row", async ({

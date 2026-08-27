@@ -4439,3 +4439,110 @@ directly in this session.
 
 **Not closed: infrastructure backup.** Proposed, priced as an estimate, unapplied. The
 audit does not close while the answer to *"can we get it back"* is no.
+
+
+---
+
+## The Recovery Centre was reassuring people with a backup that does not exist
+
+**2026-08-27, immediately after the verification above.** The screen whose stated design
+rule is that *no number reaches it before it is true* was carrying a false one.
+
+`app/app/settings/recovery/page.tsx`, the "Point-in-time recovery" fact:
+
+> Read from the hosted project on 2026-08-26. Without it, the recoverable position is
+> whatever the last daily backup holds, not the last minute.
+
+**There is no last daily backup.** `supabase backups list` returns `pitr_enabled: false`
+and `backups: []`, and Supabase's daily backups are a Pro/Team/Enterprise feature — this
+project is on Free, where the documented advice is to export your own copy. The screen was
+offering a fallback that does not exist.
+
+That is the same failure as the prototype's invented `Nightly · 03:00 UTC`, in the
+direction that is harder to notice. An invented figure and a false reassurance are read
+identically by somebody in trouble, except that the reassuring one is believed harder and
+is only ever tested on the day it matters.
+
+**The fix.** The PITR fact now states what was measured and nothing more, and the fact it
+was standing in front of gets its own line:
+
+| | |
+|---|---|
+| Point-in-time recovery | `off` — `pitr_enabled` is false; nothing can be wound back |
+| **Provider-held backups** | **`none`** — an empty set; no restore point, "not last night's, not any" |
+
+The Storage row was tightened in the same pass: it said *"Managed database backups cover
+the database"*, which sitting under a row that says there are none implied one exists. It
+now says a backup *would* not contain Storage even if this project had one.
+
+`e2e/recovery.spec.ts` gained the guard, beside the loop that already forbids the
+prototype's invented figures: the card must contain *"There is no restore point"* and must
+not contain *"recoverable position"* again. The negative assertion is deliberately the old
+sentence's own words rather than the phrase "daily backup", which the corrected copy still
+uses legitimately when naming which plans get them.
+
+### Verification
+
+`git diff --check`, `lint`, `typecheck`, `test` **445**, `db:test` **441**, `db:types` no
+diff, `degraded` OK, budgets OK, the two `@prod` assertions **2 passed**.
+`e2e/recovery.spec.ts` **7 passed** at `--workers=1`.
+
+`components:check` is **red, for a reason outside this repository**: the delivery repo's
+HEAD is now *"Move the React app out to its own repository"*, so
+`EVIM React Library/src/app/registry.ts` is gone, the React count fell from 3 to 1, and
+`News-Redaktion` and `Redaktionskalender` read as *gone*. Re-running the sync would bake a
+half-migrated upstream into `supabase/seeds/components.sql` and would need a judgement
+about the `RETIRED` list that belongs with whoever is moving that repository. Left red on
+purpose, and it was green earlier the same evening.
+
+**The app shell budget is tighter than this ledger says.** Measured 219.2 KB of §5's 220,
+not the 218.6 recorded above — **0.8 KB of headroom, not 1.4**. Measured twice, with this
+change stashed and unstashed, and it is 219.2 both times: this change is a server
+component on a route the shell measurement does not include and costs nothing. The drift
+arrived with the commits already merged. 0.8 KB is the number to watch now.
+
+### The two hours this cost, and the trap worth keeping
+
+The recovery spec failed first, and it looked like a regression in this change. It was not.
+`rehearse_recovery` on the local stack had reverted to its pre-`20260827120400` body — the
+allow-list `('documents', 'trash', 'attachments')` with no `pages` — so every rehearsal
+including the Pages replay raised `unknown recovery check: pages`, and the default state of
+the screen has all four checked.
+
+Established, rather than guessed at, in this order:
+
+| Step | Result |
+|---|---|
+| Grants on `rehearse_recovery` | fine — `authenticated` holds execute |
+| The RPC through PostgREST as an admin | **worked**, 74 checked, 0 failed |
+| The migration file on disk | correct, and applies cleanly to a 9009-char body that knows `pages` |
+| The live body, compared byte-for-byte | identical to `20260826220000`'s **older** version |
+| `db reset`, then inspect before anything else runs | **correct** — 9009, knows `pages` |
+| `db:test`, then `db diff --linked` | neither reverts it |
+| The **hosted** database, dumped read-only | **correct** — `('documents', 'pages', 'trash', 'attachments')` |
+
+So the migration is right, the reset is right, and production is right. What was wrong was
+the local database in between — reverted by something this session did not run, while a
+second interactive session was demonstrably acting on this checkout (it had pushed to
+`origin/main` earlier the same evening) and the Supabase containers showed a restart
+roughly fourteen minutes after this session's own reset.
+
+**One local stack serves every session and every worktree in `.claude/worktrees/`.** A
+`db reset` run from a worktree whose migrations predate `20260827120400` leaves exactly the
+body that was found. `docs/07-FIELD-NOTES.md` already carries the sibling of this — a
+parallel e2e failure count measures the harness — and this is the same lesson one level
+down: **before believing a local e2e failure, check that the database still matches the
+migrations.** One query settles it:
+
+```sql
+select length(prosrc), prosrc like '%pages%'
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname = 'rehearse_recovery';
+```
+
+The `docker restart supabase_auth_coditu supabase_rest_coditu` that the field notes require
+after a reset was also skipped on the first attempt here, which produced a *different*
+failure and sent the first hypothesis in the wrong direction. Both steps, in order, or the
+suite is measuring the harness.
+
+**No provider configuration was changed, and infrastructure backup remains unapplied.**
