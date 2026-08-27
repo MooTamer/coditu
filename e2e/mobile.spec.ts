@@ -1,4 +1,4 @@
-import { auditA11y, expect, query, SEED, test } from "./fixtures";
+import { auditA11y, expect, query, SEED, shell, test } from "./fixtures";
 
 /**
  * `/app`, on a phone.
@@ -302,7 +302,7 @@ test.describe("the composer, with a thumb", () => {
       await page.setViewportSize(PHONE);
       await page.goto(`${SPRINT}/items/${key}`);
 
-      await page.getByText("Write a comment — @ to mention").click();
+      await shell(page).getByText("Write a comment — @ to mention").click();
       const editor = page.locator(".coditu-prose");
       await editor.click();
       await page.keyboard.type("@Adam");

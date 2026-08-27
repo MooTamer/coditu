@@ -1048,6 +1048,151 @@ hovers, and the board's column geometry (V-D4a), still not measured in a browser
 Added by this pass:
 
 1. **Six failing assertions across `access`, `team` and `mobile`**, diagnosed above, unfixed.
+   *(All six have since been measured, confirmed as the harness, fixed and re-run — see the Eighth pass.)*
 2. **Seven specs still hard-coding `:54421`**, which will point at the wrong stack without failing.
 3. **The visual evidence is not reproducible outside this Mac** — see
    `05-DECISIONS.md`, *The visual evidence lives in three specs git does not carry*.
+
+
+---
+# Eighth pass — the six failures, measured before being touched, 2026-08-28
+
+Branch `visual-conformance`, worktree `/Users/motamer/Dev/Freelance/coditu-visual-conformance`.
+Nothing pushed, nothing merged, nothing deployed.
+
+The Seventh pass diagnosed six strict-mode failures as the streaming duplicate and deliberately
+left them alone, having measured only two of them. This pass measures the other four the same
+way, and only then repairs them.
+
+## The database, again disjoint from the shared one
+
+A second Supabase project, stood up from a copy of `supabase/` **outside** the repository with
+`project_id` and the seven ports rewritten. The shared `544xx` stack was neither written to nor
+read from in this pass.
+
+|  | shared (untouched) | isolated (used here) |
+|---|---|---|
+| `project_id` | `coditu` | **`coditu-iso`** |
+| API / Kong | `:54421` | **`:54521`** |
+| Postgres | `:54422` | **`:54522`** |
+| Studio | `:54423` | **`:54523`** |
+| Mailpit | `:54424` | **`:54524`** |
+| containers | `supabase_{db,auth,rest,kong,storage,realtime,studio,pg_meta,inbucket}_coditu` | **the same nine plus `edge_runtime`, suffixed `_coditu-iso`** |
+| dev server | `:3000`, another session's checkout | **`:3011`, from this worktree, `.next` deleted first** |
+
+Baseline after `supabase db reset` — 35 migrations, then four seed files — matching the Seventh
+pass's exactly:
+
+```
+work_items=107  comments=70  profiles=4  notifications=0  access_events=6
+```
+
+**On the binding check.** The Seventh pass proved the app was bound to `:54521` by finding the
+port inside a served chunk. That check does not reproduce here and the reason is worth writing
+down rather than glossing: under this dev server **no** served response names either port —
+`{ responses: 63, iso54521: [], shared54421: [] }` across `/login`, `/app` and `/app/people`.
+Turbopack splits the browser client differently, so the compiled-in URL is not in a body the
+page fetches. What settles it instead is the traffic: every sign-in, every `page.evaluate` PATCH
+and every `query()` in the run below went to `127.0.0.1:54521` / `:54522`, and the assertions
+that read rows back agreed with the writes. A chunk grep that finds nothing is not evidence of
+isolation; it is the absence of that particular evidence, and saying so is cheaper than
+implying a proof that was not obtained.
+
+## The four that had not been measured
+
+Same method as the Seventh pass's two: five raw loads per selector — `waitUntil: "load"`, on a
+context that is deliberately **not** instrumented, because `instrumentPage`'s readiness wait is
+the very window being measured — sampling the bare locator and `.filter({ visible: true })`
+every 20 ms for 1200 ms. ~225 samples each.
+
+| selector | route | max, bare | max, `:visible` | samples showing two | the second match's chain |
+|---|---|---|---|---|---|
+| placeholder `person@example.com` | `/app/people`, admin | **2** | **1** | 4 of 207 | `INPUT < LABEL < FORM < … < MAIN < DIV#S:1 < BODY` |
+| text `/names capabilities that are an admin/` | `/app/people`, engineer | **2** | **1** | 8 of 224 | `P < DIV < SECTION < DIV < MAIN < DIV#S:1 < BODY` |
+| label `Role for Team Subject` | `/app/people`, admin | **2** | **1** | 5 of 226 | `SELECT < LABEL < SPAN < … < MAIN < DIV#S:1 < BODY` |
+| text `Write a comment — @ to mention` | item detail, Pixel 7 | **2** | **1** | 4 of 226 | `SPAN < BUTTON < … < MAIN < DIV#S:1` — `isConnected: false` |
+
+Every second match's parent chain runs through `DIV#S:1` — React's streaming placeholder — and
+`:visible` never exceeded one in any of ~880 samples. The first three were caught while the
+subtree was still inside the `hidden` wrapper; the fourth after the move, detached. **None of the
+four is a real duplicate**, and neither were the two the Seventh pass measured. There was nothing
+here to stop and report.
+
+`#S:1`, not `#S:0`, is the useful detail: this is a **nested** Suspense boundary, which is why
+`instrumentPage`'s wait did not cover it. That wait settles the outer boundary — no
+`[data-loading-skeleton]`, a `__reactFiber$` on `main` — and the inner one resolves afterwards.
+It is not a bug in the wait; it is a second boundary the wait cannot see.
+
+## The repair
+
+`shell(page)` — `main[data-page-shell]:visible` — is exported from `e2e/fixtures.ts` now, with the
+table above in its comment. Sixty spec files did not need changing; three did:
+
+| File | What changed |
+|---|---|
+| `e2e/access.spec.ts` | the four failing assertions scoped through `shell()`; the lead/engineer pair's hand-rolled `browser.newContext()` page handed to `instrumentPage`, which `fixtures.ts` already asks for and which this file is the reason for |
+| `e2e/team.spec.ts` | `Role for Team Subject` and the rest of the file's page-level element locators scoped through `shell()`; its bypass test's hand-rolled page instrumented |
+| `e2e/mobile.spec.ts` | the composer's opener scoped through `shell()` |
+
+`:visible` and not `:light()`, because none of this is shadow DOM. The absence assertions matter
+as much as the clicks: `toHaveCount(0)` against a page-level locator fails on the wrapper's copy
+and reads as *the guard did not hold*.
+
+## The re-run
+
+From a pristine `supabase db reset`, serial, one worker, no retries:
+
+```bash
+E2E_BASE_URL=http://localhost:3011 \
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54521 \
+E2E_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54522/postgres \
+npx playwright test e2e/mobile.spec.ts e2e/access.spec.ts e2e/team.spec.ts \
+                    e2e/client-boundary.spec.ts --workers=1
+```
+
+Twice, each from its own fresh reset:
+
+| | passed | failed | did not run | time |
+|---|---|---|---|---|
+| first run | **78** | 1 | 0 | 3.7 min |
+| second run | **79** | **0** | 0 | 3.5 min |
+
+Against the Seventh pass's **68 passed / 6 failed / 5 never ran**. All six named failures are gone
+in both runs, and `team.spec.ts`'s five skipped tests ran and passed — the file is
+`describe.configure({ mode: "serial" })`, so they were one consequence, not five results.
+
+## The one failure in the first run is a different animal, and is NOT fixed
+
+`[mobile-safari] › mobile.spec.ts:160 › the page behind is locked, and stays where it was`:
+
+```
+Error: the wheel is not locked
+Expected: "hidden"
+Received: "clip visible"
+```
+
+`clip visible` is `app/globals.css:372` — `body { overflow-x: clip }` — which is the body's
+**unlocked** state. The read is a single un-retried `page.evaluate` taken immediately after
+`expect(dialog).toBeVisible()`, and Radix applies the scroll lock in an effect after mount. So it
+caught the body between the dialog rendering and the lock landing.
+
+It is a race in the harness of the same family as the six, and it is **not** one of the six, so it
+has been left exactly where it is. What is known about it:
+
+- re-run alone on `mobile-safari`, three times: **3 passed**
+- the second full serial run: **passed**
+- it is a read, not a poll — `expect.poll` on `getComputedStyle(document.body).overflow` is the
+  obvious repair and it is somebody's deliberate decision, not a thing to slip into this batch
+
+## Still outstanding after this batch
+
+Everything the Seventh pass listed, **minus** its item 1, which is closed above: the sprint's
+saved views and sort panel, the database-style Projects / My work /
+People layouts, the Recovery Centre's structure, Phase 9's editor and reliability states, the
+truthful idle save chip, the 27 content-level `--canvas` hovers, and the board's column geometry
+(V-D4a), still not measured in a browser.
+
+Added by this pass:
+
+1. **One intermittent failure in `mobile.spec.ts` on `mobile-safari`**, diagnosed above, unfixed
+   and deliberately so. 1 of 2 full runs, 0 of 3 isolated runs.

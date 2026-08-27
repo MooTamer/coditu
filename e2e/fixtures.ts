@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { test as base, type Page } from "@playwright/test";
+import { test as base, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 /**
@@ -326,6 +326,43 @@ async function waitForInteractive(page: Page): Promise<void> {
     undefined,
     { timeout: 20_000 }
   );
+}
+
+/**
+ * The page's own surface — and only the one that is really on it.
+ *
+ * ── Why a locator has to go through this ───────────────────────────────────
+ * `waitForInteractive` above settles the OUTER boundary. It does not settle a
+ * nested one, and `/app/people` and the item detail both have one: the resolved
+ * subtree is delivered inside `<div hidden id="S:1">` and its children are then
+ * moved into place. For the ~100 ms between those two events the emptied
+ * wrapper's copy and the page's copy are BOTH matchable, so a page-level
+ * locator resolves to two elements and Playwright's auto-retry — which starts
+ * inside that window — reports a strict-mode violation about an element the
+ * application renders exactly once.
+ *
+ * Measured on the isolated stack, 2026-08-28, five raw loads per selector
+ * sampled every 20 ms from `load` (`--` = max matches):
+ *
+ *     selector                                   bare  :visible
+ *     placeholder person@example.com                2         1
+ *     text /names capabilities that are an admin/   2         1
+ *     label Role for Team Subject                   2         1
+ *     text Write a comment — @ to mention           2         1
+ *
+ * and in every case the second match's parent chain runs through `DIV#S:1`.
+ * `:visible` excludes it either way: inside the `hidden` wrapper it has no
+ * layout box, and after the move it is detached. `:light()` does not help —
+ * none of this is shadow DOM — and the first thing to ask about a DOUBLED
+ * element is whether the second one is `connected`, not whether hydration
+ * mismatched.
+ *
+ * A spec that asserts an element is ABSENT needs this as much as one that
+ * clicks: `toHaveCount(0)` against a page-level locator fails on the wrapper's
+ * copy and reads as "the guard did not hold".
+ */
+export function shell(page: Page): Locator {
+  return page.locator("main[data-page-shell]:visible");
 }
 
 /**
