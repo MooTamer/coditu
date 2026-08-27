@@ -100,11 +100,25 @@ export default async function RecoveryPage() {
           />
           <Fact
             label="Retention, RPO and RTO"
-            value="not set"
-            detail="Nobody has agreed how long deleted work is kept, how much loss is acceptable, or how quickly it must come back. Until they are decided this screen states no schedule and no retention period, because a number nobody chose would be believed."
-            tone="slate"
+            value="proposed, not set"
+            detail="Nobody has agreed how long deleted work is kept, how much loss is acceptable, or how quickly it must come back. `docs/09-BACKUP-PROPOSAL.md` proposes figures and prices them; until they are chosen this screen states no schedule and no retention period, because a number nobody chose would be believed — and would be believed on the worst day."
+            tone="amber"
           />
         </dl>
+
+        <p className="mt-4 max-w-[72ch] text-[13px] leading-[1.55] text-[var(--ink-muted)]">
+          {/* The one sentence this screen exists to make impossible to miss.
+              Everything the application guarantees is a row in the database it
+              is guaranteeing, so none of it survives losing that database. */}
+          <strong className="font-semibold text-[var(--ink)]">
+            Version history is not a backup.
+          </strong>{" "}
+          It protects against somebody changing their mind. It protects against nothing that
+          happens to the database itself — every version, every binned story and every access
+          event is a row in the same project, and a project that is gone takes all three with it.
+          That is what the three facts above are about, and it is why none of them is something
+          this application can fix from inside itself.
+        </p>
       </Reveal>
 
       <Reveal

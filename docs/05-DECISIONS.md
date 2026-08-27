@@ -4053,3 +4053,184 @@ blocked · done`. The command palette is `max-w-[620px]`, which is the
 prototype's number. The typing indicator names the surface. The bottom bar keeps
 its four destinations and a More sheet, reading the same predicate list the rail
 does, so both agree on what is current.
+
+---
+
+## The four "named on purpose" divergences are withdrawn, and built
+
+**Decided 2026-08-27, on the reopened audit.** The entry above — *"Four places
+the build does not match the returned handoff, named on purpose"* — reasoned that
+each of the four was additive, none was load-bearing for correctness, and
+`CLAUDE.md`'s *"do not add features that are not in the brief"* therefore applied.
+
+**That reasoning is withdrawn.** It rested on treating the returned handoff as a
+design bundle whose *behaviour* the brief could override. The handoff is source
+**2** in the reopened audit's hierarchy, above the current implementation and its
+ADRs, and Mohamed has now asked for all four by name. Recording a divergence is
+not waiving it: only Mohamed can do that, and he did the opposite.
+
+All four are built:
+
+1. **The story is a 620px side peek.** `DialogShell` gained `variant="peek"` —
+   `justify-end`, full height, `md:max-w-[min(620px,96vw)]`, rounded on the left
+   only. Below `md` it is still the bottom sheet, because the handoff's own
+   breakpoint table gives the story a full-screen page below 768 and a peek from
+   768 up.
+2. **"Open as full page", and back.** The peek's header carries a `<Link replace>`
+   to the same URL un-intercepted; the full page carries `BackToPeek`, which is a
+   button rather than a link because the two states are the **same URL** and a
+   link from a route to itself is a no-op. See `back-to-peek.client.tsx`.
+3. **The topbar carries surface presence.** `PresenceSurfaceProvider` moved from
+   the story to the app shell so one store feeds both the story's stack and the
+   topbar's caption; the channel is the route.
+4. **The save-confidence vocabulary is on screen.** `save-state.client.tsx` — one
+   store, six words, a chip in the topbar, and `useTrackedSave()` wrapping
+   `settle()` at every writing surface.
+
+### Two things that came with them and are decisions of their own
+
+**`--tone-rose-*` and `--tone-cobalt-*` were added to the design system.** Three
+tone pairs were enough while the only tones on screen were amber, jade and slate.
+The save chip needs a failure that is not a warning (`Failed — draft kept`) and a
+neutral notice that is not a success (`Recovered draft`). Both values are the
+returned prototype's own `TONE` map, light and dark, rather than invented.
+
+**`Saved` expires after 2.6 seconds; `Draft saved`, `Offline` and `Failed` do
+not.** A permanent "Saved" is wallpaper — after the second time you see it you
+stop reading the chip, and then you do not read it on the day it says
+`Failed — draft kept`. The three states that mean *something is outstanding*
+stay until they are resolved.
+
+---
+
+## Pages are admin-and-lead-authored, and that is Mohamed's to change
+
+**Decided 2026-08-27.** `20260827120100_workspace_and_project_pages.sql` gives
+`pages` an insert and update policy of `is_admin_or_lead()`. Everybody internal
+reads; a client contact reads nothing, because `is_active_member()` is the whole
+read predicate and it is false for one.
+
+**Why that and not "anybody internal writes".** It matches sprint notes, which is
+the surface a page is most like, and it matches the returned prototype's own
+data — every one of `pgNotes`' three rows is authored by Mohamed (admin) or Adam
+(lead).
+
+**The handoff itself flags the question**, in its unresolved-decisions list:
+*"Sprint notes editors — notes are admin/lead-authored in this design. If
+engineers should be able to add to them, the publish flow needs a section-level
+author, not a page-level one."* That is as true of pages as of notes, and it is
+recorded here rather than answered, because inventing a section-level author
+inside an audit is the wrong moment to design one.
+
+**What would change it.** If engineers should write pages, the smallest honest
+change is to widen the two policies to `is_active_member()` and add an
+`author-or-admin-or-lead` clause to the update policy — no schema change, and
+`supabase/tests/pages.sql` would need its two engineer assertions inverted.
+
+---
+
+## A restore is always a version, and it reaches Activity for a story
+
+**Decided 2026-08-27.** Two defects, both found by reading the reopened audit's
+requirement *"restores always create a new current version … and audit activity"*
+against what the code did.
+
+**Restoring the version that is already current used to write nothing.**
+`record_document_revision()` returns early when the document and the text are
+both unchanged — correct for an ordinary write (a status flip must not add a
+version to the description) and wrong for a restore, which is a thing somebody
+did, at a time, and has to be on the record. The guard is now skipped when
+`coditu.restored_from` is set. Without it the RPC returned the *pre-existing*
+latest revision as though it had just made it, which is the one shape of
+dishonesty a version history cannot afford.
+
+**A restore did not reach the Activity feed.** It is written by an `AFTER INSERT`
+trigger on `document_revisions` rather than by `restore_document_revision`
+itself, and that placement is the decision. The RPC is `security invoker` — the
+caller's own policies decide whether the write lands — and `activity` is granted
+`select` and nothing else, deliberately, so that nobody can forge a row in it. An
+insert from inside the invoker function would fail `42501`, and both ways round
+that are worse: making the RPC `security definer` moves the authorization
+decision out of the policies that hold it, and granting `insert` on `activity`
+makes the audit feed writable by the people it audits. A trigger on a table with
+**no insert policy at all** cannot be forged, because a revision cannot be forged.
+
+**What it does not cover, stated rather than left to be discovered.**
+`activity.work_item_id` is `not null`, so this reaches the four surfaces that
+resolve to a story. A **sprint note** or a **page** restore has no story to
+attach to. For those two the audit trail is the revision itself — `restored_from`
+is set, the actor and the timestamp are on the row — and `/app/history?action=restored`
+is the screen that lists them. Inventing a nullable-scope activity feed to hold
+two rows a year is the kind of feature `CLAUDE.md` says not to add.
+
+---
+
+## `document_revisions` gained a derived column, and it was backfilled
+
+**Decided 2026-08-27.** `PLAN.md` §11 asks history to be filterable by project.
+Project is two joins away through `work_item_id` and one through `sprint_id`, and
+PostgREST cannot filter a parent row by an embedded column without `!inner` —
+which on `work_item` would silently drop every sprint-note revision and on
+`actor` would drop every write made outside the app, both of which are categories
+this screen offers as filters.
+
+So `project_id` is denormalised onto the row, exactly as `work_item_id` and
+`sprint_id` already are, written by the capture trigger from the row's own parent
+and never supplied by a caller.
+
+**The backfill needs saying out loud.** `document_revisions` is append-only *by
+policy* — a `select` policy and no other, so nobody including an admin can change
+a row through PostgREST, and `supabase/tests/revisions.sql` asserts each refusal.
+A migration runs as the table's owner, which is not subject to those policies,
+and `20260827120200` uses that to fill the new column from foreign keys that were
+already on the row.
+
+**Nothing that is content was touched.** Not one `doc`, `plain_text`, `actor_id`,
+`revision_no` or `created_at`. If the backfill were wrong the worst outcome is a
+revision that does not appear under a project filter — never a revision that says
+something different than it did. `on delete set null` rather than `cascade`,
+because losing every version of everything in a project would be the opposite of
+what a version history is for.
+
+---
+
+## Retired components stay in the seed, archived
+
+**Decided 2026-08-27.** `npm run components:check` reported one new component
+(`Redaktionskalender`) and two gone (`Anfrage`, `Redakteurkalender`), and the
+script's advice for a removal was *"archive it in the app; it keeps its history"*.
+
+Following that advice literally would have been a data-loss bug on every fresh
+checkout. The seed is **generated** from the delivery repository, so a component
+deleted over there disappears from the seed entirely — and `npm run db:reset`
+then produces a database in which it had never existed. `Redakteurkalender`
+carries one story's attribution today; it would have gone with it, silently.
+
+So the script gained a `RETIRED` list. A component that leaves the delivery
+repository moves into it, is still inserted, and is archived by an explicit
+`update … set is_archived = true` the generated file carries — an UPDATE rather
+than part of the insert, so it also reaches a database where the row already
+exists and is not archived, which is every database that had it before it was
+retired, including the hosted one.
+
+Each entry records when and why, because the alternative is a list nobody dares
+prune.
+
+---
+
+## The gate is a script now
+
+**Decided 2026-08-27.** The gate was a checklist in `docs/06-PROGRESS.md` and a
+memory of having run it. That is enough right up until something falls off the
+list, and something did: `e2e/comments.spec.ts`'s *"the editor bundle is not
+shipped to a reader who never composes"* skips itself without `E2E_PROD_URL`,
+`npm run e2e:prod` was in no gate, and the assertion went quiet for weeks. **It
+was failing the whole time.**
+
+`npm run gate` runs the list. The two production-only assertions are tagged
+`@prod` and run through `npm run e2e:bundle`, which is one build and two specs —
+seconds, not the nineteen minutes a full production pass costs. `--fast` skips
+the two long browser passes for use mid-change; the unqualified command is the
+one that gates a handoff.
+
+A check that only runs when somebody remembers is not a check.

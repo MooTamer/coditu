@@ -4209,3 +4209,117 @@ production. `db:reset` still leaves MEINEvim on `COD` at 244 — the seed calls
 this function with no session and is unaffected.
 
 `lint`, `typecheck` clean · `test` **416** · `db:test` **407** (1 new).
+
+---
+
+# The reopened audit — 2026-08-27
+
+**The overall audit was closed. It is not.** Repository and migration
+synchronisation were complete — 29 migrations, local `main` at `f4b7aae` matched
+to `origin/main`, the hosted schema verified by `db diff --linked`. Product
+conformance and disaster recoverability were not, and the entry above that named
+four handoff divergences *"on purpose"* was recording them rather than closing
+them.
+
+`docs/08-GAP-MATRIX.md` is the requirement-by-requirement comparison this
+started from: `PLAN.md` first, the returned `Coditu design system updates 2`
+handoff second, the implementation and its ADRs third. It found twenty-three
+gaps, of which four were the ones already on the record.
+
+## What the matrix found that nobody had recorded
+
+Four of these were not on any list, and two of them were live defects.
+
+**`/app/projects/{slug}/sprints/{number}/notes` did not exist.**
+`lib/data/revisions.ts` has built that URL as the target of every sprint-note
+revision since `/app/history` was written. There was no such route: every one of
+those rows linked to a **404**, on the workspace's own version-history screen.
+Found by reading the target builder against `find app -name page.tsx`.
+
+**A restore of the version that is already current wrote nothing.** The capture
+trigger's "nothing changed" guard swallowed it, and `restore_document_revision`
+then returned the pre-existing latest revision as though it had just made it.
+
+**A restore never reached the Activity feed.** `record_work_item_activity` fires
+on status, assignee, reviewer and deadline; nothing said a document had been put
+back.
+
+**The 44px floor had never applied to form fields.** `globals.css`'s
+coarse-pointer block has said 44px for buttons and links since W14 and had never
+said it for `input`, `select` or `textarea`. The a11y spec that was supposed to
+catch that ran on four application screens, and the four were the wrong four.
+Swept across all twenty-one routes: a role picker at 115×28, a projects search at
+358×34, an allowlist field at 308×38, seven number fields and a select in
+Workspace settings. All of them, on every phone, for as long as they had existed.
+
+## The 329 KB chunk: the recorded hypothesis was wrong
+
+`06-PROGRESS.md` recorded the measurement and named a cause — *"a module-scope
+`dynamic()` is preloaded on hydration under Turbopack"* — and said plainly that
+it was a hypothesis rather than a finding. It was wrong.
+
+All six editor call sites are and always were behind `next/dynamic`. The leak was
+two lines: `comment-composer.client.tsx` and `criteria-list.client.tsx` imported
+`hasPendingUpload` — a fifteen-line pure function — out of
+`uploading-image.client.tsx`, which defines a TipTap **node view** and therefore
+imports `@tiptap/core` and `@tiptap/react`. Both composers are ordinary client
+components on the story page, imported statically.
+
+Found by reading the built `page_client-reference-manifest.js` and asking which
+client modules declare the 329 KB chunk among their own. **Twenty-eight did**,
+`next/dist/client/app-dir/link.js` and `favourite-star.client.tsx` among them. A
+chunk that `next/link` depends on is not lazily loaded by anything.
+
+The fix is `lib/blocks/uploading.ts`, which holds the constant and the predicate
+and imports nothing. `07-FIELD-NOTES.md` has the whole trap, including the two
+commands that find this class of bug.
+
+Measured on a real production build, before and after:
+
+| | before | after |
+|---|---|---|
+| `@prod the editor bundle is not shipped to a reader who never composes` | **fail** | **pass** |
+| app shell own | 78.6 KB / 110 | 78.6 KB / 110 |
+| app shell total | 218.6 KB / 220 §5 | 218.6 KB / 220 §5 |
+
+The shell total is 218.6 of 220 and it moved: 216.1 before this audit, +2.5 KB
+for the topbar's presence cluster, the save chip and the recents panel. **1.4 KB
+of headroom** is the number to watch — it is one small client component away
+from failing, and `npm run budgets` is the only thing that will say so.
+
+## The gate runs the list now
+
+`npm run gate` — `git diff --check`, lint, typecheck, test, `db:test`,
+`db:types` with a no-diff check, `components:check`, `degraded`, budgets, the two
+`@prod` assertions, `e2e`, `lighthouse`. `--fast` skips the last two.
+
+The two production-only assertions are tagged `@prod` and reachable as
+`npm run e2e:bundle`: one build, two specs, seconds. They had been skipping
+themselves for weeks, and one of them was failing the whole time.
+
+## Verification
+
+| | |
+|---|---|
+| `npm run lint` | clean |
+| `npm run typecheck` | clean |
+| `npm run test` | **445** (was 416) |
+| `npm run db:test` | **436** (was 407) — `supabase/tests/pages.sql` is new, 26 assertions; `rls.sql` gained 3 |
+| `npm run db:types` | regenerated, committed |
+| `npm run components:check` | in step |
+| `npm run budgets` | OK — marketing 13.6/20, app shell 78.6/110 own, 218.6/220 total |
+| `npm run e2e:bundle` | 2 passed |
+| `npm run degraded` | OK |
+
+## Five migrations, appended — nothing renumbered
+
+`20260827120000_page_revision_surface.sql` · `20260827120100_workspace_and_project_pages.sql` ·
+`20260827120200_history_scope_and_restore_audit.sql` · `20260827120300_recently_opened.sql` ·
+`20260827120400_rehearse_pages.sql`
+
+Thirty-four migrations now. The first is one statement on its own because
+`alter type … add value` cannot be **used** in the transaction that added it, and
+the Supabase CLI runs each file in one.
+
+**None of these has been pushed.** The hosted project is still at
+`20260827041641`.

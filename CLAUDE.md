@@ -22,7 +22,14 @@ npm run test        # vitest run
 npm run db:migrate  # supabase migration up
 npm run db:seed     # seed the local database
 npm run db:test     # RLS assertions, positive and negative
+npm run gate        # the whole list, in order (`npm run gate -- --fast` skips e2e + lighthouse)
+npm run e2e:bundle  # the two @prod assertions: one build, seconds
 ```
+
+**`npm run gate` is the list.** It was a checklist in `docs/06-PROGRESS.md` until 2026-08-27,
+and something fell off it: the production-only bundle assertion skips itself without
+`E2E_PROD_URL`, was in no gate, and had been failing quietly for weeks. A check that only
+runs when somebody remembers is not a check.
 
 ## The five invariants
 
@@ -55,6 +62,8 @@ These are not guidelines. Any change that breaks one of them is a bug, regardles
 | `docs/03-APP-SPEC.md` | Every screen and every behaviour the design bundle could only gesture at. |
 | `docs/04-EXPORT-SPEC.md` | The CSV, Markdown, and PDF contracts, exactly. |
 | `docs/05-DECISIONS.md` | Append-only ADR log. Every call the brief did not make for us, with the reason and what was rejected. |
+| `docs/08-GAP-MATRIX.md` | **The conformance comparison.** Every requirement in `PLAN.md` and the returned handoff against what is built, with the evidence for each. Written when the audit was reopened on 2026-08-27; the second-pass table records what closed each gap. |
+| `docs/09-BACKUP-PROPOSAL.md` | **Infrastructure backup — proposed, not configured.** Four layers, real commands and prices, RPO/RTO/retention with and without PITR, and the six questions that need Mohamed's answer before anything is turned on. Nothing in it has been applied. |
 | `docs/07-FIELD-NOTES.md` | **The shared memory.** Traps this repo has already paid for — the build that points at production, the proxy that caches after a reset, the guard that is an allowlist written as a denylist. Read it before debugging anything environmental, and append what the next person will need. |
 | `docs/coditu-implementation-prompt.md` | The original contract. Superseded only by `05-DECISIONS.md`. |
 | `docs/coditu-revamp-prompt.md` | The earlier brief the designs were built from. Source for voice, positioning, and company facts. |

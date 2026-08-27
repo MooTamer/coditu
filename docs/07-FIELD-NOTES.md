@@ -1826,3 +1826,111 @@ The question is *did this arrive as a request*, and the answer is the JWT claims
 which PostgREST sets on every call and psql, a migration and the seed never do.
 That idiom is safe on a trigger guarding a table `anon` cannot write. It is not
 safe on a function `anon` can call.
+
+---
+
+## A helper in the wrong file shipped 329 KB to every reader
+
+**Found 2026-08-27, by the reopened audit.** `06-PROGRESS.md` had recorded the
+measurement — *"one chunk of 329,083 bytes containing `prosemirror-model` and
+`prosemirror-view` is fetched"* by a reader of a story page who never opens a
+composer — and named a hypothesis: a module-scope `dynamic()` preloaded on
+hydration under Turbopack.
+
+**The hypothesis was wrong.** All six editor call sites are and always were
+behind `next/dynamic`. The leak was two lines:
+
+```ts
+// comment-composer.client.tsx, criteria-list.client.tsx
+import { hasPendingUpload } from "@/components/app/uploading-image.client";
+```
+
+`hasPendingUpload` is a fifteen-line pure function. The module it lived in
+defines a TipTap **node view**, so it imports `@tiptap/core` and `@tiptap/react`.
+Both composers are ordinary client components on the story page, imported
+statically — so the story page's client graph statically contained TipTap.
+
+### How to find this class of bug
+
+Not by reading the source: source-level splitting looked correct, which is why
+the wrong hypothesis survived. Read the **built manifest** and ask which client
+modules declare the chunk among their own:
+
+```bash
+# 1. which chunk holds the dependency
+for f in .next/static/chunks/*.js; do
+  grep -lq "prosemirror-view" "$f" && echo "$(wc -c < "$f") $f"
+done | sort -rn | head
+
+# 2. who declares it — this is the answer
+python3 - <<'PY'
+import json, pathlib
+p = pathlib.Path(".next/server/app/<route>/page_client-reference-manifest.js")
+s = p.read_text(); data = json.loads(s[s.index('] = ') + 4:].rstrip().rstrip(';'))
+for k, v in data["clientModules"].items():
+    if any("<chunk-hash>" in c for c in v.get("chunks", [])): print(k)
+PY
+```
+
+It listed **28** modules, `next/dist/client/app-dir/link.js` and
+`favourite-star.client.tsx` among them. A chunk that `next/link` depends on is
+not lazily loaded by anything.
+
+### The rule
+
+**A module is only as light as its heaviest import**, and a helper that lives
+beside a heavy dependency drags that dependency wherever it goes.
+`lib/saved-views-schema.ts` states this for zod at the `lib/` level; this is the
+same shape one layer down, inside `components/`. The only thing that will tell
+you is a **production** build — the dev server eagerly loads dynamic chunks so
+HMR can patch them, so measuring this against `next dev` reports a failure that
+does not exist and hides one that does.
+
+`lib/blocks/uploading.ts` now holds the constant and the predicate, imports
+nothing, and says at the top that it may never import TipTap.
+
+---
+
+## Turbopack serves a stale `globals.css` after an edit to it
+
+**Found 2026-08-27.** A rule added inside an existing `@media (pointer: coarse)`
+block in `app/globals.css` did not appear in the served stylesheet. The rule was
+syntactically fine and `tsc`, `lint` and the page all behaved as though it had
+never been written — and the *earlier* rules in the same block were being served,
+which is what made it look like a specificity problem rather than a cache one.
+
+It is a cache one. `touch app/globals.css` did not clear it either; the served
+URL keeps its hash, so a browser reload fetches the same stale body.
+
+**The check**, which takes one command and is unambiguous:
+
+```bash
+CSS=$(curl -s http://localhost:3000/login | grep -o 'href="[^"]*\.css[^"]*"' | head -1 | sed 's/href="//;s/"//')
+curl -s "http://localhost:3000$CSS" | grep -c "the-declaration-you-just-added"
+```
+
+**The fix**: stop the dev server, `rm -rf .next`, start it again. Ten seconds,
+against however long it takes to convince yourself a correct CSS selector is
+wrong.
+
+---
+
+## A binned row is not readable, so a test helper that looks it up returns null
+
+**Found 2026-08-27, writing `supabase/tests/pages.sql`.** A pgTAP helper of the
+shape
+
+```sql
+create or replace function pg_temp.page_id() returns uuid language sql stable as
+  $$ select id from public.pages where slug = 'the-fixture' $$;
+```
+
+is correct right up until the fixture is soft-deleted. `pages`' read policy is
+`deleted_at is null`, so the helper returns **NULL** from that point on, every
+later assertion silently asks about nothing, and the failure surfaces several
+assertions further down as *"No such page"* from an unrelated function.
+
+Fixtures that will be deleted during a test get a **fixed uuid**, the way
+`supabase/tests/revisions.sql` gives its story one. Anything that reads its own
+fixture back through RLS is asserting the policy as well as the behaviour, and
+only one of those is what the test is about.
