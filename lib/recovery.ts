@@ -17,7 +17,7 @@
  * `server-only`.
  */
 
-export const RECOVERY_CHECKS = ["documents", "trash", "attachments"] as const;
+export const RECOVERY_CHECKS = ["documents", "pages", "trash", "attachments"] as const;
 export type RecoveryCheck = (typeof RECOVERY_CHECKS)[number];
 
 export interface RecoveryFinding {
@@ -29,6 +29,7 @@ export interface RecoveryFinding {
 /** What each check is called on screen. */
 export const CHECK_LABEL: Record<RecoveryCheck, string> = {
   documents: "Documents replay",
+  pages: "Pages replay",
   trash: "The bin is restorable",
   attachments: "Attachments resolve",
 };
@@ -37,6 +38,8 @@ export const CHECK_LABEL: Record<RecoveryCheck, string> = {
 export const CHECK_DETAIL: Record<RecoveryCheck, string> = {
   documents:
     "Rebuilds every story description from its newest version and compares it to the live row. Not “are there versions” — would replaying them give back what we have.",
+  pages:
+    "The same question for project and workspace pages, which are a separate check so an admin can ask about them without waiting on a workspace of attachments.",
   trash:
     "Every deleted story still has the sprint and project it would be restored into. One whose sprint went away is recoverable in principle and orphaned in practice.",
   attachments:

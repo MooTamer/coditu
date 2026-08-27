@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(320);
+select plan(323);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -1700,6 +1700,14 @@ select is_empty($$select 1 from public.sprints$$,             'a client reads no
 select is_empty($$select 1 from public.attachments$$,         'a client reads no attachments');
 select is_empty($$select 1 from public.sprint_payouts$$,      'a client reads no payouts — money is never client-visible');
 select is_empty($$select 1 from public.app_settings$$,        'a client reads no settings, including the hourly rate');
+-- Added by the 2026-08-27 audit, with the two tables it added. A page is an
+-- internal writing surface and a recent is where an internal member has been;
+-- both are gated on `is_active_member()`, which is false for a contact — so
+-- these pass by construction and are asserted anyway, because "by construction"
+-- is exactly what stops being true when somebody adds a second policy.
+select is_empty($$select 1 from public.pages$$,               'a client reads no pages — project or workspace');
+select is_empty($$select 1 from public.recent_views$$,        'a client reads nobody''s recents, including her own');
+select is_empty($$select 1 from public.document_revisions$$,  'a client reads no document history');
 
 -- Her own row, and only her own. `getClientContact()` has to be able to read
 -- her name, so "reads nothing at all" would be wrong — but every OTHER profile

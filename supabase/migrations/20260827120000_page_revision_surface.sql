@@ -1,0 +1,32 @@
+-- A sixth document surface: the page.
+--
+-- ## Why this is a migration of its own, containing one statement
+--
+-- `alter type … add value` is allowed inside a transaction on PostgreSQL 12+,
+-- but the new label **cannot be used in the same transaction that added it** —
+-- Postgres refuses with *"unsafe use of new value of enum type"*. The Supabase
+-- CLI runs each migration file in its own transaction, so the enum value and
+-- everything that references it have to be in different files. Splitting them
+-- is the whole reason this file exists; there is nothing else worth putting in
+-- it.
+--
+-- `if not exists` because this file has to be re-runnable against a database
+-- that already has the value — the hosted project gets its migrations by hand
+-- (`07-FIELD-NOTES.md`), and a half-applied push must not wedge the next one.
+--
+-- ## What follows a new enum value automatically, and what does not
+--
+-- `07-FIELD-NOTES.md` records the rename trap in the other direction: renaming
+-- a value reaches every column and index and **does not** reach a function body
+-- or a policy expression that spells the old name. Adding one has the mirror
+-- property — nothing anywhere needs changing to accept it, and every `case`
+-- that switches on the type silently stops being exhaustive. The two that
+-- matter are `record_document_revision()` and `restore_document_revision()`,
+-- and `20260827120100_workspace_and_project_pages.sql` extends both.
+--
+-- TypeScript is the other half of that: `RevisionSurface` in
+-- `lib/data/revisions.ts` is a hand-written union and `surfaceLabel()`
+-- switches on it exhaustively, so adding `page` there makes the compiler find
+-- every place that has to learn the word.
+
+alter type public.revision_surface add value if not exists 'page';

@@ -936,7 +936,9 @@ export type Database = {
           doc_version: number
           entity_id: string
           id: string
+          page_id: string | null
           plain_text: string | null
+          project_id: string | null
           restored_from: number | null
           revision_no: number
           sprint_id: string | null
@@ -950,7 +952,9 @@ export type Database = {
           doc_version?: number
           entity_id: string
           id?: string
+          page_id?: string | null
           plain_text?: string | null
+          project_id?: string | null
           restored_from?: number | null
           revision_no: number
           sprint_id?: string | null
@@ -964,7 +968,9 @@ export type Database = {
           doc_version?: number
           entity_id?: string
           id?: string
+          page_id?: string | null
           plain_text?: string | null
+          project_id?: string | null
           restored_from?: number | null
           revision_no?: number
           sprint_id?: string | null
@@ -985,6 +991,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_person_load"
             referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "document_revisions_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_revisions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "document_revisions_sprint_id_fkey"
@@ -1142,6 +1162,90 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "work_items"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      pages: {
+        Row: {
+          body: string
+          body_json: Json | null
+          body_version: number
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          project_id: string | null
+          published_at: string | null
+          published_by: string | null
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          body_json?: Json | null
+          body_version?: number
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          project_id?: string | null
+          published_at?: string | null
+          published_by?: string | null
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          body_json?: Json | null
+          body_version?: number
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          project_id?: string | null
+          published_at?: string | null
+          published_by?: string | null
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pages_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pages_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "pages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pages_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pages_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
           },
         ]
       }
@@ -1304,6 +1408,45 @@ export type Database = {
           },
           {
             foreignKeyName: "push_subscriptions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_load"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      recent_views: {
+        Row: {
+          glyph: string
+          href: string
+          label: string
+          opened_at: string
+          profile_id: string
+        }
+        Insert: {
+          glyph: string
+          href: string
+          label: string
+          opened_at?: string
+          profile_id: string
+        }
+        Update: {
+          glyph?: string
+          href?: string
+          label?: string
+          opened_at?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recent_views_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recent_views_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "v_person_load"
@@ -2140,6 +2283,10 @@ export type Database = {
         Args: { depth?: number; doc: Json }
         Returns: Json
       }
+      set_page_deleted: {
+        Args: { p_deleted: boolean; p_page_id: string }
+        Returns: undefined
+      }
       set_work_item_deleted: {
         Args: { p_deleted: boolean; p_item_id: string }
         Returns: Json
@@ -2197,6 +2344,7 @@ export type Database = {
         | "sprint_notes"
         | "acceptance_criterion"
         | "comment"
+        | "page"
       sprint_status: "planned" | "active" | "closed"
       work_item_status:
         | "draft"
@@ -2368,6 +2516,7 @@ export const Constants = {
         "sprint_notes",
         "acceptance_criterion",
         "comment",
+        "page",
       ],
       sprint_status: ["planned", "active", "closed"],
       work_item_status: [
