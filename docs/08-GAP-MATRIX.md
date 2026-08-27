@@ -473,3 +473,58 @@ Honest limits, not omissions.
   the repo's local-only rule, is the thing that would stop this recurring — and its
   absence is why three passes of this audit could report "fixed" without noticing that
   thirteen surfaces have no measure.
+
+---
+
+## V-G. The eight checks the fourth pass left open, now closed
+
+Run against `visual-conformance` at `030fd6a`, its own dev server on :3100, the shared local
+Supabase, signed in as `mohamed@coditu.com`. Nothing here is assumed; each row says what was run.
+
+| # | Check | Result | Evidence |
+|---|---|---|---|
+| 1 | **Sprint Board** side by side | `partial` | Renders with per-status columns, counts and cards. Diverges: columns are `minmax(240px,1fr)` gap `14px` against the design's `minmax(264px,1fr)` gap `12px`; and at `@min-[900px]` the app reflows to a **wrapping row grid** where the design keeps one horizontally-scrolling row at every width. Cards omit the deadline, the component chips and the 3 px left group border, and add a "story" kind label the design does not have. → **V-D4a** |
+| 2 | **Project home** | `met` (structure) / `gap` (measure) | Already the design's two-column shape: left Components / Pages & notes / Sprints, right Saved views / Team / Client access / Latest activity. Breadcrumbs present. No `max-width` — fills 1157 px against the design's 1320. → V-A6 only |
+| 3 | **Import** | `gap` (measure, crumbs) | Renders; `main` fills 1172 px against the design's 1080; no breadcrumb trail. → V-A15, V-C1 |
+| 4 | **Slash and mention menus** | **`met`** | `npx playwright test e2e/editor.spec.ts e2e/composer.spec.ts --workers=1` → **22 passed**. Covers: slash opens the block menu and the keyboard drives it; slash does *not* fire mid-sentence; Escape closes the menu and leaves the draft; the menu is axe-clean; `@` opens the mention list and stores the profile id rather than the name; Escape dismisses the list and only the list. The handoff's interaction rules for both menus hold. |
+| 5 | **Table → cards at 390 and 320** | `met` (behaviour) / minor drift | 17 cards at both widths, zero horizontal overflow. Card carries key, status chip, title, assignee, hours, deadline, criteria. Drift: radius `14px` vs `12px`, padding `16px` vs `13px`, and the **component chips row is absent**. |
+| 6 | **Sticky Task column at 834** | **`gap`, and worse than the matrix assumed** | The sticky mechanism is right — `position: sticky; left: 0; z-index: 2`, `background: #F8FAFC` (`--raised`), wrapper `overflow-x: auto`, `min-width: 340px` (design 300). **But it is never seen at 834**, because the table→card switch is a `@max-[900px]` *container* query ([sprint-table.client.tsx:289](components/app/sprint-table.client.tsx:289), [sprint-cards.tsx:43](components/app/sprint-cards.tsx:43)) and the design's switch is `w < 768` *viewport*. At 834 the design shows the full table with the sticky column; the app shows cards. → **V-D7 confirmed** |
+| 7 | **Touch targets, all designed mobile routes** | **`gap` — fails on 11 of 11** | See the table below. |
+| 8 | **Presence, two authenticated contexts** | **`met`** | `npx playwright test e2e/presence.spec.ts --workers=1` → **5 passed**: two people on one sprint see each other; leaving removes the avatar; a story names who is on it and what they are doing; nothing typed reaches the socket; the channel join is authorised in SQL. Behaviour conforms — only *placement* is a gap (V-B5, V-D1). |
+
+### V-G7 — touch targets at 390, measured
+
+`>= 44 x 44` is the handoff's rule below 768 (`tap: narrow ? "44px" : "34px"`). Counted with a
+local-only spec, signed in as admin, on the routes the design gives a mobile state. Zero horizontal
+overflow on all eleven — that half holds.
+
+| Route | Controls under 44 | The ones that matter |
+|---|---|---|
+| `/app/history` | **115** | `Open COD-…` 89×15, `Restore as a new version` 146×29 |
+| `/app/projects` | 31 | row `Edit` 35×32, `New client` 98×32 |
+| `/app/people` | 30 | role `<select>` 91×28, hours ± 20×20, `Deactivate` 104×36 |
+| `/app/settings` | 15 | number inputs 110×34 |
+| `/app` | 10 | My-work rows 316×33, `open view →` 68×18 |
+| `/app/profile` | 7 | `Choose a picture` 160×38 |
+| `/app/settings/recovery` | 7 | checkboxes 16×16 |
+| `/app/import` | 5 | `Choose a file` 113×36 |
+| `/app/my-work`, `/app/earnings`, `/app/trash` | 3 each | the shell trio only |
+
+**The shell trio is on every route and is one fix:** theme toggle 34×34, `Export` 44×34,
+`New item` 42×34 — the topbar keeps its desktop `34px` height below 768 instead of the designed 44.
+
+Excluded as false positives: `1×1` file `<input>`s behind styled labels on `/app/profile` and
+`/app/import` — the label is the real target.
+
+**Also found, outside the eleven:** `/login` at 390 has five controls under 44 — the
+`Sign in` / `Create account` tabs at 167×30 and the email, password and submit at 342×38. The
+design does not cover `/login`, so this is recorded rather than scheduled.
+
+### What this changes in the plan
+
+- V-D6 and V-D7 move from "read from the handoff table, not measured" to **measured**, and V-D7 is
+  a single-threshold fix rather than new work: `@max-[900px]` container → `< 768px` viewport.
+- **A new phase-0 item:** touch targets. It is a shell fix plus five route fixes, it is the largest
+  count in the whole matrix, and no row above had it.
+- Checks 4 and 8 are **closed as conforming** — the editor and presence engines do not need work;
+  only where their output is placed does.
