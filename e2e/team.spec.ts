@@ -1,4 +1,4 @@
-import { SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixtures";
+import { SEED_ENGINEER, SUPABASE_URL, auditA11y, expect, query, signIn, test } from "./fixtures";
 
 /**
  * Role and access, on the People page.
@@ -179,24 +179,27 @@ test.describe("the team", () => {
       [SUBJECT]
     );
 
-    await page.evaluate(async (profileId) => {
-      const raw = document.cookie
-        .split("; ")
-        .find((c) => c.startsWith("sb-127-auth-token="))
-        ?.split("=")
-        .slice(1)
-        .join("=");
-      const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
-      await fetch(`http://127.0.0.1:54421/rest/v1/profiles?id=eq.${profileId}`, {
-        method: "PATCH",
-        headers: {
-          apikey: json.access_token,
-          Authorization: `Bearer ${json.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ role: "admin" }),
-      });
-    }, subject.id);
+    await page.evaluate(
+      async ({ profileId, supabaseUrl }) => {
+        const raw = document.cookie
+          .split("; ")
+          .find((c) => c.startsWith("sb-127-auth-token="))
+          ?.split("=")
+          .slice(1)
+          .join("=");
+        const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
+        await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${profileId}`, {
+          method: "PATCH",
+          headers: {
+            apikey: json.access_token,
+            Authorization: `Bearer ${json.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ role: "admin" }),
+        });
+      },
+      { profileId: subject.id, supabaseUrl: SUPABASE_URL }
+    );
 
     expect((await readSubject()).role, "an engineer promoted somebody").toBe("engineer");
     await context.close();

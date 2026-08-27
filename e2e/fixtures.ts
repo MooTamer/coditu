@@ -10,7 +10,15 @@ import { Client } from "pg";
  * are testing, and it means an auth-UI change does not break every other spec.
  * `login.spec.ts` covers the form itself.
  */
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54421";
+/**
+ * Exported, because a spec that writes its own literal writes it at the wrong
+ * stack the moment somebody runs the suite against a second one — and it does
+ * not fail. The token validates (every local project shares the default JWT
+ * secret), the row simply is not there, PostgREST answers with an empty patch,
+ * and the assertion that follows reads the database the test meant all along.
+ * A negative test cannot tell that apart from the guard it is checking.
+ */
+export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54421";
 const DB_URL = process.env.E2E_DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54422/postgres";
 
 export const SEED_ADMIN = { email: "mohamed@coditu.com", password: "coditu" };

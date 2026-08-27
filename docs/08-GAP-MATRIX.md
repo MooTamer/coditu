@@ -665,7 +665,7 @@ Unless stated otherwise the evidence is
 | **V-C5** | A jade presence dot on your own face in the rail | Exactly one, `rgb(35, 201, 127)` |
 | **V-C6** | The 768–1179 overlay drawer | Opens from the topbar hamburger at `x = 0`, `width = 320`; the rail is still in the document behind it; `body` overflow changes while open and is restored on close; Tab and Shift+Tab each cycle past the end without escaping; Escape closes it and focus returns to the opener; a navigation from inside it closes it. `rail-project-spaces` and `drawer-project-spaces` each appear exactly once, and no id in the page is duplicated |
 
-## V-B8 is NOT closed
+## V-B8 is NOT closed — *closed in the Seventh pass below, 2026-08-28*
 
 The Mentions composition from the source — avatar/initials, author, project and
 item, time, body preview, unread tint and dot, and a truthful `mark all read`
@@ -688,7 +688,8 @@ session's worktree, so this pass may not create rows to look at. What is proved:
   not render a blank line.
 
 **Still owed for V-B8:** the populated card in a browser, on a database somebody
-may write to.
+may write to. — **Paid on 2026-08-28**, on the isolated `coditu-iso` stack; see the
+Seventh pass.
 
 ## One decision left for Mohamed
 
@@ -730,7 +731,8 @@ this branch's.
 rows, and the local database is shared with another session. The Sixth pass's
 first version reported numbers for all four; those numbers are withdrawn, not
 because they were wrong but because this pass cannot stand behind them. They are
-owed on an isolated, resettable database.
+owed on an isolated, resettable database. — **Run on 2026-08-28** on exactly that:
+**68 passed, 6 failed, 5 not run**, all six failures one cause. See the Seventh pass.
 
 **No database was reset, and nothing was written to it.** The counts below were
 re-measured on 2026-08-28 in a `PGOPTIONS='-c default_transaction_read_only=on'`
@@ -832,9 +834,220 @@ to ask is whether the second copy is `connected`.
 
 ## Still outstanding after this batch
 
-Unchanged from the Fifth pass, minus the rows above, **plus V-B8**: the sprint's
+Unchanged from the Fifth pass, minus the rows above, **plus V-B8** *(V-B8 has since
+been closed — see the Seventh pass)*: the sprint's
 saved views and sort panel, the database-style Projects / My work / People
 layouts, the Recovery Centre's structure, Phase 9's editor and reliability
 states, the truthful idle save chip, the 27 content-level `--canvas` hovers, and
 the board's column geometry (V-D4a), which is in the source and has still not
 been measured in a browser.
+
+
+---
+# Seventh pass — the Sixth pass's debts, paid on an isolated database, 2026-08-28
+
+Branch `visual-conformance`, worktree `/Users/motamer/Dev/Freelance/coditu-visual-conformance`.
+Nothing pushed, nothing merged, nothing deployed.
+
+The Sixth pass owed two things it could not pay: **V-B8** needed a populated Mentions card on a
+database somebody may write to, and the four mutation-heavy suites needed a stack that was not
+shared. Both are paid here, on a second Supabase project that exists only for this.
+
+## The database, so the isolation is auditable rather than asserted
+
+|  | shared (untouched) | isolated (used here) |
+|---|---|---|
+| `project_id` | `coditu` | **`coditu-iso`** |
+| API / Kong | `:54421` | **`:54521`** |
+| Postgres | `:54422` | **`:54522`** |
+| Studio | `:54423` | **`:54523`** |
+| Mailpit | `:54424` | **`:54524`** |
+| containers | `supabase_{db,auth,rest,kong,storage,realtime,studio,pg_meta,inbucket}_coditu` | **the same nine, suffixed `_coditu-iso`** |
+| dev server | `:3000`, another session's checkout of `main` | **`:3011`, from this worktree** |
+
+The isolated project is a copy of `supabase/` **outside the repository**, with `project_id` and the
+seven ports rewritten and `site_url` pointed at `:3011`. Nothing about it is a tracked change, and
+`docker ps` shows eighteen containers in two disjoint sets.
+
+The only thing this pass did to `:544xx` was **read** it, in a session opened with
+`PGOPTIONS='-c default_transaction_read_only=on'`, for the three counts corrected above.
+
+**Proof the application was bound to the isolated stack and not to the shared one.** Env vars alone
+are not proof — `NEXT_PUBLIC_*` is compiled in, and `07-FIELD-NOTES.md` already records a build that
+ignored an override. So the served bundle was read back from the browser:
+
+```js
+// in the page, over every <script src> the app loaded
+{ iso54521: ["lib_ee7a3085._.js"], shared54421: [] }
+```
+
+One chunk names `127.0.0.1:54521`. **No chunk names `127.0.0.1:54421`.** `.next` was deleted before
+the server started, because a warm cache is exactly how the wrong URL survives an env change.
+
+The sequence, in order, from the isolated workdir:
+
+```bash
+supabase start                       # coditu-iso, 545xx
+supabase db reset                    # 35 migrations, then 4 seed files
+docker restart supabase_auth_coditu-iso supabase_rest_coditu-iso supabase_kong_coditu-iso
+psql "postgresql://postgres:postgres@127.0.0.1:54522/postgres" -c "notify pgrst, 'reload schema'"
+curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:54521/auth/v1/health   # 200, second poll
+```
+
+Baseline immediately after that, and the number the corrected paragraph above leans on:
+
+```
+comments=70  comment_revisions=70  notifications=0  profiles=4
+```
+
+## V-B8 — closed
+
+`public.notifications` is written by `sync_comment_mentions`, not by any Server Action, so the card
+was populated the only truthful way: by inserting comments whose `body_json` carries mention nodes
+and letting the trigger do the rest. Six comments from the other three people, mentioning Mohamed
+Tamer, across two projects and three sprints; four left unread, two marked read. If the trigger were
+broken this produces nothing to look at, which is the point of driving it from that end.
+
+```sql
+insert into public.comments (id, work_item_id, author_id, body_json, body_text, created_at)
+select m.comment_id, m.work_item, m.author,
+  jsonb_build_object('type','doc','content', jsonb_build_array(jsonb_build_object(
+    'type','paragraph','content', jsonb_build_array(
+      jsonb_build_object('type','mention','attrs',
+        jsonb_build_object('id','a0000000-0000-4000-8000-000000000001','label','Mohamed Tamer')),
+      jsonb_build_object('type','text','text',' ' || m.body))))),
+  '@Mohamed Tamer ' || m.body, now() - m.age
+from m;   -- m: (comment_id, work_item, author, body, age, read), six rows
+```
+
+The trigger stamps `created_at` with `now()`, so every row would have read "just now". Each
+notification's `created_at` was then set to its own comment's, and two were given a `read_at`. Those
+two columns are the only ones touched; the rows themselves are the trigger's.
+
+Read back from the DOM at 1180 wide, signed in as the admin:
+
+| What V-B8 claims | What the card did |
+|---|---|
+| avatar | `AN` / `AY` / `AE` initials, one per row, from `PersonAvatar` |
+| author | `Adam Nafie`, `Ahmed Yehia`, `Abdelrahman Elkhateeb` — resolved through `comment_id`, never invented |
+| project and item | `COD-229 · MEINEvim components`, `COD-243 · Converso dashboard` — and the `href`s land on `/app/projects/converso/sprints/1/items/COD-243` and `/app/projects/meinevim/sprints/16/items/COD-220`, so project **and** sprint come from the item's own chain and not from the active scope |
+| time | six distinct stamps, `2026-08-28 01:25` down to `2026-08-24 19:36` |
+| body preview | the comment's `body_text`, truncated, `@Mohamed Tamer …` |
+| unread tint | four rows `data-unread="true"` at `background-color: rgba(11, 14, 20, 0.035)`; the two read rows at `rgba(0, 0, 0, 0)` |
+| unread dot | four accent dots, each with the `sr-only` " — unread"; **zero** on the read rows |
+| the count | `data-mentions-unread="4"`, and the control read `mark all read — 4 unread` |
+
+`mark all read`, clicked once:
+
+```
+before: unread=4 read=2
+after:  unread=0 read=6
+```
+
+and the four newly-read rows carry the same `read_at` to the second (`22:39:35`) while the two
+already-read rows **keep their original timestamps** — the action stamps what was unread, it does not
+overwrite the table. Without a reload the card then reported `badge: null`, `dots: 0`, `tinted: 0`,
+and **no `mark all read` button at all**, which is the empty-state behaviour the Sixth pass proved
+from the other direction, now shown from this one.
+
+**V-B8 is closed.** The Sixth pass's "Still owed for V-B8" is discharged.
+
+## A harness defect found on the way, and fixed
+
+`e2e/team.spec.ts:190` wrote its literal `http://127.0.0.1:54421` into a `page.evaluate`, so the one
+test that proves *the database refuses a lead's role change even when the app is bypassed* would have
+fired at the **shared** stack while every assertion around it read the isolated one. It would not have
+failed. Every local Supabase project ships the same default JWT secret, so the token validates; the
+row simply is not there; PostgREST patches nothing; and `readSubject()` then reads the database the
+test meant all along and finds the role unchanged — which is exactly what the test wants to see.
+
+A negative test cannot tell "the guard held" from "I asked the wrong server". `SUPABASE_URL` is
+exported from `e2e/fixtures.ts` now and passed into the `page.evaluate`, so there is one answer.
+
+Re-run on its own, the test passes — and the proof that it passes for the right reason is in the
+proxy logs, not in the green tick:
+
+```
+supabase_kong_coditu-iso  "PATCH /rest/v1/profiles?id=eq.1dd4bd00-… HTTP/1.1" 204  referer http://localhost:3011/
+supabase_kong_coditu      (nothing, same three-minute window)
+```
+
+The bypass reached the isolated stack. The shared one never saw it.
+
+**Seven other specs still carry the same literal** — `allowlist`, `earnings`, `new-item`, `settings`,
+`password`, `sprint-manage`, `sprint-notes` — and `avatar.spec.ts` keeps its own private copy of the
+constant. None is in this batch; all of them will silently target `:54421` the next time somebody
+points the suite elsewhere.
+
+## The four withdrawn suites, run
+
+```bash
+E2E_BASE_URL=http://localhost:3011 \
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54521 \
+E2E_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54522/postgres \
+npx playwright test e2e/mobile.spec.ts e2e/access.spec.ts e2e/team.spec.ts \
+                    e2e/client-boundary.spec.ts --workers=1
+```
+
+From the pristine reset above, serial, one worker, no retries. **3.8 minutes.**
+
+| File | Project | passed | failed | did not run |
+|---|---|---|---|---|
+| `access.spec.ts` | chromium | 4 | **4** | 0 |
+| `client-boundary.spec.ts` | chromium | **5** | 0 | 0 |
+| `mobile.spec.ts` | chromium | **20** | 0 | 0 |
+| `mobile.spec.ts` | mobile-safari | **20** | 0 | 0 |
+| `mobile.spec.ts` | mobile-chrome | 19 | **1** | 0 |
+| `team.spec.ts` | chromium | 0 | **1** | **5** |
+| **total** | | **68** | **6** | **5** |
+
+The five that did not run are `team.spec.ts`'s remaining tests: the file is
+`describe.configure({ mode: "serial" })`, so the first failure skips the rest. They are one
+consequence, not five results.
+
+**These numbers replace the Sixth pass's withdrawn ones. They are not green, and they are not being
+presented as green.**
+
+## The six failures are one cause, and it is the harness
+
+Every failing assertion died the same way — `strict mode violation: … resolved to 2 elements` — on
+`Self-protection`, `person@example.com`, `Access history names…`, `[data-access-history]`,
+`Role for Team Subject`, and `Write a comment — @ to mention`. That is the duplicate the Sixth pass
+diagnosed on Home, on three more routes, and against the committed suite rather than a local one.
+
+Measured rather than assumed, five loads of `/app/people` per selector, sampling every 20 ms from
+`load`:
+
+| selector | max matches, bare | max matches, `:visible` | samples showing two |
+|---|---|---|---|
+| `[data-access-history]` | **2** | **1** | 26 of 46 |
+| text `Self-protection` | **2** | **1** | 33 of 48 |
+
+At `waitUntil: "load"` the element exists **once**, inside `DIV#S:1` — React's streaming placeholder,
+which is `hidden`, so `:visible` counts zero. At `networkidle` it exists **once**, at
+`DIV < BODY < HTML`, visible. In between, while React moves the subtree into place, both are
+matchable, and Playwright's auto-retry starts in that window. Roughly half the samples land in it,
+which is why this reads as flake.
+
+So: the application renders one of each element; the suite asks a question that has two answers for
+about a tenth of a second. `:visible` never resolved to more than one in 94 samples.
+
+**What this does not mean.** It is not a licence to call these six green. The fix is real work —
+`:visible` (never `:light()`, none of this is shadow DOM) or a wait on `[data-page-shell]`, the
+readiness marker the Sixth pass added for exactly this, applied to the six assertions. It is
+deliberately **not** done in this pass: rewriting committed specs changes what is under test, and
+this pass was asked to produce numbers, not to move the goalposts under them.
+
+## Still outstanding after this batch
+
+Everything the Sixth pass listed, **minus V-B8**, which is closed above: the sprint's saved views and
+sort panel, the database-style Projects / My work / People layouts, the Recovery Centre's structure,
+Phase 9's editor and reliability states, the truthful idle save chip, the 27 content-level `--canvas`
+hovers, and the board's column geometry (V-D4a), still not measured in a browser.
+
+Added by this pass:
+
+1. **Six failing assertions across `access`, `team` and `mobile`**, diagnosed above, unfixed.
+2. **Seven specs still hard-coding `:54421`**, which will point at the wrong stack without failing.
+3. **The visual evidence is not reproducible outside this Mac** — see
+   `05-DECISIONS.md`, *The visual evidence lives in three specs git does not carry*.
