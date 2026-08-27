@@ -376,16 +376,32 @@ test.describe("the breadcrumb trail", () => {
     await expect(page).toHaveURL(new RegExp(`${SPRINT}$`));
   });
 
-  test("is not there below lg, and says nothing on Home", async ({ adminPage: page }) => {
+  test("collapses on a phone instead of disappearing, and is on Home too", async ({
+    adminPage: page,
+  }) => {
     await page.setViewportSize(PHONE);
     await page.goto(`${SPRINT}/items/COD-241`);
-    await expect(trail(page)).toBeHidden();
 
-    // `Coditu / Home` says nothing the rail does not, so there is no trail at
-    // all rather than a one-crumb one.
+    // It used to be hidden below `lg`. `Coditu Workspace.dc.html` draws the
+    // trail at 390 and at 320, so it is there — with the middle folded into an
+    // ellipsis rather than four crumbs clipping each other.
+    await expect(trail(page)).toBeVisible();
+    await expect(trail(page)).toContainText("Coditu");
+    await expect(trail(page)).toContainText("COD-241");
+    await expect(trail(page)).toContainText("…");
+    // The folded crumbs stay in the accessibility tree — hidden with CSS, not
+    // dropped — so the whole path is still readable by a screen reader.
+    await expect(trail(page).getByText("MEINEvim components")).toHaveCount(1);
+
+    // And the trail is on Home now: two crumbs, no ellipsis, nothing to fold.
+    await page.goto("/app");
+    await expect(trail(page)).toBeVisible();
+    await expect(trail(page)).toContainText("Home");
+    await expect(trail(page)).not.toContainText("…");
+
     await page.setViewportSize({ width: 1400, height: 900 });
     await page.goto("/app");
-    await expect(trail(page)).toHaveCount(0);
+    await expect(trail(page)).toBeVisible();
   });
 
   /**

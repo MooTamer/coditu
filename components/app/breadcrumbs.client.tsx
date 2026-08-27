@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import { Mono } from "@/components/coditu/mono";
 import { crumbsFor, type CrumbProject } from "@/lib/breadcrumbs";
+import { cn } from "@/lib/utils";
 
 /**
  * Where you are, in the topbar.
@@ -27,7 +28,7 @@ import { crumbsFor, type CrumbProject } from "@/lib/breadcrumbs";
  * same four crumbs now measure 37 / 128 / 104 / 58 at their natural widths with
  * nothing clipped. It was never a styling problem.
  *
- * ## Below `lg` it is not there, and that is measured rather than assumed
+ * ## Below `lg` the trail collapses — it used to disappear
  *
  * Forced on at each width, on the deepest route this app has:
  *
@@ -38,10 +39,19 @@ import { crumbsFor, type CrumbProject } from "@/lib/breadcrumbs";
  *  390   Coditu 37   MEINEvim components   8   unreadable
  * ```
  *
- * So `lg` is where it starts. Below it the page's own `h1` says which screen,
- * the sprint and item headers name their project, and the back gesture is a
- * swipe. Hidden with CSS rather than a width hook, so the server renders the
- * same markup either way.
+ * Those numbers are still true, and the conclusion drawn from them — hide the
+ * whole trail below `lg`, and suppress it entirely on any two-crumb route —
+ * was wrong. `Coditu Workspace.dc.html` draws `Coditu / Home` at 390 and at
+ * 320, and a shell that will not say which screen you are on is worse than one
+ * whose middle crumbs are folded away.
+ *
+ * The clipping was never solved by hiding; it is solved by **collapsing**. Four
+ * crumbs become `Coditu / … / COD-241` under `lg`, which fits at 320 with room
+ * to spare, and the folded crumbs stay in the markup — hidden with `lg:`
+ * classes rather than dropped — so a screen reader still gets the whole path
+ * and the ellipsis is `aria-hidden`.
+ *
+ * Still CSS rather than a width hook, so the server renders one markup.
  *
  * ## The trail comes from a pure function
  *
@@ -60,16 +70,33 @@ export function Breadcrumbs({ projects }: { projects: CrumbProject[] }) {
   const pathname = usePathname();
   const crumbs = crumbsFor(pathname, projects);
 
-  // `/app` itself is `Coditu / Home`, which says nothing the rail does not.
-  if (crumbs.length < 3) return null;
+  if (crumbs.length === 0) return null;
+
+  /**
+   * Which crumbs survive below `lg`.
+   *
+   * The measurements above are real: at 900 and below, every crumb of a deep
+   * trail clips. The answer that follows from them is not "show nothing" —
+   * `Coditu Workspace.dc.html` renders the trail at 390 and at 320, and the
+   * screen a person is on is the one thing a shell should never be coy about.
+   *
+   * So the trail *collapses* rather than clips: the root, an ellipsis standing
+   * for whatever is between, and the page you are on. Two labels and a marker
+   * fit at 320 with room to spare, and the full trail is still in the DOM for a
+   * screen reader — the middle crumbs are hidden with `lg:` classes, not
+   * dropped from the markup, so the accessibility tree keeps the whole path.
+   */
+  const lastIndex = crumbs.length - 1;
+  const collapses = crumbs.length > 2;
 
   return (
-    <nav
-      aria-label="Breadcrumb"
-      className="hidden min-w-0 shrink items-center gap-[6px] lg:flex"
-    >
+    <nav aria-label="Breadcrumb" className="flex min-w-0 shrink items-center gap-[6px]">
       {crumbs.map((crumb, index) => {
-        const last = index === crumbs.length - 1;
+        const last = index === lastIndex;
+        // Kept at every width: the root and the page you are on.
+        const alwaysVisible = index === 0 || last;
+        // Everything between is desktop-only, and stands in as one ellipsis.
+        const middleClass = alwaysVisible ? "" : "hidden lg:flex";
         const body = (
           <span className="flex min-w-0 items-center gap-[6px]">
             {crumb.glyph ? (
@@ -88,23 +115,39 @@ export function Breadcrumbs({ projects }: { projects: CrumbProject[] }) {
         );
 
         return (
-          <span key={`${crumb.label}-${index}`} className="flex min-w-0 items-center gap-[6px]">
-            {crumb.href ? (
-              <Link
-                href={crumb.href}
-                prefetch={false}
-                className="min-w-0 text-[12.5px] text-[var(--ink-faint)] hover:text-[var(--ink)]"
-              >
-                {body}
-              </Link>
-            ) : (
-              <span aria-current="page" className="min-w-0 text-[12.5px] text-[var(--ink)]">
-                {body}
-              </span>
-            )}
-            {!last ? (
-              <span aria-hidden="true" className="shrink-0 text-[var(--hairline-strong)]">
-                /
+          <span key={`${crumb.label}-${index}`} className="contents">
+            <span className={cn("min-w-0 items-center gap-[6px]", middleClass || "flex")}>
+              {crumb.href ? (
+                <Link
+                  href={crumb.href}
+                  prefetch={false}
+                  className="flex min-w-0 items-center text-[12.5px] text-[var(--ink-faint)] hover:text-[var(--ink)]"
+                >
+                  {body}
+                </Link>
+              ) : (
+                <span
+                  aria-current="page"
+                  className="flex min-w-0 items-center text-[12.5px] text-[var(--ink)]"
+                >
+                  {body}
+                </span>
+              )}
+              {!last ? (
+                <span aria-hidden="true" className="shrink-0 text-[var(--hairline-strong)]">
+                  /
+                </span>
+              ) : null}
+            </span>
+
+            {/* The stand-in for everything the narrow trail folded away. Drawn
+                once, immediately after the root, and only where there is
+                something to stand in for. `aria-hidden` because the crumbs it
+                replaces are still in the tree right beside it. */}
+            {collapses && index === 0 ? (
+              <span aria-hidden="true" className="flex shrink-0 items-center gap-[6px] lg:hidden">
+                <span className="text-[12.5px] text-[var(--ink-faint)]">…</span>
+                <span className="text-[var(--hairline-strong)]">/</span>
               </span>
             ) : null}
           </span>
