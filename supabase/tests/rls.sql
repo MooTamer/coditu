@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(323);
+select plan(328);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -3204,6 +3204,55 @@ select throws_ok(
 );
 
 select pg_temp.act_as_owner();
+
+-- ---------------------------------------------------------------------------
+-- The same two assertions for `rehearse_recovery`, and for the same reason.
+--
+-- `20260827120400` replaced this function and carried the original's
+-- `revoke … from public` forward, which is inert on the hosted project — read
+-- off `db dump --linked` after the push: `anon` held a grant on it by name.
+-- Unlike the five trigger functions beside it, this one returns `uuid`, so
+-- PostgREST exposes it, and it is `security definer`: it creates a schema and
+-- copies four tables into it.
+-- ---------------------------------------------------------------------------
+
+select ok(
+  not has_function_privilege('anon', 'public.rehearse_recovery(text[])', 'EXECUTE'),
+  'negative: anon cannot execute rehearse_recovery'
+);
+
+select ok(
+  has_function_privilege('authenticated', 'public.rehearse_recovery(text[])', 'EXECUTE'),
+  'an authenticated member can — the guard in the body decides who'
+);
+
+-- And the decision, with the privilege handed back. This is the half that
+-- would still have been true on production while the grant was wrong.
+select pg_temp.act_as_owner();
+grant execute on function public.rehearse_recovery(text[]) to anon;
+select pg_temp.act_as_anon();
+
+select throws_ok(
+  $$select public.rehearse_recovery(array['documents'])$$,
+  '42501',
+  'only an admin may rehearse a recovery',
+  'negative: and it still refuses anon when the privilege is handed back'
+);
+
+select pg_temp.act_as_owner();
+revoke all on function public.rehearse_recovery(text[]) from anon;
+
+-- The five trigger functions beside it. PostgREST cannot reach a function that
+-- returns `trigger`, so this is the smaller promise made explicit rather than
+-- an exposure closed.
+select ok(
+  not has_function_privilege('anon', 'public.record_document_revision()', 'EXECUTE'),
+  'negative: anon cannot execute the revision capture trigger'
+);
+select ok(
+  not has_function_privilege('anon', 'public.pages_guard_columns()', 'EXECUTE'),
+  'negative: anon cannot execute the page column guard'
+);
 
 select * from finish();
 rollback;
