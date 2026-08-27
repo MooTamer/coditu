@@ -1,9 +1,15 @@
 # 08 — Gap matrix
 
-**Reopened 2026-08-27.** The overall audit is **not closed**. Repository and migration
-synchronisation are complete — 29 migrations, local `main` at `f4b7aae` matched to
-`origin/main`, the hosted schema verified by `db diff --linked` — but **product
-conformance and disaster recoverability are not**.
+**Reopened 2026-08-27.** The overall audit is **not closed**. Repository, migration and
+deployment synchronisation are complete — 35 migrations, local `main` at `b1bce94`
+matched to `origin/main`, all 35 entries matched entry-for-entry to the linked remote
+history, the hosted schema verified by `db diff --linked` (*"No schema changes found"*),
+and that commit verified **READY** in production at the provider — but **disaster
+recoverability is not**. No backup layer has been configured; §4 of
+`docs/09-BACKUP-PROPOSAL.md` is still six unanswered questions.
+
+*(The figures above replace the ones this file opened with — 29 migrations at `f4b7aae`
+— which were true when the audit was reopened and had gone stale within hours.)*
 
 Source hierarchy, in order:
 
@@ -25,8 +31,13 @@ Status vocabulary: `met` · `partial` · `gap` · `waived (Mohamed)` · `out of 
 
 **Second pass, 2026-08-27 — every repository-scoped gap below is now `fixed`.**
 The `Status` column is the state at the start; the `Now` column is the state
-after the work, with what proves it. Nothing has been pushed and no provider
-configuration has been changed.
+after the work, with what proves it.
+
+**Third pass, 2026-08-27 evening.** The repository work of this audit is now on
+`origin/main` and live: all nine commits are pushed and `b1bce94` is the READY
+production deployment. **No provider configuration has been changed** — PITR is off
+and the provider lists no recoverable backups. Infrastructure backup remains
+proposed and unapplied.
 
 ---
 

@@ -4318,9 +4318,124 @@ themselves for weeks, and one of them was failing the whole time.
 `20260827120200_history_scope_and_restore_audit.sql` · `20260827120300_recently_opened.sql` ·
 `20260827120400_rehearse_pages.sql`
 
-Thirty-four migrations now. The first is one statement on its own because
+Thirty-four migrations at this point — `20260827130000_close_the_rehearsal_on_the_hosted_project.sql`
+followed the same day, making **thirty-five**. The first is one statement on its own because
 `alter type … add value` cannot be **used** in the transaction that added it, and
 the Supabase CLI runs each file in one.
 
-**None of these has been pushed.** The hosted project is still at
-`20260827041641`.
+**None of these had been pushed when this was written**, and the hosted project was
+still at `20260827041641`. **Superseded the same day** — see *"The final verification,
+reopened"* below: all thirty-five migrations are applied to the hosted project, and
+`supabase migration list --linked` matches all thirty-five entries `local` to `remote`.
+
+
+---
+
+# The final verification, reopened — 2026-08-27, evening
+
+Reopened to re-run what the audit had closed on and to correct three documents that
+had gone stale within hours of being written. **No product change was made.**
+
+## The state that was found, and the one thing that moved on its own
+
+| | |
+|---|---|
+| Local `main` | `b1bce94`, working tree clean before and after |
+| `origin/main` at the start of this session | `687ec79` — two documentation commits behind |
+| `origin/main` now | `b1bce94` |
+
+**Those two commits were pushed at 19:35:48 +0300 from this working copy, by something
+other than this session.** `git reflog show origin/main` records them as `update by
+push` — which is a local `git push`, not a fetch, and the same reflog shows what a fetch
+looks like two lines down. It happened about two minutes after this session started, and
+a Vercel production build for `b1bce94` began three seconds later
+(`repoPushedAt 1787848548000`).
+
+Nothing in this repository explains it: there is no `.git/hooks` entry, no
+`core.hooksPath`, and no `git push` in `scripts/` or `.claude/`. A second interactive
+session was open on this project at the time and is the likely source. It is recorded
+because a push that nobody in the room performed belongs in the ledger, and because the
+instruction under which this session was working was *not* to push.
+
+## The local database was dirty, and the dirt was measured before it was destroyed
+
+`db:test` failed 2 of 441 — `supabase/tests/seed.sql` tests 16 and 17, each off by
+exactly one: 96 ticked criteria against 95, 105 attachments against 104.
+
+Every post-seed row was enumerated before anything was reset. The seed writes at
+`15:11:30`; the extra rows all fall between `15:13` and `15:35` and stop there — 110
+`access_events`, 46 `activity`, 42 `document_revisions`, one `attachments` row
+(`pasted.png`, `15:15:35`), one `work_item_components` row, and one `storage.objects`
+entry in `comment-images` written in the same second as that attachment. That is the E2E
+suite's traffic, not authored work: the local stack's four accounts are the deliberately
+fake ones, and every seed input is committed — `supabase/seed.sql` plus the three files
+in `supabase/seeds/`.
+
+A `pg_dump --format=custom` was taken first regardless, and verified by reading it back
+with `pg_restore --list` (1092 objects). "Nothing was lost" is therefore checkable rather
+than asserted.
+
+**Only the local stack was reset.** `supabase db reset`, no `--linked`, against the
+Docker stack on `127.0.0.1:54422`. The linked project `hayfsvsepgfescojesbd` was not
+touched by it. Post-reset counts are the seed's own: 104 attachments, 95 ticked criteria,
+104 work items, 0 storage objects.
+
+## Verification, after the clean reset
+
+| | |
+|---|---|
+| `git diff --check` | clean |
+| `npm run lint` | clean |
+| `npm run typecheck` | clean |
+| `npm run test` | **445 passed**, 32 files |
+| `npm run db:test` | **441 passed · 0 failed** — was 439/441 before the reset |
+| `npm run components:check` | in step with the delivery repository, 42 components |
+| `supabase migration list --linked` | **35 local files, 35 entries, every `local`/`remote` pair matched** |
+| `supabase db diff --linked` | **"No schema changes found"** |
+| `npm run e2e` | **not run in this session.** The standing figure is the one `b1bce94` records: 631 passed · 0 failed · 7 skipped, 23.6m at `--workers=1` |
+
+## Deployment, read from the provider rather than inferred from git
+
+| | |
+|---|---|
+| Project | `coditu` · `prj_GOg3XIVdg7u6WPAzaHFJy2QnfBHu` |
+| Deployment | `dpl_J8tFvj7YCAzw5CDMBmALH3QX9vMt` |
+| Commit | `b1bce944fc43b6ca25b5cd293faedabe5b4e34bd` |
+| State | **READY** · target `production` · ready at 1787848614297 |
+| Aliases held | `coditu-phi.vercel.app`, `coditu-mohamed-tamers-projects.vercel.app`, `coditu-git-main-…` |
+
+The previous production deployment, `687ec79`, is READY and remains a rollback candidate.
+
+**A commit existing in git is not a deployment.** This was read from the Vercel API,
+which is the only thing that knows whether the build finished.
+
+## Infrastructure backup — still nothing configured, and the exposure was understated
+
+Read from the provider, read-only:
+
+```
+$ supabase backups list --project-ref hayfsvsepgfescojesbd
+{"region":"eu-central-1","walg_enabled":true,"pitr_enabled":false,"backups":[]}
+```
+
+**PITR is off, and the provider lists no recoverable backups — an empty array, not a
+short one.**
+
+`docs/09-BACKUP-PROPOSAL.md` had said the Free plan provides daily provider-managed
+backups with seven-day retention. It does not. Supabase's current documentation says
+daily backups cover Pro, Team and Enterprise projects and tells Free-plan projects to
+export their own data with `db dump`. The correction makes the exposure **worse** than
+the proposal originally described — the recoverable position is not "yesterday", it is
+nothing — which is exactly why it is written down rather than quietly amended.
+
+**Nothing has been configured. The six questions in §4 of the proposal are still
+unanswered, and this session did not answer them.**
+
+## What is closed, and what is not
+
+**Closed:** repository synchronisation, migration history, hosted schema, the local
+database test suite from a clean reset, and the production deployment — each verified
+directly in this session.
+
+**Not closed: infrastructure backup.** Proposed, priced as an estimate, unapplied. The
+audit does not close while the answer to *"can we get it back"* is no.
