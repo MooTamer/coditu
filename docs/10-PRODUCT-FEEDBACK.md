@@ -1,0 +1,82 @@
+# Coditu — product feedback ledger (PF)
+
+Raised by Mohamed, 2026-08-28, from testing **`main` @ `b63f4c7`**.
+Triaged against **`visual-conformance` @ `66de60d`** (16 commits ahead, unpushed) by static
+inspection of that branch — no app run, no E2E, no database write.
+
+**Status vocabulary.** `open` — nothing built. `partial` — machinery exists, surface does not.
+`in-pass` — a named pass is working on it. `done` — closed with a command or measurement in the
+Evidence column, the same bar `08-GAP-MATRIX.md` uses. Nothing is `done` on a screenshot.
+
+Install location of record: `docs/10-PRODUCT-FEEDBACK.md` on `visual-conformance`.
+
+---
+
+## Triage summary
+
+| Finding | Count |
+|---|---|
+| Already fixed on the design branch | **0** |
+| Half-built — data layer exists, surface missing | **2** (PF-8, PF-3) |
+| Smaller than reported | **1** (PF-10 — signup is already allowlist-gated) |
+| Open, nothing built | 10 |
+
+---
+
+## The ledger
+
+| ID | What Mohamed reported | Verified state on `visual-conformance` @ `66de60d` | Acceptance | Status |
+|---|---|---|---|---|
+| **PF-1** | The site feels crowded; too much wording; it should be distilled | No copy-density work exists as a goal. The Sixth pass removed exactly one duplication (V-B2, sprint goal printed once). Every other surface is untouched. | A words-per-screen count taken before and after on the eight main routes, plus the rule that produced the cut written down. Not "it looks cleaner". | `open` |
+| **PF-2** | Import/export must round-trip with Notion at the same hierarchy — the two run in parallel for the first two weeks | `scripts/import-notion-export.mjs` imports one way. `scripts/push-notion-import.mjs` pushes to the hosted **database**, not to Notion. **There is no export back to Notion, and hierarchy fidelity has never been asserted.** | A fixture exported from Notion → imported → exported → re-imported, with a diff proving parent/child, order, status, hours and criteria survive both directions. | `open` — largest item, deadline-bound |
+| **PF-3** | EVIM is the main work: most prominent, easiest to reach. Other projects are archived | `projects.is_archived` **exists** in the schema (`20260826220000`). Nothing in the sidebar, Home or the switcher reads it, and no project outranks another anywhere. | Archived projects fall out of the default surfaces and behind one deliberate control; EVIM is first and reachable in one action from any screen. | `partial` — column exists, surface does not |
+| **PF-4** | Sorting does nothing for ~2s then sorts. Every button needs a loading state; hover, disabled, active all need to be right | 34 components already use `useTransition`, so Server-Action buttons mostly do have pending states. **Sort, filter and view are URL-driven** (`?sort=…`) — a server navigation with no pending UI, which is the dead 2 seconds exactly. | Every control that triggers work shows pending within 100ms. One shared interactive-state contract (idle/hover/active/pending/disabled/error) applied across the app, not per-button. | `open` for URL-driven controls |
+| **PF-5** | Per person per week: average load from hours logged, and cumulative load | `v_person_load` view exists. `lib/home.ts` computes one number — this sprint's share against the busiest person. **No weekly average, no cumulative.** | Both figures derived in a pure module with fixtures (the `lib/home.ts` pattern), including the divide-by-zero and partial-week cases. | `open` |
+| **PF-6** | Writing must be instant like Notion — Enter in a to-do list goes to the next line with no wait | TipTap is in place. Whether a save blocks the keystroke has never been measured. | Keystroke-to-paint measured under a real save cycle; Enter never waits on the network. Number recorded. | `open` — measure before changing |
+| **PF-7** | Select all components at once in a story (global changes) | `component-picker.client.tsx` has no select-all and no multi-select. | Select-all and range-select, with one undoable write rather than N. | `open` |
+| **PF-8** | Sorting should stack like Notion's (screenshot supplied) | **`lib/sprint-sort.ts` already implements the stack** — `?sort=deadline:asc,status:desc`, nulls always last both directions, tested. The **panel** is `V-D2` in the gap matrix, outstanding. | The panel from the screenshot, exactly: a toolbar chip per active sort showing direction arrow + column name that reopens the panel on that rule; the toolbar sort icon highlighted while any sort is active; inside the panel one row per rule with a **drag handle** (stack order = priority), a column selector carrying the column's **type icon**, and a direction selector using **type-aware wording** — `Sort high -> low` for numbers, `A -> Z` for text, `Latest -> earliest` for dates, option order for status — never "asc/desc"; plus `+ Add sort`, `Delete sort`, and a close `x`. It writes the URL contract that already exists. | `partial` — data layer done, panel missing; spec taken from screenshot 2026-08-28 |
+| **PF-9** | Clicking a story takes ages, says nothing while loading, and scrolls down oddly before the popup opens | The intercepted route `@modal/(.)items/[key]` exists and streams. No prefetch, no skeleton in the peek, and the scroll jump is unexplained. | Perceived open under 200ms with a skeleton from the first frame; scroll position provably unchanged (measured before/after). | `open` |
+| **PF-10** | There should be no create-account option — admin-only sign-in | **The tab is still there**: `login-form.client.tsx` toggles `signin`/`signup` with a "Create account" button. **But it is not an open door** — `lib/actions/auth.ts:signUp` checks `allowed_emails` and refuses anything not invited. So this is a UI-surface issue, not an exposure. | The signup tab and action removed from the sign-in screen; invited people arrive through the existing `/auth/callback` invite flow. `allowed_emails` stays as the gate. | `open` — cosmetic, not a hole |
+| **PF-11** | The export dialog's sort buttons are not clear | Not addressed. | Labels say what they sort and in which direction; current state visible without clicking. | `open` |
+| **PF-12** | "Open report to print" does not auto-close the modal | Not addressed. | Print opens and the modal closes; asserted in a spec. | `open` |
+| **PF-13** | Dragging an item inside a story hides it for a second, then it reappears | `DragOverlay` / `useSortable` in `sprint-table.client.tsx` and `criteria-list.client.tsx`. The classic dnd-kit pattern where the source is hidden while the overlay mounts. | No frame in which the dragged row is absent from the layout. | `open` |
+
+---
+
+## Standing constraints for every PF pass
+
+1. **Performance is not traded for polish.** `npm run budgets` must stay OK — the app shell has
+   **0.7 KB of headroom** at 219.3 / 220 KB. Any new client component is measured, not estimated.
+2. **Resilience.** Every new interactive path handles the network failing: a Server Action call is a
+   `fetch` and a network failure *rejects* it, so `if (!result.ok)` never runs. Convert throws into
+   results; rethrow `redirect()`/`notFound()` via `unstable_rethrow`.
+3. **Responsive.** Phone is the base. Every change verified at 320 / 390 / 768 / 834 / 1024 / 1180 /
+   1440 / 1920, light and dark, with zero horizontal overflow — and touch targets at 44px on a
+   **coarse pointer** (a headless browser reports `pointer: fine` and will lie).
+4. **The visual conformance work is not abandoned.** These sit alongside `08-GAP-MATRIX.md`'s open
+   rows (V-D1/D3, V-D4a, V-D8–D11, V-F1, Phase 9, the idle save chip, the 27 `--canvas` hovers),
+   not instead of them.
+5. **Nothing is `done` without a command or a measurement in the Evidence column.**
+
+---
+
+## Known-red specs carried into the PF work (from the harness pass, `f572d03`)
+
+Found and deliberately not fixed. Any PF pass touching these areas inherits them.
+
+| Spec | Reported cause | Auditor's note |
+|---|---|---|
+| `allowlist.spec.ts:77` | "two real Email fields on /login; needs a scope, not `:visible`" | **Diagnosis looks wrong.** `login-form.client.tsx` has ONE email input (line 90); the signin/signup toggle switches a single form's submit label, it does not render two panels. Re-measure before scoping — this may be the same streaming duplicate `:visible` already fixes. Note also that **PF-10 removes the signup tab entirely**, which may close this for free. |
+| `earnings.spec.ts:255` | intra-file ordering assumption, only at `--workers=1` | Real; unrelated to PF work. |
+| `sprint-notes.spec.ts:46` | seeded notes not on the page | Real; check before any PF pass touches sprint surfaces. |
+| `mobile.spec.ts:160` (mobile-safari) | reads `body` overflow once, un-retried, before Radix applies the lock | Flaky: 1 of 2 full runs. **This is why the second suite run read 79/0 — the flake did not fire, not because it was fixed.** PF-4's interactive-state work touches exactly this machinery; fix it there. |
+
+---
+
+## Change log
+
+| Date | Change |
+|---|---|
+| 2026-08-28 | Ledger created from Mohamed's thirteen findings; triaged against `66de60d`. |
+| 2026-08-28 | Harness pass `92354e3`/`690d53e`/`f572d03` verified: eight literals swept, durable assertions promoted, four known-red specs carried in below. |
+| 2026-08-28 | PF-8 acceptance rewritten from the supplied Notion screenshot (toolbar chip, drag-ordered rules, type-aware direction wording). |
