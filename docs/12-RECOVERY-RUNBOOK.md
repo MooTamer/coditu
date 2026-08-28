@@ -95,3 +95,34 @@ Only a complete, fresh check pings `BACKUP_CANARY_HEARTBEAT_URL`. UptimeRobot th
 alerts Mohamed both when the R2 copy becomes stale and when GitHub stops dispatching the
 canary itself. The monitor is a separate control plane; GitHub's own workflow status is not
 treated as the only alarm for GitHub scheduling.
+
+## 6. Monthly integrity and quarterly restore drills
+
+`Monthly recovery-copy integrity` runs at 03:23 UTC on day 02. It downloads the newest
+day-01 ciphertext and sidecar, requires exactly those two R2 objects, and compares:
+
+- the downloaded ciphertext SHA-256 with the sidecar and R2 object metadata;
+- downloaded, sidecar, monthly R2 and matching nightly R2 byte sizes;
+- the monthly and matching nightly ciphertext SHA-256 values;
+- the sidecar identity, format and recorded database/Storage counts.
+
+The job has R2 read credentials and **no age private key**. It proves that the encrypted
+set written on day 01 remains readable and unchanged; it cannot prove that the plaintext
+restores. Never report this monthly control as a restore.
+
+On the first Saturday of January, April, July and October, Mohamed performs the full drill:
+
+1. Pull the newest monthly ciphertext and sidecar to the local copy directory.
+2. Run `scripts/check-backup-integrity.sh` against R2 and compare its backup id and SHA-256
+   with the local files.
+3. Start a new isolated local Supabase stack on ports that do not overlap `_coditu`; never
+   reset or reuse the shared development stack.
+4. Point `RESTORE_DB_URL` and the four optional `RESTORE_STORAGE_*` values at only that
+   throwaway stack, then run `scripts/verify-backup-restore.sh <archive> <private.agekey>`.
+5. Record elapsed time, every table/row/object count and the result in `docs/06-PROGRESS.md`.
+6. Stop the throwaway stack with `supabase stop --no-backup` and confirm only the shared
+   `_coditu` containers remain.
+
+The first local proof completed the data restore in under one minute after its isolated
+stack was healthy. Keep recording the quarterly measurements; it is not an RTO because
+hosted project creation, DNS/environment changes and incident decision time remain untested.

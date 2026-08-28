@@ -404,3 +404,11 @@ external heartbeat. UptimeRobot's Free plan currently includes heartbeat monitor
 alerts and needs no card. The monitor is deliberately **not created yet**: without an R2
 object or pushed workflow it would report a manufactured outage. Activation follows the
 ordered steps in `docs/12-RECOVERY-RUNBOOK.md` after the first upload succeeds.
+
+`Monthly recovery-copy integrity` is implemented on the same boundary. On day 02 it reads
+back the newest monthly ciphertext and sidecar, recomputes SHA-256 and byte size, compares
+the day-01 monthly object with its nightly twin, and validates the recorded database and
+Storage counts. It deliberately receives no age private key. That makes compromise of the
+scheduled reader unable to expose the backup, but it also means this is an integrity drill,
+not a restore. The first Saturday of January, April, July and October is the manual full
+decrypt-and-restore drill in `docs/12-RECOVERY-RUNBOOK.md` §6.

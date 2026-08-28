@@ -4778,3 +4778,22 @@ the workflows are not pushed and the repository still has no secrets, so activat
 would cause a false alarm. The runbook orders activation as first upload → direct canary
 read → monitor creation → recorded check-in → notifications. Until those steps happen, this
 block is **implemented locally, not alerting and not evidence of a 24-hour RPO**.
+
+## 2026-08-28 · Infrastructure Block 3 — monthly ciphertext integrity, quarterly plaintext restore
+
+`.github/workflows/monthly-backup-integrity.yml` schedules a day-02 readback.
+`scripts/check-backup-integrity.sh` requires the monthly set to contain exactly a ciphertext
+and sidecar, downloads both, recomputes SHA-256 and byte size, compares R2 metadata, and
+requires the matching day-01 nightly copy to have the same checksum and sizes. It validates
+and reports all four recorded counts: database tables/rows and Storage buckets/objects.
+
+The deterministic proof used the actual 16,603,288-byte Block 1 ciphertext and its recorded
+**130 tables, 5,245 rows, three buckets and 115 objects**. The intact fixture passed. An
+extra R2 object failed, a missing nightly twin failed, an appended byte failed the size
+check, and a same-size byte mutation failed SHA-256. `bash -n`, workflow YAML parsing and
+`git diff --check` passed.
+
+The workflow never receives `/Users/motamer/.config/coditu/backup.agekey`; the runbook now
+schedules the real isolated decrypt-and-restore for the first Saturday of January, April,
+July and October. The workflow is committed code only until this branch is pushed and R2
+exists, so no monthly provider readback has run and no hosted recovery claim changed.

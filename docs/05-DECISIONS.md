@@ -4818,3 +4818,17 @@ watcher: if every GitHub schedule stops, check-ins stop and Mohamed receives the
 outside GitHub. The unique heartbeat URL is a GitHub secret because a third party could use
 it to forge health. The free monitor is not activated before the first R2 upload and pushed
 workflow exist; activating it now would knowingly create a false incident.
+
+## 2026-08-28 · Scheduled integrity and human restore are different controls
+
+The monthly job gets read-only R2 credentials and no decryption key. On day 02 it downloads
+the newest day-01 ciphertext, recomputes its SHA-256 and size, compares the monthly tier with
+the matching nightly tier, and validates the sidecar's database/Storage counts. This catches
+truncation, corruption, partial sets and retention-tier divergence without making the
+recovery plaintext available to GitHub.
+
+That is an **integrity drill, not a restore**. Mohamed performs the decrypt-and-restore
+quarterly, on the first Saturday of January, April, July and October, in an isolated local
+Supabase stack. The private key remains on his Mac/offline copy. Only that drill proves the
+SQL and Storage payload can be rebuilt; its measured duration still does not include a
+hosted provider replacement or DNS cutover and therefore is not an RTO.
