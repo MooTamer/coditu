@@ -20,14 +20,31 @@ export default async function InterceptedItemPage({
   params: Promise<{ slug: string; number: string; key: string }>;
 }) {
   const { slug, number, key } = await params;
-  const item = await getWorkItem(slug, Number(number), key);
-  if (!item) notFound();
 
-  const [profile, people, settings] = await Promise.all([
+  /**
+   * Two rounds, not five.
+   *
+   * PF-9 measured this route at a median **2137 ms** from click to the dialog
+   * existing — and it was five sequential database round trips, four of which
+   * were waiting on something they did not need. `getWorkItem`,
+   * `getCurrentProfile`, `listActiveProfiles`, `getAppSettings` and
+   * `getProjectBySlug` share no inputs beyond the URL; only the second round
+   * genuinely depends on the first (`sprints` on the project, `revisions` on
+   * the item, `starred` on the profile).
+   *
+   * `notFound()` moves BELOW both rounds deliberately. Called between them it
+   * would throw while the second `Promise.all` was still in flight, and an
+   * unhandled rejection out of an abandoned promise is a server log nobody can
+   * explain later.
+   */
+  const [item, profile, people, settings, project] = await Promise.all([
+    getWorkItem(slug, Number(number), key),
     getCurrentProfile(),
     listActiveProfiles(),
     getAppSettings(),
+    getProjectBySlug(slug),
   ]);
+  if (!item) notFound();
   if (!profile) notFound();
 
   // Ticking, and — since 2026-08-25 — saying what the box says. The same set
@@ -36,12 +53,11 @@ export default async function InterceptedItemPage({
   const canToggle = profile.role !== "engineer" || involved;
   const canManage = profile.role === "admin" || profile.role === "lead";
 
-  // Every sprint on THIS project, for the move control. Invariant 1: an item
-  // cannot leave its project, so the list it can move within is its project's.
-  const project = await getProjectBySlug(slug);
-  const sprints = project ? await listSprintsForProject(project.id) : [];
-
-  const [revisions, starred] = await Promise.all([
+  // Round two: the three that genuinely needed round one. `sprints` is every
+  // sprint on THIS project, for the move control — invariant 1, an item cannot
+  // leave its project, so the list it can move within is its project's.
+  const [sprints, revisions, starred] = await Promise.all([
+    project ? listSprintsForProject(project.id) : Promise.resolve([]),
     getWorkItemRevisions(item.id),
     listFavouritedTargets(profile.id),
   ]);
