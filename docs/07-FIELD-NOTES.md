@@ -2113,3 +2113,44 @@ Two consequences, one convenient and one not:
 
 Keys are still not shared: the same item is COD-229 locally and COD-241 on production. See
 [[local-and-production-item-keys-diverged]].
+
+---
+
+## `supabase stop` leaves its volumes behind
+
+Tearing down an isolated project with `supabase stop` removes the containers and keeps
+`supabase_db_<project>`, `supabase_storage_<project>` and `supabase_edge_runtime_<project>`.
+Three of them survived a teardown that reported itself clean, and the next `supabase start`
+adopted them — so a "fresh" stack came up holding the previous pass's rows.
+
+The flag is `--no-backup`, and the check is not the flag:
+
+```bash
+supabase stop --no-backup
+docker volume rm supabase_db_<p> supabase_edge_runtime_<p> supabase_storage_<p> 2>/dev/null
+docker ps -a --format '{{.Names}}' | grep -c '<p>'      # want 0
+docker volume ls --format '{{.Name}}' | grep -c '<p>'   # want 0
+```
+
+Count both. A teardown that only counts containers reports success while the state that matters
+is still on disk.
+
+## Turbopack refuses a symlinked `node_modules`
+
+Standing up a second worktree to run the same suite at another commit, the obvious economy is to
+symlink `node_modules` at the new worktree rather than reinstall 803 MB. `next dev` will not start:
+
+```
+Error [TurbopackInternalError]: Symlink node_modules is invalid, it points out of the filesystem root
+```
+
+It is not a permissions or a resolution problem and no flag turns it off — Turbopack's filesystem
+root is the project directory and the symlink leaves it. On APFS the answer is a clone, which is
+copy-on-write and costs no real disk:
+
+```bash
+cp -Rc /path/to/main/node_modules "$WT/node_modules"   # 803 MB in 9.7s
+```
+
+`npm ci` also works and takes minutes. See [[worktree-must-live-outside-the-checkout]] for the
+other half of this — a worktree nested inside the checkout cannot run its own dev server at all.

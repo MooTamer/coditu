@@ -1363,3 +1363,115 @@ Added by this pass:
 2. **Three pre-existing failures across `allowlist`, `earnings` and `sprint-notes`**, diagnosed
    above, unfixed. None is a duplicate-element problem and none is a wrong-stack problem; they are
    a second form field, an intra-file ordering assumption, and a missing seeded row.
+
+---
+
+# Ninth pass — the honest baseline, 2026-08-28
+
+Nothing below fixes anything. It establishes what the suite's failures actually are, so that
+every number after this one stands on something measured rather than remembered.
+
+## The run, and the stack it ran on
+
+An isolated Supabase project, because the suite writes: `coditu-pf` on `54521/54522`, containers
+`supabase_*_coditu-pf`, disjoint from the shared `coditu` stack on `544xx` which stays read-only.
+Proof the app was bound to it rather than to the shared one — an env var is not evidence, because
+`NEXT_PUBLIC_*` is compiled in:
+
+```
+grep -rl "127.0.0.1:54521" .next | wc -l   →  2
+grep -rl "127.0.0.1:54421" .next | wc -l   →  0
+```
+
+```bash
+E2E_BASE_URL=http://localhost:3011 \
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54521 \
+E2E_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54522/postgres \
+npx playwright test --workers=1
+```
+
+**32 failed · 42 skipped · 579 passed (22.6m)**, three projects, from a fresh `db:reset`.
+
+The number this pass was handed was 26. Both are true and they are different questions: **26 is
+what fails when a spec is run alone**; the other six only fail when the whole suite runs in order,
+and they are the suite contaminating itself.
+
+## How each failure was classified
+
+Two runs, not one argument.
+
+1. **Alone, from a fresh reset.** Every failing file re-run by itself with `supabase db reset`
+   before it. A failure that disappears is not a failure, it is the previous spec's leftovers.
+2. **At `b63f4c7`, alone, from a fresh reset, on the same stack.** A worktree at the tip of `main`,
+   the same isolated database, the same fresh reset per file. `git diff b63f4c7..HEAD -- supabase/migrations`
+   is **empty**, so both trees see an identical schema and the comparison is honest. Anything that
+   fails there too was not caused by this branch — proven by running it, not by reading it.
+
+| Spec file | Fails in the full run | Fails alone | Fails alone at `b63f4c7` | Bucket |
+|---|---|---|---|---|
+| `avatar.spec.ts` | 1 | **0** | — | **(iii)** contamination |
+| `comments.spec.ts` | 1 | 1 | **0** | **(i)** this branch |
+| `composer.spec.ts` | 1 | 1 | **0** | **(i)** this branch |
+| `earnings.spec.ts` | 1 | 1 | **1** | **(ii)** pre-existing |
+| `editable.spec.ts` | 1 | 1 | **0** | **(i)** this branch |
+| `editor.spec.ts` | 1 | 1 | **0** | **(i)** this branch |
+| `home.spec.ts` | 5 | 4 | **0** | **(i)** ×4, **(iii)** ×1 |
+| `inline-edit.spec.ts` | 1 | 1 | **1** | **(ii)** pre-existing |
+| `item-detail.spec.ts` | 6 | 4 | **0** | **(i)** ×4, **(iii)** ×2 |
+| `motion.spec.ts` | 3 | 3 | **3** | **(ii)** pre-existing ×3 |
+| `optimistic.spec.ts` | 1 | 1 | **0** | **(i)** this branch |
+| `presence.spec.ts` | 1 | 1 | **0** | **(i)** this branch |
+| `project-home.spec.ts` | 1 | 1 | **0** | **(i)** this branch |
+| `push.spec.ts` | 1 | 1 | **0** | **(i)** this branch |
+| `reliable-writes.spec.ts` | 1 | 1 | **0** | **(i)** this branch |
+| `sprint-notes.spec.ts` | 1 | 1 | **0** | **(i)** this branch |
+| `sprint-table.spec.ts` | 3 | 1 | **0** | **(i)** ×1, **(iii)** ×2 |
+| `trash.spec.ts` | 1 | 1 | **0** | **(i)** this branch |
+| `version-history.spec.ts` | 1 | 1 | **1** | **(ii)** pre-existing |
+
+**(i) caused by this branch — 20. (ii) pre-existing on `b63f4c7` — 6. (iii) harness artefacts — 6.**
+20 + 6 + 6 = 32.
+
+## What each bucket actually is
+
+**(iii) — six, and all one thing: the suite contaminating itself.** Every one of them passes when
+its file runs alone from a fresh reset, and fails only in serial order after another spec has
+written. The shapes are unambiguous: `sprint-table` expects a footer sum of `58.0` and reads `46.0`;
+`version-history` expects four versions and counts three; `avatar` finds a picture in two places
+because an earlier spec left one. The `sprintTotals` advisory lock in `e2e/fixtures.ts` was built to
+prevent exactly this and does not cover it — it serialises *readers against writers*, and says
+nothing about a writer that does not put the row back.
+
+**(ii) — six, and none of them are this branch's.** `earnings` (a confirmed distribution reads
+`41.5 h added` where the spec wants `1.0 h`), `inline-edit` (720 minutes expected, 60 read),
+`motion` ×3 (`filtering the table never re-runs a blur` times out at 30 s on all three projects),
+`version-history`. Each fails identically at `b63f4c7`. They were red before this branch existed
+and they are not this pass's to fix — but they are now written down instead of being rediscovered.
+
+**(i) — twenty, and the honest headline of this pass.** This branch broke twenty tests. They are
+**located in the harness, not in the application**: thirteen are Playwright strict-mode violations
+of exactly the shape `e2e/fixtures.ts` already documents at length —
+
+```
+strict mode violation: getByText('No discussion yet.') resolved to 2 elements:
+    1) <p …>No discussion yet.</p>  aka getByRole('paragraph')
+    2) <p …>No discussion yet.</p>  aka getByText('No discussion yet.').nth(1)
+```
+
+— identical markup, the second inside the `<div hidden id="S:1">` streaming wrapper and not
+connected. `shell(page)` exists precisely to exclude it, was added on this branch by `92354e3`,
+and was applied to **8 of the 55 spec files**. The remaining seven are `element(s) not found`
+(`home`'s sprint card, `project-home`'s grid template, `sprint-table`'s burn-up,
+`sprint-notes`) and one crash (`presence`).
+
+**What has NOT been established, and is not being guessed at.** *Why* the branch made this window
+reachable. It is not the fixtures: `waitForInteractive`, `instrumentPage` and `signIn` are
+**byte-identical** between `b63f4c7` and `HEAD` (diffed, not read), and `app/**/loading.tsx` numbers
+19 files in both trees. So the change is in application code — a plausible candidate is PF-9
+collapsing the item detail's five sequential queries into two rounds, which lands the resolved
+subtree earlier relative to hydration — but that is a hypothesis with no measurement behind it and
+is recorded as one. Diagnosing it is Block 7's, not this table's.
+
+**Bucket (i) is therefore not "leave it alone".** The contract's rule is to leave (i) unless it is
+small and obviously ours; thirteen of these twenty are one selector fix that this branch already
+wrote the tool for. They are named here so the choice is deliberate.
