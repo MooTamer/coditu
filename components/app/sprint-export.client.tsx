@@ -1,9 +1,25 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Download } from "lucide-react";
 import { useState } from "react";
 
-import { ExportDialog } from "@/components/app/export-dialog.client";
+/**
+ * 614 lines that nobody sees until they press Export.
+ *
+ * It was a static import, so it shipped in the sprint page's entry bundle and
+ * was paid for by every reader of every sprint whether or not they ever export
+ * anything. The render was ALREADY conditional — `{open ? <ExportDialog/> :
+ * null}` below — so this changes nothing about when the component runs, only
+ * about when its bytes are fetched.
+ *
+ * `ssr: false` because there is nothing to server-render: the dialog does not
+ * exist until a click, and a click is a client event.
+ */
+const ExportDialog = dynamic(
+  () => import("@/components/app/export-dialog.client").then((m) => m.ExportDialog),
+  { ssr: false }
+);
 
 /**
  * Export, where the design puts it.

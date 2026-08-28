@@ -1475,3 +1475,77 @@ is recorded as one. Diagnosing it is Block 7's, not this table's.
 **Bucket (i) is therefore not "leave it alone".** The contract's rule is to leave (i) unless it is
 small and obviously ours; thirteen of these twenty are one selector fix that this branch already
 wrote the tool for. They are named here so the choice is deliberate.
+
+---
+
+# Ninth pass — where the app shell's 80.3 KB actually is, 2026-08-28
+
+The shell sat at **220.0 / 220 KB**: zero headroom, which is what stopped PF-4's sweep and PF-9's
+skeleton. 139.7 KB of that is the framework floor measured at `/login`; 80.3 KB is ours.
+
+## What the manifest can and cannot tell you
+
+`.next/server/app/app/projects/[slug]/sprints/[number]/page_client-reference-manifest.js` lists
+**54 client modules** for this route and the chunks each one names. It does **not** give a per-module
+size, and there is no way to derive one: Turbopack emits **12 chunks** shared across those 54
+modules, and every module in a group names the identical chunk list. `npm run analyze` cannot help
+either — `@next/bundle-analyzer` is a webpack plugin, this build is Turbopack, and the script exits
+0 having written nothing. That is worth knowing before somebody runs it and believes the silence.
+
+What the manifest *does* support is grouping modules by their exact chunk signature, and then asking
+which chunks belong to one group only. De-duplicated, the entry is **84.0 KB gz across 12 chunks**:
+
+| Chunk group | Total | **Exclusive** | Shared |
+|---|---|---|---|
+| `sprint-table` · `filter-bar` · `sprint-export` · `presence` · `realtime` · `progress-ring` · `reveal-observer` · `next/link` | 74.8 KB | **38.9 KB** | 35.9 |
+| `app/app/error.tsx` | 36.4 KB | **0.9 KB** | 35.5 |
+| `peek-returner.client.tsx` | 35.9 KB | **0.0 KB** | 35.9 |
+| `rail` · `topbar` · `tab-bar` · `toast` · `save-state` · `app-badge` · `presence-surface` · `workspace-presence` | 35.5 KB | **0.0 KB** | 35.5 |
+| Next's `layout-router` / `client-page` / `client-segment` / error boundaries | 8.4 KB | **8.4 KB** | 0.0 |
+| `theme-provider` | 1.6 KB | 0.0 | 1.6 |
+
+**The exclusive column is the one that answers the question.** `error.tsx` looks like 36 KB and is
+0.9; `peek-returner.client.tsx` looks like 36 KB and is **zero** — both are 60-line files that
+happen to name the shared app-shell chunk, which the layout was going to load anyway. The premise
+that a small helper drags in a heavy dependency is a real shape and it is **not** what is happening
+here: the weight is 38.9 KB of sprint-page code, 35.5 KB of app-shell layout, and 8.4 KB of Next.
+
+Two things were already lazy and are not savings anybody left on the table: `@supabase/realtime-js`
+is behind `await import("@/lib/realtime/socket")` inside `use-presence`, and the 16.0 KB chunk that
+dominates the sprint group is `@dnd-kit` — core, sortable, modifiers and utilities — which the
+table's reorder needs and which PF-13 has just finished proving the behaviour of.
+
+## What was cut
+
+Two surfaces that nobody sees until they click, both **already conditionally rendered**, both
+statically imported so they shipped to every reader regardless:
+
+| Cut | Before | After | Recovered |
+|---|---|---|---|
+| `ExportDialog` (614 lines) behind `next/dynamic` | 220.0 | 217.0 | **3.0 KB** |
+| `FilterPanel` (289 lines) behind `next/dynamic`, gated at the call site | 217.0 | 216.3 | **0.7 KB** |
+| | | | **3.7 KB total** |
+
+Neither changes when a component runs. `ExportDialog` was already `{open ? … : null}`;
+`FilterPanel`'s first statement is `if (!open) return null`, and gating it at the call site unmounts
+it on exactly the same condition. `ssr: false` on both because a surface that does not exist until
+a click has nothing to server-render.
+
+**`npm run budgets` → OK, app shell own 76.5 / 110 KB, total 216.3 / 220 KB.** Verified against
+`export`, `sprint-table`, `saved-views`, `interactive-states` and `favourites` — **54 passed, 1
+failed**, the one failure being `sprint-table.spec.ts:298`, which the triage table above already
+records as bucket (i) and which fails identically without these changes.
+
+## §5's total was NOT raised, and that is a choice
+
+3.7 KB of headroom is under the 4 KB that would have authorised raising the budget by ADR. It was
+left at 220 anyway. Raising a ceiling you are currently **passing** buys nothing today and spends
+the one number that has been keeping this branch honest — and the work the headroom was wanted for
+is PF-8's sort panel, which is a dialog behind a click and will be built the way the two above now
+are, costing the entry approximately nothing. If it turns out not to fit, the raise can be made
+then, with the measured number in hand rather than an estimate. That is the reversible order.
+
+**Not done, and named rather than skipped:** the 16.0 KB `@dnd-kit` chunk is the single largest
+item and it was not touched. Splitting the sortable row out of `sprint-table.client.tsx` so the drag
+machinery loads on first pointer-down is the obvious move and it is a real refactor of the component
+whose drag behaviour PF-13 has just characterised frame by frame. It wants its own pass.

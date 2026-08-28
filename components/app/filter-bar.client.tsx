@@ -1,10 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 
 import { ComponentMultiPicker } from "@/components/app/component-picker.client";
-import { FilterPanel } from "@/components/app/filter-panel.client";
 import { ViewMenu } from "@/components/app/view-menu.client";
 import { Mono } from "@/components/coditu/mono";
 import { COMPONENT_MATCHES, type ComponentMatch } from "@/lib/components";
@@ -20,6 +20,21 @@ import {
   type WorkItemStatus,
 } from "@/lib/work-items";
 import { cn } from "@/lib/utils";
+
+/**
+ * The panel's first line is `if (!open) return null`, so it has always drawn
+ * nothing until the Filter button is pressed — and it has always been in this
+ * page's entry bundle anyway. Deferred, and gated at the call site below so the
+ * import is not even requested until it is wanted. Behaviour is unchanged in
+ * both directions: closing unmounts it exactly as the internal early return did.
+ *
+ * `ssr: false` for the same reason as the export dialog: there is nothing to
+ * server-render for a surface that does not exist until a click.
+ */
+const FilterPanel = dynamic(
+  () => import("@/components/app/filter-panel.client").then((m) => m.FilterPanel),
+  { ssr: false }
+);
 
 /**
  * View mode and status filters, held in the URL.
@@ -263,13 +278,15 @@ export function FilterBar({
         ) : null}
       </button>
 
-      <FilterPanel
-        open={panelOpen}
-        onClose={() => setPanelOpen(false)}
-        spec={filters}
-        people={people}
-        groupings={groupings}
-      />
+      {panelOpen ? (
+        <FilterPanel
+          open
+          onClose={() => setPanelOpen(false)}
+          spec={filters}
+          people={people}
+          groupings={groupings}
+        />
+      ) : null}
 
       {/* The link this view IS, read from the URL rather than rebuilt from the
           controls above it.

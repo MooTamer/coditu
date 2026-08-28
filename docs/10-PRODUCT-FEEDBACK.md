@@ -48,7 +48,9 @@ Install location of record: `docs/10-PRODUCT-FEEDBACK.md` on `visual-conformance
 ## Standing constraints for every PF pass
 
 1. **Performance is not traded for polish.** `npm run budgets` must stay OK — the app shell has
-   **0.7 KB of headroom** at 219.3 / 220 KB. Any new client component is measured, not estimated.
+   **3.7 KB of headroom** at 216.3 / 220 KB, after `ExportDialog` and `FilterPanel` were deferred
+   on 2026-08-28. Any new client component is measured, not estimated, and any new surface that
+   lives behind a click goes behind `next/dynamic` by default.
 2. **Resilience.** Every new interactive path handles the network failing: a Server Action call is a
    `fetch` and a network failure *rejects* it, so `if (!result.ok)` never runs. Convert throws into
    results; rethrow `redirect()`/`notFound()` via `unstable_rethrow`.
