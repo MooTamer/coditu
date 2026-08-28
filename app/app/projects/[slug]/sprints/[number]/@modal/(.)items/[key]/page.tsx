@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { ItemDetailBody } from "@/components/app/item-detail";
 import { listFavouritedTargets } from "@/lib/data/favourites";
 import { getWorkItemRevisions } from "@/lib/data/revisions";
 import { ItemModal } from "@/components/app/item-modal.client";
+import { ItemPeekSkeleton } from "@/components/app/item-peek-skeleton";
 import { todayInCairo } from "@/lib/data/sprint";
 import { listActiveProfiles } from "@/lib/data/profiles";
 import { getProjectBySlug, listSprintsForProject } from "@/lib/data/projects";
@@ -13,6 +15,22 @@ import { getCurrentProfile } from "@/lib/supabase/server";
 
 /**
  * The intercepted modal. Same body as the full page, wrapped in a dialog.
+ *
+ * ── PF-9: the frame does not wait for the story ────────────────────────────
+ * This used to be one async component, so nothing at all rendered until every
+ * query had answered — measured at a median **1607 ms on a production build**,
+ * with `clickToReady` landing ~5 ms after first paint every time. The panel
+ * appeared fully formed after a second and a half of nothing happening.
+ *
+ * The dialog's chrome needs no database: its label, its key, its close button
+ * and its full-page link are all derivable from the URL. So the shell is
+ * rendered here, immediately, and only the body — which really does have to
+ * wait — sits inside a `Suspense`. Not a `loading.tsx`; see the note on
+ * `ItemPeekSkeleton` for what that cost last time.
+ *
+ * `key` comes from the URL rather than from `item.key`, which is the point: the
+ * old version could not name the item in the header without first fetching it.
+ * The two agree — every link to this route is built from `item.key`.
  */
 export default async function InterceptedItemPage({
   params,
@@ -20,6 +38,37 @@ export default async function InterceptedItemPage({
   params: Promise<{ slug: string; number: string; key: string }>;
 }) {
   const { slug, number, key } = await params;
+
+  return (
+    <ItemModal
+      itemKey={key}
+      fullHref={`/app/projects/${slug}/sprints/${number}/items/${key}`}
+    >
+      <Suspense fallback={<ItemPeekSkeleton />}>
+        <PeekBody slug={slug} number={number} itemKey={key} />
+      </Suspense>
+    </ItemModal>
+  );
+}
+
+/**
+ * Everything that genuinely has to wait for the database.
+ *
+ * `notFound()` still lives in here. It answers 200 rather than 404 once the
+ * shell has been flushed — which was ALREADY true of this route before this
+ * change, because the sprint segment owns a `loading.tsx`; `docs/05-DECISIONS.md`
+ * records that trade and `e2e/item-detail.spec.ts` asserts the `next-error`
+ * marker and the rendered page rather than the status because of it.
+ */
+async function PeekBody({
+  slug,
+  number,
+  itemKey: key,
+}: {
+  slug: string;
+  number: string;
+  itemKey: string;
+}) {
 
   /**
    * Two rounds, not five.
@@ -63,11 +112,7 @@ export default async function InterceptedItemPage({
   ]);
 
   return (
-    <ItemModal
-      itemKey={item.key}
-      fullHref={`/app/projects/${slug}/sprints/${number}/items/${item.key}`}
-    >
-      <ItemDetailBody
+    <ItemDetailBody
           item={item}
           today={todayInCairo()}
           canToggleCriteria={canToggle}
@@ -89,8 +134,7 @@ export default async function InterceptedItemPage({
             initials: profile.initials,
             avatarUrl: profile.avatar_url,
             role: profile.role,
-          }}
-        />
-    </ItemModal>
+      }}
+    />
   );
 }

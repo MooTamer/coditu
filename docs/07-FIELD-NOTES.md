@@ -2154,3 +2154,37 @@ cp -Rc /path/to/main/node_modules "$WT/node_modules"   # 803 MB in 9.7s
 
 `npm ci` also works and takes minutes. See [[worktree-must-live-outside-the-checkout]] for the
 other half of this — a worktree nested inside the checkout cannot run its own dev server at all.
+
+---
+
+## `locator.click()` scrolls the page, and `scroll-behavior: smooth` makes it look like your bug
+
+PF-9 carried "the peek scrolls the page ~490px UP on 4 of 5 opens" for two passes. It reproduced
+every run, the numbers were stable to the pixel, and it was the **instrument**.
+
+Playwright scrolls an element into view before clicking it. It does that through CDP, *below*
+JavaScript, so it is invisible to every hook you can write — patching `window.scrollTo`,
+`window.scroll`, `window.scrollBy`, `Element.prototype.scrollTop` and
+`Element.prototype.scrollIntoView` catches **nothing**. And because this app sets
+`html { scroll-behavior: smooth }`, that scroll *animates* over ~370 ms, which reads exactly like an
+application easing the page somewhere on purpose.
+
+The one-line test:
+
+```ts
+await link.click();                  // moved: [0, -566, 0, -472, -566]
+await link.dispatchEvent("click");   // moved: [0,    0,  0,    0,    0]
+```
+
+`dispatchEvent` does not scroll into view. Same build, same page, same five opens.
+
+Two things follow. **Any measurement of scroll position around a `locator.click()` is measuring
+Playwright** unless the target is already in the viewport — and it is always *upward* when the page
+is scrolled down and the target is above the fold, which is what made it look like "the app jumps to
+the top". **And a stack trace proving nothing called a scroll API is not evidence the scroll was not
+scripted** — it is evidence it did not go through JavaScript at all.
+
+What did survive the elimination: the document height never changed (1466 px throughout, sampled
+every frame), so it was never a clamp; focus never left the clicked link; and the dialog's own scroll
+lock, its `panelRef.focus()`, and every `Reveal` animation were each disabled in turn with the result
+bit-for-bit identical.
