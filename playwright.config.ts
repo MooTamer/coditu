@@ -50,6 +50,13 @@ const ON_A_PHONE = [
   /navigation\.spec\.ts/,
   /item-detail\.spec\.ts/,
   /motion\.spec\.ts/,
+  /**
+   * PF-9's other half. The scroll claim was only ever measured with a mouse at
+   * 1440x900, and a phone is a different mechanism: the peek is a bottom sheet,
+   * the lock is on a document a finger can drag, and the visual viewport is a
+   * second thing that can move on its own. It has to run here to answer that.
+   */
+  /peek-scroll\.spec\.ts/,
 ];
 
 /**
@@ -81,6 +88,22 @@ export default defineConfig({
    *     E2E_LOCAL=1 npx playwright test the-file.local.spec.ts
    */
   testIgnore: process.env.E2E_LOCAL ? [] : "**/*.local.spec.ts",
+  /**
+   * 10 s for an assertion, not the default 5.
+   *
+   * A five-run determinism sweep on 2026-08-28 produced 16, 15 and 19 failures
+   * from the same tree. Every failure that appeared in only one run was a
+   * five-second wait that a busier machine did not fit into — an export preview
+   * still saying "building the preview…", a peek whose dialog had not arrived,
+   * a breadcrumb whose navigation had not committed. None of them was a claim
+   * about latency: the specs that DO make one (`peek-measure`, `editor-measure`)
+   * take their own numbers on a production build and assert against a budget.
+   *
+   * A suite that only passes on an idle machine is not a suite anybody can
+   * trust, and doubling this weakens nothing — a wrong answer is still wrong
+   * after ten seconds, it just stops depending on what else is running.
+   */
+  expect: { timeout: 10_000 },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

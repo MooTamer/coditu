@@ -210,7 +210,11 @@ test.describe("trash", () => {
     // `<details>` — W4c's decision, so the panel ships a diff viewer and no
     // JavaScript. Whether a reader can expand it is `version-history.spec.ts`'s
     // question; this one only asks whether the version is still there.
-    await expect(page.getByText(`+ added: ${marker}`)).toBeAttached();
+    // `shell()`, like the line above it. Unscoped, this matched the streaming
+    // tree's copy as well as the real one and raised a strict-mode violation on
+    // roughly one run in two — the fault `shell()` exists for, and one the
+    // ninth pass's sweep of eleven files missed here.
+    await expect(shell(page).getByText(`+ added: ${marker}`)).toBeAttached();
 
     // And the count, because the panel shows a window and the table is what
     // survives.

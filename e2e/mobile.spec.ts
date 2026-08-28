@@ -231,7 +231,6 @@ test.describe("dialogs are sheets on a phone", () => {
 
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await page.waitForTimeout(300);
 
     // Not `toBe(before)`, and the reason is worth stating rather than rounding
     // off. An item sheet is an INTERCEPTED route: it closes through
@@ -240,8 +239,18 @@ test.describe("dialogs are sheets on a phone", () => {
     // exactly 900; WebKit puts it at 596. What the sheet owes is that it does
     // not throw the reader to the top — which is what the fixed-body lock did,
     // and what this asserts.
-    const after = await page.evaluate(() => window.scrollY);
-    expect(after, "closing the sheet returned the reader to the top").toBeGreaterThan(300);
+    // POLLED, not slept-then-read. `waitForTimeout(300)` and one `scrollY` was
+    // reading an ASYNCHRONOUS restoration at a fixed moment: on one run in two
+    // it caught the page mid-climb and reported 62 for a scroll that settles
+    // above 300 a beat later. Same mistake `expectLock` above documents, in the
+    // same file. The claim is unchanged — the reader is not thrown to the top —
+    // and a restoration that takes another second still reads as "it stayed".
+    await expect
+      .poll(async () => page.evaluate(() => window.scrollY), {
+        timeout: 5000,
+        message: "closing the sheet returned the reader to the top",
+      })
+      .toBeGreaterThan(300);
   });
 
   test("above md it is still a centred dialog", async ({ adminPage: page }) => {

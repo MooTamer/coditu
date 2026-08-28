@@ -77,7 +77,16 @@ async function audit(page: Page, only?: string): Promise<string[]> {
 }
 
 test.describe("accessibility", () => {
-  test.describe.configure({ mode: "serial" });
+  /**
+   * 90 s, not the default 30.
+   *
+   * Two of these wait up to 20 s each for `next-themes` to write the class, and
+   * then run axe over the whole sprint table — which on a dev server, with
+   * anything else on the machine, does not reliably fit in 30. It failed on one
+   * of five otherwise-identical runs for exactly that reason. The timeout is
+   * not a claim about speed and never was; the theme waits already say so.
+   */
+  test.describe.configure({ mode: "serial", timeout: 90_000 });
 
   // The default theme is light, so the plain run below covers it. The dark
   // run is driven from storage rather than by clicking the toggle: the

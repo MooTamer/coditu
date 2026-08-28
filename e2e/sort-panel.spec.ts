@@ -109,8 +109,35 @@ test.describe("the sort panel", () => {
     expect([...ascending].sort()).toEqual(ascending);
 
     await shell(page).locator("[data-sort-button]").click();
-    await page.getByRole("dialog", { name: "Sort" }).getByLabel("Sort 1: direction").selectOption("desc");
-    await expect.poll(() => new URL(page.url()).searchParams.get("sort")).toBe("key:desc");
+    const direction = page.getByRole("dialog", { name: "Sort" }).getByLabel("Sort 1: direction");
+    await expect(direction).toBeVisible();
+
+    /**
+     * Selected until it takes, rather than once.
+     *
+     * The panel is behind `next/dynamic`, so it arrives after its chunk does,
+     * and a `selectOption` that lands in the gap before the control is live
+     * changes the box and writes no URL. Observed as `key:asc` after a 5 s poll
+     * on one run in two — the control had been found, so the failure read as
+     * the app ignoring the change.
+     *
+     * `selectOption` dispatches `input` and `change` every time it is called,
+     * so re-selecting the same value is a real retry rather than a no-op. Same
+     * shape as `palette-realtime.spec.ts` re-pressing Meta+k, and for the same
+     * reason: the gesture is an enhancement over a control that is already
+     * there, so retrying it asserts the outcome instead of the timing.
+     */
+    await expect
+      .poll(
+        async () => {
+          const current = new URL(page.url()).searchParams.get("sort");
+          if (current === "key:desc") return current;
+          await direction.selectOption("desc");
+          return new URL(page.url()).searchParams.get("sort");
+        },
+        { timeout: 15_000, intervals: [200, 300, 500, 800] }
+      )
+      .toBe("key:desc");
 
     await expect.poll(async () => (await keys()).join(",")).toBe([...ascending].reverse().join(","));
   });
