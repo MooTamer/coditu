@@ -2,7 +2,7 @@
 
 This runbook separates repository code from provider activation. The pipeline exists in the
 `visual-conformance` branch; it does not control production until it reaches `main` and the
-required deploy secrets exist in GitHub's `Production` environment.
+required deploy configuration exists in GitHub's `Production` environment.
 
 ## 1. Release contract
 
@@ -16,39 +16,95 @@ production writer:
    degraded-dependency behaviour.
 2. Only a successful push to `main` unlocks `production deploy after blocking checks`.
 3. The deploy job first proves the hosted Supabase schema can serve this commit. Only then
-   does it pull the Vercel production environment, build with pinned CLI 59.9.1, and upload
-   the prebuilt output to Production.
-4. A missing token, team id or project id is a red deploy; it is never interpreted as a
-   successful no-op.
+   does it pull the Vercel production environment, build with pinned CLI 59.9.1, and add an
+   exact-commit health marker to the prebuilt output.
+4. `scripts/deploy-production.sh` creates a Production-targeted deployment with
+   `--skip-domain`, smokes its protected immutable URL, promotes it, then smokes the public
+   production origin. A failed public check restores the exact deployment that owned the
+   origin before the job began.
+5. Production deploy jobs are serialized and never cancel one another. Missing configuration
+   is a red deploy; it is never interpreted as a successful no-op.
 
 The required GitHub `Production` environment secrets are:
 
 - `VERCEL_TOKEN` — a narrowly used Vercel token;
 - `VERCEL_ORG_ID` — the team/account id for `mohamed-tamers-projects`;
-- `VERCEL_PROJECT_ID` — the id for the existing `coditu` project.
+- `VERCEL_PROJECT_ID` — the id for the existing `coditu` project;
 - `HOSTED_SCHEMA_DB_URL` — a direct/session URL for `coditu_backup`, used read-only for the
   schema contract. It must identify project `hayfsvsepgfescojesbd` and negotiate SSL.
 
-Get the two ids by linking a clean local checkout to the **existing** project and reading
-`.vercel/project.json`; do not create a second project and do not commit `.vercel/`. Add the
-values through GitHub's encrypted secret UI or `gh secret set` from a non-recorded source.
-Never paste or print them in an issue, transcript, screenshot or document.
+The required GitHub `Production` environment variable is:
+
+- `PRODUCTION_BASE_URL` — the stable, public HTTPS production origin without a trailing
+  slash or path. It must be the origin users reach, not an immutable protected deployment.
+
+Get the two Vercel ids by linking a clean local checkout to the **existing** project and
+reading `.vercel/project.json`; do not create a second project and do not commit `.vercel/`.
+Add secrets through GitHub's encrypted secret UI or `gh secret set` from a non-recorded
+source. Never paste or print them in an issue, transcript, screenshot or document.
 
 ## 2. Activation proof
 
 Before merging the first gated release:
 
-1. Add the three environment secrets and confirm only their names with
+1. Add the four environment secrets and confirm only their names with
    `gh secret list -R MooTamer/coditu --env Production`.
-2. Merge/push the pipeline to `main`. The Vercel Git integration should record no automatic
+2. Add `PRODUCTION_BASE_URL` through the GitHub `Production` environment variable UI and
+   confirm it with
+   `gh variable get PRODUCTION_BASE_URL -R MooTamer/coditu --env Production`. Before adding
+   it, make sure it is the intended public origin and does not redirect to Vercel login.
+3. Merge/push the pipeline to `main`. The Vercel Git integration should record no automatic
    deployment for that commit; the Actions deploy should create exactly one after the
    blocking job succeeds.
-3. Match the GitHub deployment's SHA to `git rev-parse origin/main` and verify the Vercel
-   deployment is from the Actions job, not `vercel[bot]` racing it.
-4. Do not call the gate active until one deliberately failing blocking check produces zero
+4. Match the JSON returned by `/build-health.json` to `git rev-parse origin/main` and verify
+   the Vercel deployment is from the Actions job, not `vercel[bot]` racing it.
+5. Confirm `/`, `/login`, `/app/settings/recovery` and `/build-health.json` return without a
+   4xx/5xx, stay on the configured public origin after redirects, and that the health JSON
+   names the checked commit.
+6. Do not call the gate active until one deliberately failing blocking check produces zero
    production deployment and the next green commit produces one.
+7. Create the free external uptime monitor only after step 5. Use a UptimeRobot **Keyword**
+   monitor named `Coditu production`, URL `${PRODUCTION_BASE_URL}/login`, five-minute
+   interval, and require the exact phrase `Coditu is an internal tool.`. Send alerts to
+   Mohamed's owner email and complete UptimeRobot's emailed confirmation. A plain 200 monitor
+   is insufficient because a Vercel login page can also return 200.
 
-## 3. Temporary browser observation window
+The monitor is not active until its dashboard shows a successful public check and Mohamed's
+alert contact is confirmed. Do not announce production monitoring from a repository commit.
+
+## 3. Automated smoke and rollback
+
+The deploy script captures the current deployment id before uploading anything. The release
+then moves through two boundaries:
+
+1. `vercel deploy --prebuilt --prod --skip-domain` creates a Production-targeted candidate
+   without moving any domain.
+2. `vercel curl` smokes `/build-health.json`, `/`, `/login` and
+   `/app/settings/recovery` on that protected candidate. The health response must contain
+   the full `GITHUB_SHA`.
+3. Only then does `vercel promote` move the production domains.
+4. Ordinary unauthenticated `curl` repeats the public checks. It rejects every 4xx/5xx,
+   requires the exact commit marker, and rejects redirects outside `PRODUCTION_BASE_URL`.
+5. Any failure after promotion — including a 5xx, a timeout, a Vercel-login redirect, or an
+   ambiguous non-zero promotion command — invokes `vercel rollback` with the captured prior
+   deployment id and re-smokes the public routes.
+
+If the workflow says `rollback_verified=false`, treat production as an active incident; the
+script could not prove that the old release is serving. From an authenticated clean checkout:
+
+```bash
+npx --yes vercel@59.9.1 inspect "$PRODUCTION_BASE_URL" --json --token "$VERCEL_TOKEN"
+npx --yes vercel@59.9.1 rollback '<known-good deployment id or URL>' \
+  --yes --timeout 3m --token "$VERCEL_TOKEN"
+curl --fail --location "$PRODUCTION_BASE_URL/login"
+curl --fail --location "$PRODUCTION_BASE_URL/build-health.json"
+```
+
+Never choose the rollback target from memory. Use the deployment recorded as
+`previous_deployment_url`/`rollback_started` in the failed run, then confirm the public
+origin independently.
+
+## 4. Temporary browser observation window
 
 The two Playwright passes are a separate report-only job. It waits for the blocking job,
 runs the development and production suites even if one fails, and keeps the red result and
@@ -66,21 +122,31 @@ hard dependency of `deploy` and remove `continue-on-error`. Any red run resets t
   no successes and used a different workflow; the newest stopped at database tests before
   reaching E2E.
 
-## 4. Current provider references
+## 5. Current provider references
 
 - Vercel Git configuration: <https://vercel.com/docs/project-configuration/git-configuration>
   documents `git.deploymentEnabled: false` as the switch that stops Git deployments.
 - Vercel's GitHub Actions guide:
   <https://vercel.com/kb/guide/how-can-i-use-github-actions-with-vercel> documents the
   token/team/project secret boundary and the pull → build → prebuilt deploy sequence.
-- Vercel CLI global options: <https://vercel.com/docs/cli/global-options> documents
-  `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` as the non-interactive CI link.
+- Vercel's CLI deployment guide:
+  <https://vercel.com/docs/cli/deploying-from-cli> documents `--skip-domain` followed by an
+  explicit promotion.
+- Vercel promotion and rollback:
+  <https://vercel.com/docs/deployments/promoting-a-deployment> and
+  <https://vercel.com/docs/cli/rollback> document the two production state changes.
+- Vercel protected-deployment curl: <https://vercel.com/docs/cli/curl> documents its
+  automatic protection bypass for candidate smoke checks.
+- UptimeRobot Free-plan scope:
+  <https://help.uptimerobot.com/en/articles/11604710-who-should-use-uptimerobot-s-free-plan>
+  documents five-minute HTTP and keyword checks; <https://uptimerobot.com/pricing/>
+  documents email alerts.
 
-These pages were re-read on 2026-08-28. Re-check them before changing the pinned CLI or
-provider settings; a repository runbook is not evidence that a provider contract stayed
-unchanged.
+These pages and the pinned CLI 59.9.1 command help were re-read on 2026-08-28. Re-check them
+before changing the CLI or provider settings; a repository runbook is not evidence that a
+provider contract stayed unchanged.
 
-## 5. Hosted schema preflight
+## 6. Hosted schema preflight
 
 `scripts/check-hosted-schema.mjs` derives its expected contract from the committed
 `lib/supabase/database.types.ts` and the migration filenames, then queries the hosted

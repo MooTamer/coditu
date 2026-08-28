@@ -152,11 +152,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: Production
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       HOSTED_SCHEMA_DB_URL: ${{ secrets.HOSTED_SCHEMA_DB_URL }}
+      PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
 
     steps:
       - uses: actions/checkout@v4
@@ -169,7 +173,7 @@ jobs:
       - name: Refuse an unconfigured deploy rather than silently skipping it
         run: |
           set -euo pipefail
-          for required in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN HOSTED_SCHEMA_DB_URL; do
+          for required in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN HOSTED_SCHEMA_DB_URL PRODUCTION_BASE_URL; do
             test -n "${!required:-}"
           done
 
@@ -180,16 +184,18 @@ jobs:
 
       - name: Build the production output with Vercel's environment
         run: |
-          npx --yes vercel@59.9.1 pull --yes --environment=production --token "$VERCEL_TOKEN"
-          npx --yes vercel@59.9.1 build --prod --token "$VERCEL_TOKEN"
+          npm install --global vercel@59.9.1
+          vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+          vercel build --prod --token "$VERCEL_TOKEN"
+          node scripts/write-build-health.mjs
 
-      - name: Deploy the checked commit to production
+      - name: Stage, smoke and promote the checked commit
         id: production_deploy
+        run: ./scripts/deploy-production.sh
+
+      - name: Record the promoted deployment
         run: |
-          deployment_url=$(npx --yes vercel@59.9.1 deploy --prebuilt --prod --token "$VERCEL_TOKEN")
-          printf '%s\n' "$deployment_url" | grep -Eq '^https://[A-Za-z0-9.-]+\.vercel\.app$'
-          printf 'url=%s\n' "$deployment_url" >> "$GITHUB_OUTPUT"
-          printf 'Production deployment: %s\n' "$deployment_url" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Production deployment: %s\n' "${{ steps.production_deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
 
   lighthouse:
     name: lighthouse (marketing)

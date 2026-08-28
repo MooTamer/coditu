@@ -4839,3 +4839,29 @@ The linked provider read returned **35 hosted vs 37 local migrations**. Hosted s
 this checkout, so a live catalog read was neither possible nor fabricated. The preflight is
 locally proved and expected to block the current hosted state; no database or deployment was
 changed.
+
+## 2026-08-28 · Infrastructure Block 6 — staged smoke and exact rollback are locally proved
+
+The deploy now writes the checked SHA into the Vercel prebuilt output, deploys it with
+`--skip-domain`, and smokes the protected immutable candidate before promotion. Once domains
+move, unauthenticated public requests require the same SHA, reject 4xx/5xx, and refuse a
+redirect outside the configured production origin. Any failure after promotion rolls back
+to the exact deployment id captured before the release; production deploy jobs are serialized
+so one run cannot roll back another.
+
+A deterministic fake-provider harness exercised four paths against the real shell script:
+clean promotion passed; a wrong staged SHA failed before promotion; a public 5xx failed after
+promotion and restored `dpl_previous`; and a redirect to Vercel login did the same. Both
+recovery cases printed `rollback_verified=true`. Invalid build SHAs failed closed, shell
+syntax passed, and the pinned Vercel 59.9.1 help confirmed the used `deploy --skip-domain`,
+`curl --deployment`, `promote` and `rollback` signatures. The production build also exposed
+four stale token assertions that still named the pre-migration statuses `dev_started` and
+`ready_for_peer_review`; the verifier now checks the shipped `in_progress` and
+`in_peer_review` variables instead of keeping the new release gate permanently red.
+
+UptimeRobot Free is the selected independent monitor: five-minute Keyword checks on the
+public `/login` page, requiring Coditu-specific text and emailing Mohamed. It was not created.
+There is no configured public production origin, generated deployment URLs currently lead to
+Vercel protection, `coditu.vercel.app` returns 404, and GitHub's Production environment has no
+secret or `PRODUCTION_BASE_URL` variable. The repository is ready for activation; no workflow,
+monitor, deployment, domain or provider setting changed in this block.

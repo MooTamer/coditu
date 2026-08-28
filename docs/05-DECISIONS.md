@@ -4867,3 +4867,30 @@ Current remote evidence says the fail-closed path matters: hosted ends at migrat
 `20260827130000`, while local also has `20260828120000` and `20260828140000`. Those two are
 not silently tolerated. Migrations must run before code, and no hosted migration was applied
 in this block.
+
+## 2026-08-28 · Production moves only after the candidate answers as the checked commit
+
+The deploy is a two-phase state change. Vercel first receives a Production-targeted prebuilt
+deployment with `--skip-domain`; its protected immutable URL is tested through `vercel curl`,
+which can cross deployment protection without making that URL public. Only the passing
+candidate is promoted. A post-promotion check then comes through the same public origin users
+reach and requires both a non-error response and an exact `GITHUB_SHA` in
+`/build-health.json`.
+
+The health marker is written into `.vercel/output/static` **after** `vercel build`. It is not
+a mutable application answer and it does not depend on Supabase: it identifies exactly which
+checked artifact reached the edge. The route smokes still cover `/login` and the authenticated
+Recovery Centre redirect, so the marker is not mistaken for a whole-application health test.
+
+Before staging, the job resolves and records the deployment currently serving Production.
+After promotion begins, any non-zero command, 4xx/5xx, timeout, wrong commit or redirect away
+from the configured origin rolls back to that exact id and checks the public routes again.
+`release_promoted` is set before the promote call: a provider command can move domains and
+then time out, so a non-zero response is ambiguous and must take the recovery path. Deploy
+jobs are serialized because two independently correct rollbacks can be wrong when they race.
+
+The external watcher is independent again: UptimeRobot Free will check the public `/login`
+page every five minutes for Coditu-specific text and email Mohamed. A plain HTTP 200 monitor
+was rejected because Vercel's own login can return 200. It is not created until a real public
+production origin exists and passes; activating it against today's protected/unknown URL would
+manufacture an incident rather than monitor one.
