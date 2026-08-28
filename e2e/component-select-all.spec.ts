@@ -66,22 +66,34 @@ test.describe("PF-7 — every component at once", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     /**
-     * Count the Server Action POSTs. The claim is "one write", and a row count
-     * afterwards cannot tell one call from forty.
+     * Count the Server Action POSTs that carry a COMPONENT. The claim is "one
+     * write", and a row count afterwards cannot tell one call from forty.
      *
-     * Armed only once the picker is open, because `lib/actions/recents.ts`
-     * records a visit on arrival and that is a Server Action too — counting
-     * from page load would count it and the assertion would be about the wrong
-     * thing. Nothing navigates between opening the panel and closing it, so the
-     * window holds exactly the write this test is about.
+     * Identified by payload, not by timing. The first version counted every
+     * `next-action` POST inside a window and read **2** in a full-suite run —
+     * this page has other actions (`lib/actions/recents.ts` records a visit,
+     * among them) and any of them landing in the window makes the assertion
+     * about the wrong thing. A `setWorkItemComponents` call carries the
+     * component ids in its body, so matching one of those is exact.
      */
-    let counting = false;
+    const [probe] = await query<{ id: string }>(
+      `select c.id::text as id from components c
+         join projects p on p.id = c.project_id
+        where p.slug = 'meinevim' and not c.is_archived
+        order by c.name limit 1`
+    );
     let writes = 0;
     await page.route(
       (url) => url.pathname.includes(`/sprints/17`),
       async (route) => {
         const request = route.request();
-        if (counting && request.method() === "POST" && request.headers()["next-action"]) writes += 1;
+        if (
+          request.method() === "POST" &&
+          request.headers()["next-action"] &&
+          (request.postData() ?? "").includes(probe.id)
+        ) {
+          writes += 1;
+        }
         await route.continue();
       }
     );
@@ -102,7 +114,6 @@ test.describe("PF-7 — every component at once", () => {
     );
     expect(live, "the registry has to be big enough for this to be a feature").toBeGreaterThan(20);
 
-    counting = true;
     const selectAll = page.locator("[data-select-all]");
     // Nothing is fully selected yet, so neither preset is pressed — the same
     // contract the export dialog's presets carry.

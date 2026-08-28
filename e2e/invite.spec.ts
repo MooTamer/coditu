@@ -29,7 +29,23 @@ const UNINVITED = "uninvited-probe@example.com";
 const NEW_PASSWORD = "a-password-only-they-know";
 
 /** Where the local stack catches outgoing mail. Derived, so the isolated project works. */
-const MAIL = process.env.E2E_MAIL_URL ?? SUPABASE_URL.replace(/:\d+$/, ":54524");
+/**
+ * Mailpit, DERIVED from whichever stack this run is pointed at.
+ *
+ * This was hard-coded to `:54524` — one particular isolated project's port —
+ * so the moment a run used a different one it failed with ECONNREFUSED and
+ * looked like GoTrue not sending mail. Supabase's own convention is what makes
+ * the derivation safe: the API is `…21` and Mailpit is `…24` in the same block.
+ * 54421 → 54424 on the shared stack, 54521 → 54524, 54621 → 54624.
+ * `E2E_MAIL_URL` still wins for anything that does not follow it.
+ */
+const MAIL =
+  // `||`, not `??`: `E2E_MAIL_URL=` on a command line sets it to the EMPTY
+  // STRING, which `??` accepts and which sends every request to a relative URL.
+  // That cost a diagnosis here, and an empty override means "use the default"
+  // to everybody who types it.
+  process.env.E2E_MAIL_URL ||
+  SUPABASE_URL.replace(/:(\d+)$/, (_, port: string) => `:${Number(port) + 3}`);
 
 async function forget(email: string) {
   await query(`delete from public.profiles where id in (select id from auth.users where email = $1)`, [email]);
