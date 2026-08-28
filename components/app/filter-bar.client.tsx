@@ -1,7 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 
 import { ComponentMultiPicker } from "@/components/app/component-picker.client";
@@ -11,6 +10,8 @@ import { Mono } from "@/components/coditu/mono";
 import { COMPONENT_MATCHES, type ComponentMatch } from "@/lib/components";
 import type { ComponentRef } from "@/lib/data/components";
 import type { SavedView } from "@/lib/data/saved-views";
+import { useUrlWrite } from "@/lib/hooks/use-url-write";
+import { control } from "@/lib/interactive";
 import { activeFilterCount, type FilterSpec } from "@/lib/sprint-filters";
 import {
   STATUS_DISPLAY_ORDER,
@@ -73,10 +74,12 @@ export function FilterBar({
   /** The sprint on screen, for a view somebody pins to this week. */
   sprintId: string;
 }) {
-  const router = useRouter();
   const [panelOpen, setPanelOpen] = useState(false);
-  const pathname = usePathname();
-  const params = useSearchParams();
+  // PF-4. Every write below used to be a bare `router.replace`, which on a
+  // dynamic route is a server round trip with no sign it is happening — the
+  // reported "sorting does nothing for ~2s then sorts". `useUrlWrite` puts the
+  // navigation in a transition and hands back which control is waiting on it.
+  const { params, write, state } = useUrlWrite();
 
   // Through the same parser the server uses, so a link carrying retired values
   // lights up the right chips instead of none. The first toggle rewrites the
@@ -84,23 +87,13 @@ export function FilterBar({
   const active = parseStatusFilter(params.get("status"));
   const view = params.get("view") === "board" ? "board" : "table";
 
-  const write = useCallback(
-    (next: URLSearchParams) => {
-      const query = next.toString();
-      // `scroll: false` — toggling a filter must not throw the reader back to
-      // the top of a table they were part way down.
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    },
-    [pathname, router]
-  );
-
   function toggleStatus(status: WorkItemStatus) {
     const next = new URLSearchParams(params);
     const on = active.includes(status);
     const updated = on ? active.filter((s) => s !== status) : [...active, status];
     if (updated.length) next.set("status", updated.join(","));
     else next.delete("status");
-    write(next);
+    write(next, `status:${status}`);
   }
 
   function setComponents(chosen: ComponentRef[]) {
@@ -113,7 +106,7 @@ export function FilterBar({
       // `match` on its own is noise in a URL nobody can act on.
       next.delete("match");
     }
-    write(next);
+    write(next, "component");
   }
 
   function setMatch(mode: ComponentMatch) {
@@ -121,14 +114,14 @@ export function FilterBar({
     // `any` is the default, so it does not need saying.
     if (mode === "all") next.set("match", "all");
     else next.delete("match");
-    write(next);
+    write(next, `match:${mode}`);
   }
 
   function setView(mode: "table" | "board") {
     const next = new URLSearchParams(params);
     if (mode === "board") next.set("view", "board");
     else next.delete("view");
-    write(next);
+    write(next, `view:${mode}`);
   }
 
   const ordered = STATUS_DISPLAY_ORDER.filter((status) => availableStatuses.includes(status));
@@ -143,6 +136,7 @@ export function FilterBar({
             type="button"
             onClick={() => setView(mode)}
             aria-pressed={view === mode}
+            {...control(state(`view:${mode}`))}
             className={cn(
               "h-[30px] rounded-[7px] px-[14px] text-[13px] font-semibold capitalize",
               // Filter pills are the `micro` tier: 200ms, no blur. A pill does
@@ -186,6 +180,7 @@ export function FilterBar({
               type="button"
               onClick={() => setMatch(mode)}
               aria-pressed={match === mode}
+              {...control(state(`match:${mode}`))}
               title={
                 mode === "any"
                   ? "Stories naming at least one of these components"
@@ -213,6 +208,7 @@ export function FilterBar({
             type="button"
             onClick={() => toggleStatus(status)}
             aria-pressed={on}
+            {...control(state(`status:${status}`))}
             className={cn(
               "flex h-8 items-center gap-2 rounded-pill border px-3 text-[13px]",
               "transition-[background-color,border-color,color] duration-[var(--dur-micro)] ease-[var(--ease-entrance)]",

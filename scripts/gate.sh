@@ -41,6 +41,14 @@ if ! git diff --quiet -- lib/supabase/database.types.ts; then
 fi
 
 step "components:check"; npm run components:check
+
+# PF-4's second half, and it is on the list for the reason the header gives.
+# 54 Server Action call sites were awaited, had their result inspected, and had
+# nothing catching a rejected fetch — so a lost connection skipped the `!ok`
+# branch, skipped the rollback beside it, and let `useOptimistic` revert in
+# silence. That is invariant 4's failure exactly, it had been true for months,
+# and no command in this repository would have said so.
+step "resilience";       npm run resilience
 step "degraded";         npm run degraded
 
 # One build, three consumers. `SKIP_BUILD=1` on the second and third so the

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import {
   DndContext,
@@ -37,6 +37,8 @@ import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { ProgressRing } from "@/components/coditu/progress-ring";
 import { settle } from "@/lib/action-result";
+import { useUrlWrite } from "@/lib/hooks/use-url-write";
+import { control, type ControlState } from "@/lib/interactive";
 import { reorderWorkItems } from "@/lib/actions/work-items";
 import type { ComponentRef } from "@/lib/data/components";
 import type { PersonRef, WorkItemRow } from "@/lib/data/sprint";
@@ -128,8 +130,11 @@ export function SprintTable({
 }) {
   const toast = useToast();
   const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  // PF-4. Sorting is the control Mohamed reported by name: a `router.replace`
+  // on a dynamic route, so ~2s of nothing and then a sorted table. The
+  // navigation is in a transition now, and `state()` says which header is
+  // waiting on it rather than lighting all nine at once.
+  const { params, write: writeUrl, state } = useUrlWrite();
   const [, startTransition] = useTransition();
   const [order, setOrder] = useState<string[] | null>(null);
 
@@ -148,15 +153,14 @@ export function SprintTable({
    * throw a reader back to the top of a table they are part way down.
    */
   const writeSort = useCallback(
-    (stack: SortKey[]) => {
+    (stack: SortKey[], key: string) => {
       const next = new URLSearchParams(params);
       const value = serializeSort(stack);
       if (value) next.set("sort", value);
       else next.delete("sort");
-      const query = next.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+      writeUrl(next, key);
     },
-    [params, pathname, router]
+    [params, writeUrl]
   );
 
   /**
@@ -190,15 +194,14 @@ export function SprintTable({
   const clearFilters = useCallback(() => {
     const next = new URLSearchParams(params);
     for (const key of FILTER_PARAMS) next.delete(key);
-    const query = next.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }, [params, pathname, router]);
+    writeUrl(next, "clear-filters");
+  }, [params, writeUrl]);
 
   const onSort = useCallback(
     (column: SortColumn, shift: boolean) => {
       const next = toggleSort(asked ?? sort, column, shift);
       setAsked(next);
-      writeSort(next);
+      writeSort(next, `sort:${column}`);
     },
     [asked, sort, writeSort]
   );
@@ -304,19 +307,28 @@ export function SprintTable({
               sortsBy="story key"
               sort={sort}
               onSort={onSort}
+              state={state}
               className={`sticky left-0 z-[2] min-w-[340px] bg-[var(--raised)] text-left`}
             />
             {/* A floor, not a fixed width: "EVIM Rollover Contact Cards" needs
                 room, and the cell truncates rather than wrapping a row to two
                 lines. */}
-            <SortHeader column="component" label="Component" sort={sort} onSort={onSort} className="min-w-[180px] text-left" />
-            <SortHeader column="status" label="Status" sort={sort} onSort={onSort} className="text-left" />
-            <SortHeader column="hours" label="Hours" sort={sort} onSort={onSort} align="right" className="text-right" />
-            <SortHeader column="assignee" label="Assignee" sort={sort} onSort={onSort} className="text-left" />
-            <SortHeader column="reviewer" label="Reviewer" sort={sort} onSort={onSort} className="text-left" />
-            <SortHeader column="deadline" label="Deadline" sort={sort} onSort={onSort} className="text-left" />
-            <SortHeader column="type" label="Type" sort={sort} onSort={onSort} className="text-left" />
-            <SortHeader column="grouping" label="Grouping" sort={sort} onSort={onSort} align="right" className="text-right" />
+            <SortHeader column="component" label="Component" sort={sort} onSort={onSort}
+              state={state} className="min-w-[180px] text-left" />
+            <SortHeader column="status" label="Status" sort={sort} onSort={onSort}
+              state={state} className="text-left" />
+            <SortHeader column="hours" label="Hours" sort={sort} onSort={onSort}
+              state={state} align="right" className="text-right" />
+            <SortHeader column="assignee" label="Assignee" sort={sort} onSort={onSort}
+              state={state} className="text-left" />
+            <SortHeader column="reviewer" label="Reviewer" sort={sort} onSort={onSort}
+              state={state} className="text-left" />
+            <SortHeader column="deadline" label="Deadline" sort={sort} onSort={onSort}
+              state={state} className="text-left" />
+            <SortHeader column="type" label="Type" sort={sort} onSort={onSort}
+              state={state} className="text-left" />
+            <SortHeader column="grouping" label="Grouping" sort={sort} onSort={onSort}
+              state={state} align="right" className="text-right" />
           </tr>
         </thead>
 
@@ -341,6 +353,7 @@ export function SprintTable({
                     <button
                       type="button"
                       onClick={clearFilters}
+                      {...control(state("clear-filters"))}
                       className="cursor-pointer font-mono text-[10.5px] text-[var(--accent)] underline-offset-2 hover:underline"
                     >
                       clear the filters
@@ -415,7 +428,8 @@ export function SprintTable({
         sort, not from the stored positions.
         <button
           type="button"
-          onClick={() => writeSort([])}
+          onClick={() => writeSort([], "sort:clear")}
+          {...control(state("sort:clear"))}
           className="cursor-pointer font-mono text-[11px] text-[var(--accent)] underline-offset-2 hover:underline"
         >
           back to manual order
@@ -472,6 +486,7 @@ function SortHeader({
   sortsBy = label,
   sort,
   onSort,
+  state,
   align = "left",
   className,
 }: {
@@ -483,6 +498,10 @@ function SortHeader({
   sortsBy?: string;
   sort: SortKey[];
   onSort: (column: SortColumn, shift: boolean) => void;
+  /** `useUrlWrite`'s keyed reader, so a header reports its OWN wait and not
+   *  the table's — nine headers sharing one boolean is nine pending lines for
+   *  one click, which says less than none. */
+  state: (key: string) => ControlState;
   align?: "left" | "right";
   className?: string;
 }) {
@@ -496,6 +515,7 @@ function SortHeader({
       <button
         type="button"
         onClick={(event) => onSort(column, event.shiftKey)}
+        {...control(state(`sort:${column}`))}
         title={
           active
             ? `${sortsBy} — ${spoken}. Click to change, shift-click to keep the rest of the sort.`

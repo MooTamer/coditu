@@ -23,6 +23,41 @@ import { auditA11y, expect, query, SEED, shell, test } from "./fixtures";
 const SPRINT = "/app/projects/meinevim/sprints/17";
 const PHONE = { width: 390, height: 844 };
 
+/**
+ * The sheet's scroll lock, once it has actually been applied.
+ *
+ * Four computed values that are one state. Read together and retried together:
+ * the lock arrives from an effect, so the tick in which the dialog becomes
+ * visible is not yet the tick in which the body stops scrolling.
+ */
+async function expectLock(page: import("@playwright/test").Page) {
+  const read = () =>
+    page.evaluate(() => {
+      const scrim = document.querySelector("[data-scrim]");
+      const panel = document.querySelector("[data-scrim] [role=dialog] > div:nth-child(2)");
+      return {
+        body: getComputedStyle(document.body).overflow,
+        scrim: scrim ? getComputedStyle(scrim).touchAction : null,
+        panel: panel ? getComputedStyle(panel).touchAction : null,
+        // The document scroll must not have been touched. Pinning the body with
+        // `position: fixed` is the usual lock and it fights the router's own
+        // restoration on `router.back()` — measured at 596, 1251 and 442 on
+        // three consecutive runs from the same starting point.
+        position: getComputedStyle(document.body).position,
+      };
+    });
+
+  await expect
+    .poll(async () => (await read()).body, {
+      timeout: 5000,
+      message: "the sheet never locked the document scroll",
+    })
+    .toBe("hidden");
+
+  return read();
+}
+
+
 test.describe("the shell on a phone", () => {
   test("the rail is gone and the tab bar has taken over", async ({ adminPage: page }) => {
     await page.setViewportSize(PHONE);
@@ -177,18 +212,18 @@ test.describe("dialogs are sheets on a phone", () => {
     // the body stops a wheel and does NOT stop a finger; `touch-action: none`
     // on the scrim is what stops the finger, and the panel's own scroller opts
     // back in with `pan-y`.
-    const lock = await page.evaluate(() => ({
-      body: getComputedStyle(document.body).overflow,
-      scrim: getComputedStyle(document.querySelector("[data-scrim]")!).touchAction,
-      panel: getComputedStyle(
-        document.querySelector("[data-scrim] [role=dialog] > div:nth-child(2)")!
-      ).touchAction,
-      // The document scroll must not have been touched. Pinning the body with
-      // `position: fixed` is the usual lock and it fights the router's own
-      // restoration on `router.back()` — measured at 596, 1251 and 442 on
-      // three consecutive runs from the same starting point.
-      position: getComputedStyle(document.body).position,
-    }));
+    // `expect.poll`, not `page.evaluate`. This read the four values ONCE, in
+    // the tick after the dialog first became visible, and the scroll lock is
+    // applied by an effect that runs after that — so on mobile-safari it
+    // sometimes read `visible` and reported "the wheel is not locked" about a
+    // lock that was applied 20ms later. One of two full suite runs; the run
+    // that read 79/0 is the run where it happened not to fire, which is not
+    // the same as green.
+    //
+    // Polling all four together rather than four separate polls, because they
+    // are one state: three of them true and the fourth stale is a real failure
+    // and must not be smoothed over by each being allowed to arrive alone.
+    const lock = await expectLock(page);
     expect(lock.body, "the wheel is not locked").toBe("hidden");
     expect(lock.scrim, "a finger will scroll the page behind the sheet on iOS").toBe("none");
     expect(lock.panel, "the sheet's own body cannot be scrolled").toBe("pan-y");

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 
+import { settle } from "@/lib/action-result";
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { CellPopover, optionListKeyDown } from "@/components/app/cell-popover.client";
 import { ComponentMultiPicker } from "@/components/app/component-picker.client";
@@ -77,7 +78,7 @@ export function StatusCell({
       // value to this action's lifetime.
       showOptimistic(next);
       const result = await trackedSave(
-        () => setWorkItemStatus({ itemId, status: next }),
+        () => settle(() => setWorkItemStatus({ itemId, status: next }), "That change did not save."),
         "That change did not save — check your connection."
       );
       if (!result.ok) onToast(result.error ?? "That change did not save.");
@@ -145,7 +146,7 @@ export function PersonCell({
     startTransition(async () => {
       showOptimistic(next);
       const result = await trackedSave(
-        () => setWorkItemPerson({ itemId, field, profileId: next?.id ?? null }),
+        () => settle(() => setWorkItemPerson({ itemId, field, profileId: next?.id ?? null }), "That change did not save."),
         "That change did not save — check your connection."
       );
       // A reassignment moves the row between "assigned to me" and everyone
@@ -256,7 +257,7 @@ export function ComponentCell({
     startTransition(async () => {
       showOptimistic(next);
       const result = await trackedSave(
-        () => setWorkItemComponents({ itemId, componentIds: next.map((component) => component.id) }),
+        () => settle(() => setWorkItemComponents({ itemId, componentIds: next.map((component) => component.id) }), "That change did not save."),
         "That change did not save — check your connection."
       );
       // Every component page counts this item differently now, and it may have
@@ -311,7 +312,7 @@ export function HoursCell({
     close();
     startTransition(async () => {
       const result = await trackedSave(
-        () => logTime({ itemId, minutes: draft, workedOn: today }),
+        () => settle(() => logTime({ itemId, minutes: draft, workedOn: today }), "That time did not save."),
         "That time did not save — check your connection."
       );
       if (result.ok) router.refresh();
@@ -330,7 +331,7 @@ export function HoursCell({
     if (minutes === estimateMinutes) return;
     startTransition(async () => {
       const result = await trackedSave(
-        () => setWorkItemFields({ itemId, estimateMinutes: minutes }),
+        () => settle(() => setWorkItemFields({ itemId, estimateMinutes: minutes }), "That estimate did not save."),
         "That estimate did not save — check your connection."
       );
       if (result.ok) router.refresh();
@@ -460,7 +461,7 @@ export function DeadlineCell({
     startTransition(async () => {
       showOptimistic(next);
       const result = await trackedSave(
-        () => setWorkItemFields({ itemId, deadline: next }),
+        () => settle(() => setWorkItemFields({ itemId, deadline: next }), "That deadline did not save."),
         "That deadline did not save — check your connection."
       );
       if (result.ok) router.refresh();
@@ -540,7 +541,7 @@ export function TypeCell({
     startTransition(async () => {
       showOptimistic(next);
       const result = await trackedSave(
-        () => setWorkItemFields({ itemId, type: next }),
+        () => settle(() => setWorkItemFields({ itemId, type: next }), "That change did not save."),
         "That change did not save — check your connection."
       );
       if (result.ok) router.refresh();
@@ -615,7 +616,7 @@ export function GroupingCell({
     startTransition(async () => {
       showOptimistic(next);
       const result = await trackedSave(
-        () => setWorkItemFields({ itemId, grouping: next }),
+        () => settle(() => setWorkItemFields({ itemId, grouping: next }), "That grouping did not save."),
         "That grouping did not save — check your connection."
       );
       if (result.ok) router.refresh();

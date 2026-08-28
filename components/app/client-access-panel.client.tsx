@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Copy, Trash2, UserPlus } from "lucide-react";
 
+import { settle } from "@/lib/action-result";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import {
@@ -205,8 +206,8 @@ export function ClientAccessPanel({
                           run(
                             () =>
                               revoked
-                                ? restoreClientAccess({ contactProfileId: contact.profileId })
-                                : revokeClientAccess({ contactProfileId: contact.profileId }),
+                                ? settle(() => restoreClientAccess({ contactProfileId: contact.profileId }), "That access was not restored.")
+                                : settle(() => revokeClientAccess({ contactProfileId: contact.profileId }), "That access was not revoked."),
                             revoked
                               ? `${contact.fullName} has access again.`
                               : `${contact.fullName} no longer has access.`
@@ -264,7 +265,7 @@ export function ClientAccessPanel({
                       disabled={pending}
                       onClick={() =>
                         run(
-                          () => withdrawInvitation({ invitationId: invitation.id }),
+                          () => settle(() => withdrawInvitation({ invitationId: invitation.id }), "That invitation was not withdrawn."),
                           `${invitation.email} can no longer sign up.`
                         )
                       }
@@ -326,16 +327,20 @@ function InviteForm({
       action={async (formData) => {
         setBusy(true);
         try {
-          const result = await inviteClientContact({
-            email: String(formData.get("email") ?? ""),
-            clientId: row.clientId,
-            projectIds,
-            preset,
-            capabilities: custom,
-          }).catch(() => ({
-            ok: false as const,
-            error: "That did not reach the server. Check your connection and try again.",
-          }));
+          // `settle`, not the hand-rolled `.catch` this had. Same failure
+          // result; the difference is that a `redirect()` out of the action is
+          // rethrown rather than reported as a connection problem.
+          const result = await settle(
+            () =>
+              inviteClientContact({
+                email: String(formData.get("email") ?? ""),
+                clientId: row.clientId,
+                projectIds,
+                preset,
+                capabilities: custom,
+              }),
+            "That did not reach the server. Check your connection and try again."
+          );
 
           if (result.ok && "password" in result && result.password) {
             onDone(String(formData.get("email") ?? "").trim().toLowerCase(), result.password);

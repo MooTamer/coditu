@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { CalendarPlus, Check, Pencil, Play, RotateCcw, Square, Trash2, X } from "lucide-react";
 
+import { settle } from "@/lib/action-result";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { ToneChip } from "@/components/coditu/status-chip";
@@ -124,14 +125,14 @@ function NewSprintForm({
   function submit() {
     setError(null);
     startTransition(async () => {
-      const result = await createSprint({
+      const result = await settle(() => createSprint({
         projectId,
         number: Number(number),
         name: name.trim(),
         startsOn: startsOn || null,
         endsOn: endsOn || null,
         goal: goal.trim() || null,
-      });
+      }), "That sprint did not save.");
       if (result.ok) {
         toast(`${name.trim()} is open. It is planned until you start it.`);
         onDone();
@@ -275,7 +276,7 @@ function SprintRow({
 
   function move(status: SprintStatus, said: string) {
     startTransition(async () => {
-      const result = await setSprintStatus({ sprintId: sprint.id, status });
+      const result = await settle(() => setSprintStatus({ sprintId: sprint.id, status }), "That change did not save.");
       if (result.ok) {
         toast(said);
         router.refresh();
@@ -287,13 +288,13 @@ function SprintRow({
 
   function save() {
     startTransition(async () => {
-      const result = await updateSprint({
+      const result = await settle(() => updateSprint({
         sprintId: sprint.id,
         name: name.trim(),
         startsOn: startsOn || null,
         endsOn: endsOn || null,
         goal: goal.trim() || null,
-      });
+      }), "That change did not save.");
       if (result.ok) {
         setEditing(false);
         router.refresh();
@@ -310,7 +311,7 @@ function SprintRow({
     }
     setConfirmingDelete(false);
     startTransition(async () => {
-      const result = await deleteSprint({ sprintId: sprint.id });
+      const result = await settle(() => deleteSprint({ sprintId: sprint.id }), "That sprint could not be deleted.");
       if (result.ok) {
         toast(`${sprint.name} is gone.`);
         router.refresh();

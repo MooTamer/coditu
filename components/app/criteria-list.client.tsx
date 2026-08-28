@@ -266,7 +266,10 @@ export function CriteriaList({
 
     startTransition(async () => {
       const result = await trackedSave(
-        () => (criterionId ? editCriterion({ criterionId, doc }) : addCriterion({ itemId, doc })),
+        () =>
+          criterionId
+            ? editCriterion({ criterionId, doc })
+            : addCriterion({ itemId, doc }),
         "That criterion did not save — check your connection."
       );
       if (result.ok) {

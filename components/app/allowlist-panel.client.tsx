@@ -5,6 +5,7 @@ import { Trash2, UserPlus } from "lucide-react";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { settle } from "@/lib/action-result";
 import { addAllowedEmail, removeAllowedEmail } from "@/lib/actions/allowlist";
 import type { AllowedEmail } from "@/lib/data/allowlist";
 import { calendarDate } from "@/lib/format";
@@ -45,7 +46,7 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
         row: { email, note: note || null, invitedBy: null, createdAt: new Date().toISOString(), claimed: false },
       });
 
-      const result = await addAllowedEmail({ email, note: note || undefined });
+      const result = await settle(() => addAllowedEmail({ email, note: note || undefined }), "That did not save.");
       if (result.ok) {
         form.current?.reset();
         toast(`${email} can now sign up.`);
@@ -60,7 +61,7 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
     setError(null);
     startTransition(async () => {
       applyOptimistic({ type: "remove", email });
-      const result = await removeAllowedEmail({ email });
+      const result = await settle(() => removeAllowedEmail({ email }), "That did not save.");
       if (result.ok) {
         toast(`${email} can no longer sign up.`);
       } else {

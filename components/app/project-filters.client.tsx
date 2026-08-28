@@ -1,10 +1,11 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, X } from "lucide-react";
 
 import { Mono } from "@/components/coditu/mono";
+import { useUrlWrite } from "@/lib/hooks/use-url-write";
+import { control } from "@/lib/interactive";
 import {
   activeProjectFilterCount,
   clearedProjectFilters,
@@ -45,20 +46,13 @@ const DOT: Record<ProjectState, string> = {
 const TYPING_SETTLES_MS = 250;
 
 export function ProjectFilters({ total, shown }: { total: number; shown: number }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  // PF-4. `controlState` rather than `state`, because `state` is already a
+  // ProjectState in three functions below and shadowing it would read as the
+  // filter's own value.
+  const { params, write: push, state: controlState } = useUrlWrite();
   const spec = parseProjectFilters(new URLSearchParams(params.toString()));
 
   const [query, setQuery] = useState(params.get("q") ?? "");
-
-  const push = useCallback(
-    (next: URLSearchParams) => {
-      const search = next.toString();
-      router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false });
-    },
-    [pathname, router]
-  );
 
   /**
    * The URL is the source of truth, so a change that did not come from this box
@@ -90,14 +84,14 @@ export function ProjectFilters({ total, shown }: { total: number; shown: number 
     const states = on ? spec.states.filter((s) => s !== state) : [...spec.states, state];
     if (states.length) next.set("state", states.join(","));
     else next.delete("state");
-    push(next);
+    push(next, `state:${state}`);
   }
 
   function toggleArchived() {
     const next = new URLSearchParams(params.toString());
     if (spec.archived) next.delete("archived");
     else next.set("archived", "1");
-    push(next);
+    push(next, "archived");
   }
 
   const count = activeProjectFilterCount(spec);
@@ -130,6 +124,7 @@ export function ProjectFilters({ total, shown }: { total: number; shown: number 
               type="button"
               onClick={() => toggleState(state)}
               aria-pressed={on}
+              {...control(controlState(`state:${state}`))}
               className={cn(
                 "inline-flex h-[30px] items-center gap-2 whitespace-nowrap rounded-pill border px-3 text-[12.5px]",
                 on
@@ -155,6 +150,7 @@ export function ProjectFilters({ total, shown }: { total: number; shown: number 
           type="button"
           onClick={toggleArchived}
           aria-pressed={spec.archived}
+          {...control(controlState("archived"))}
           className={cn(
             "inline-flex h-[30px] items-center whitespace-nowrap rounded-pill border px-3 text-[12.5px]",
             spec.archived
@@ -169,7 +165,8 @@ export function ProjectFilters({ total, shown }: { total: number; shown: number 
       {count > 0 ? (
         <button
           type="button"
-          onClick={() => push(clearedProjectFilters(new URLSearchParams(params.toString())))}
+          onClick={() => push(clearedProjectFilters(new URLSearchParams(params.toString())), "clear")}
+          {...control(controlState("clear"))}
           className="inline-flex h-[30px] items-center gap-[6px] rounded-control px-2 text-[12.5px] text-[var(--ink-muted)] hover:text-[var(--ink)]"
         >
           <X size={13} strokeWidth={2} aria-hidden />

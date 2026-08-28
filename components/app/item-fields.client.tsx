@@ -49,8 +49,10 @@ const EMPTY_PROSE_DOC = { type: "doc", content: [{ type: "paragraph" }] };
  * restraint. The day after planning, somebody always wants to fix a typo.
  *
  * Every control here is optimistic with a rollback and a visible error
- * (invariant 4), and every one of them is `settle()`d, because a Server Action
- * that *rejects* skips the rollback path a plain `if (!result.ok)` covers.
+ * (invariant 4), and every one goes through `trackedSave`, which calls
+ * `settle()` itself — because a Server Action that *rejects* skips the rollback
+ * path a plain `if (!result.ok)` covers, and because the save chip has to be
+ * told `sending` / `saved` / `failed` either way.
  */
 
 const FIELD =

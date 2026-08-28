@@ -5,6 +5,7 @@ import { Eye, EyeOff, MessageCircleQuestion } from "lucide-react";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { settle } from "@/lib/action-result";
 import { openClientThread, resolveClientThread } from "@/lib/actions/client-threads";
 import {
   setComponentPublication,
@@ -127,13 +128,13 @@ export function ClientVisibilityPanel({
               onClick={() =>
                 run(
                   () =>
-                    setComponentPublication({
+                    settle(() => setComponentPublication({
                       componentId,
                       projectSlug,
                       componentSlug,
                       summary: draftSummary,
                       published: true,
-                    }),
+                    }), "That did not save. The client sees what they saw before."),
                   published ? "Summary saved." : `${componentName} is now visible to the client.`
                 )
               }
@@ -150,7 +151,7 @@ export function ClientVisibilityPanel({
                   if (!confirm(`Take ${componentName} back? The client stops seeing it and its work immediately.`)) return;
                   run(
                     () =>
-                      setComponentPublication({
+                      settle(() => setComponentPublication({
                         componentId,
                         projectSlug,
                         componentSlug,
@@ -159,7 +160,7 @@ export function ClientVisibilityPanel({
                         // return, and an unpublished summary is inert.
                         summary: draftSummary,
                         published: false,
-                      }),
+                      }), "That did not save. The client sees what they saw before."),
                     `${componentName} is hidden from the client again.`
                   );
                 }}
@@ -189,12 +190,12 @@ export function ClientVisibilityPanel({
                   onChange={(event) =>
                     run(
                       () =>
-                        setWorkItemPublication({
+                        settle(() => setWorkItemPublication({
                           workItemId: item.id,
                           projectSlug,
                           componentSlug,
                           published: event.target.checked,
-                        }),
+                        }), "That did not save. The client sees what they saw before."),
                       event.target.checked ? "Shown to the client." : "Hidden from the client."
                     )
                   }
@@ -248,7 +249,7 @@ export function ClientVisibilityPanel({
 
               run(
                 () =>
-                  openClientThread({
+                  settle(() => openClientThread({
                     componentId,
                     title,
                     doc: {
@@ -262,7 +263,7 @@ export function ClientVisibilityPanel({
                           content: [{ type: "text", text: block }],
                         })),
                     },
-                  }).then((result) => {
+                  }), "That thread was not opened.").then((result) => {
                     if (result.ok) setAsking(false);
                     return result;
                   }),
@@ -320,10 +321,10 @@ export function ClientVisibilityPanel({
                     onClick={() =>
                       run(
                         () =>
-                          resolveClientThread({
+                          settle(() => resolveClientThread({
                             threadId: thread.id,
                             resolved: thread.state !== "resolved",
-                          }),
+                          }), "That thread was not resolved."),
                         thread.state === "resolved" ? "Reopened." : "Marked answered."
                       )
                     }

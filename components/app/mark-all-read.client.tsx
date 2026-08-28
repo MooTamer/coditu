@@ -1,5 +1,6 @@
 "use client";
 
+import { unstable_rethrow } from "next/navigation";
 import { useTransition } from "react";
 
 import { useToast } from "@/components/app/toast.client";
@@ -45,7 +46,14 @@ export function MarkAllRead({ unread }: { unread: number }) {
           try {
             const result = await markNotificationsRead();
             if (!result.ok) toast("Those could not be marked read.");
-          } catch {
+          } catch (error) {
+            // `unstable_rethrow` first, and it is not a formality. Next implements
+            // `redirect()` and `notFound()` by THROWING, so a bare catch around a
+            // Server Action swallows a working navigation and leaves a control that
+            // appears to do nothing. This block guards more than the action call —
+            // which is why it stays a block rather than becoming `settle()` — so the
+            // rethrow has to be written here.
+            unstable_rethrow(error);
             toast("Those could not be marked read — check your connection.");
           }
         })

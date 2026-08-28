@@ -233,7 +233,8 @@ export function CommentComposer({
       onPending?.(current);
 
       const result = await trackedSave(
-        () => postComment({ itemId, doc: current, idempotencyKey: token }),
+        () =>
+          postComment({ itemId, doc: current, idempotencyKey: token }),
         "That comment did not save — check your connection."
       );
       if (result.ok) {

@@ -1314,3 +1314,149 @@ aside[data-app-chrome] [data-rail-toggle] {
     display: flex;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The interactive-state contract.
+
+   PF-4. Six states — idle, hover, active, pending, disabled, error — written
+   once, here, for every control that opts in with `data-control`. The
+   attributes come from `lib/interactive.ts`; what they LOOK like is this block
+   and nothing else.
+
+   The split is deliberate and it is most of the value. Hover, active and
+   disabled already have correct native spellings — `:hover`, `aria-pressed` /
+   `aria-current`, `disabled` — so they are read here rather than reimplemented
+   in React, which is how they drift apart button by button. Only `pending` and
+   `error` have no native spelling, and only those two carry a `data-state`.
+
+   It also costs nothing to ship. The app shell had 0.6 KB of JavaScript budget
+   left when this was written; a styling helper that ships class strings would
+   have spent it, and a stylesheet is not measured by `npm run budgets` at all.
+   --------------------------------------------------------------------------- */
+
+[data-control] {
+  /* The pending line is an `::after` pinned to the bottom edge. Anything with
+     `position: static` would pin it to the nearest positioned ancestor
+     instead, which is usually the whole panel. */
+  position: relative;
+  transition:
+    background-color var(--dur-micro) var(--ease-drift),
+    border-color var(--dur-micro) var(--ease-drift),
+    color var(--dur-micro) var(--ease-drift),
+    opacity var(--dur-micro) var(--ease-drift);
+}
+
+/* --- pending ---------------------------------------------------------------
+   An indeterminate line that grows along the bottom edge. Not a spinner: a
+   spinner needs a box of its own, and these controls range from a 34px chip to
+   a full-width row — the one thing they all have is a bottom edge.
+
+   `scaleX` from a left origin, so it never paints outside the control and no
+   `overflow: hidden` is needed on a button that may have a focus ring. */
+[data-control][data-state="pending"] {
+  cursor: progress;
+}
+
+[data-control][data-state="pending"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: cd-pending 900ms var(--ease-drift) infinite;
+  /* A decoration. It must never eat the click it is reporting on. */
+  pointer-events: none;
+}
+
+@keyframes cd-pending {
+  0% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  65% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+/* --- error -----------------------------------------------------------------
+   The state invariant 4 exists for: "a failed write that silently reverts is
+   worse than no optimism". The control itself says so, next to the toast that
+   says why — a toast is easy to miss and impossible to point at. */
+[data-control][data-state="error"] {
+  border-color: var(--rose);
+}
+
+[data-control][data-state="error"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--rose);
+  pointer-events: none;
+}
+
+/* --- disabled --------------------------------------------------------------
+   Both spellings. `disabled` removes the control from the tab order, which is
+   right for a submit and wrong for a control that must keep focus through its
+   own pending state — `aria-disabled` is that case, and it looks identical. */
+[data-control]:disabled,
+[data-control][aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* A disabled control reports nothing. Without this, a control disabled WHILE
+   pending draws both, and the pending line under a greyed-out button reads as
+   a control that is stuck rather than one that is working. */
+[data-control]:disabled::after,
+[data-control][aria-disabled="true"]::after {
+  content: none;
+}
+
+/* --- hover -----------------------------------------------------------------
+   `:hover` on a touch screen is a lie the browser tells after a tap and keeps
+   telling until something else is tapped. `@media (hover: hover)` is what
+   makes this a mouse-only rule.
+
+   Deliberately not a background: these controls set their own, and a blanket
+   one here would fight every chip in the app. The border is the shared part. */
+@media (hover: hover) {
+  [data-control]:not(:disabled):not([aria-disabled="true"]):not([data-state="pending"]):hover {
+    border-color: var(--hairline-strong);
+  }
+}
+
+/* --- active ----------------------------------------------------------------
+   Announced as well as drawn. A filter chip that is on is `aria-pressed`; a nav
+   item for the page you are on is `aria-current`. Both are read out; a class
+   name is not. */
+[data-control][aria-pressed="true"],
+[data-control][aria-current="page"],
+[data-control][aria-current="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The global block above collapses every animation to 120ms and one
+     iteration, which for `cd-pending` means it flashes once and lands on its
+     last keyframe — `opacity: 0`. The pending state would be invisible exactly
+     for the readers most likely to need a slow, legible one. So: no animation,
+     and the line simply sits there for as long as the work does. */
+  [data-control][data-state="pending"]::after {
+    animation: none !important;
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}

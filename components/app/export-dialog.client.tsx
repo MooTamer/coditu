@@ -6,6 +6,7 @@ import { ArrowRight, Download, X } from "lucide-react";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { settle } from "@/lib/action-result";
 import { listExportItems, renderExport } from "@/lib/actions/export";
 import { useMounted } from "@/lib/hooks/use-client-state";
 import { hours } from "@/lib/format";
@@ -207,13 +208,13 @@ export function ExportDialog({
     if (format === "pdf" || selectedKeys === null) return;
     let cancelled = false;
     startTransition(async () => {
-      const result = await renderExport({
+      const result = await settle(() => renderExport({
         slug,
         sprintNumber,
         format,
         selectedKeys,
         options: stored.options,
-      });
+      }), "That preview could not be built.");
       if (cancelled) return;
       if (result.ok && result.text !== undefined) {
         setRendered({ text: result.text, filename: result.filename!, lines: result.lines! });

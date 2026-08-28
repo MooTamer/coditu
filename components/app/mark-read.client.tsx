@@ -4,6 +4,7 @@ import { useOptimistic, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { useToast } from "@/components/app/toast.client";
+import { settle } from "@/lib/action-result";
 import { markNotificationsRead } from "@/lib/actions/notifications";
 
 /**
@@ -35,7 +36,7 @@ export function MarkNotificationsRead({ count }: { count: number }) {
       onClick={() =>
         startTransition(async () => {
           clear(true);
-          const result = await markNotificationsRead();
+          const result = await settle(() => markNotificationsRead(), "Those could not be marked read. Try signing in again.");
           if (result.ok) router.refresh();
           else toast("Those could not be marked read. Try signing in again.");
         })
