@@ -4832,3 +4832,21 @@ quarterly, on the first Saturday of January, April, July and October, in an isol
 Supabase stack. The private key remains on his Mac/offline copy. Only that drill proves the
 SQL and Storage payload can be rebuilt; its measured duration still does not include a
 hosted provider replacement or DNS cutover and therefore is not an RTO.
+
+## 2026-08-28 · Production deploys belong to the release gate, not the Git hook
+
+Vercel Git auto-deployment is disabled in `vercel.json`. A `main` push can reach production
+only from the CI `deploy` job after the blocking checks succeed. The job uses a pinned Vercel
+CLI, builds with the project's Production environment and fails when any of the token/team/
+project secrets is absent; absence is not a green skip.
+
+Browser E2E remains visible but report-only for a measured window. The last 20 existing
+`main` CI runs were not green, the newest stopped at database tests, and this workflow shape
+has run remotely zero times. After **10 consecutive green `main` runs of the same browser
+job**, it becomes a deployment dependency; a failure resets the count. The earliest review
+is 2026-09-07, but elapsed dates never substitute for ten results.
+
+This is implemented locally, not activated. GitHub's `Production` environment currently has
+no `VERCEL_TOKEN`, `VERCEL_ORG_ID` or `VERCEL_PROJECT_ID`, and this branch is neither pushed
+nor merged. The existing Vercel Git integration therefore still auto-deploys `main` until
+this configuration reaches it; no production setting or deployment is claimed changed.

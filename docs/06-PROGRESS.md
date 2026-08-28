@@ -4797,3 +4797,24 @@ The workflow never receives `/Users/motamer/.config/coditu/backup.agekey`; the r
 schedules the real isolated decrypt-and-restore for the first Saturday of January, April,
 July and October. The workflow is committed code only until this branch is pushed and R2
 exists, so no monthly provider readback has run and no hosted recovery claim changed.
+
+## 2026-08-28 · Infrastructure Block 4 — the release gate is coded, not yet in control
+
+`.github/workflows/ci.yml` now separates blocking release checks from a report-only browser
+observer. The blocking job pins Supabase CLI 2.109.1—the same toolchain that passed the clean
+441/441 rehearsal—and adds the resilience check that existed locally but not in CI. The
+browser job installs Chromium and WebKit, runs both dev and production passes, preserves a
+visible red outcome, and cannot block the deploy during its ten-run evidence window.
+
+The `deploy` job depends only on the blocking job, runs only for `main`, refuses missing
+configuration, and uses Vercel CLI 59.9.1 to pull Production settings, build and deploy the
+checked commit. `vercel.json` disables automatic Git deployments. The promotion ledger is
+**0/10 qualifying browser runs** with an earliest review on 2026-09-07; the prior 20 runs are
+ineligible because they used the old workflow and none succeeded.
+
+Provider evidence keeps the boundary explicit: production deployments are currently still
+created by `vercel[bot]`; the newest recorded one is for `b63f4c7`. Both repository and
+`Production` environment secret lists are empty, no checkout is linked through `.vercel/`,
+and no Vercel token is present. Therefore this block is **committed-code-ready only**: Git
+auto-deploy is not yet disabled on the live project, Actions has not deployed, this branch
+is not pushed, and production has not changed.
