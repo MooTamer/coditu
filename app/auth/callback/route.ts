@@ -54,8 +54,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=link", origin));
   }
 
+  // No code is not necessarily a dead link any more.
+  //
+  // An admin-generated invitation has no PKCE verifier, so GoTrue answers with
+  // the implicit flow and puts the tokens in the FRAGMENT — which a server
+  // never sees. The note above predicted this shape; `sendInvitation` is what
+  // finally produces it. `/auth/complete` is rendered in a browser and can read
+  // it, and the fragment survives the hop because a redirect to a target with
+  // no fragment of its own leaves the original in place.
+  //
+  // A bare visit with neither a code nor a fragment still ends at
+  // `/login?error=link` — one redirect later, from that page.
   if (!code) {
-    return NextResponse.redirect(new URL("/login?error=link", origin));
+    return NextResponse.redirect(
+      new URL(`/auth/complete?next=${encodeURIComponent(next)}`, origin)
+    );
   }
 
   const supabase = await createClient();

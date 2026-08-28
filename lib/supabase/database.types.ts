@@ -2132,6 +2132,7 @@ export type Database = {
         Args: never
         Returns: {
           email: string
+          accepted: boolean
         }[]
       }
       auth_role: {

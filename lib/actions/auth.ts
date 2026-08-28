@@ -199,3 +199,56 @@ export async function signOutOtherDevices(): Promise<AuthState> {
 
   return { notice: "Every other device has been signed out." };
 }
+
+/**
+ * Finish a sign-in link that came back in the URL FRAGMENT.
+ *
+ * ── Why this exists, and why it is not `/auth/callback` ────────────────────
+ * `app/auth/callback/route.ts` handles the PKCE flow: the link returns with
+ * `?code=`, the server exchanges it, done. An **admin-generated invitation has
+ * no PKCE verifier** — nobody ran `signInWithOtp` on the recipient's device, so
+ * there is no challenge to answer — and GoTrue therefore falls back to the
+ * implicit flow and returns:
+ *
+ *     /auth/callback#access_token=…&refresh_token=…&type=invite
+ *
+ * A fragment is never sent to a server. The callback route saw no `code`,
+ * concluded the link was dead, and sent the invited person to
+ * `/login?error=link`. That route's own comment predicted this exact case; it
+ * simply had no caller until `sendInvitation` made one.
+ *
+ * ── Why an action and not a client Supabase instance ───────────────────────
+ * The obvious fix is `createBrowserClient().setSession(...)` in a client
+ * component. This app has NO `createBrowserClient` anywhere, on purpose —
+ * `lib/supabase/env.ts` explains that even zod is too heavy to ship for this —
+ * and adding one would put `@supabase/ssr` and `supabase-js` into a route's
+ * bundle to run four lines once. So the tokens are handed to the server, which
+ * already has a client, and the cookies are written where every other session
+ * cookie in this app is written.
+ *
+ * A Server Action rather than a route handler because Next verifies the origin
+ * of an action for us, and because invariant 3 says so.
+ *
+ * ── What this does not weaken ──────────────────────────────────────────────
+ * The tokens ARE the credential. Anyone holding them can already call GoTrue
+ * directly; handing them to our own origin grants nothing that was not already
+ * granted. `setSession` verifies the signature — a forged or expired pair is
+ * refused here, by the auth server, not by this function believing the caller.
+ */
+export async function establishSessionFromLink(input: unknown): Promise<AuthState> {
+  const parsed = z
+    .object({ accessToken: z.string().min(1), refreshToken: z.string().min(1) })
+    .safeParse(input);
+
+  if (!parsed.success) return { error: "That link is no longer valid." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.setSession({
+    access_token: parsed.data.accessToken,
+    refresh_token: parsed.data.refreshToken,
+  });
+
+  if (error) return { error: "That link is no longer valid." };
+
+  return {};
+}

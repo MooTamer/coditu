@@ -1,14 +1,15 @@
 "use client";
 
 import { useOptimistic, useRef, useState, useTransition } from "react";
-import { Trash2, UserPlus } from "lucide-react";
+import { Mail, Trash2, UserPlus } from "lucide-react";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
-import { addAllowedEmail, removeAllowedEmail } from "@/lib/actions/allowlist";
+import { addAllowedEmail, removeAllowedEmail, sendInvitation } from "@/lib/actions/allowlist";
 import type { AllowedEmail } from "@/lib/data/allowlist";
 import { calendarDate } from "@/lib/format";
+import { control } from "@/lib/interactive";
 
 const FIELD =
   "h-[38px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-3 text-[14px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]";
@@ -25,6 +26,15 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Which row is waiting, by address — not a boolean.
+   *
+   * `useTransition`'s `pending` is shared by every control in this component,
+   * so lighting them all from it says "everything is working" when one thing
+   * is. `e2e/interactive-states.spec.ts` asserts exactly one control reports a
+   * click, and it caught that first draft elsewhere in the app.
+   */
+  const [sending, setSending] = useState<string | null>(null);
   const form = useRef<HTMLFormElement>(null);
 
   const [optimistic, applyOptimistic] = useOptimistic(
@@ -53,6 +63,21 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
       } else {
         setError(result.error ?? "That did not save.");
         toast(result.error ?? "That did not save.");
+      }
+    });
+  }
+
+  function invite(email: string) {
+    setError(null);
+    setSending(email);
+    startTransition(async () => {
+      const result = await settle(() => sendInvitation({ email }), "That invitation did not send.");
+      setSending(null);
+      if (result.ok) {
+        toast(`Invitation sent to ${email}.`);
+      } else {
+        setError(result.error ?? "That invitation did not send.");
+        toast(result.error ?? "That invitation did not send.");
       }
     });
   }
@@ -163,6 +188,19 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
                 {calendarDate(row.createdAt.slice(0, 10))}
                 {row.invitedBy ? ` · by ${row.invitedBy}` : ""}
               </Mono>
+
+              {row.claimed ? null : (
+                <button
+                  type="button"
+                  onClick={() => invite(row.email)}
+                  disabled={pending}
+                  {...control(sending === row.email ? "pending" : "idle")}
+                  className="flex h-9 shrink-0 items-center gap-[6px] rounded-control border border-[var(--hairline-strong)] px-3 text-[13px] text-[var(--ink-muted)] transition-colors duration-[var(--dur-micro)] hover:border-[var(--signal)] hover:text-[var(--ink)] disabled:opacity-50"
+                >
+                  <Mail size={14} strokeWidth={1.8} aria-hidden />
+                  {sending === row.email ? "Sending" : "Send invitation"}
+                </button>
+              )}
 
               <button
                 type="button"

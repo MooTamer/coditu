@@ -4418,3 +4418,80 @@ what that did and did not settle:
   and a 1920 measure taken on a Pixel 7 emulation measures nothing the desktop run did not, at
   three times the wall clock. The phone shape of the same screens is `mobile.spec.ts`'s subject and
   stays there.
+
+---
+
+## 2026-08-28 · One thing sends mail, and it is an admin's invitation
+
+**Reverses:** the standing decision that nothing in this application sends email. That decision is
+quoted in `app/auth/callback/route.ts`, in `lib/actions/auth.ts`, and in a passing test named
+`nothing in the repository sends mail`. It was the right call when recovery was the only reason to
+send anything and an admin reading out a temporary password was a cheaper answer than a mail
+dependency the team cannot operate.
+
+**What changed.** PF-10 deleted the sign-up form. It was correct — a four-person internal tool that
+offers to make you an account describes something else — and it left the application with **no path
+at all** from *on the allowlist* to *has an account*. `setTemporaryPassword` needs a profile that
+already exists. `/auth/callback` had no sender. Onboarding the fifth person meant an admin writing a
+row by hand. That is PF-14, and it is an onboarding regression rather than a missing feature.
+
+**Decided.** `lib/actions/allowlist.ts::sendInvitation` calls Supabase's
+`auth.admin.inviteUserByEmail` for an address that is **already** on `allowed_emails`. One caller,
+one purpose. `e2e/password.spec.ts` no longer asserts that nothing sends mail — it asserts that
+**exactly one thing does**, names the file, and still refuses `resetPasswordForEmail` and
+`signInWithOtp` by name. A grep that permits one call site and counts it is a stronger guard than
+one that permits none and gets deleted the day somebody needs a sender.
+
+**The gate did not move.** `sendInvitation` reads `allowed_emails` and never writes it — an address
+gets on that list by an admin deciding it should, a separate act with its own row and its own
+`invited_by`. The real refusal is still `enforce_email_allowlist`, the BEFORE INSERT trigger on
+`auth.users`, which `inviteUserByEmail` runs into like anything else. `e2e/invite.spec.ts` proves
+that by skipping the application entirely: it asks GoTrue directly with the **service-role key** and
+the invitation is still refused, with no `auth.users` row left behind. There is still no form a
+stranger can reach.
+
+**Rejected: adding the address to the allowlist as part of sending the invitation.** It is one
+fewer click and it makes the list grow as a side effect of a button whose label says nothing about
+it. Two deliberate acts, in that order.
+
+**Rejected: `generateLink` and sending the mail ourselves.** That is the mail dependency the
+original decision refused, and it would need a transport, a template and a bounce story for one
+message a quarter.
+
+## 2026-08-28 · An admin invitation comes back in the fragment, so a page finishes what the route started
+
+`app/auth/callback/route.ts` handles PKCE: the link returns `?code=`, the server exchanges it. Its
+own comment warned that "the older implicit flow put the token in the URL *fragment*, which never
+reaches the server at all — worth knowing if a link ever arrives with `#access_token=` instead."
+
+It does. An **admin-generated invitation has no PKCE verifier** — nobody ran `signInWithOtp` on the
+recipient's device, so there is no challenge to answer — and GoTrue therefore answers with the
+implicit flow:
+
+```
+/auth/callback#access_token=…&refresh_token=…&type=invite
+```
+
+The route saw no `code`, concluded the link was dead, and sent the invited person to
+`/login?error=link`. Measured, not reasoned: the first run of `e2e/invite.spec.ts` failed with that
+exact URL in its navigation log.
+
+**Decided.** When the callback finds neither a `code` nor an error it hands off to
+`/auth/complete?next=…` instead of declaring the link dead. The fragment survives that hop because
+a redirect to a target carrying no fragment of its own leaves the original in place — specified
+behaviour, not a browser accident, and the only reason this can be a second page rather than a
+rewrite of a route that is already tested. `/auth/complete` re-applies `safeNext` rather than
+trusting the value our own route wrote, because by the time it comes back it has been through a URL
+a person can edit. A bare visit to `/auth/callback` with neither still ends at `/login?error=link`,
+one redirect later, and `the callback never redirects off this site` still passes unchanged.
+
+**Rejected: `createBrowserClient().setSession()` in a client component.** The obvious fix, and this
+application has **no** `createBrowserClient` anywhere on purpose — `lib/supabase/env.ts` explains
+that even zod is too heavy to ship for this. It would put `@supabase/ssr` and `supabase-js` into a
+route's bundle to run four lines once. The tokens go to a Server Action instead, which already has a
+client and writes the session cookies where every other one in this app is written. Next verifies an
+action's origin for us, and invariant 3 asks for an action anyway.
+
+**Rejected: changing the GoTrue email template to a `{{ .TokenHash }}` link and calling
+`verifyOtp`.** It is arguably the more modern shape and it is configuration, not code — it needs a
+change in the hosted project that this branch cannot make or verify.

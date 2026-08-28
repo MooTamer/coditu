@@ -93,7 +93,7 @@ async function issueTemporaryPasswordFor(adminPage: import("@playwright/test").P
   return shown;
 }
 
-test.describe("one form, and no mail anywhere", () => {
+test.describe("one form, and one sender", () => {
   test("the login page offers exactly one email field and one password field", async ({ page }) => {
     await page.goto("/login");
 
@@ -152,10 +152,17 @@ test.describe("one form, and no mail anywhere", () => {
     }
   });
 
-  test("nothing in the repository sends mail", async () => {
-    // A grep, and it earns its place: the two actions are deleted, but the
-    // thing that must stay true is that no NEW caller appears. Every Supabase
-    // API below sends an email and there is no transport to send it with.
+  test("the invitation is the only thing in the repository that sends mail", async () => {
+    // This assertion used to be "nothing sends mail", and it was right until
+    // PF-14. Removing the sign-up form left no path at all from *on the
+    // allowlist* to *has an account*, and `sendInvitation` is the door that
+    // replaces it — so exactly one caller is now expected, and the point of
+    // this grep is that it stays exactly one.
+    //
+    // Every API named below sends an email. `resetPasswordForEmail` and
+    // `signInWithOtp` in particular must NOT come back: a temporary password
+    // read out by an admin is still the recovery story, and a reset link would
+    // be a second one that nobody maintains.
     const { execSync } = await import("node:child_process");
     // Call sites, not mentions: the trailing `(` is what keeps a comment
     // explaining why the mail is gone from failing the test that proves it.
@@ -163,8 +170,14 @@ test.describe("one form, and no mail anywhere", () => {
       "grep -rnE '(signInWithOtp|resetPasswordForEmail|inviteUserByEmail|generateLink|sendMagicLink|requestPasswordReset)\\(' " +
         "app components lib scripts || true",
       { encoding: "utf8" }
-    ).trim();
-    expect(hits, "something in the app sends mail").toBe("");
+    )
+      .trim()
+      .split("\n")
+      .filter(Boolean);
+
+    expect(hits, "more than the invitation sends mail now").toHaveLength(1);
+    expect(hits[0]).toContain("lib/actions/allowlist.ts");
+    expect(hits[0]).toContain("inviteUserByEmail");
   });
 });
 
@@ -468,7 +481,7 @@ test.describe("a temporary password, and the change it forces", () => {
   });
 });
 
-test.describe("the callback route, which nothing sends links to any more", () => {
+test.describe("the callback route, which the invitation now sends links to", () => {
   // Kept because it costs nothing, its open-redirect guard is written and
   // tested, and it still serves the forced-change redirect. Deleting a tested
   // guard because the caller went away is how it comes back untested.
