@@ -533,6 +533,9 @@ function CriterionRow({
   return (
     <li
       ref={setNodeRef}
+      // See the note on `data-row-key` in `sprint-table.client.tsx` — PF-13
+      // samples this element once per frame across a drop that replaces it.
+      data-criterion-id={criterion.id}
       style={{
         transform: CSS.Transform.toString(transform),
         // The move to the bottom of the list is a `micro`-tier transition —

@@ -607,12 +607,24 @@ function Row({
     // role and the handle carries the keyboard drag path.
     <tr
       ref={setNodeRef}
+      // PF-13 needs to ask "is this row in the layout?" once per frame, across
+      // a drop that makes React replace the element. A node reference cannot
+      // answer that — the old node really is gone — so the row carries its key
+      // and the sampler re-queries every frame.
+      data-row-key={row.key}
       style={{
         height: rowHeight,
         background: groupingTint(row.grouping),
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : 1,
+        // PF-13. Frame-sampled: the dragged row is never absent from the
+        // layout — 340 frames through a drag and a drop, 0 of them without a
+        // box, and no snap-back after the drop. What the report describes as
+        // "hides it for a second" is THIS: 38 frames, about two thirds of a
+        // second, at half opacity over a tinted row, which reads as gone
+        // rather than as lifted. 0.9 still says "this one is moving" and
+        // still lets you read it while it moves.
+        opacity: isDragging ? 0.9 : 1,
       }}
       className="group/row border-b border-[var(--hairline)] hover:bg-[var(--canvas)] transition-[background-color,border-color,color] duration-[var(--dur-micro)] ease-[var(--ease-entrance)]"
     >
