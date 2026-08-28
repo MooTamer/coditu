@@ -1,5 +1,6 @@
 import "server-only";
 
+import { byProminence, type RankableProject } from "@/lib/projects";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import type { WorkItemStatus } from "@/lib/work-items";
 
@@ -14,6 +15,20 @@ import type { WorkItemStatus } from "@/lib/work-items";
  * signed-in profile, so it can only ever list what that person may already
  * see — and invariant 1 holds because every row carries the project and sprint
  * it belongs to, rather than a bare key that a caller could re-point.
+ *
+ * ## Archived is not a scope, and it is filtered here anyway — PF-3
+ *
+ * This was the one surface an archived project still reached. Every other
+ * reader goes through `listProjects()`, which has filtered `is_archived` since
+ * the column existed; the palette builds its own query and did not, so a
+ * project deliberately put away still turned up under Cmd-K — with its
+ * sprints, and with every story in them. Search is a surface like any other,
+ * and a project that is out of the sidebar and out of Home and still first in
+ * search has not actually been archived.
+ *
+ * All three queries carry the filter, and the items one reaches it two joins
+ * up (`sprints.projects.is_archived`) rather than filtering in TypeScript
+ * afterwards: the rows should never leave the database.
  */
 
 export interface PaletteItem {
@@ -89,12 +104,14 @@ export async function getPaletteTargets(): Promise<PaletteTargets> {
     supabase
       .from("projects")
       .select("id, slug, name, clients ( name ), sprints ( id, name, number, status )")
+      .eq("is_archived", false)
       .order("name"),
     supabase
       .from("work_items")
       .select(
-        "id, key, title, status, sprints!inner ( number, projects!inner ( slug, clients ( name ) ) )"
+        "id, key, title, status, sprints!inner ( number, projects!inner ( slug, is_archived, clients ( name ) ) )"
       )
+      .eq("sprints.projects.is_archived", false)
       .order("key"),
     // `initials` is READ, not re-derived. It used to be computed here from the
     // display name, which is a third answer to a question the column already
@@ -138,10 +155,31 @@ export async function getPaletteTargets(): Promise<PaletteTargets> {
 
   sprints.sort((a, b) => b.number - a.number);
 
+  /**
+   * The same order the sidebar draws, so the first project under Cmd-K is the
+   * first project on screen. The palette's rows carry their sprints, so the
+   * two inputs the rule needs are already here and no extra query is.
+   */
+  const sprintsOf = new Map<string, Array<{ number: number; status: string }>>(
+    (projectRows.data ?? []).map((row) => [
+      row.id,
+      (row.sprints ?? []) as Array<{ number: number; status: string }>,
+    ])
+  );
+  const rankable = (project: PaletteProject): RankableProject => {
+    const owned = sprintsOf.get(project.id) ?? [];
+    return {
+      name: project.name,
+      sprintCount: owned.length,
+      activeSprint: owned.find((sprint) => sprint.status === "active") ?? null,
+    };
+  };
+  projects.sort((a, b) => byProminence(rankable(a), rankable(b)));
+
   const items: PaletteItem[] = (itemRows.data ?? []).map((row) => {
     const sprint = row.sprints as unknown as {
       number: number;
-      projects: { slug: string; clients: { name: string } | null };
+      projects: { slug: string; is_archived: boolean; clients: { name: string } | null };
     };
     const slug = sprint.projects.slug;
     return {

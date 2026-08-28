@@ -5,6 +5,7 @@ import { cache } from "react";
 import { describeActivity } from "@/lib/activity";
 import { listComponentsByProject } from "@/lib/data/components";
 import { createClient } from "@/lib/supabase/server";
+import { byProminence } from "@/lib/projects";
 
 /**
  * Read models for the app shell.
@@ -90,7 +91,20 @@ export const listProjects = cache(async (): Promise<ProjectSummary[]> => {
           itemCount: (sprint.work_items ?? []).length,
         })),
     };
-  });
+  })
+    /**
+     * PF-3. `.order("name")` above is the query's own tiebreak and it stays —
+     * a stable order out of Postgres is what makes this sort deterministic.
+     * The prominence rule runs here because it needs `activeSprint` and the
+     * sprint count, neither of which is a column.
+     *
+     * The sidebar, Home, the people page, the import screen and the history
+     * filter all read this one, so they all inherit it. `/app/projects` has a
+     * reader of its own — `listProjectOverviews` — and it applies the same
+     * comparator to its live half for the same reason, which is the whole
+     * argument for the rule living in `lib/projects.ts` rather than here.
+     */
+    .sort(byProminence);
 });
 
 /**
@@ -342,8 +356,11 @@ export const listProjectOverviews = cache(async (): Promise<ProjectOverview[]> =
   });
 
   return [
-    ...live.map((project) => enrich(project, false)),
-    ...retired.map((project) => enrich(project, true)),
+    // PF-3, the same order the sidebar draws. Archived stay at the end
+    // regardless: they are behind a deliberate filter on this screen and being
+    // last is part of being out of the way.
+    ...live.map((project) => enrich(project, false)).sort(byProminence),
+    ...retired.map((project) => enrich(project, true)).sort(byProminence),
   ];
 });
 

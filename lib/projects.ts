@@ -56,3 +56,47 @@ export function projectStateOf(project: StatefulProject): ProjectState {
 export function isProjectState(value: string): value is ProjectState {
   return (PROJECT_STATES as readonly string[]).includes(value);
 }
+
+/* ------------------------------------------------------------------------- *
+ * PF-3 — which project comes first.
+ * ------------------------------------------------------------------------- */
+
+/** Enough of a project to rank it. Structural, so both read models fit. */
+export interface RankableProject {
+  name: string;
+  activeSprint: { number: number } | null;
+  /** How many sprints the project has ever had. */
+  sprintCount: number;
+}
+
+/**
+ * The order every list of projects is drawn in.
+ *
+ * PF-3 asks for EVIM to be first and easiest to reach. The literal reading —
+ * put `meinevim` at the top — is a client's name compiled into the ordering of
+ * a product that is meant to run any client's work, and it would be wrong the
+ * first week EVIM finishes and something else starts. So the rule is about the
+ * work rather than about the client, and today it puts EVIM first because EVIM
+ * is where the work is:
+ *
+ *  1. **A running sprint wins.** The project you are in this week is the one
+ *     the sidebar should open with.
+ *  2. **Then the one with the most sprints behind it** — the long engagement
+ *     over the one-off, which is the difference between MEINEvim's fifteen and
+ *     everything else's nought or one.
+ *  3. **Then by name**, so the tail is stable and alphabetical rather than
+ *     whatever order Postgres returned.
+ *
+ * Archived projects are not in this comparison at all: they are filtered out by
+ * the readers before it runs, which is `is_archived`'s whole job.
+ *
+ * It lives here beside `projectStateOf` for the same reason that does — the
+ * sidebar, Home, `/app/projects` and the command palette all draw the same
+ * list, and four copies of an ordering is four chances for the first project in
+ * the sidebar to differ from the first one in search.
+ */
+export function byProminence(a: RankableProject, b: RankableProject): number {
+  if (Boolean(a.activeSprint) !== Boolean(b.activeSprint)) return a.activeSprint ? -1 : 1;
+  if (a.sprintCount !== b.sprintCount) return b.sprintCount - a.sprintCount;
+  return a.name.localeCompare(b.name);
+}

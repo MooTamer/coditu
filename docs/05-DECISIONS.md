@@ -4638,3 +4638,28 @@ week yet`.
 
 **Rejected: weeks in which THIS person logged.** It flatters absence — one full week in six would
 report a full week's average.
+
+## 2026-08-28 · PF-3 orders projects by the work, not by the client's name
+
+"EVIM is the main work: most prominent, easiest to reach." The literal implementation — sort
+`meinevim` to the top — compiles a client's name into the ordering of a product meant to run any
+client's work, and it is wrong the first week EVIM finishes and something else starts.
+
+**Decided.** `byProminence` in `lib/projects.ts`, applied in `listProjects()` — which every screen
+in the application reads from — and to the command palette's own list, so the first project under
+Cmd-K is the first project in the sidebar. The rule is: **a running sprint wins; then the most
+sprints behind it; then the alphabet.** Today that puts MEINEvim first because MEINEvim is where the
+work is, and `tests/project-prominence.test.ts` proves the rule names no project by moving the
+active sprint to another one and watching the order follow.
+
+**The archived leak, which was the real finding.** The ledger's triage said nothing reads
+`is_archived`. That was wrong — `listProjects()` has filtered it since the column existed, and
+`/app/projects` puts archived projects behind a deliberate filter. The one surface that did **not**
+was `lib/data/palette.ts`, which builds its own query: an archived project still turned up under
+Cmd-K, with its sprints, and with every story in them. All three of its queries carry the filter
+now, and the items one reaches it two joins up (`sprints.projects.is_archived`) so the rows never
+leave the database. A project that is out of the sidebar and out of Home and still first in search
+has not been archived.
+
+**Not decided here: which projects should be archived.** That is a statement about engagements and
+it is Mohamed's to make. `/app/projects` → project admin has the control.
