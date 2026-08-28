@@ -1,4 +1,4 @@
-import { expect, query, SEED, SEED_ADMIN, SEED_ENGINEER, signIn, test } from "./fixtures";
+import { expect, query, SEED, SEED_ADMIN, SEED_ENGINEER, shell, signIn, test } from "./fixtures";
 
 /**
  * The things this app could not do until 2026-08-25, each of which was the same
@@ -197,7 +197,7 @@ test.describe("a comment can be withdrawn, and it stays in the thread", () => {
       await expect(adminPage.getByText("WITHDRAWNSENTINEL").first()).toBeVisible();
 
       await adminPage.getByRole("button", { name: "Withdraw this comment" }).first().click();
-      await expect(adminPage.getByText("This comment was withdrawn.")).toBeVisible();
+      await expect(shell(adminPage).getByText("This comment was withdrawn.")).toBeVisible();
 
       // Struck through and still in place — the schema comment on
       // `comments.deleted_at` is explicit that an argument which vanishes leaves
@@ -214,7 +214,7 @@ test.describe("a comment can be withdrawn, and it stays in the thread", () => {
       // behaviour. The claim worth proving is that the NEXT reader never
       // receives the words, so fetch the page again and look at what arrives.
       await adminPage.reload();
-      await expect(adminPage.getByText("This comment was withdrawn.")).toBeVisible();
+      await expect(shell(adminPage).getByText("This comment was withdrawn.")).toBeVisible();
       const html = await adminPage.content();
       expect(html).not.toContain("WITHDRAWNSENTINEL");
 

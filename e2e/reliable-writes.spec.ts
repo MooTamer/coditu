@@ -1,4 +1,4 @@
-import { expect, query, test } from "./fixtures";
+import { expect, query, shell, test } from "./fixtures";
 
 const ITEM = "/app/projects/meinevim/sprints/17/items/COD-239";
 
@@ -103,7 +103,7 @@ test.describe("a submission that arrives twice happens once", () => {
     const replay = await replayEveryAction(page);
     await page.goto(ITEM);
 
-    await page.getByText("Write a comment — @ to mention").click();
+    await shell(page).getByText("Write a comment — @ to mention").click();
     const editor = page.locator(".coditu-prose");
     await expect(editor).toBeVisible();
     await editor.click();
@@ -170,7 +170,7 @@ test.describe("a submission that arrives twice happens once", () => {
     await page.goto(ITEM);
 
     for (const words of ["The first thing.", "A separate second thing."]) {
-      await page.getByText("Write a comment — @ to mention").click();
+      await shell(page).getByText("Write a comment — @ to mention").click();
       const editor = page.locator(".coditu-prose");
       await expect(editor).toBeVisible();
       await editor.click();

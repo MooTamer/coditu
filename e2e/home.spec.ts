@@ -1,4 +1,4 @@
-import { SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixtures";
+import { auditA11y, expect, query, SEED_ENGINEER, shell, signIn, test } from "./fixtures";
 
 /**
  * `/app` is the workspace home, not a redirect.
@@ -26,7 +26,7 @@ test.describe("workspace home", () => {
 
     // The database's idea of "today in Cairo" and the page's must be the same
     // one. This is invariant 5 with two independent implementations agreeing.
-    await expect(page.getByText(`${row.weekday} · ${row.today}`)).toBeVisible();
+    await expect(shell(page).getByText(`${row.weekday} · ${row.today}`)).toBeVisible();
 
     const hour = Number(row.hour);
     const expected =
@@ -132,7 +132,7 @@ test.describe("workspace home", () => {
 
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Ahmed");
     // Home is not an admin screen; the sprint card is the team's sprint.
-    await expect(page.getByText("active sprint", { exact: false })).toBeVisible();
+    await expect(shell(page).getByText("active sprint", { exact: false })).toBeVisible();
   });
 
   test("nothing overflows at 320px and axe is clean", async ({ adminPage: page }) => {

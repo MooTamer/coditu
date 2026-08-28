@@ -1,4 +1,4 @@
-import { SEED, auditA11y, expect, query, test } from "./fixtures";
+import { auditA11y, expect, query, SEED, shell, test } from "./fixtures";
 
 const ITEM_KEY = SEED.thread;
 const ITEM = `${SEED.sprint}/items/${ITEM_KEY}`;
@@ -64,7 +64,7 @@ test.describe("the comment editor", () => {
   });
 
   async function openComposer(page: import("@playwright/test").Page) {
-    await page.getByText("Write a comment — @ to mention").click();
+    await shell(page).getByText("Write a comment — @ to mention").click();
     const editor = page.locator(".coditu-prose");
     await expect(editor).toBeVisible();
     await editor.click();

@@ -1,4 +1,4 @@
-import { SEED, auditA11y, expect, query, test } from "./fixtures";
+import { auditA11y, expect, query, SEED, shell, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
 const ITEM = `${SPRINT}/items/COD-229`;
@@ -89,10 +89,12 @@ test.describe("item detail", () => {
     );
 
     await page.goto(ITEM);
-    await expect(page.getByText(`${counts.done} / ${counts.total}`, { exact: true })).toBeVisible();
+    await expect(shell(page).getByText(`${counts.done} / ${counts.total}`, { exact: true })).toBeVisible();
 
     // dasharray 94.2 is 2*pi*15 from the bundle; the offset is the undone share.
-    const offset = await page
+    // Scoped: the item detail resolves inside `<div hidden id="S:1">` and moves
+    // it, so for ~100ms the ring exists twice and this is a coin flip.
+    const offset = await shell(page)
       .locator('circle[stroke-dasharray="94.2"]')
       .getAttribute("stroke-dashoffset");
     const expected = (94.2 * (Number(counts.total) - Number(counts.done))) / Number(counts.total);
@@ -162,6 +164,13 @@ test.describe("item detail", () => {
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
+    // PF-9 put a `Suspense` inside this route, so the dialog's FRAME now paints
+    // at ~150ms and its body streams in behind a skeleton. Everything below is
+    // about the body — how tall it is, whether it scrolls — so it has to wait
+    // for the body rather than for the dialog. Before the skeleton existed the
+    // two arrived together and the distinction did not exist.
+    await expect(dialog.getByRole("status", { name: "Loading the story" })).toHaveCount(0);
+    await expect(dialog.getByRole("heading", { level: 1 })).toBeVisible();
 
     const box = (await dialog.boundingBox())!;
     const viewport = page.viewportSize()!;
@@ -195,7 +204,7 @@ test.describe("item detail", () => {
   test("the highlight is announced, not just coloured", async ({ adminPage: page }) => {
     await page.goto(`${SPRINT}/items/${SEED.highlighted}`);
     // The amber rule is invisible to a screen reader, so the meaning is in text.
-    await expect(page.getByText("Discuss before implementing:")).toBeAttached();
+    await expect(shell(page).getByText("Discuss before implementing:")).toBeAttached();
     // `.first()` is the highlight itself; Version history renders the same
     // words as a diff line since W4c.
     await expect(page.getByText(new RegExp(SEED.highlightText)).first()).toBeVisible();

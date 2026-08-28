@@ -1,4 +1,4 @@
-import { expect, query, test } from "./fixtures";
+import { expect, query, shell, test } from "./fixtures";
 
 const ITEM = "/app/projects/meinevim/sprints/17/items/COD-240";
 
@@ -22,12 +22,12 @@ test.describe("comment composer", () => {
   });
 
   test("the thread says so when it is empty, and still offers the composer", async ({ adminPage: page }) => {
-    await expect(page.getByText("No discussion yet.")).toBeVisible();
-    await expect(page.getByText("Write a comment — @ to mention")).toBeVisible();
+    await expect(shell(page).getByText("No discussion yet.")).toBeVisible();
+    await expect(shell(page).getByText("Write a comment — @ to mention")).toBeVisible();
   });
 
   test("posts a comment and stores a matching body_text", async ({ adminPage: page }) => {
-    await page.getByText("Write a comment — @ to mention").click();
+    await shell(page).getByText("Write a comment — @ to mention").click();
 
     const editor = page.locator(".coditu-prose");
     await expect(editor).toBeVisible();
@@ -57,7 +57,7 @@ test.describe("comment composer", () => {
     // it would be a green test for a shortcut nobody on that device can use.
     test.skip(!!isMobile, "there is no Cmd key on a phone");
 
-    await page.getByText("Write a comment — @ to mention").click();
+    await shell(page).getByText("Write a comment — @ to mention").click();
     const editor = page.locator(".coditu-prose");
     await editor.click();
     await page.keyboard.type("Sent with the keyboard.");
@@ -75,7 +75,7 @@ test.describe("comment composer", () => {
   });
 
   test("a draft survives a reload and is cleared once posted", async ({ adminPage: page }) => {
-    await page.getByText("Write a comment — @ to mention").click();
+    await shell(page).getByText("Write a comment — @ to mention").click();
     const editor = page.locator(".coditu-prose");
     await editor.click();
     await page.keyboard.type("Half-written thought");
@@ -118,7 +118,7 @@ test.describe("comment composer", () => {
     adminPage: page,
     isMobile,
   }) => {
-    await page.getByText("Write a comment — @ to mention").click();
+    await shell(page).getByText("Write a comment — @ to mention").click();
     const editor = page.locator(".coditu-prose");
     await editor.click();
     await page.keyboard.type("@Adam");
@@ -178,7 +178,7 @@ test.describe("comment composer", () => {
   });
 
   test("Escape steps away without discarding", async ({ adminPage: page }) => {
-    await page.getByText("Write a comment — @ to mention").click();
+    await shell(page).getByText("Write a comment — @ to mention").click();
     const editor = page.locator(".coditu-prose");
     await editor.click();
     await page.keyboard.type("Still here");

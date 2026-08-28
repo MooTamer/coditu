@@ -1549,3 +1549,82 @@ then, with the measured number in hand rather than an estimate. That is the reve
 item and it was not touched. Splitting the sortable row out of `sprint-table.client.tsx` so the drag
 machinery loads on first pointer-down is the obvious move and it is a real refactor of the component
 whose drag behaviour PF-13 has just characterised frame by frame. It wants its own pass.
+
+---
+
+# Ninth pass — the harness fixed, and the suite re-run, 2026-08-28
+
+## What was fixed, and what was left
+
+**Bucket (iii) is closed.** Every failure that passed alone and failed in company now passes in
+company too, and one of them turned out to be a bucket-(ii) failure wearing a disguise.
+
+**The streaming duplicate — 14 assertions, in 11 files.** `shell()` was written on this branch to
+exclude the `<div hidden id="S:1">` copy and had reached 8 of 55 spec files. It now covers the
+assertions that were losing that race: `comments` (all of them — the whole file reads a comment
+thread on a streaming route), `composer`, `editable`, `editor`, `home` ×2, `item-detail` ×3 (including
+the criteria ring, whose `circle[stroke-dasharray]` matched twice), `push`, `reliable-writes`,
+`trash`, `avatar`, and `optimistic` — where an unscoped `page.locator("div").last()` was reading
+`total9.0 h` one moment and `total 9.0 h` the next, for one unchanged number.
+
+**One over-scoped and put back.** `comments.spec.ts`'s `locator("main, [role='dialog']")` must NOT go
+through `shell()` — `shell()` **is** the `main`, so scoping it looks for a `main` inside a `main` and
+finds nothing. Caught by the run, not by review.
+
+**Two artefacts this pass created, and owned.** Deferring `ExportDialog` behind `next/dynamic` made it
+mount a beat later, so `mobile.spec.ts`'s 44px sweep measured it mid-entrance — and a *scaled*
+element's bounding rect is smaller than its laid-out size, so a 44px control reported as 43-and-change
+and failed a rule it keeps. `settleAnimations` before measuring, the same fix the new sort panel
+needed for the same reason. And PF-9's skeleton means the peek's **frame** now paints at ~150 ms with
+its **body** streaming in behind it, so `item-detail.spec.ts`'s "scrolls its own body" was measuring
+the skeleton; it waits for the body now. Both are consequences of changes made in this pass and both
+are named as such rather than folded in quietly.
+
+**The contamination had one cause, and it was destructive.** `inline-edit.spec.ts`'s teardown read:
+
+```sql
+delete from time_entries where note = 'e2e inline edit'
+   or work_item_id = (select id from work_items where key = $1)
+```
+
+The second clause has no bound on which rows were the spec's. It deleted the item's **seeded** time
+entries as well — 12.0 h off the sprint's total, permanently, for the rest of the run. That is why
+`sprint-table.spec.ts` read `46.0` where its own query of the database said `58.0`. **Proved by
+ordering, not by reading:** `sprint-table` alone → 1 failed / 23 passed; `inline-edit` then
+`sprint-table` → **4 failed / 24 passed**; after bounding the delete to entries created after
+`beforeAll` → **1 failed / 31 passed**. `inline-edit`'s own failure went with it — the same
+`afterEach` was destroying the seed between its own serial tests, which is why it also failed alone
+and was classified bucket (ii). Classified from its cause correctly; the cause was older than the
+branch and still the harness's.
+
+## The number
+
+```bash
+E2E_BASE_URL=http://localhost:3011 \
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54521 \
+E2E_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54522/postgres \
+npx playwright test --workers=1
+```
+
+| | failed | skipped | passed | wall |
+|---|---|---|---|---|
+| Block 0 baseline | **32** | 42 | 579 | 22.6m |
+| after the harness fixes | **16** | 43 | 645 | 24.8m |
+| again, after bounding the teardown | **18** | 43 | 643 | 26.8m |
+
+**Two full runs are reported rather than one, and the disagreement is the point.** This file already
+records that the suite's failures move between runs; here they moved by four in each direction
+between two runs of the same tree. **Fourteen failures reproduce in both** and that is the honest
+figure to carry forward — down from 32. The four that appeared in only one run
+(`inline-edit:121`, `sprint-table:348`, `trash:343`, `a11y:109` on mobile-chrome) each pass when
+their file is run alone; `sprint-table` alone was 1 failed / 23 passed on two consecutive runs.
+
+## The fourteen that remain, and none of them are bucket (iii)
+
+| Spec | Bucket | What it is |
+|---|---|---|
+| `home:38`, `home:62`, `home:82` | **(i)** | **This branch redesigned Home** — `526c62c`, `e5097e3`, `41de52b` — and did not update `home.spec.ts`. The page renders **one heading, an `h1`**, and the spec asks for an `h2` named after the sprint. Not fixed here on purpose: rewriting three assertions against a redesigned page is a decision about what Home should promise, and guessing would lock in whatever it currently happens to do. |
+| `project-home:204`, `sprint-notes:46`, `sprint-table:298`, `presence:90` | **(i)** | Four more of the same shape — an element the spec expects and the page no longer renders, or a socket assertion that times out. Each needs the page looked at, not the selector. |
+| `earnings:255`, `motion:135` ×3, `version-history:125` | **(ii)** | Fail identically at `b63f4c7`. Pre-date this branch and are not this pass's. |
+| `sprint-table:17`, `sprint-table:92` | **(i)/(iii)** | Still fail in company, still pass alone, and the `inline-edit` cause is now fixed — so **a second writer is doing the same thing** and has not been found. Named rather than assumed closed. |
+| `marketing:200` (mobile-safari) | **(ii)** | A 30 s timeout on the WebKit build only. |

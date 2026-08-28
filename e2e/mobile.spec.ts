@@ -1,4 +1,4 @@
-import { auditA11y, expect, query, SEED, shell, test } from "./fixtures";
+import { auditA11y, expect, query, SEED, settleAnimations, shell, test } from "./fixtures";
 
 /**
  * `/app`, on a phone.
@@ -686,6 +686,11 @@ test.describe("the export dialog on a phone", () => {
 
       const dialog = page.getByRole("dialog", { name: /^Export EVIM/ });
       await expect(dialog).toBeVisible();
+      // The dialog is behind `next/dynamic` now, so it mounts a beat later and
+      // its entrance transform is still running here. A SCALED element's
+      // bounding rect is smaller than its laid-out size, which reports a 44px
+      // control as 43-and-change and fails a rule it actually keeps.
+      await settleAnimations(page);
 
       const small = await dialog.evaluate((root) =>
         ["Select all", "Select none", "Drop drafts"]
