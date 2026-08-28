@@ -4566,3 +4566,75 @@ the drift message, which is the only part of this test anybody will ever read.
 
 **Rejected: `it.skip()` with the ticket in its name.** A skipped test does not run, so the day the
 spec and the schema disagree nobody finds out.
+
+## 2026-08-28 · Home gets a heading hierarchy, and the section labels are the headings
+
+Home rendered **one heading** — the `h1` greeting — and no `h2`–`h6` at all. Its seventeen section
+labels are `Mono size="meta"` elements: styled text, correct to the pixel, and structurally
+invisible. A screen-reader user landing on `/app` could not list the page's sections, jump between
+them, or tell "my work" from a caption.
+
+**Decided.** The labels *are* the headings, so they carry the level rather than being replaced.
+`Mono` already takes `as`, so `<Mono as="h2">` changes the tag and nothing else — Tailwind's preflight
+already resets a heading's size and margin to inherit, so not one pixel moves. `my work`, `mentions
+& discussion`, `Online now`, `recently opened` and `Activity · {project}` are `h2`; `Goal`, `Status`
+and `Hours` are `h3` inside the sprint card.
+
+**The sprint card's heading is the sprint's NAME, not its eyebrow.** `active sprint · MEINEvim`
+names the *kind* of card; `Sprint — Week 17` names this one. The name is wrapped in an `h2` around
+the link it already was, which is what `e2e/home.spec.ts` has always asked for and never got.
+
+**Rejected: `aria-label` on the sections.** It would announce a region without giving the page an
+outline, and an outline is what a reader uses to move.
+
+## 2026-08-28 · Two strings on Home change, and one of them diverges from the design bundle
+
+`e2e/home.spec.ts` has asked for both since before Home was redesigned, and the redesign quietly
+dropped them. Rather than rewrite the assertions to match whatever the page happens to do now — which
+would lock in the loss — the page says them again.
+
+**`· ended`.** The sprint header used to read *Sprint — Week 17 · ended*. The redesign put the state
+in an amber chip with nothing joining it to the name, so it read as a badge about something else.
+The separator is back, as its own faint element before the chip, and it is the same `·` the eyebrow
+above and the date line below already use. `getByText("· ended")` matches the wrapper, which was
+measured rather than assumed: Playwright's text engine matches the smallest element whose combined
+text contains the string, so the wrapper matches and the whole header row does not.
+
+**`Assigned to me`, and this one diverges from the bundle.** `Coditu Workspace.dc.html` labels the
+tab `Assigned`. `/app/my-work` — the screen that tab links to, listing the same rows — has always
+called the same column `Assigned to me`. Two screens naming one list two ways is the kind of small
+inconsistency that makes somebody stop and check whether they are the same list. `CLAUDE.md` gives
+the bundle the casting vote on **numbers**; this is a label, and the tie-break it asks for is
+correctness. A tab also has to stand up out of context — a screen reader announces it without the
+`my work` heading above it — and `Assigned` alone does not.
+
+The count moved into the same element with its separator (`· 3`), because the control's own text has
+to read as one phrase for either the reader or the test to find it.
+
+## 2026-08-28 · PF-5 averages over working weeks, not calendar weeks
+
+"Average load from hours logged" needs a denominator, and the obvious one is wrong on this project's
+own data. MEINEvim's time entries span **39 calendar weeks** and fall in **6** of them: the import
+dates its first batch to the day it ran and the rest to the sprints they belong to, so the 33-week
+hole in between is an artifact of when rows were written, not of anybody's week. Dividing by 39
+makes every number six times too small and describes a team that barely works.
+
+**Decided.** The denominator is **working weeks** — weeks in which somebody, anybody, logged time —
+counted from each person's own first working week to the last one in the window. Both of the awkward
+cases fall out of that instead of being special-cased: a **zero-hour week** (the team worked, this
+person did not) is in the denominator and contributes nothing, which is what average load should
+say; and somebody who **joined mid-sprint** starts counting at their own first week and is not
+charged for the ones before they arrived. `tests/home.test.ts` holds both, plus the empty case.
+
+**The running week is excluded from the average and included in the total.** A week that has not
+finished is not a week's work, and counting it would make every average fall on Monday and recover
+by Friday — a figure that moves with the day of the week is not one anybody can act on. It is
+reported separately as `partialWeekMinutes`. `cumulativeMinutes` includes it, because a total that
+leaves rows out is not a total.
+
+**No complete week means `null`, not `0`.** Somebody in their first partial week has no average, and
+`0.0 h/week` would be a claim about their pace that the data cannot support. Home renders `no full
+week yet`.
+
+**Rejected: weeks in which THIS person logged.** It flatters absence — one full week in six would
+report a full week's average.

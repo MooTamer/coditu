@@ -183,3 +183,158 @@ export function mentionLine(row: MentionRow): MentionLine {
     unread: row.readAt === null,
   };
 }
+
+/* ------------------------------------------------------------------------- *
+ * PF-5 — load per person per week: the average, and the cumulative total.
+ * ------------------------------------------------------------------------- */
+
+/** One person's minutes on one calendar day. `worked_on` is a `date` column. */
+export interface LoggedDay {
+  personId: string;
+  /** `YYYY-MM-DD`, no timezone — invariant 5. Never parsed into a `Date` here. */
+  workedOn: string;
+  minutes: number;
+}
+
+export interface PersonLoadOverTime {
+  personId: string;
+  /** Every minute in the window, the running week included. */
+  cumulativeMinutes: number;
+  /**
+   * Minutes per week over the COMPLETE working weeks since this person's
+   * first. `null` when they have none — which is not the same number as zero
+   * and must not be rendered as one.
+   */
+  weeklyAverageMinutes: number | null;
+  /** How many weeks that average is over. The count travels with the number. */
+  weeks: number;
+  /** What is in the running, incomplete week. Deliberately not in the average. */
+  partialWeekMinutes: number;
+}
+
+/**
+ * The Monday of the week a calendar date falls in, as a calendar date.
+ *
+ * `Date.UTC` and the `getUTC*` accessors throughout: this is date arithmetic on
+ * a `date` column, and constructing a local `Date` from `YYYY-MM-DD` parses it
+ * as UTC midnight and lands on the previous day for half the world — invariant
+ * 5, and the trap `05-DECISIONS.md` records. Nothing here is a timestamp.
+ */
+export function weekStartOf(day: string): string {
+  const [y, m, d] = day.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  // getUTCDay: 0 is Sunday. Shift so Monday is the first day of the week.
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+  return isoDate(date);
+}
+
+function isoDate(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(
+    date.getUTCDate()
+  ).padStart(2, "0")}`;
+}
+
+/** The Sunday that closes the week starting on `weekStart`. */
+function weekEndOf(weekStart: string): string {
+  const [y, m, d] = weekStart.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + 6));
+  return isoDate(date);
+}
+
+/**
+ * Average and cumulative load per person, from the days they logged.
+ *
+ * ## What a week in the denominator is, and why it is not a calendar week
+ *
+ * A calendar denominator — *weeks since this person first logged anything* —
+ * is wrong on this project's own data, and not marginally. MEINEvim's time
+ * entries span **39 calendar weeks** and fall in **6** of them: the import
+ * dates the first batch to the day it was imported and the rest to the sprints
+ * they belong to, so the 33-week hole between is an artifact of when rows were
+ * written, not of anybody's week. Averaging over 39 makes every number six
+ * times too small and reads as a team that barely works.
+ *
+ * So the denominator is **working weeks**: weeks in which somebody, anybody,
+ * logged time. Both of the awkward cases fall out of that rather than needing
+ * to be special-cased:
+ *
+ *  - a **zero-hour week** — the team worked, this person logged nothing — is in
+ *    their denominator and contributes nothing to the numerator, which is
+ *    exactly what "average load" should say;
+ *  - somebody who **joined mid-sprint** starts counting at their own first
+ *    working week, so they are not charged for the weeks before they arrived.
+ *
+ * The rejected third option is *weeks in which this person logged*, which
+ * flatters absence: one full week in six would report a full week's average.
+ *
+ * ## The running week is excluded from the average
+ *
+ * A week that has not finished is not a week's work. Counting it would make
+ * every average fall on Monday and recover by Friday — a figure that moves with
+ * the day of the week is not a figure anybody can act on. It is reported
+ * separately as `partialWeekMinutes` and it is still in `cumulativeMinutes`,
+ * because that one is a total and a total does not get to leave rows out.
+ *
+ * Minutes in, minutes out. Invariant 2: nothing here divides by 60.
+ */
+export function loadOverTime(rows: LoggedDay[], today: string): PersonLoadOverTime[] {
+  const complete = new Map<string, boolean>();
+  const isComplete = (week: string) => {
+    let answer = complete.get(week);
+    if (answer === undefined) {
+      answer = weekEndOf(week) <= today;
+      complete.set(week, answer);
+    }
+    return answer;
+  };
+
+  // A working week is one that carries time — across everybody, not per person.
+  // Summed rather than counted, so a week of nothing but zero-minute entries is
+  // not mistaken for a week of work.
+  const weekTotals = new Map<string, number>();
+  for (const entry of rows) {
+    const week = weekStartOf(entry.workedOn);
+    weekTotals.set(week, (weekTotals.get(week) ?? 0) + entry.minutes);
+  }
+  const workingWeeks = [...weekTotals.entries()]
+    .filter(([week, minutes]) => minutes > 0 && isComplete(week))
+    .map(([week]) => week)
+    .sort();
+  const isWorkingWeek = new Set(workingWeeks);
+
+  const people = new Map<string, { cumulative: number; complete: number; partial: number; first: string | null }>();
+  for (const entry of rows) {
+    const week = weekStartOf(entry.workedOn);
+    const person =
+      people.get(entry.personId) ?? { cumulative: 0, complete: 0, partial: 0, first: null };
+    person.cumulative += entry.minutes;
+    if (isComplete(week)) {
+      person.complete += entry.minutes;
+      // Their first WORKING week, which may be later than their first row: a
+      // row in a week nobody logged real time in is not a week of work.
+      if (isWorkingWeek.has(week) && (person.first === null || week < person.first)) {
+        person.first = week;
+      }
+    } else {
+      person.partial += entry.minutes;
+    }
+    people.set(entry.personId, person);
+  }
+
+  return [...people.entries()]
+    .map(([personId, person]) => {
+      const weeks = person.first === null
+        ? 0
+        : workingWeeks.filter((week) => week >= person.first!).length;
+      return {
+        personId,
+        cumulativeMinutes: person.cumulative,
+        weeklyAverageMinutes: weeks === 0 ? null : Math.round(person.complete / weeks),
+        weeks,
+        partialWeekMinutes: person.partial,
+      };
+    })
+    .sort(
+      (a, b) => b.cumulativeMinutes - a.cumulativeMinutes || a.personId.localeCompare(b.personId)
+    );
+}

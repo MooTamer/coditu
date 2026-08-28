@@ -51,8 +51,21 @@ export function HomeWorkTabs({
 }) {
   const due = dueThisSprint(assigned, scope);
 
+  /**
+   * "Assigned to me", not "Assigned".
+   *
+   * The design bundle's strip reads `Assigned / Reviewing / Due this sprint`,
+   * and `/app/my-work` — the screen this tab links out to, showing the same
+   * list — has always called the same column "Assigned to me". Two screens
+   * naming one list two ways is the kind of small inconsistency that makes
+   * somebody check whether they are the same list. The longer label is also
+   * the one that stands on its own out of context, which a tab has to: a
+   * screen reader announces it without the "my work" heading above it.
+   *
+   * Recorded as a deliberate divergence from the bundle in `05-DECISIONS.md`.
+   */
   const tabs: Array<{ id: TabId; label: string; rows: MyWorkItem[] }> = [
-    { id: "assigned", label: "Assigned", rows: assigned },
+    { id: "assigned", label: "Assigned to me", rows: assigned },
     { id: "reviewing", label: "Reviewing", rows: reviewing },
     ...(scope ? [{ id: "due" as const, label: "Due this sprint", rows: due }] : []),
   ];
@@ -118,9 +131,13 @@ export function HomeWorkTabs({
                   : "font-medium text-[var(--ink-muted)] hover:bg-[var(--tint)]"
               )}
             >
-              {tab.label}
+              {tab.label}{" "}
+              {/* The separator is inside the count, so the control's own text
+                  reads "Assigned to me · 3" rather than two numbers meeting.
+                  `{" "}` is load-bearing: JSX drops whitespace that spans a
+                  newline, and without it the two run together. */}
               <Mono size="meta" className="tabular-nums text-[var(--ink-faint)]">
-                {tab.rows.length}
+                · {tab.rows.length}
               </Mono>
             </button>
           );

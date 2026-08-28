@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   busiest,
   dueThisSprint,
+  loadOverTime,
   loadShare,
   logTimeTarget,
   mentionLine,
+  weekStartOf,
+  type LoggedDay,
   type MentionRow,
   type SprintScope,
 } from "@/lib/home";
@@ -198,5 +201,137 @@ describe("mentionLine", () => {
     expect(mentionLine({ ...base, preview: "   " }).body).toBe(
       "mentioned you — Freeze the background when a modal is open"
     );
+  });
+});
+
+/* ------------------------------------------------------------------------- *
+ * PF-5 — average and cumulative load per person.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Six weeks of Mondays, so a fixture can name a week rather than count days.
+ * `W[0]` is the first working week; `W[5]` is the one containing `TODAY`.
+ */
+const W = [
+  "2026-07-20",
+  "2026-07-27",
+  "2026-08-03",
+  "2026-08-10",
+  "2026-08-17",
+  "2026-08-24",
+] as const;
+
+/** A Wednesday: `W[5]` has started and has not finished. */
+const TODAY = "2026-08-26";
+
+const day = (personId: string, workedOn: string, minutes: number): LoggedDay => ({
+  personId,
+  workedOn,
+  minutes,
+});
+
+describe("weekStartOf", () => {
+  it("gives the Monday of the week, and is a fixed point on a Monday", () => {
+    expect(weekStartOf("2026-08-23")).toBe("2026-08-17"); // a Sunday
+    expect(weekStartOf("2026-08-17")).toBe("2026-08-17"); // the Monday itself
+    expect(weekStartOf("2026-08-18")).toBe("2026-08-17");
+  });
+
+  it("crosses a month and a year boundary without a timezone", () => {
+    expect(weekStartOf("2026-03-01")).toBe("2026-02-23");
+    expect(weekStartOf("2026-01-01")).toBe("2025-12-29");
+  });
+});
+
+describe("loadOverTime", () => {
+  it("averages over the working weeks since somebody's first, zero-hour weeks included", () => {
+    // Three working weeks. `mt` logged in two of them and nothing in the third,
+    // and the third still counts: the team worked that week and they did not.
+    const rows = [
+      day("mt", W[0], 600),
+      day("mt", W[1], 600),
+      day("ay", W[2], 120), // makes W[2] a working week
+    ];
+    const [mt] = loadOverTime(rows, TODAY).filter((p) => p.personId === "mt");
+    expect(mt.weeks).toBe(3);
+    expect(mt.cumulativeMinutes).toBe(1200);
+    expect(mt.weeklyAverageMinutes).toBe(400);
+  });
+
+  it("does not charge somebody for the weeks before they joined", () => {
+    const rows = [
+      day("mt", W[0], 600),
+      day("mt", W[1], 600),
+      day("mt", W[2], 600),
+      // Joined in the third week and logged the same amount that week.
+      day("new", W[2], 600),
+    ];
+    const found = Object.fromEntries(loadOverTime(rows, TODAY).map((p) => [p.personId, p]));
+    expect(found.mt.weeks).toBe(3);
+    expect(found.mt.weeklyAverageMinutes).toBe(600);
+    // One week of membership, not three — the whole point of the rule.
+    expect(found.new.weeks).toBe(1);
+    expect(found.new.weeklyAverageMinutes).toBe(600);
+  });
+
+  it("keeps the running week out of the average and reports it on its own", () => {
+    const rows = [
+      day("mt", W[4], 600),
+      // W[5] contains TODAY and has not closed.
+      day("mt", "2026-08-25", 300),
+    ];
+    const [mt] = loadOverTime(rows, TODAY);
+    expect(mt.weeks).toBe(1);
+    expect(mt.weeklyAverageMinutes).toBe(600);
+    expect(mt.partialWeekMinutes).toBe(300);
+    // Cumulative is a total, so it does not get to leave the running week out.
+    expect(mt.cumulativeMinutes).toBe(900);
+  });
+
+  it("reports null rather than zero when there is no complete week to average", () => {
+    // Everything this person has is in the week that has not finished. There is
+    // no week to divide by, and `0.0 h/week` would be a claim about their pace
+    // that the data cannot support.
+    const [only] = loadOverTime([day("new", "2026-08-25", 480)], TODAY);
+    expect(only.weeks).toBe(0);
+    expect(only.weeklyAverageMinutes).toBeNull();
+    expect(only.cumulativeMinutes).toBe(480);
+    expect(only.partialWeekMinutes).toBe(480);
+  });
+
+  it("divides by nothing when nobody logged anything, and returns zero rows for no rows", () => {
+    // Zero-minute entries are not a working week: the sum is what makes a week
+    // count, so this divides by nothing rather than by zero.
+    const all = loadOverTime([day("mt", W[0], 0), day("ay", W[1], 0)], TODAY);
+    expect(all.map((p) => p.weeklyAverageMinutes)).toEqual([null, null]);
+    expect(all.map((p) => p.weeks)).toEqual([0, 0]);
+    expect(loadOverTime([], TODAY)).toEqual([]);
+  });
+
+  it("counts a week that carries time even when this person's own row is zero", () => {
+    // The distinction the test above is the other half of: the week IS a
+    // working week because `ay` logged in it, so `mt` averages 0 across it
+    // rather than reporting "no data".
+    const rows = [day("mt", W[0], 300), day("mt", W[1], 0), day("ay", W[1], 480)];
+    const [, mt] = loadOverTime(rows, TODAY).sort((a, b) => a.personId.localeCompare(b.personId));
+    expect(mt.personId).toBe("mt");
+    expect(mt.weeks).toBe(2);
+    expect(mt.weeklyAverageMinutes).toBe(150);
+  });
+
+  it("sums several days into the week they fall in", () => {
+    const rows = [
+      day("mt", "2026-07-20", 120), // Monday
+      day("mt", "2026-07-24", 180), // Friday, same week
+      day("mt", "2026-07-26", 60), // Sunday, still the same week
+    ];
+    const [mt] = loadOverTime(rows, TODAY);
+    expect(mt.weeks).toBe(1);
+    expect(mt.weeklyAverageMinutes).toBe(360);
+  });
+
+  it("orders by cumulative, busiest first, and breaks ties by id", () => {
+    const rows = [day("b", W[0], 60), day("a", W[0], 600), day("c", W[0], 60)];
+    expect(loadOverTime(rows, TODAY).map((p) => p.personId)).toEqual(["a", "b", "c"]);
   });
 });

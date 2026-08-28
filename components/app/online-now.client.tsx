@@ -54,7 +54,7 @@ export function OnlineNow({
       className="rounded-section border border-[var(--hairline)] bg-[var(--overlay)] p-5"
     >
       <div className="flex items-baseline gap-2">
-        <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+        <Mono as="h2" size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
           Online now
         </Mono>
         <Mono size="meta" className="tabular-nums text-[var(--ink-muted)]">

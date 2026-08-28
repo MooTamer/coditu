@@ -10,14 +10,26 @@ import { PersonAvatar } from "@/components/app/person-avatar";
 import { Mono } from "@/components/coditu/mono";
 import { Recents } from "@/components/app/recents.client";
 import { Reveal } from "@/components/motion/reveal";
-import { getMyWork, getTeamLoad, type PersonLoad } from "@/lib/data/my-work";
+import {
+  getMyWork,
+  getProjectLoadOverTime,
+  getTeamLoad,
+  type PersonLoad,
+} from "@/lib/data/my-work";
 import { listNotifications } from "@/lib/data/notifications";
 import { listProjectActivity, listProjects } from "@/lib/data/projects";
 import { listActiveProfiles } from "@/lib/data/profiles";
 import { listRecents } from "@/lib/data/recents";
 import { daysRemaining, getSprint, statusDistribution } from "@/lib/data/sprint";
 import { calendarDate, hours, timestamp } from "@/lib/format";
-import { busiest, loadShare, logTimeTarget, mentionLine, type SprintScope } from "@/lib/home";
+import {
+  busiest,
+  loadOverTime,
+  loadShare,
+  logTimeTarget,
+  mentionLine,
+  type SprintScope,
+} from "@/lib/home";
 import { STATUS_BAR_COLOR, STATUS_LABEL, statusRank } from "@/lib/work-items";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { greeting, todayInCairo, todayLabel } from "@/lib/today";
@@ -80,17 +92,33 @@ export default async function WorkspaceHomePage() {
     withSprint?.activeSprint
       ? await getSprint(withSprint.id, withSprint.activeSprint.number)
       : null;
-  const load = sprint ? await getTeamLoad(sprint.id) : [];
+  // Cairo, once. Two calls could straddle midnight and disagree by a day.
+  const today = todayInCairo();
 
   /**
-   * The activity feed, scoped to the project whose sprint is active.
-   *
-   * Invariant 1: nothing is global. There is no workspace-wide activity query
-   * and this does not invent one — it asks the same question the rest of this
-   * screen asks, about the same project, and says so in its heading. RLS scopes
-   * the read on top of that.
+   * One round for the three reads that depend only on what the first round
+   * already resolved. They were three sequential awaits — the waterfall PF-9
+   * measured on the peek route and fixed there, growing back here.
    */
-  const activity = withSprint ? await listProjectActivity(withSprint.id, 6) : [];
+  const [load, activity, loggedDays] = await Promise.all([
+    sprint ? getTeamLoad(sprint.id) : Promise.resolve([]),
+    /**
+     * The activity feed, scoped to the project whose sprint is active.
+     *
+     * Invariant 1: nothing is global. There is no workspace-wide activity query
+     * and this does not invent one — it asks the same question the rest of this
+     * screen asks, about the same project, and says so in its heading. RLS
+     * scopes the read on top of that.
+     */
+    withSprint ? listProjectActivity(withSprint.id, 6) : Promise.resolve([]),
+    // PF-5: every logged day on this project, for the weekly average and the
+    // cumulative total beside each person's bar.
+    withSprint ? getProjectLoadOverTime(withSprint.id) : Promise.resolve([]),
+  ]);
+
+  const overTime = new Map(
+    loadOverTime(loggedDays, today).map((person) => [person.personId, person])
+  );
 
   const slices = sprint ? statusDistribution(sprint.items) : [];
   const sprintHref =
@@ -121,7 +149,6 @@ export default async function WorkspaceHomePage() {
 
   const unread = notifications.filter((note) => !note.readAt);
 
-  const today = todayInCairo();
   const overdue = Boolean(sprint?.endsOn && sprint.endsOn < today);
   const left = sprint ? daysRemaining(sprint.endsOn) : null;
 
@@ -145,22 +172,40 @@ export default async function WorkspaceHomePage() {
           <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
             active sprint · {withSprint.clientName}
           </Mono>
-          <Link
-            href={sprintHref!}
-            className="text-[18px] font-medium text-[var(--ink)] hover:text-[var(--accent)]"
-          >
-            {sprint.name}
-          </Link>
+          {/* The card is a section and the sprint is its title, so the NAME
+              carries the level rather than the eyebrow above it: an eyebrow
+              reading "active sprint" names the kind of card, not this one. */}
+          <h2 className="min-w-0 text-[18px] font-medium">
+            {/* 44px on a coarse pointer, the app's usual pair. The link used to
+                be the flex item itself and measured 153x22 once it was wrapped;
+                `mobile.spec.ts`'s sweep caught it on `/app`. It is the card's
+                primary link and a thumb has to hit it. */}
+            <Link
+              href={sprintHref!}
+              className="inline-flex min-h-11 items-center text-[var(--ink)] hover:text-[var(--accent)] md:min-h-0"
+            >
+              {sprint.name}
+            </Link>
+          </h2>
           {/* Stated as a fact, not as an alarm — a sprint that has run out is a
               planning conversation, not a red banner. But it has to be the
               RIGHT fact: `daysRemaining` clamps at zero, so a sprint that ended
               two days ago reads "0 days left" without this. */}
-          <Mono
-            size="meta"
-            className="rounded-chip bg-[var(--tone-amber-bg)] px-2 py-[3px] text-[var(--tone-amber-fg)]"
-          >
-            {overdue ? "ended" : left !== null ? `${left} days left` : "no end date"}
-          </Mono>
+          {/* "Sprint — Week 17 · ended", read straight through — the same
+              separator the eyebrow above and the date line below already use.
+              The chip on its own said "ended" beside a name with nothing
+              joining the two, which reads as a badge for something else. */}
+          <span className="flex items-baseline gap-[6px]">
+            <span aria-hidden className="text-[11px] text-[var(--ink-faint)]">
+              ·
+            </span>{" "}
+            <Mono
+              size="meta"
+              className="rounded-chip bg-[var(--tone-amber-bg)] px-2 py-[3px] text-[var(--tone-amber-fg)]"
+            >
+              {overdue ? "ended" : left !== null ? `${left} days left` : "no end date"}
+            </Mono>
+          </span>
           <Link
             href={sprintHref!}
             className="ml-auto rounded-chip border border-[var(--hairline)] px-3 py-[6px] text-[12.5px] text-[var(--ink-muted)] hover:text-[var(--ink)]"
@@ -171,7 +216,7 @@ export default async function WorkspaceHomePage() {
 
         <div className="mt-4 grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr))]">
           <div className="min-w-0">
-            <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+            <Mono as="h3" size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
               Goal
             </Mono>
             <p className="mt-2 max-w-[44ch] text-[13.5px] leading-[1.5] text-[var(--ink)]">
@@ -187,7 +232,7 @@ export default async function WorkspaceHomePage() {
 
           <div className="min-w-0">
             <div className="flex items-baseline justify-between gap-[10px]">
-              <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+              <Mono as="h3" size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
                 Status
               </Mono>
               <Mono size="meta" className="tabular-nums text-[var(--ink-muted)]">
@@ -241,7 +286,7 @@ export default async function WorkspaceHomePage() {
           </div>
 
           <div className="min-w-0">
-            <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+            <Mono as="h3" size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
               Hours
             </Mono>
             {/* Invariant 2: minutes everywhere, divided by 60 at the render
@@ -264,24 +309,44 @@ export default async function WorkspaceHomePage() {
                   // total answered a different question and left every bar
                   // short of its track.
                   const pct = loadShare(person.minutesLogged, mostLogged);
+                  // PF-5. Absent when this person has logged nothing on the
+                  // project at all, which is a different thing from zero and
+                  // reads as one below.
+                  const history = overTime.get(person.id);
                   return (
-                    <li
-                      key={person.id}
-                      data-load-bar={person.id}
-                      data-load-pct={pct}
-                      className="flex items-center gap-2"
-                    >
-                      <Mono size="meta" className="w-[22px] shrink-0 text-[var(--ink-faint)]">
-                        {person.initials}
-                      </Mono>
-                      <span className="h-[5px] flex-1 overflow-hidden rounded-pill bg-[var(--canvas)]">
-                        <span
-                          className="block h-full rounded-pill"
-                          style={{ width: `${pct}%`, background: "var(--group-1)" }}
-                        />
+                    <li key={person.id} data-load-bar={person.id} data-load-pct={pct}>
+                      <span className="flex items-center gap-2">
+                        <Mono size="meta" className="w-[22px] shrink-0 text-[var(--ink-faint)]">
+                          {person.initials}
+                        </Mono>
+                        <span className="h-[5px] flex-1 overflow-hidden rounded-pill bg-[var(--canvas)]">
+                          <span
+                            className="block h-full rounded-pill"
+                            style={{ width: `${pct}%`, background: "var(--group-1)" }}
+                          />
+                        </span>
+                        <Mono size="meta" className="shrink-0 tabular-nums text-[var(--ink-muted)]">
+                          {hours(person.minutesLogged)}
+                        </Mono>
                       </span>
-                      <Mono size="meta" className="shrink-0 tabular-nums text-[var(--ink-muted)]">
-                        {hours(person.minutesLogged)}
+                      {/* PF-5, beside the bar rather than instead of it: the bar
+                          is this SPRINT against the busiest person, and these
+                          two are the same person across the whole project. An
+                          average with no week count beside it is a number
+                          nobody can check, so the count travels with it. */}
+                      <Mono
+                        size="meta"
+                        data-load-history={person.id}
+                        data-load-average={history?.weeklyAverageMinutes ?? ""}
+                        data-load-weeks={history?.weeks ?? 0}
+                        data-load-cumulative={history?.cumulativeMinutes ?? 0}
+                        className="mt-[3px] block pl-[30px] tabular-nums text-[var(--ink-faint)]"
+                      >
+                        {history?.weeklyAverageMinutes != null
+                          ? `${hours(history.weeklyAverageMinutes)} h/wk · ${history.weeks} wks`
+                          : "no full week yet"}
+                        {" · "}
+                        {hours(history?.cumulativeMinutes ?? 0)} h total
                       </Mono>
                     </li>
                   );
@@ -343,7 +408,7 @@ export default async function WorkspaceHomePage() {
             className="rounded-section border border-[var(--hairline)] bg-[var(--overlay)] p-5"
           >
             <div className="flex items-baseline justify-between gap-3">
-              <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+              <Mono as="h2" size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
                 my work
               </Mono>
               <Link
@@ -374,7 +439,7 @@ export default async function WorkspaceHomePage() {
             className="overflow-hidden rounded-section border border-[var(--hairline)] bg-[var(--overlay)]"
           >
             <div className="flex flex-wrap items-center gap-[10px] border-b border-[var(--hairline)] p-5 py-3">
-              <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+              <Mono as="h2" size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
                 mentions &amp; discussion
               </Mono>
               {unread.length > 0 ? (
@@ -469,7 +534,7 @@ export default async function WorkspaceHomePage() {
             <Recents items={recents} />
             {recents.length === 0 ? (
               <>
-                <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+                <Mono as="h2" size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
                   recently opened
                 </Mono>
                 <p className="mt-3 text-[13px] text-[var(--ink-faint)]">
@@ -485,7 +550,7 @@ export default async function WorkspaceHomePage() {
               delay={0.32}
               className="rounded-section border border-[var(--hairline)] bg-[var(--overlay)] p-5"
             >
-              <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
+              <Mono as="h2" size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
                 Activity · {withSprint.name}
               </Mono>
               {/* Named, not "Activity" alone: invariant 1 says nothing here is

@@ -51,8 +51,14 @@ test.describe("workspace home", () => {
         limit 1`
     );
 
-    await expect(page.getByRole("heading", { level: 2, name: sprint.name })).toBeVisible();
-    await expect(page.getByText(`${sprint.items} stories`)).toBeVisible();
+    // `shell()` on both, and it is the ONLY thing that changed in these three
+    // tests. What they ask for is unaltered: a level-2 heading naming the
+    // sprint, the story count, the hours. Unscoped they matched the streaming
+    // tree's copy as well as the real one and raised a strict-mode violation —
+    // the fault `shell()` was written for and already applied to fourteen
+    // assertions in eleven files. The page is what was fixed here.
+    await expect(shell(page).getByRole("heading", { level: 2, name: sprint.name })).toBeVisible();
+    await expect(shell(page).getByText(`${sprint.items} stories`)).toBeVisible();
 
     // Invariant 2: minutes in the database, hours only at the render edge.
     const hours = (Number(sprint.logged) / 60).toFixed(1);
@@ -72,10 +78,10 @@ test.describe("workspace home", () => {
       // `daysRemaining` clamps at zero, so the obvious rendering says
       // "0 days left" for a sprint that finished last week. It said exactly
       // that until the page was opened in a browser.
-      await expect(page.getByText("· ended")).toBeVisible();
-      await expect(page.getByText(/0 days left/)).toHaveCount(0);
+      await expect(shell(page).getByText("· ended")).toBeVisible();
+      await expect(shell(page).getByText(/0 days left/)).toHaveCount(0);
     } else {
-      await expect(page.getByText(/days left/)).toBeVisible();
+      await expect(shell(page).getByText(/days left/)).toBeVisible();
     }
   });
 
@@ -93,7 +99,7 @@ test.describe("workspace home", () => {
           and w.status <> 'done'`
     );
 
-    await expect(page.getByText(`Assigned to me · ${mine.n}`)).toBeVisible();
+    await expect(shell(page).getByText(`Assigned to me · ${mine.n}`)).toBeVisible();
 
     // The link has to reach the real, project-scoped URL — invariant 1 lives in
     // it, and a Home that linked to a bare key would be a dead end.
