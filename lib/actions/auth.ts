@@ -24,89 +24,27 @@ export interface AuthState {
   notice?: string;
 }
 
-const registration = z.object({
-  email: z.string().email("That does not look like an email address."),
-  // Supabase's own floor is 6; asking for more here and less there would just
-  // produce two different rejections for the same password.
-  password: z.string().min(8, "Use at least 8 characters."),
-  fullName: z.string().trim().min(2, "Tell us your name.").max(80),
-  next: z.string().startsWith("/").default("/app"),
-});
-
 /**
- * Sign-up, gated by the allowlist.
+ * There is no `signUp`, and its absence is the feature.
  *
- * The database is the real gate: `enforce_email_allowlist` is a BEFORE INSERT
- * trigger on `auth.users`, and it refuses regardless of what any client sends.
- * But GoTrue swallows the trigger's message and returns a bare
- * `500 Database error saving new user`, which reads as a system fault rather
- * than an answer — so the allowlist is checked here first, purely to be able to
- * say something true.
+ * It existed until PF-10 and was never an open door: it checked
+ * `allowed_emails` before calling GoTrue, and `enforce_email_allowlist` — a
+ * BEFORE INSERT trigger on `auth.users` — refused an uninvited address no
+ * matter who asked. Both of those gates are still here; `supabase/tests` and
+ * `e2e/allowlist.spec.ts` still prove the trigger refuses a direct insert.
  *
- * The check uses the service-role client rather than a public RPC. `allowed_emails`
- * is admin-only by policy, and adding an anonymous "is this email invited?"
- * endpoint would hand out the invite list one guess at a time.
+ * What went is the form. Coditu is four people's internal tool, and a screen
+ * that offers to make you an account describes something else.
+ *
+ * **The consequence, written down rather than discovered.** Nothing in this
+ * application sends email (`docs/05-DECISIONS.md`), so `/auth/callback` has no
+ * sender, and `setTemporaryPassword` in `lib/actions/profiles.ts` only works on
+ * somebody who already has a profile. So there is currently NO in-app path from
+ * "on the allowlist" to "has an account". Onboarding the fifth person needs an
+ * admin-side create — the machinery is already written for the client portal at
+ * `lib/actions/client-access.ts` — or a row inserted by hand. PF-10 in
+ * `docs/10-PRODUCT-FEEDBACK.md` carries this.
  */
-export async function signUp(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const parsed = registration.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-    fullName: formData.get("fullName"),
-    next: formData.get("next") || "/app",
-  });
-
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
-  }
-
-  const email = parsed.data.email.trim().toLowerCase();
-
-  const admin = createAdminClient();
-  const { data: invited, error: lookupError } = await admin
-    .from("allowed_emails")
-    .select("email")
-    .ilike("email", email)
-    .maybeSingle();
-
-  if (lookupError) {
-    return { error: "We could not check that address just now. Try again in a moment." };
-  }
-
-  if (!invited) {
-    return {
-      error:
-        "That email is not authorized. Coditu accounts are invite-only — ask an admin to add you, then sign up again.",
-    };
-  }
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password: parsed.data.password,
-    // `handle_new_user` reads `full_name` out of this to build the profile and
-    // its initials; without it the profile falls back to the email local-part.
-    options: { data: { full_name: parsed.data.fullName } },
-  });
-
-  if (error) {
-    if (/already registered|already been registered/i.test(error.message)) {
-      return { error: "There is already an account for that email. Sign in instead." };
-    }
-    return { error: "That did not work. Nothing was created — try again." };
-  }
-
-  // No session means the project has email confirmation switched on, so the
-  // account exists but cannot be used yet. Redirecting anyway would bounce off
-  // the middleware straight back to this page with nothing said, which reads as
-  // the form having failed.
-  if (!data.session) {
-    return {
-      notice: `Account created. Check ${email} for a confirmation link, then sign in.`,
-    };
-  }
-
-  redirect(parsed.data.next);
-}
 
 export async function signIn(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const parsed = credentials.safeParse({

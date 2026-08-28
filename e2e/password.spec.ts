@@ -109,10 +109,47 @@ test.describe("one form, and no mail anywhere", () => {
     // And it says what to do instead, rather than leaving a hole.
     await expect(page.getByText(/Ask an admin for a temporary one/)).toBeVisible();
 
-    // Sign-up is still here, and still gated.
-    await page.getByRole("tab", { name: "Create account" }).click();
-    await expect(page.getByText(/invite-only/)).toBeVisible();
-    await expect(page.locator('input[type="email"]')).toHaveCount(1);
+    // And sign-up is gone with them — PF-10. No tab, no second submit label,
+    // no name field, and no control anywhere on the page that reads as one.
+    await expect(page.getByRole("tab")).toHaveCount(0);
+    await expect(page.getByRole("tablist")).toHaveCount(0);
+    await expect(page.getByText(/Create account/i)).toHaveCount(0);
+    await expect(page.getByLabel("Your name")).toHaveCount(0);
+    // One submit, and it says the one thing this screen does.
+    const submits = page.locator('button[type="submit"]');
+    await expect(submits).toHaveCount(1);
+    await expect(submits).toHaveText("Sign in");
+  });
+
+  test("no route or link on this screen leads to a registration form", async ({ page }) => {
+    await page.goto("/login");
+
+    // Every href the sign-in screen offers. There should be nothing here that
+    // goes anywhere near an account-creation surface — and the page is allowed
+    // to have no links at all, which is what it has.
+    const hrefs = await page.locator("a[href]").evaluateAll((nodes) =>
+      nodes.map((n) => (n as HTMLAnchorElement).getAttribute("href") ?? "")
+    );
+    for (const href of hrefs) {
+      expect(href, `${href} looks like a registration route`).not.toMatch(
+        /sign-?up|register|create-?account|join/i
+      );
+    }
+
+    // And the routes somebody would guess are not routes. Two shapes are both
+    // correct here and the first draft of this test only allowed one: a 404,
+    // or the middleware bouncing an unauthenticated visitor to `/login`, which
+    // is a 200 at `/login` and not a registration form. `/app/signup` is the
+    // second shape, so the assertion is about what is ON the page.
+    for (const guess of ["/signup", "/sign-up", "/register", "/join", "/app/signup"]) {
+      const response = await page.goto(guess);
+      const status = response?.status() ?? 0;
+      if (status < 400) {
+        expect(new URL(page.url()).pathname, `${guess} rendered a page of its own`).toBe("/login");
+      }
+      await expect(page.getByText(/Create account/i)).toHaveCount(0);
+      await expect(page.getByLabel("Your name")).toHaveCount(0);
+    }
   });
 
   test("nothing in the repository sends mail", async () => {

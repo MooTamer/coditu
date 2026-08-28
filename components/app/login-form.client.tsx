@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { CoditusMark } from "@/components/coditu/coditus-mark";
 import { Mono } from "@/components/coditu/mono";
-import { signIn, signUp, type AuthState } from "@/lib/actions/auth";
+import { signIn, type AuthState } from "@/lib/actions/auth";
 
 const FIELD =
   "h-[38px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-3 text-[14px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]";
@@ -25,6 +25,19 @@ function SubmitButton({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Sign in. There is nothing else on this screen, and that is the point.
+ *
+ * It carried a second mode until PF-10 — a `Create account` tab that collected
+ * a name and called `signUp`. The account it made was never an open door
+ * (`allowed_emails` refused anything uninvited, in the action AND in a BEFORE
+ * INSERT trigger on `auth.users`), but an internal tool that offers to make you
+ * an account is telling every visitor the wrong thing about what it is. The
+ * gate stays; the invitation to walk up to it does not.
+ *
+ * Where accounts come from now is written in `docs/10-PRODUCT-FEEDBACK.md`
+ * under PF-10, including the part that is still missing.
+ */
 export function LoginForm({
   next,
   linkFailed = false,
@@ -34,11 +47,6 @@ export function LoginForm({
   linkFailed?: boolean;
 }) {
   const [passwordState, passwordAction] = useActionState<AuthState, FormData>(signIn, {});
-  const [joinState, joinAction] = useActionState<AuthState, FormData>(signUp, {});
-  // Sign-in and sign-up share every field but one, so they are one form in two
-  // modes rather than two forms — a second password box on the same screen is
-  // how people end up typing their password into the wrong one.
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
 
   const linkError = linkFailed
     ? "That link is no longer valid. Sign in with your password, or ask an admin for a temporary one."
@@ -47,38 +55,12 @@ export function LoginForm({
   // `linkError` comes from the URL, so it outlives the submit that follows it —
   // it goes LAST, or a fresh attempt would still be answered with the stale
   // sentence instead of what actually just happened.
-  const message = passwordState.error ?? joinState.error ?? joinState.notice ?? linkError;
-  const isError =
-    Boolean(passwordState.error ?? joinState.error) ||
-    (message !== undefined && message === linkError);
-  const joining = mode === "signup";
+  const message = passwordState.error ?? linkError;
+  const isError = message !== undefined;
 
   return (
     <div className="mt-6 flex flex-col gap-3">
-      <div
-        role="tablist"
-        aria-label="Sign in or create an account"
-        className="flex rounded-control border border-[var(--hairline)] bg-[var(--raised)] p-[3px]"
-      >
-        {(["signin", "signup"] as const).map((value) => (
-          <button
-            key={value}
-            type="button"
-            role="tab"
-            aria-selected={mode === value}
-            onClick={() => setMode(value)}
-            className={`h-[30px] flex-1 rounded-[7px] text-[13px] font-semibold transition-[background-color,color] duration-[var(--dur-micro)] ${
-              mode === value
-                ? "bg-[var(--canvas)] text-[var(--ink)]"
-                : "text-[var(--ink-muted)]"
-            }`}
-          >
-            {value === "signin" ? "Sign in" : "Create account"}
-          </button>
-        ))}
-      </div>
-
-      <form action={joining ? joinAction : passwordAction} className="flex flex-col gap-3">
+      <form action={passwordAction} className="flex flex-col gap-3">
         <input type="hidden" name="next" value={next} />
 
         <label className="flex flex-col gap-[6px]">
@@ -99,24 +81,6 @@ export function LoginForm({
           />
         </label>
 
-        {joining ? (
-          <label className="flex flex-col gap-[6px]">
-            <Mono size="eyebrow" className="text-[var(--ink-faint)]">
-              Your name
-            </Mono>
-            <input
-              className={FIELD}
-              type="text"
-              name="fullName"
-              autoComplete="name"
-              required
-              minLength={2}
-              maxLength={80}
-              placeholder="Mohamed Tamer"
-            />
-          </label>
-        ) : null}
-
         <label className="flex flex-col gap-[6px]">
           <Mono size="eyebrow" className="text-[var(--ink-faint)]">
             Password
@@ -125,22 +89,14 @@ export function LoginForm({
             className={FIELD}
             type="password"
             name="password"
-            autoComplete={joining ? "new-password" : "current-password"}
+            autoComplete="current-password"
             enterKeyHint="go"
             required
-            minLength={joining ? 8 : undefined}
           />
         </label>
 
-        <SubmitButton>{joining ? "Create account" : "Sign in"}</SubmitButton>
+        <SubmitButton>Sign in</SubmitButton>
       </form>
-
-      {joining ? (
-        <p className="text-[12.5px] leading-[1.5] text-[var(--ink-faint)]">
-          Coditu is invite-only. Your address has to be on the allowlist already — an admin adds it
-          on People.
-        </p>
-      ) : null}
 
       {/* There is no "email me a link" and no "reset my password", and that is
           a decision rather than an omission. Both depended on SMTP the team
@@ -158,17 +114,17 @@ export function LoginForm({
 
       {message ? (
         <p
-          // An error is announced assertively; a notice ("check your inbox") is
-          // polite. One `role` for both would either interrupt for good news or
-          // let a failure pass unheard.
-          role={isError ? "alert" : "status"}
+          // Every message this form can now show is a refusal, so the assertive
+          // role is unconditional. It was a ternary while sign-up could return
+          // "check your inbox", which is the one notice that was ever polite.
+          role="alert"
           // Next renders its own empty `role="alert"` route announcer, so tests
           // need something that identifies THIS element rather than whichever
           // live region the framework happened to mount first.
           data-auth-message={isError ? "error" : "notice"}
           aria-live="polite"
           className="text-[12.5px] leading-[1.5]"
-          style={{ color: isError ? "var(--tone-amber-fg)" : "var(--ink-muted)" }}
+          style={{ color: "var(--tone-amber-fg)" }}
         >
           {message}
         </p>

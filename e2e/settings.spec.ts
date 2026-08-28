@@ -2,7 +2,6 @@ import {
   auditA11y,
   createThrowawayAccount,
   expect,
-  instrumentPage,
   query,
   removeThrowawayAccount,
   signIn,
@@ -84,7 +83,7 @@ test.describe("your own profile", () => {
     }
   });
 
-  test("the same name typed at sign-up produces the same initials", async ({ page, browser }) => {
+  test("the same name on a new account produces the same initials", async ({ page }) => {
     // The property that matters, and the only honest way to check a rule that
     // now exists in two languages: run both and compare. `handle_new_user`
     // derives one; `setMyName` derives the other.
@@ -107,25 +106,33 @@ test.describe("your own profile", () => {
         [signUpEmail]
       );
 
-      const context = await browser.newContext();
       try {
-        const fresh = await context.newPage();
-        // A page from a hand-rolled context does not get the fixture's
-        // hydration wait, and this one fills a form the moment it lands.
-        instrumentPage(fresh);
-        await fresh.goto("/login");
-        await fresh.getByRole("tab", { name: "Create account" }).click();
-        await fresh.getByLabel("Email").fill(signUpEmail);
-        await fresh.getByLabel("Your name").fill(AWKWARD);
-        await fresh.getByLabel("Password").fill("a-brand-new-password-2026");
-        await fresh.getByRole("button", { name: "Create account" }).click();
-        await expect(fresh).toHaveURL(/\/app/);
+        // There is no sign-up form any more (PF-10), so the other derivation is
+        // driven where it actually lives: `handle_new_user`, the AFTER INSERT
+        // trigger on `auth.users`. This is the same insert the allowlist spec
+        // uses, and it is closer to the property under test than the form was —
+        // the form only ever put `full_name` into `raw_user_meta_data` for the
+        // trigger to read, which is what happens here directly.
+        await query(
+          `insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                                   email_confirmed_at, created_at, updated_at,
+                                   raw_app_meta_data, raw_user_meta_data,
+                                   confirmation_token, recovery_token, email_change,
+                                   email_change_token_new, email_change_token_current,
+                                   phone_change, phone_change_token, reauthentication_token)
+           values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated',
+                   'authenticated', $1, 'x', now(), now(), now(),
+                   '{"provider":"email","providers":["email"]}'::jsonb,
+                   jsonb_build_object('full_name', $2::text),
+                   '', '', '', '', '', '', '', '')`,
+          [signUpEmail, AWKWARD]
+        );
 
-        const viaSignUp = await storedProfile(signUpEmail);
-        expect(viaSignUp.full_name).toBe(AWKWARD);
-        expect(viaSignUp.initials, "the two derivations disagree").toBe(viaSettings.initials);
+        const viaTrigger = await storedProfile(signUpEmail);
+        expect(viaTrigger.full_name).toBe(AWKWARD);
+        expect(viaTrigger.initials, "the two derivations disagree").toBe(viaSettings.initials);
       } finally {
-        await context.close();
+        await query(`delete from public.profiles where id in (select id from auth.users where email = $1)`, [signUpEmail]);
         await query(`delete from auth.users where email = $1`, [signUpEmail]);
         await query(`delete from public.allowed_emails where email = $1`, [signUpEmail]);
       }

@@ -124,7 +124,15 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
           account with it.
         </p>
       ) : (
-        <ul className="flex flex-col rounded-list border border-[var(--hairline)]">
+        // `data-allowlist` so a spec can ask for THIS list. `/app/people` also
+        // renders the access history, whose entries quote the same address
+        // ("… invited allowlist-probe@example.com"), so a page-level `li`
+        // filtered by an email matches three things once the history has
+        // anything in it — and passes only against a database nobody has used.
+        <ul
+          data-allowlist
+          className="flex flex-col rounded-list border border-[var(--hairline)]"
+        >
           {optimistic.map((row) => (
             <li
               key={row.email}
