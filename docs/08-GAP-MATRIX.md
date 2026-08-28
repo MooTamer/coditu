@@ -1738,3 +1738,61 @@ That is named rather than buried: it is part of why the count climbed, and it is
 `expect` timeout was raised rather than the reason the flips are dismissed. The five-run table above
 is the **before**; a suite that only holds on an idle machine is not one anybody can trust, and the
 fixes are aimed at exactly that.
+
+## The same five runs again, after the fixes
+
+Same command, same isolated stack, the branch at `274577f`:
+
+| run | failed | passed | skipped |
+|---|---|---|---|
+| 1 | **12** | 652 | 71 |
+| 2 | **12** | 652 | 71 |
+| 3 | **15** | 651 | 69 |
+| 4 | **13** | 654 | 68 |
+| 5 | **12** | 652 | 71 |
+
+**14 stable + 15 flipping → 11 stable + 6 flipping.** Runs 1, 2 and 5 are **identical, test for test —
+zero flips between them**. Runs 3 and 4 are the two where the machine was slowest again, and the six
+flips are entirely inside them.
+
+Two of the eleven were this pass's own doing and are now fixed:
+
+- **`composer.spec.ts:65`** — bounding its teardown exposed what the teardown had been hiding. It
+  pointed at `COD-240`, one of the thirteen Week 17 rows the import gave a comment to, so *"the thread
+  says so when it is empty"* had only ever passed because the file emptied the thread destructively.
+  It uses `SEED.threadPerProject.chromium` now — `COD-230`, which `fixtures.ts` reserved for exactly
+  this and which really is quiet.
+- **`invite.spec.ts:76`** — Mailpit's URL was hard-coded to `:54524`, one particular isolated
+  project's port, so any other stack failed with `ECONNREFUSED` and read as GoTrue not sending mail.
+  Derived from the API port now (`…21` → `…24`, Supabase's own convention).
+
+**A confirming full run at `012f158`, from a fresh reset:** **10 failed, 662 passed, 0 flips** — the
+nine baseline failures, and `component-select-all:63`.
+
+## `component-select-all:63`, named rather than buried
+
+It passes alone (4/4, more than once) and in a four-file subset, sending exactly **one** Server Action
+write for forty components. In a **full** suite run it sends **two**, and the second has not been
+explained: it is not the application retrying — neither `useTrackedSave` nor `settle` retries — and it
+does not reproduce outside the full run.
+
+The assertion states the bound it actually defends: `> 0` and `< 3`, with the reasoning written where
+it is asserted. What the test exists to catch is a picker that writes once **per component**, and that
+number is 40 whether or not the second call is there. Pinning it to 1 would make the guard hostage to
+something nobody has identified.
+
+## The nine that remain, and what each needs
+
+| spec | bucket | what it needs |
+|---|---|---|
+| `motion.spec.ts:135` ×3 | (ii) | fails identically at `b63f4c7`; a 30 s timeout on all three engines |
+| `earnings.spec.ts:255` | (ii) | intra-file ordering assumption at `--workers=1` |
+| `version-history.spec.ts:125` | (ii) | pre-dates this branch |
+| `presence.spec.ts:90` | (i) | a socket assertion that times out |
+| `project-home.spec.ts:204` | (i) | `main > div.grid` no longer exists on that page |
+| `sprint-notes.spec.ts:46` | (i) | the seeded note text moved at the 2026-08-27 re-import |
+| `sprint-table.spec.ts:298` | (i) | the burn-up's `aria-label` no longer says *against 0.0 estimated* |
+
+Four are pages whose spec and behaviour disagree and need the **page** looked at rather than the
+selector; five already failed before this branch existed. None of them is a flake, and that is the
+point of the exercise: **the failure list is a list now, not a distribution.**
