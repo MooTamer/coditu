@@ -2270,3 +2270,25 @@ failure rather than by running it again:
 
 Two of those three are "read once at a fixed moment". If a spec sleeps and then reads, it is not
 asserting — it is guessing.
+
+---
+
+## A Supabase dump and restore have two asymmetric privilege traps
+
+**Backup:** `supabase db dump --db-url <coditu_backup>` still generates
+`--role "postgres"`. The login succeeds and then `pg_dump` fails at `SET ROLE postgres`; the
+CLI does not derive that flag from the connection user. Do not grant `postgres` membership to
+the backup role. Generate the CLI pipeline with a placeholder URL, assert the one forced-role
+line, remove only it, and run the platform-aware remainder as `coditu_backup`. That preserves
+the CLI's schema exclusions without turning a scheduled reader into the database owner.
+
+**Restore:** the normal local `postgres` login is not privileged enough to write every
+platform-owned Storage table (`storage.buckets_vectors` was the first refusal). A full restore
+is the opposite trust boundary: use the throwaway project's `supabase_admin` restore owner.
+The backup must be least-privilege; the rebuild necessarily owns the empty target.
+
+**Storage bytes after metadata:** once `data.sql` restores `storage.objects`, `aws s3 sync`
+lists those rows, believes objects of the same size already exist, skips every PUT, and exits
+green. GET then returns Storage `InternalError` because the bytes are absent. Force a recursive
+`aws s3 cp` from the archive, download again, and compare bytes. A restored metadata row is not
+a restored object.

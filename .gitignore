@@ -24,6 +24,15 @@
 # production
 /build
 
+# Recovery material. The public age recipient lives in ops/; none of the
+# encrypted archives, private keys, or plaintext database dumps belong in git.
+/.backups
+/.db-gate
+*.agekey
+*.dump
+*.dump.age
+*.tar.gz.age
+
 # macOS — AppleDouble resource forks and Finder metadata.
 # These break `git status` with "non-monotonic index" when they land in .git/objects/pack.
 ._*

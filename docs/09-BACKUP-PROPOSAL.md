@@ -246,32 +246,31 @@ purges automatically today, which is safe and unbounded. If 90 days is agreed it
 
 ---
 
-## 4. Decide
+## 4. Decided by Mohamed, 2026-08-28
 
-**These need Mohamed's decision. Nothing will be configured until they have one.**
+1. **No Pro and no PITR.** The infrastructure objective is a **24-hour RPO**. This accepts
+   that work after the newest successful nightly copy can be lost; it does not pretend the
+   Free plan has a provider restore point.
+2. **Cloudflare R2 Standard plus an encrypted local copy, never Git.** R2's current
+   allowance is 10 GB-month, 1 million Class A operations and 10 million Class B operations
+   per month, with direct egress free. The allowance is not the same as an activated account:
+   Cloudflare currently requires an R2 subscription checkout and a primary payment method.
+   Mohamed's no-card rule therefore blocks activation; §8 names the exact boundary.
+3. **GitHub Actions cron.** `.github/workflows/nightly-backup.yml` is the scheduled writer.
+   Its database credential belongs to a dedicated `coditu_backup` role, not `postgres`.
+4. **Email to Mohamed and a freshness canary.** A second schedule checks the newest R2
+   object, and an external heartbeat catches the case where GitHub schedules stop running
+   altogether. Neither is described as active before its endpoint and secrets exist.
+5. **Thirty nightly and twelve monthly recovery sets.** Each set contains roles, schema,
+   data and every Storage object. `scripts/prune-backups.sh` retains an exact count, not an
+   approximate number of days. The application bin remains unbounded; infrastructure
+   retention does not silently create a product deletion policy.
+6. **The integrity drill is automated monthly.** It checks the encrypted object's recorded
+   SHA-256, byte size and object count without holding the private key. Mohamed performs a
+   full decrypt-and-restore quarterly with his own key; GitHub never receives that key.
 
-1. **Pay for Pro + PITR?** An estimated **~$130/month** at today's list prices — Pro, the
-   PITR add-on and the compute size PITR requires, itemised in §2 layer 1 — for a two-minute
-   RPO instead of no restore point at all. Treat the figure as an estimate and confirm it in
-   the billing dashboard. If the answer is no, layers 2–4 still go ahead, the RPO becomes 24
-   hours, and that number should then be said on the Recovery Centre screen in those words.
-   **Note that layers 2–4 are what move this project from "nothing" to "yesterday"; layer 1
-   is what moves it from "yesterday" to "two minutes".** Doing nothing leaves it at nothing.
-2. **Where do the off-site copies live?** Backblaze B2, Cloudflare R2, Hetzner, or an
-   existing account. This decides who else holds a copy of every profile and comment in the
-   workspace, so it is a data-protection decision as much as a cost one.
-3. **Where does the nightly job run?** A GitHub Actions schedule is free and needs the
-   database password in a repository secret. A small always-on host keeps the credential
-   off GitHub. The credential's home is the real question.
-4. **Who is alerted, and how?** Email is enough for four people, but somebody has to be
-   the name on it.
-5. **Retention: 30 nightly dumps, 90 days of Storage history, 90 days in the bin?** Or
-   different numbers.
-6. **Who runs the quarterly drill, and when is the first one?**
-
-Once 1–6 are answered, the Recovery Centre's `Retention, RPO and RTO — not set` card can
-state real figures, and it will be the first time anything on that screen is a number
-somebody chose.
+These are objectives until the provider copy exists. §5 still wins: the Recovery Centre
+does not state the 24-hour RPO or 30 + 12 retention while activation is card-blocked.
 
 ---
 
@@ -312,11 +311,81 @@ dashboard rather than here.
    `supabase backups list --project-ref hayfsvsepgfescojesbd`, read-only, returning
    `pitr_enabled: false` and `backups: []`. When source 1 and this disagree, **this wins** —
    it is the only one that knows what exists for `Coditu's Project`.
+5. **Cloudflare — R2 pricing.** <https://developers.cloudflare.com/r2/pricing/>
+   Re-read 2026-08-28: Standard includes 10 GB-month, 1 million Class A operations,
+   10 million Class B operations and direct egress without charge. The free allowance does
+   not apply to Infrequent Access.
+6. **Cloudflare — Get started and billing profile.**
+   <https://developers.cloudflare.com/r2/get-started/> and
+   <https://developers.cloudflare.com/billing/get-started/create-billing-profile/>.
+   R2 requires an activated subscription checkout, and Cloudflare says a primary payment
+   method is required to purchase products and services. This is why a technically free
+   allowance still crosses Mohamed's no-card boundary.
 
 ---
 
 ## 7. Status
 
-**Unresolved and unapplied.** No plan has been upgraded, no add-on enabled, no job
-scheduled, no bucket created, no credential issued. The six questions in §4 have not been
-answered, and this document does not answer them — it exists so that they can be.
+**Decided and implemented locally; not activated off-site.** The six decisions in §4 are
+answered. The workflow, read-only role migration, public-key encryption, exact GFS pruning,
+local-copy command and restore verifier exist. A real local run on 2026-08-28 encrypted
+5,245 rows from 130 tables and 115 objects from three Storage buckets, then restored those
+row counts and object bytes into an isolated Supabase stack.
+
+There are still **zero GitHub repository secrets**, no configured R2 target or credentials
+reachable from this checkout, and no remote workflow run. R2 activation reaches Cloudflare's subscription checkout, whose billing profile
+requires a primary payment method. Under Mohamed's no-card decision, this block stops at
+that boundary. Therefore the truthful hosted status remains: no off-site restore point,
+no achieved 24-hour RPO, and no active retention policy.
+
+## 8. The implemented nightly set and its activation boundary
+
+### What the job writes
+
+`scripts/backup.sh` produces one age-encrypted `tar.gz.age` and one non-sensitive metadata
+sidecar. Inside the ciphertext are three separate Supabase-CLI-generated SQL files —
+`roles.sql`, `schema.sql`, `data.sql` — plus `row-counts.tsv`, an internal checksum manifest,
+and every object from all Supabase Storage buckets. Plaintext exists only in a mode-0700
+temporary directory and is removed on exit.
+
+Supabase CLI 2.109.1 unconditionally generates `--role "postgres"`, even when the URL logs
+in as `coditu_backup`; the result is `permission denied to set role "postgres"`. The script
+uses the CLI as the source of its platform exclusions and normalisation, asserts exactly one
+forced-role line exists, removes only that escalation, and executes the generated pipeline
+as the dedicated role. A CLI shape change fails the job instead of quietly broadening access.
+
+`20260828140000_a_role_that_can_only_read.sql` creates `coditu_backup` with LOGIN,
+`pg_read_all_data` and BYPASSRLS, but no password and no write privilege. BYPASSRLS is needed
+because an RLS-filtered dump can succeed while containing no rows; it does not grant a
+write. The migration itself refuses to apply if the role can write or cannot read the
+workspace.
+
+### The encryption key
+
+The one command used on Mohamed's Mac was:
+
+```bash
+install -d -m 700 /Users/motamer/.config/coditu && umask 077 && age-keygen -o /Users/motamer/.config/coditu/backup.agekey
+```
+
+The private half lives at `/Users/motamer/.config/coditu/backup.agekey`, mode `0600`. Only
+its recipient, `ops/backup-recipient.txt`, is in Git. The private file must also get one
+offline copy before activation; losing both the Mac and that key would turn every intact R2
+object into unrecoverable ciphertext.
+
+### What still needs an account, never a code change
+
+After an R2 Standard bucket and narrowly scoped keys exist, add these GitHub repository
+secrets without printing their values:
+
+- `BACKUP_DB_URL` — the session/direct URL for `coditu_backup`, after setting that role's
+  password out of band;
+- `SUPABASE_STORAGE_S3_URL`, `SUPABASE_STORAGE_ACCESS_KEY_ID`,
+  `SUPABASE_STORAGE_SECRET_ACCESS_KEY`, `SUPABASE_STORAGE_REGION`;
+- `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
+
+Then dispatch `Nightly recovery copy` once, verify the encrypted object and sidecar by
+`HEAD`, and only then let the schedule establish the first real recovery point. The local
+copy is pulled with `scripts/sync-backup-local.sh` using a `coditu-r2` AWS profile stored
+outside the repository. `docs/12-RECOVERY-RUNBOOK.md` carries the exact activation and
+restore sequence.

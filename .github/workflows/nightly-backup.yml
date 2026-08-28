@@ -1,0 +1,50 @@
+name: Nightly recovery copy
+
+on:
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-recovery-copy
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: database · Storage · encrypt · R2
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned because backup.sh asserts the generated dump script's shape and
+      # fails closed if the CLI changes its forced-role behaviour.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Install the public-key encryption and query clients
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes age postgresql-client
+
+      - name: Build, verify and upload the encrypted recovery set
+        env:
+          BACKUP_DB_URL: ${{ secrets.BACKUP_DB_URL }}
+          BACKUP_DB_URL_CONTAINER: ${{ secrets.BACKUP_DB_URL }}
+          BACKUP_LOCAL_DIR: ${{ runner.temp }}/coditu-backups
+          BACKUP_UPLOAD: "1"
+          SOURCE_STORAGE_S3_URL: ${{ secrets.SUPABASE_STORAGE_S3_URL }}
+          SOURCE_STORAGE_ACCESS_KEY_ID: ${{ secrets.SUPABASE_STORAGE_ACCESS_KEY_ID }}
+          SOURCE_STORAGE_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_STORAGE_SECRET_ACCESS_KEY }}
+          SOURCE_STORAGE_REGION: ${{ secrets.SUPABASE_STORAGE_REGION }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PREFIX: coditu
+        run: ./scripts/backup.sh

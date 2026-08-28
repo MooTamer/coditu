@@ -4707,3 +4707,59 @@ Verified independently afterwards, not from the script's own output: **17 items 
   a row that is not quiet. Every spec there deletes the row's comments before seeding its own, so the
   test is unaffected — a `mobile-chrome` run drops COD-238's imported screenshot until the next
   `db:reset`, and that is the whole cost.
+
+## 2026-08-28 · Infrastructure Block 1 — a recovery set proved locally, R2 activation stopped at the card boundary
+
+Mohamed answered `09-BACKUP-PROPOSAL.md` §4. The repository now has the first runnable
+nightly recovery block:
+
+- `20260828140000_a_role_that_can_only_read.sql` creates `coditu_backup`, readable through
+  RLS and unable to write;
+- `scripts/backup.sh` writes CLI-generated role, schema and data dumps plus every Storage
+  object, then age-encrypts before the durable file exists;
+- `upload-backup.sh` verifies byte size and SHA metadata after S3 upload;
+- `prune-backups.sh` keeps exactly 30 nightly and 12 monthly timestamped sets;
+- `sync-backup-local.sh` pulls ciphertext onto Mohamed's Mac without propagating remote
+  deletions;
+- `verify-backup-restore.sh` performs the private-key full restore and table-count diff;
+- `.github/workflows/nightly-backup.yml` is the 01:17 UTC writer, pinned to the CLI shape
+  the script validates.
+
+### Evidence, from the real shared local source
+
+`BACKUP_ID=2026-08-28T204500Z ./scripts/backup.sh` through the dedicated role produced a
+**16,603,288-byte** encrypted archive: **130 tables, 5,245 rows, three Storage buckets,
+115 objects**. The private key stayed at
+`/Users/motamer/.config/coditu/backup.agekey`; only its public recipient is in the tree.
+
+A clean throwaway Supabase project on isolated 545xx ports then ran
+`verify-backup-restore.sh`: **130 table counts matched, 5,245 rows matched, 115 objects were
+force-uploaded and downloaded byte-for-byte**. The throwaway project was stopped with
+`supabase stop --no-backup`; `docker ps` again listed only the shared `_coditu` containers.
+
+The local S3-compatible upload proof wrote the archive and metadata, independently read its
+size and checksum metadata, then seeded retention past both limits. The pruning result was
+**30 nightly, 12 monthly**; it removed two oldest nightly ids and one oldest monthly id.
+
+`bash -n` passed all five shell scripts, Ruby parsed the workflow YAML, lint and typecheck
+passed, unit tests were **495/495**, resilience reported **0 bare** Server Action calls,
+degraded-dependency behaviour passed, the production build passed, and budgets remained
+**78.0 / 110 KB own, 217.9 / 220 KB total**. A clean isolated 546xx reset applied every
+migration including the backup role and passed **441/441** database tests. `git diff
+--check` passed before the block commit.
+
+The routine fast gate is not wholly green for standing reasons outside this infrastructure
+diff. The shared mutable database had one extra criterion and one extra attachment, so its
+seed suite read 133/115 instead of 132/114; it was not reset, and the clean isolated run
+above is the migration evidence. `components:check` still sees the external EVIM React
+registry missing and two upstream components gone. The production-only TipTap assertion
+also failed **1 of 2** at this unchanged app tree. None is called green or fixed here. The
+local database has the migration and the test-only password; the hosted database does not.
+
+### The boundary is part of the result
+
+`gh secret list -R MooTamer/coditu` returned **zero secrets**. No R2 profile, target or
+credential is configured in this checkout or shell. Current Cloudflare documentation says R2 activation is a subscription
+checkout and a primary payment method is required; Mohamed explicitly prohibited a card.
+So this block is **implemented and locally restored, not scheduled, not off-site, not
+hosted-migrated, not a 24-hour RPO**. The Recovery Centre remains unchanged and truthful.

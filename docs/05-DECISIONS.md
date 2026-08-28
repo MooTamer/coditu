@@ -4762,3 +4762,46 @@ triggers nothing.
 
 **The save indicator was measured and is fine.** Click → `Sending…` at 9–15 ms, → `Saved` at
 102–202 ms, gone at ~2.7 s, on all three engines. Both states really paint; nothing is silent.
+
+## 2026-08-28 · The backup writer may read everything and write nothing
+
+Mohamed answered all six infrastructure questions: no Pro/PITR, 24-hour RPO, Cloudflare R2
+Standard plus a local copy, GitHub Actions cron, email plus a freshness canary, 30 nightly +
+12 monthly sets, and an automated monthly integrity drill. The bin remains unbounded; an
+infrastructure retention decision does not silently become a product deletion policy.
+
+**The off-site choice is accepted but not active.** R2's current Standard allowance is free
+at this size, but activation is a subscription checkout and Cloudflare's billing profile
+requires a primary payment method. There are also zero GitHub repository secrets. Mohamed's
+no-card rule wins: the code and local proof proceed, the provider activation stops, and no
+screen claims a 24-hour RPO that does not yet exist.
+
+**The writer cannot become the incident.** `coditu_backup` has LOGIN, `pg_read_all_data` and
+BYPASSRLS, with no password in the migration and no write privilege. BYPASSRLS is necessary:
+RLS can otherwise turn a successful dump into an empty one. It grants no write. The migration
+asserts both directions against `public.work_items` and every public/auth/storage table.
+
+**Supabase CLI is kept, and its escalation is not.** CLI 2.109.1 generates the correct
+platform exclusions and filters for separate role, schema and data dumps, but it always adds
+`--role "postgres"`; a real run as `coditu_backup` fails at `SET ROLE postgres`. The backup
+script generates the CLI pipeline with a placeholder credential, requires exactly one such
+line, removes only that line, and executes the rest under the dedicated URL. A future CLI
+shape change fails closed.
+
+**Public-key encryption is deliberately asymmetric.** GitHub holds only
+`ops/backup-recipient.txt`; the corresponding private key is mode 0600 at
+`/Users/motamer/.config/coditu/backup.agekey` and needs one offline copy. GitHub can create a
+backup it cannot decrypt. The monthly automated drill therefore verifies encrypted SHA-256,
+size and counts; full decryption remains Mohamed's quarterly operation.
+
+**Storage is a first-class half of the set.** The proved local archive contains 115 objects
+from three buckets, not only the 5,245 database rows. During restore, recursive `cp` is
+required: once `storage.objects` has been restored, `sync` sees the metadata and skips the
+missing bytes. That exact false success was reproduced before the verifier was corrected.
+
+**Evidence.** Archive `2026-08-28T204500Z` is 16,603,288 encrypted bytes, SHA-256
+`9b2c78c319da218e8b1b89d255852f58e3ea071a66c4b5051fd36d7f4e87bb16`. A clean isolated
+Supabase stack restored **130/130 table counts, 5,245/5,245 rows and 115/115 Storage
+objects**, then re-downloaded byte-identical objects. A local S3-compatible target accepted
+the encrypted artifact and metadata; retention was seeded above its limits and finished at
+exactly **30 nightly + 12 monthly**. No hosted database, R2 account or GitHub secret changed.
