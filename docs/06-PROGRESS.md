@@ -4818,3 +4818,24 @@ created by `vercel[bot]`; the newest recorded one is for `b63f4c7`. Both reposit
 and no Vercel token is present. Therefore this block is **committed-code-ready only**: Git
 auto-deploy is not yet disabled on the live project, Actions has not deployed, this branch
 is not pushed, and production has not changed.
+
+## 2026-08-28 · Infrastructure Block 5 — hosted schema becomes a release precondition
+
+`scripts/check-hosted-schema.mjs` parses the generated Database type and checks the real
+Postgres catalogs in a read-only transaction. Against the migrated shared local stack it
+passed **37 migrations, 37 relations, 323 columns, 30 function signatures, 12 enums and
+three Storage buckets**. It refuses local URLs without an explicit rehearsal flag, requires
+the production project ref and SSL, and rejects a login that is not the non-writing
+`coditu_backup` contract.
+
+The CI blocking job now regenerates `database.types.ts` and fails on drift; that exposed and
+corrected one real generated-order diff in `allowlist_claimed` (`accepted`, then `email`).
+The deploy job requires `HOSTED_SCHEMA_DB_URL`, installs the checked dependencies, and runs
+the catalog preflight before any Vercel environment pull, build or deploy.
+
+The linked provider read returned **35 hosted vs 37 local migrations**. Hosted stops at
+`20260827130000`; `20260828120000_invited_is_not_accepted.sql` and
+`20260828140000_a_role_that_can_only_read.sql` remain unapplied. No password is available in
+this checkout, so a live catalog read was neither possible nor fabricated. The preflight is
+locally proved and expected to block the current hosted state; no database or deployment was
+changed.

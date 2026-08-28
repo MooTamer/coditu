@@ -4850,3 +4850,20 @@ This is implemented locally, not activated. GitHub's `Production` environment cu
 no `VERCEL_TOKEN`, `VERCEL_ORG_ID` or `VERCEL_PROJECT_ID`, and this branch is neither pushed
 nor merged. The existing Vercel Git integration therefore still auto-deploys `main` until
 this configuration reaches it; no production setting or deployment is claimed changed.
+
+## 2026-08-28 · Code does not deploy on the promise that migrations probably ran
+
+The deploy job now performs a read-only hosted schema preflight before the Vercel build. Its
+contract is generated from the committed Supabase types and migration filenames, not a
+hand-maintained list. It checks every public table/view column, function input and table
+return field, enum label, required Storage bucket, and all local migration versions.
+
+The check also proves it reached the intended project over SSL as the BYPASSRLS but
+non-writing `coditu_backup` role. A service-role or owner URL would make the check itself an
+unnecessary production writer; an anonymous URL cannot inspect the catalog. The dedicated
+role is the narrow middle.
+
+Current remote evidence says the fail-closed path matters: hosted ends at migration
+`20260827130000`, while local also has `20260828120000` and `20260828140000`. Those two are
+not silently tolerated. Migrations must run before code, and no hosted migration was applied
+in this block.

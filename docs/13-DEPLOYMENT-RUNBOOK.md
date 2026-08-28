@@ -2,7 +2,7 @@
 
 This runbook separates repository code from provider activation. The pipeline exists in the
 `visual-conformance` branch; it does not control production until it reaches `main` and the
-three Vercel secrets exist in GitHub's `Production` environment.
+required deploy secrets exist in GitHub's `Production` environment.
 
 ## 1. Release contract
 
@@ -12,10 +12,12 @@ production writer:
 
 1. `blocking release checks` starts a clean Supabase stack and runs lint, TypeScript, unit
    tests, 441 database/RLS assertions, the production build, built-token verification,
-   JavaScript budgets, Server Action resilience and degraded-dependency behaviour.
+   generated-schema drift, JavaScript budgets, Server Action resilience and
+   degraded-dependency behaviour.
 2. Only a successful push to `main` unlocks `production deploy after blocking checks`.
-3. The deploy job pulls the Vercel production environment, builds with pinned CLI 59.9.1,
-   and uploads the prebuilt output to Production.
+3. The deploy job first proves the hosted Supabase schema can serve this commit. Only then
+   does it pull the Vercel production environment, build with pinned CLI 59.9.1, and upload
+   the prebuilt output to Production.
 4. A missing token, team id or project id is a red deploy; it is never interpreted as a
    successful no-op.
 
@@ -24,6 +26,8 @@ The required GitHub `Production` environment secrets are:
 - `VERCEL_TOKEN` — a narrowly used Vercel token;
 - `VERCEL_ORG_ID` — the team/account id for `mohamed-tamers-projects`;
 - `VERCEL_PROJECT_ID` — the id for the existing `coditu` project.
+- `HOSTED_SCHEMA_DB_URL` — a direct/session URL for `coditu_backup`, used read-only for the
+  schema contract. It must identify project `hayfsvsepgfescojesbd` and negotiate SSL.
 
 Get the two ids by linking a clean local checkout to the **existing** project and reading
 `.vercel/project.json`; do not create a second project and do not commit `.vercel/`. Add the
@@ -75,3 +79,37 @@ hard dependency of `deploy` and remove `continue-on-error`. Any red run resets t
 These pages were re-read on 2026-08-28. Re-check them before changing the pinned CLI or
 provider settings; a repository runbook is not evidence that a provider contract stayed
 unchanged.
+
+## 5. Hosted schema preflight
+
+`scripts/check-hosted-schema.mjs` derives its expected contract from the committed
+`lib/supabase/database.types.ts` and the migration filenames, then queries the hosted
+catalog inside a read-only transaction. It fails before Vercel pulls or builds when any of
+these differs:
+
+- any local migration is absent from `supabase_migrations.schema_migrations`;
+- any generated public table/view or one of its columns is absent or the wrong relation kind;
+- any generated public function lacks the expected named inputs or table-return fields;
+- any public enum has a different ordered label set;
+- `avatars`, `comment-images` or `work-attachments` is absent or has the wrong visibility;
+- the URL names another Supabase project, the connection is not encrypted, or the login is
+  not the non-writing `coditu_backup` role.
+
+The blocking local job regenerates database types and requires a zero diff first. That
+closes the other half of the loop: migrations → generated contract → hosted contract →
+application build.
+
+As read on 2026-08-28, the hosted migration list ends at `20260827130000`. Local has 37
+migrations and hosted has 35; `20260828120000_invited_is_not_accepted.sql` and
+`20260828140000_a_role_that_can_only_read.sql` are not hosted. Therefore the production
+preflight is expected to fail today. The activation order is:
+
+1. use the hosted owner URL with `scripts/push-to-hosted.sh --db-url '<URI>' --verify-only`;
+2. run `supabase db push --db-url '<URI>' --dry-run` and review the two pending files;
+3. apply through `scripts/push-to-hosted.sh --db-url '<URI>' --yes`;
+4. set a unique password on `coditu_backup` out of band and store its URL only in
+   `HOSTED_SCHEMA_DB_URL` (and the backup secret where applicable);
+5. run `node scripts/check-hosted-schema.mjs` in the CI deploy job;
+6. allow the Vercel build only after it prints `hosted_schema_verified=true`.
+
+No hosted migration was applied while writing this block.

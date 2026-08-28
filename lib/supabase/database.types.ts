@@ -2131,8 +2131,8 @@ export type Database = {
       allowlist_claimed: {
         Args: never
         Returns: {
-          email: string
           accepted: boolean
+          email: string
         }[]
       }
       auth_role: {

@@ -58,6 +58,11 @@ jobs:
       - run: npm run test
       - run: npm run db:test
 
+      - name: Generated database types match the clean schema
+        run: |
+          npm run db:types
+          git diff --exit-code -- lib/supabase/database.types.ts
+
       - run: npm run build
       # Greps the BUILT stylesheet. Tailwind prunes rules it does not recognise
       # as used, and an attribute selector is not a class name — the reveal
@@ -151,16 +156,27 @@ jobs:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      HOSTED_SCHEMA_DB_URL: ${{ secrets.HOSTED_SCHEMA_DB_URL }}
 
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
       - name: Refuse an unconfigured deploy rather than silently skipping it
         run: |
           set -euo pipefail
-          for required in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN; do
+          for required in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN HOSTED_SCHEMA_DB_URL; do
             test -n "${!required:-}"
           done
+
+      - run: npm ci
+
+      - name: Prove the hosted schema can serve this commit
+        run: node scripts/check-hosted-schema.mjs
 
       - name: Build the production output with Vercel's environment
         run: |
