@@ -195,17 +195,23 @@ export function SprintNotes({
                 maxBatch={maxImageBatch}
               />
               <div className="flex flex-wrap items-center gap-3">
+                {/* The contract goes on the button that does the WORK.
+                    PF-4's sweep put the `control()` spread on Cancel and left
+                    Publish reporting ad-hoc with `disabled` + `aria-busy` — the
+                    exact spelling that sweep existed to remove, on the exact
+                    button it was meant to move. Cancel triggers no work and
+                    keeps native `disabled`, which is the contract's own answer
+                    for that state. Found while measuring PF-6. */}
                 <button
+                  {...control(saving ? "pending" : "idle")}
                   type="button"
                   onClick={() => void save(draft)}
                   disabled={saving}
-                  aria-busy={saving}
                   className="signal-gradient h-[34px] rounded-control px-4 text-[13px] font-semibold text-[#07090E] disabled:opacity-60"
                 >
                   {saving ? "Publishing…" : "Publish to the team"}
                 </button>
                 <button
-        {...control(saving ? "pending" : "idle")}
                   type="button"
                   onClick={cancel}
                   disabled={saving}

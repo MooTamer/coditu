@@ -4679,3 +4679,86 @@ repository and only ever grows, so the new number leaves room rather than tracki
 difference itself, and the multi-picker accumulates a draft and commits once on close — so forty
 ticks and one tick cost the same single Server Action. `e2e/component-select-all.spec.ts` counts the
 POSTs rather than the rows, because a row count cannot tell one call from forty.
+
+## 2026-08-28 · The peek's scroll jump is the App Router, and `scroll={false}` is the fix
+
+PF-9 carried "clicking a story scrolls down oddly" for three passes. The first pass proved the
+movement it measured was **Playwright** scrolling the link into view through CDP, tried
+`scroll={false}` on the item links, measured no change, and reverted it — a correct process run
+against a number that was the instrument. With `dispatchEvent` the harness stops moving the page,
+and what is left is real:
+
+| project | moved on five opens |
+|---|---|
+| chromium 1280×720 | `[68, 0, 0, 0, 0]` |
+| mobile-safari 393×659 | `[0, 0, 0, 0, −1]` |
+| mobile-chrome 412×839 | **`[1970, 0, 0, 0, 0]`** |
+
+**First open only. Downward. To the document's maximum scroll** — 768 of 768 at 1280×720, 2670 on
+the phone. Never on WebKit. That is Mohamed's report, on a phone, at last reproduced.
+
+**Two hypotheses were measured and thrown away before the right one.** Chrome's scroll anchoring:
+`overflow-anchor: none` on `html, body` changed the number by nothing, `[68,0,0,0,0]` either way.
+The dialog's `focus()`: forcing every `HTMLElement.prototype.focus` to `{ preventScroll: true }`
+changed it by nothing either.
+
+**Decided,** on a stack trace rather than on a theory. Every scroll API hooked, the first open
+recorded:
+
+```
+at HTMLHtmlElement.set [as scrollTop]  ← 0
+at dontForceLayout
+at O.handlePotentialScroll
+at O.componentDidMount
+```
+
+and then `scrollIntoView` from the same frame. It is Next's own `ScrollAndFocusHandler`, bringing
+the newly-rendered `@modal` segment into view on a soft navigation, animated by
+`html { scroll-behavior: smooth }` over ~165 ms. `scroll={false}` on the three links that open a
+peek — the table row, the card and the board tile — is exactly the prop that turns it off. Measured
+after: `[0,0,0,0,0]` on all three projects, document and visual viewport both.
+
+It is the first open only because every later one comes out of the router cache with its segment
+already mounted, and never on WebKit because Safari does not animate that scroll.
+
+**`e2e/peek-scroll.spec.ts` is a real spec, not a `.local` measurement**, and it is named in
+`ON_A_PHONE`: the claim is now an acceptance PF-9 states, it holds on three engines, and the phone
+is the configuration where it was broken.
+
+## 2026-08-28 · Smooth scrolling is turned off while somebody is writing
+
+PF-6 said "writing must be instant like Notion". The keystroke was measured at **12.3 ms** median
+for Enter in a to-do, which is inside a frame, and the report did not reproduce. What does
+reproduce is that **you cannot see what you are typing**.
+
+Thirty to-do items into the sprint notes, production build, 1440×900:
+
+| | after 10 items | after 20 items | 0.7 s after typing stops |
+|---|---|---|---|
+| as shipped | caret **419 px below the fold** | **856 px below** | back in view |
+| `scroll-behavior: auto` | on screen, 878 px | on screen, 878 px | on screen, 878 px |
+
+Chrome only — desktop and mobile. WebKit keeps the caret in view either way, which is why this
+survived a WebKit-shaped inspection.
+
+**The mechanism.** A browser scrolls the caret back into view on every keystroke. With
+`scroll-behavior: smooth` on the scrolling element it has to *animate* that, and at typing speed
+each keystroke restarts an animation that never arrives. The same declaration made PF-9's jump look
+like an application bug; here it is one.
+
+**Decided.** `html:has(.ProseMirror:focus) { scroll-behavior: auto; }`. Smooth stays everywhere
+else, including the anchor links it was added for. Measured after, on all three engines: caret on
+screen before Enter and after it, `caretMoved: 0`, and the document moves 46–49 px — one line, which
+is what following a caret is supposed to look like.
+
+**`:has()` rather than a class toggled from a focus listener.** This is a statement about a state
+the document already knows, and the app shell has no bytes to spend on JavaScript that reads it.
+
+**Also found, and fixed with it:** `sprint-notes.client.tsx` had PF-4's `control()` spread on
+**Cancel** and left **Publish** — the button that actually does the work — reporting ad-hoc with
+`disabled` + `aria-busy`, which is the spelling that sweep existed to remove. The spread is on
+Publish now; Cancel keeps native `disabled`, which is the contract's own answer for a control that
+triggers nothing.
+
+**The save indicator was measured and is fine.** Click → `Sending…` at 9–15 ms, → `Saved` at
+102–202 ms, gone at ~2.7 s, on all three engines. Both states really paint; nothing is silent.

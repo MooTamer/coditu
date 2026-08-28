@@ -55,6 +55,23 @@ export function SprintBoard({ rows, basePath }: { rows: WorkItemRow[]; basePath:
                 <Link
                   key={item.id}
                   href={`${basePath}/items/${item.key}`}
+                  /**
+                   * PF-9. The App Router brings a newly-rendered segment into
+                   * view on a soft navigation, and the peek IS a new segment —
+                   * `ScrollAndFocusHandler.handlePotentialScroll` sets
+                   * `html.scrollTop = 0` and then calls `scrollIntoView()` on the
+                   * modal, which `html { scroll-behavior: smooth }` animates. The
+                   * page ends up at its MAXIMUM scroll: 768 of 768 at 1280x720,
+                   * 2670 on a 412x839 phone. First open only, because every later
+                   * one comes out of the router cache; never on WebKit.
+                   *
+                   * Proved by stack trace with every scroll API hooked, after
+                   * `dispatchEvent` removed the harness's own CDP scroll from the
+                   * measurement. An earlier pass tried this exact prop and reverted
+                   * it, because it measured no change — against a number that was
+                   * Playwright scrolling the link into view, not the app.
+                   */
+                  scroll={false}
                   // See `rail.client.tsx`.
                   prefetch={false}
                         className="flex flex-col gap-[10px] rounded-inner border border-l-[3px] border-[var(--hairline)] bg-[var(--canvas)] p-3"
