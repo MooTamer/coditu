@@ -4495,3 +4495,41 @@ action's origin for us, and invariant 3 asks for an action anyway.
 **Rejected: changing the GoTrue email template to a `{{ .TokenHash }}` link and calling
 `verifyOtp`.** It is arguably the more modern shape and it is configuration, not code — it needs a
 change in the hosted project that this branch cannot make or verify.
+
+## 2026-08-28 · A spec's teardown deletes only the rows it created
+
+Three files have now been fixed for one bug with one shape, and it is worth writing down as a rule
+rather than as three fixes. `inline-edit.spec.ts` deleted every time entry on its item and took
+**12.0 h** of the sprint with it. `reliable-writes.spec.ts` deleted every comment and every time
+entry on `COD-239` and took **60 minutes and one imported picture**. `composer.spec.ts` deleted
+every comment on `COD-240` and took another picture. `history.spec.ts` deleted all **seven** of
+`COD-235`'s imported revisions and never put them back.
+
+Each looked correct in isolation. Each is destructive in company, and the damage is **permanent for
+the rest of the run** — a later spec reads a database that no longer matches the seed, fails for a
+reason that has nothing to do with what it is testing, and passes when run alone. That is exactly
+the signature the ninth pass called "a second writer somewhere" and could not find.
+
+**Decided.** A spec that deletes rows it did not create is a bug, in the same way a leaked file
+handle is. The pattern, and all four now use it:
+
+```ts
+let seeded: string[] = [];
+test.beforeAll(async () => { seeded = (await query(`select id::text …`)).map(r => r.id); });
+// then
+`delete from … where <the spec's scope> and not (id::text = any($1::text[]))`
+```
+
+**The counts move with the delete.** `reliable-writes` asserts "one comment, not two" and
+`composer` asserts "one comment"; both now count the same bounded set. The claim is unchanged — *this
+file wrote one row* — rather than relaxed to accommodate the seed, which would have been the easy
+fix and a weaker test.
+
+**The exception, and it is named:** `version-history.spec.ts` clears its own item's revisions
+deliberately, because it is the one file that asserts absolute `revision_no` values and cannot
+inherit a numbering. It says so where it does it. `history.spec.ts` does not assert version numbers
+and therefore does not need the privilege.
+
+**Rejected: resetting the database between spec files.** It is the obvious fix and it turns a
+twenty-five minute suite into an hour of `supabase db reset`. The seed is a shared, read-mostly
+fixture and the rule above is what makes that work.

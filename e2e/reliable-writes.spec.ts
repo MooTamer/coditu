@@ -63,19 +63,60 @@ async function replayEveryAction(page: import("@playwright/test").Page) {
   return state;
 }
 
+/**
+ * What COD-239 already had when this file started.
+ *
+ * `clearItem` used to delete every comment and every time entry on the item,
+ * with no bound on which rows were this file's — the same shape that cost
+ * `inline-edit.spec.ts` 12.0 h of the sprint, and this one costs 60 minutes and
+ * one imported comment. 60 minutes is 1.0 h off a 58.0 h sprint, permanently,
+ * for the rest of the run: `sprint-table.spec.ts`'s two `SEED.totals`
+ * assertions are the ones that read it, they are the two that failed in company
+ * and passed alone, and this is the second writer they named.
+ *
+ * The counts below are bounded the same way, so each test still asserts exactly
+ * what it always did — *this file wrote one row, not two* — rather than being
+ * relaxed to accommodate the seed.
+ */
+let seededComments: string[] = [];
+let seededEntries: string[] = [];
+
+async function snapshotItem() {
+  seededComments = (
+    await query<{ id: string }>(
+      `select c.id::text as id from comments c
+       join work_items w on w.id = c.work_item_id where w.key = 'COD-239'`
+    )
+  ).map((row) => row.id);
+  seededEntries = (
+    await query<{ id: string }>(
+      `select t.id::text as id from time_entries t
+       join work_items w on w.id = t.work_item_id where w.key = 'COD-239'`
+    )
+  ).map((row) => row.id);
+}
+
 async function clearItem() {
   await query(
-    `delete from comments where work_item_id = (select id from work_items where key = 'COD-239')`
+    `delete from comments
+      where work_item_id = (select id from work_items where key = 'COD-239')
+        and not (id::text = any($1::text[]))`,
+    [seededComments]
   );
   await query(
-    `delete from time_entries where work_item_id = (select id from work_items where key = 'COD-239')`
+    `delete from time_entries
+      where work_item_id = (select id from work_items where key = 'COD-239')
+        and not (id::text = any($1::text[]))`,
+    [seededEntries]
   );
 }
 
 async function countComments() {
   const rows = await query<{ n: string }>(
     `select count(*)::text as n from comments c
-     join work_items w on w.id = c.work_item_id where w.key = 'COD-239'`
+     join work_items w on w.id = c.work_item_id
+     where w.key = 'COD-239' and not (c.id::text = any($1::text[]))`,
+    [seededComments]
   );
   return Number(rows[0].n);
 }
@@ -84,6 +125,10 @@ test.describe("a submission that arrives twice happens once", () => {
   // Serial: all three write to the same item, so parallel workers would count
   // each other's rows.
   test.describe.configure({ mode: "serial" });
+
+  test.beforeAll(async () => {
+    await snapshotItem();
+  });
 
   test.beforeEach(async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -152,7 +197,9 @@ test.describe("a submission that arrives twice happens once", () => {
           const rows = await query<{ n: string; total: string }>(
             `select count(*)::text as n, coalesce(sum(minutes), 0)::text as total
                from time_entries t
-               join work_items w on w.id = t.work_item_id where w.key = 'COD-239'`
+               join work_items w on w.id = t.work_item_id
+              where w.key = 'COD-239' and not (t.id::text = any($1::text[]))`,
+            [seededEntries]
           );
           return `${rows[0].n}/${rows[0].total}`;
         },

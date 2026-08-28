@@ -2,14 +2,55 @@ import { expect, query, shell, test } from "./fixtures";
 
 const ITEM = "/app/projects/meinevim/sprints/17/items/COD-240";
 
+/**
+ * The comments COD-240 already had when this file started.
+ *
+ * The import writes one comment per item whose Notion page carried pictures,
+ * and COD-240 is one of them. `clearComments` used to delete every comment on
+ * the item, so that picture left the database on the first run of this file and
+ * did not come back until the next `db:reset` — the same unbounded-teardown
+ * shape `inline-edit.spec.ts` and `reliable-writes.spec.ts` were both fixed for.
+ *
+ * `countComments` is bounded the same way, so "there is one comment" still
+ * means *this file wrote one*, which is the claim, rather than being widened to
+ * accommodate the seed.
+ */
+let seeded: string[] = [];
+
+async function snapshotComments() {
+  seeded = (
+    await query<{ id: string }>(
+      `select c.id::text as id from comments c
+       join work_items w on w.id = c.work_item_id where w.key = 'COD-240'`
+    )
+  ).map((row) => row.id);
+}
+
 async function clearComments() {
   await query(
-    `delete from comments where work_item_id = (select id from work_items where key = 'COD-240')`
+    `delete from comments
+      where work_item_id = (select id from work_items where key = 'COD-240')
+        and not (id::text = any($1::text[]))`,
+    [seeded]
   );
+}
+
+async function countComments() {
+  const rows = await query<{ n: string }>(
+    `select count(*)::text as n from comments c
+     join work_items w on w.id = c.work_item_id
+     where w.key = 'COD-240' and not (c.id::text = any($1::text[]))`,
+    [seeded]
+  );
+  return Number(rows[0].n);
 }
 
 test.describe("comment composer", () => {
   test.describe.configure({ mode: "serial" });
+
+  test.beforeAll(async () => {
+    await snapshotComments();
+  });
 
   test.beforeEach(async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -65,11 +106,7 @@ test.describe("comment composer", () => {
 
     await expect
       .poll(async () => {
-        const rows = await query<{ n: string }>(
-          `select count(*)::text as n from comments c
-           join work_items w on w.id = c.work_item_id where w.key = 'COD-240'`
-        );
-        return Number(rows[0].n);
+        return countComments();
       }, { timeout: 8000 })
       .toBe(1);
   });
@@ -96,11 +133,7 @@ test.describe("comment composer", () => {
     await page.getByRole("button", { name: "Comment", exact: true }).click();
     await expect
       .poll(async () => {
-        const rows = await query<{ n: string }>(
-          `select count(*)::text as n from comments c
-           join work_items w on w.id = c.work_item_id where w.key = 'COD-240'`
-        );
-        return Number(rows[0].n);
+        return countComments();
       }, { timeout: 8000 })
       .toBe(1);
 
