@@ -9,6 +9,7 @@ import { useToast } from "@/components/app/toast.client";
 import { toggleFavourite } from "@/lib/actions/favourites";
 import type { FavouriteKind } from "@/lib/favourites";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 /**
  * The one control that puts something in the sidebar, wherever it is.
@@ -78,6 +79,7 @@ export function FavouriteStar({
 
   return (
     <button
+        {...control(pending ? "pending" : "idle")}
       type="button"
       onClick={toggle}
       disabled={pending}

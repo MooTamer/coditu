@@ -16,6 +16,7 @@ import type { ProfileRef } from "@/lib/data/profiles";
 import { deleteWorkItem, moveWorkItem, restoreWorkItem, setWorkItemFields } from "@/lib/actions/work-items";
 import { hoursLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 /**
  * The same editor every other writing surface uses, loaded the same way — only
@@ -154,6 +155,7 @@ export function EditableTitle({
         />
         <div className="flex items-center gap-2">
           <button
+          {...control(pending ? "pending" : "idle")}
             type="button"
             onClick={save}
             disabled={pending}
@@ -542,6 +544,7 @@ export function ItemActions({
       ) : null}
 
       <button
+          {...control(pending ? "pending" : "idle")}
         type="button"
         onClick={remove}
         disabled={pending}

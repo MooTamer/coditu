@@ -8,6 +8,7 @@ import { LogOut, Settings, Trash2, UserRound, Wallet } from "lucide-react";
 import { PersonAvatar, type AvatarPerson } from "@/components/app/person-avatar";
 import { Mono } from "@/components/coditu/mono";
 import { signOut } from "@/lib/actions/auth";
+import { control } from "@/lib/interactive";
 
 /**
  * Who you are signed in as, and the two things you can do about it.
@@ -254,10 +255,10 @@ export function AccountMenu({ me }: { me: AccountIdentity }) {
                 </Link>
 
                 <button
+        {...control(signingOut ? "pending" : "idle")}
                   role="menuitem"
                   type="button"
                   disabled={signingOut}
-                  aria-busy={signingOut}
                   onClick={() => startSignOut(() => void signOut())}
                   className="flex h-11 cursor-pointer items-center gap-3 rounded-control px-3 text-left text-[13.5px] font-medium hover:bg-[var(--tint)] disabled:opacity-60"
                 >

@@ -35,6 +35,8 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
    * click, and it caught that first draft elsewhere in the app.
    */
   const [sending, setSending] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const form = useRef<HTMLFormElement>(null);
 
   const [optimistic, applyOptimistic] = useOptimistic(
@@ -49,6 +51,7 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const note = String(formData.get("note") ?? "").trim();
     setError(null);
+    setAdding(true);
 
     startTransition(async () => {
       applyOptimistic({
@@ -57,6 +60,7 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
       });
 
       const result = await settle(() => addAllowedEmail({ email, note: note || undefined }), "That did not save.");
+      setAdding(false);
       if (result.ok) {
         form.current?.reset();
         toast(`${email} can now sign up.`);
@@ -84,9 +88,11 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
 
   function remove(email: string) {
     setError(null);
+    setRemoving(email);
     startTransition(async () => {
       applyOptimistic({ type: "remove", email });
       const result = await settle(() => removeAllowedEmail({ email }), "That did not save.");
+      setRemoving(null);
       if (result.ok) {
         toast(`${email} can no longer sign up.`);
       } else {
@@ -128,9 +134,9 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
         </label>
 
         <button
+          {...control(adding ? "pending" : "idle")}
           type="submit"
           disabled={pending}
-          aria-busy={pending}
           className="signal-gradient flex h-[38px] shrink-0 items-center gap-2 rounded-control px-4 text-[13.5px] font-semibold text-[#07090E] disabled:opacity-70"
         >
           <UserPlus size={15} strokeWidth={2} aria-hidden />
@@ -205,6 +211,7 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
               <button
                 type="button"
                 onClick={() => remove(row.email)}
+                {...control(removing === row.email ? "pending" : "idle")}
                 disabled={pending}
                 aria-label={`Withdraw the invite for ${row.email}`}
                 className="flex size-9 shrink-0 items-center justify-center rounded-control border border-[var(--hairline)] text-[var(--ink-muted)] transition-colors duration-[var(--dur-micro)] hover:border-[var(--rose)] hover:text-[var(--rose)] disabled:opacity-50"

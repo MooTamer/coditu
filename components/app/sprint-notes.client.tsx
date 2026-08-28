@@ -13,6 +13,7 @@ import { useTrackedSave } from "@/components/app/save-state.client";
 import { documentFromText, isEmptyDocument } from "@/lib/blocks/schema";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { calendarDate } from "@/lib/format";
+import { control } from "@/lib/interactive";
 
 /**
  * The same editor the thread and the criteria use, loaded the same way: only
@@ -204,6 +205,7 @@ export function SprintNotes({
                   {saving ? "Publishing…" : "Publish to the team"}
                 </button>
                 <button
+        {...control(saving ? "pending" : "idle")}
                   type="button"
                   onClick={cancel}
                   disabled={saving}

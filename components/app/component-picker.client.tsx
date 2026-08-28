@@ -21,6 +21,7 @@ import {
 } from "@/lib/components";
 import type { ComponentRef } from "@/lib/data/components";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 /**
  * Choose the thing an item changes — and add one when it is not on the list
@@ -564,10 +565,10 @@ export function AddComponent({
           Cancel
         </button>
         <button
+        {...control(pending ? "pending" : "idle")}
           type="button"
           onClick={submit}
           disabled={pending}
-          aria-busy={pending}
           className="signal-gradient h-[30px] flex-1 rounded-control text-[12.5px] font-semibold text-[#07090E] disabled:opacity-50"
         >
           {pending ? "Adding…" : "Add"}

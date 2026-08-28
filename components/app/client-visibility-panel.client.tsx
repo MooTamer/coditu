@@ -13,6 +13,7 @@ import {
 } from "@/lib/actions/client-publication";
 import { THREAD_STATE_LABEL_INTERNAL, type ClientThreadView } from "@/lib/client-threads";
 import { timestamp } from "@/lib/format";
+import { control } from "@/lib/interactive";
 
 const FIELD =
   "w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-3 py-2 text-[14px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]";
@@ -65,6 +66,17 @@ export function ClientVisibilityPanel({
 }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
   const [draftSummary, setDraftSummary] = useState(summary);
   const [asking, setAsking] = useState(false);
 
@@ -123,6 +135,8 @@ export function ClientVisibilityPanel({
 
           <div className="flex flex-wrap gap-2">
             <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
               type="button"
               disabled={pending}
               onClick={() =>
@@ -145,6 +159,8 @@ export function ClientVisibilityPanel({
 
             {published ? (
               <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
                 type="button"
                 disabled={pending}
                 onClick={() => {
@@ -279,6 +295,8 @@ export function ClientVisibilityPanel({
             </p>
             <div className="flex gap-2">
               <button
+          onClickCapture={() => setActing("c3")}
+          {...control(pending && acting === "c3" ? "pending" : "idle")}
                 type="submit"
                 disabled={pending}
                 className="inline-flex h-11 items-center rounded-control bg-[var(--ink)] px-4 text-[13.5px] font-medium text-[var(--canvas)] disabled:opacity-60"
@@ -316,6 +334,8 @@ export function ClientVisibilityPanel({
 
                 {canManage ? (
                   <button
+          onClickCapture={() => setActing("c4")}
+          {...control(pending && acting === "c4" ? "pending" : "idle")}
                     type="button"
                     disabled={pending}
                     onClick={() =>

@@ -9,6 +9,7 @@ import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { setMyName } from "@/lib/actions/profiles";
 import { initialsFor } from "@/lib/profile-initials";
+import { control } from "@/lib/interactive";
 
 /**
  * Correcting your own name.
@@ -129,6 +130,7 @@ export function NameSettings({
       </label>
 
       <button
+        {...control(pending ? "pending" : "idle")}
         type="submit"
         disabled={!changed || tooShort || pending}
         className="inline-flex h-11 shrink-0 items-center gap-2 rounded-control border border-[var(--hairline-strong)] px-4 text-[13.5px] font-medium hover:bg-[var(--canvas)] disabled:cursor-not-allowed disabled:opacity-50"

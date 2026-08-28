@@ -13,6 +13,7 @@ import {
   sendTestNotification,
 } from "@/lib/actions/push";
 import { isIOS, isStandalone } from "@/lib/pwa";
+import { control } from "@/lib/interactive";
 
 /**
  * Turning notifications on, and being honest about every reason they might not
@@ -51,6 +52,17 @@ type Support =
 export function PushSettings() {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
 
   const [support, setSupport] = useState<Support>("checking");
   const [permission, setPermission] = useState<NotificationPermission>("default");
@@ -309,6 +321,8 @@ export function PushSettings() {
       <>
         <div className="flex flex-wrap items-center gap-2">
           <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
             type="button"
             disabled={pending}
             onClick={subscribed ? disable : enable}
@@ -324,6 +338,8 @@ export function PushSettings() {
 
           {subscribed ? (
             <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
               type="button"
               disabled={pending}
               onClick={test}

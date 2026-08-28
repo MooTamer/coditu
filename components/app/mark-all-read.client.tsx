@@ -6,6 +6,7 @@ import { useTransition } from "react";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { markNotificationsRead } from "@/lib/actions/notifications";
+import { control } from "@/lib/interactive";
 
 /**
  * The design's `mark all read`, doing what it says.
@@ -38,9 +39,9 @@ export function MarkAllRead({ unread }: { unread: number }) {
 
   return (
     <button
+        {...control(pending ? "pending" : "idle")}
       type="button"
       disabled={pending}
-      aria-busy={pending}
       onClick={() =>
         startTransition(async () => {
           try {

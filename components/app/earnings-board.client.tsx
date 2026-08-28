@@ -23,6 +23,7 @@ import {
 } from "@/lib/format";
 import type { AppSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 /**
  * The earnings board: one card per sprint, phone first.
@@ -405,10 +406,10 @@ function SprintCard({
               </div>
 
               <button
+        {...control(pending ? "pending" : "idle")}
                 type="button"
                 onClick={confirm}
                 disabled={pending || picked.size === 0}
-                aria-busy={pending}
                 className="signal-gradient mt-3 inline-flex h-[38px] items-center gap-2 rounded-control px-4 text-[13.5px] font-semibold text-[#07090E] disabled:opacity-60"
               >
                 {pending ? (

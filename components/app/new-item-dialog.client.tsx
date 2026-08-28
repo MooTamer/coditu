@@ -12,6 +12,7 @@ import { createWorkItem } from "@/lib/actions/work-items";
 import type { ComponentRef } from "@/lib/data/components";
 import type { ProfileRef } from "@/lib/data/profiles";
 import type { ProjectSummary } from "@/lib/data/projects";
+import { control } from "@/lib/interactive";
 import {
   STATUS_DISPLAY_ORDER,
   STATUS_LABEL,
@@ -201,10 +202,10 @@ export function NewItemDialog({
             Cancel
           </button>
           <button
+        {...control(pending ? "pending" : "idle")}
             type="submit"
             form="new-item"
             disabled={!canSubmit}
-            aria-busy={pending}
             className="signal-gradient h-[38px] rounded-control px-5 text-[13.5px] font-semibold text-[#07090E] disabled:opacity-50"
           >
             {pending ? "Creating…" : "Create item"}

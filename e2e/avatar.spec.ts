@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { SUPABASE_URL, auditA11y, expect, query, signIn, test } from "./fixtures";
+import { SUPABASE_URL, auditA11y, expect, query, shell, signIn, test } from "./fixtures";
 
 /**
  * Profile pictures: setting one, seeing it everywhere, and taking it away.
@@ -161,7 +161,10 @@ test.describe("profile pictures", () => {
 
     // And to everybody else, on the screen that lists the team.
     await page.goto("/app/people");
-    const row = page.locator("[data-team-member]", { hasText: NAME });
+    // Through `shell()`: `/app/people` resolves its subtree inside
+    // `<div hidden id="S:1">` and moves it, so for ~100ms both copies match and
+    // a page-level locator is a coin flip. See the note on `shell` in fixtures.
+    const row = shell(page).locator("[data-team-member]", { hasText: NAME });
     await expect(row.locator("[data-avatar='picture'] img")).toHaveAttribute("src", storedUrl);
 
     expect(await auditA11y(page)).toEqual([]);

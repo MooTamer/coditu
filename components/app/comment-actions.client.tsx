@@ -11,6 +11,7 @@ import { settle } from "@/lib/action-result";
 import { deleteComment, editComment } from "@/lib/actions/comments";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 /**
  * Editing and withdrawing a comment.
@@ -72,6 +73,17 @@ export function CommentActions({
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<unknown>(bodyJson);
   const [empty, setEmpty] = useState(false);
@@ -132,6 +144,8 @@ export function CommentActions({
         />
         <div className="flex flex-wrap items-center gap-2">
           <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
             type="button"
             onClick={save}
             disabled={pending || empty}
@@ -182,6 +196,8 @@ export function CommentActions({
           ) : null}
           {canRemove ? (
             <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
               type="button"
               onClick={remove}
               disabled={pending}

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/app/toast.client";
 import { settle } from "@/lib/action-result";
 import { markNotificationsRead } from "@/lib/actions/notifications";
+import { control } from "@/lib/interactive";
 
 /**
  * Clears the unread notifications, and looks cleared straight away.
@@ -30,9 +31,9 @@ export function MarkNotificationsRead({ count }: { count: number }) {
 
   return (
     <button
+        {...control(pending ? "pending" : "idle")}
       type="button"
       disabled={pending}
-      aria-busy={pending}
       onClick={() =>
         startTransition(async () => {
           clear(true);

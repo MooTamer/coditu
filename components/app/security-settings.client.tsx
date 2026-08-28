@@ -8,6 +8,7 @@ import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
 import { signOutOtherDevices } from "@/lib/actions/auth";
+import { control } from "@/lib/interactive";
 
 /**
  * The two things you can do about how you get in.
@@ -75,6 +76,7 @@ export function SecuritySettings() {
       </Link>
 
       <button
+        {...control(pending ? "pending" : "idle")}
         type="button"
         onClick={signOutOthers}
         disabled={pending}

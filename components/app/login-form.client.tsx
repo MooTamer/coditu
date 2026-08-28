@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import { CoditusMark } from "@/components/coditu/coditus-mark";
 import { Mono } from "@/components/coditu/mono";
 import { signIn, type AuthState } from "@/lib/actions/auth";
+import { control } from "@/lib/interactive";
 
 const FIELD =
   "h-[38px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-3 text-[14px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]";
@@ -14,9 +15,9 @@ function SubmitButton({ children }: { children: React.ReactNode }) {
   const { pending } = useFormStatus();
   return (
     <button
+        {...control(pending ? "pending" : "idle")}
       type="submit"
       disabled={pending}
-      aria-busy={pending}
       className="signal-gradient flex h-[38px] w-full items-center justify-center gap-2 rounded-control text-[13.5px] font-semibold text-[#07090E] disabled:opacity-70"
     >
       {pending ? <CoditusMark size={16} spin /> : null}

@@ -11,6 +11,7 @@ import { settle } from "@/lib/action-result";
 import { commitImport, previewImport } from "@/lib/actions/import";
 import type { ImportPreview } from "@/lib/import/notion";
 import { hours } from "@/lib/format";
+import { control } from "@/lib/interactive";
 
 const HEAD =
   "px-4 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.06em] text-[var(--ink-faint)]";
@@ -144,10 +145,10 @@ export function ImportPanel({
 
         {preview ? (
           <button
+        {...control(pending ? "pending" : "idle")}
             type="button"
             onClick={commit}
             disabled={pending || !canCommit || !sprintId || preview.committable === 0}
-            aria-busy={pending}
             title={
               !canCommit
                 ? "Only an admin or lead can import work items"

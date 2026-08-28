@@ -12,6 +12,7 @@ import { deleteTimeEntry, logTime, updateTimeEntry } from "@/lib/actions/work-it
 import type { TimeEntryRecord } from "@/lib/data/work-item";
 import { hours, hoursLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 /** Half-hour steps, as minutes. Invariant 2: the UI never holds a float. */
 const STEP = 30;
@@ -150,10 +151,10 @@ export function LogTime({
       </div>
 
       <button
+          {...control(pending ? "pending" : "idle")}
         type="button"
         onClick={submit}
         disabled={pending}
-        aria-busy={pending}
         className="signal-gradient mt-[14px] h-[38px] w-full rounded-control text-[13.5px] font-semibold text-[#07090E] disabled:opacity-70"
       >
         Log {hours(minutes)} h
@@ -212,6 +213,17 @@ function TimeEntryRow({
   const trackedSave = useTrackedSave();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [minutes, setMinutes] = useState(entry.minutes);
   const [workedOn, setWorkedOn] = useState(entry.workedOn);
@@ -284,6 +296,8 @@ function TimeEntryRow({
           </button>
         </div>
         <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
           type="button"
           onClick={save}
           disabled={pending}
@@ -338,6 +352,8 @@ function TimeEntryRow({
         ) : null}
         {canRemove ? (
           <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
             type="button"
             onClick={remove}
             disabled={pending}

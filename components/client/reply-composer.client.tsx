@@ -5,6 +5,7 @@ import { SendHorizontal } from "lucide-react";
 
 import { settle } from "@/lib/action-result";
 import { replyToClientThread } from "@/lib/actions/client-threads";
+import { control } from "@/lib/interactive";
 
 /**
  * Answering, on a phone, with a thumb.
@@ -148,6 +149,7 @@ export function ReplyComposer({
 
       <div className="flex justify-end">
         <button
+        {...control(pending ? "pending" : "idle")}
           type="button"
           onClick={send}
           disabled={pending || value.trim().length === 0}

@@ -19,6 +19,7 @@ import type { SprintSummary } from "@/lib/data/projects";
 import { dateRange, hours } from "@/lib/format";
 import type { SprintStatus } from "@/lib/work-items";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 const FIELD =
   "h-[34px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-[10px] text-[13.5px] text-[var(--ink)]";
@@ -226,9 +227,9 @@ function NewSprintForm({
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
+          {...control(pending ? "pending" : "idle")}
           type="submit"
           disabled={pending}
-          aria-busy={pending}
           className="signal-gradient h-[34px] rounded-control px-4 text-[13px] font-semibold text-[#07090E] disabled:opacity-60"
         >
           {pending ? "Opening…" : "Open sprint"}
@@ -261,6 +262,17 @@ function SprintRow({
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(sprint.name);
   const [startsOn, setStartsOn] = useState(sprint.startsOn ?? "");
@@ -376,6 +388,8 @@ function SprintRow({
             />
           </label>
           <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
             type="button"
             onClick={save}
             disabled={pending}
@@ -484,6 +498,8 @@ function SprintRow({
           </button>
 
           <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
             type="button"
             onClick={remove}
             disabled={pending || !empty}

@@ -19,6 +19,7 @@ import type { TeamMember } from "@/lib/data/profiles";
 import { hours } from "@/lib/format";
 import { APP_ROLES, type AppRole } from "@/lib/work-items";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 export interface TeamRow extends TeamMember {
   /** Load on the open sprint, when there is one. */
@@ -82,6 +83,17 @@ function PersonRow({
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
   const [role, setRole] = useState<AppRole>(person.role);
   const [active, setActive] = useState(person.isActive);
   const [confirming, setConfirming] = useState(false);
@@ -333,6 +345,8 @@ function PersonRow({
       {isAdmin ? (
         <div className="flex flex-wrap items-center justify-end gap-2">
           <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
             type="button"
             onClick={issueTemporaryPassword}
               disabled={pending || !active || isSelf}
@@ -358,6 +372,8 @@ function PersonRow({
               Temporary password
             </button>
           <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
             type="button"
             onClick={toggleActive}
               disabled={pending || isSelf}

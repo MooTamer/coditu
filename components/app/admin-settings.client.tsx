@@ -11,6 +11,7 @@ import { setIsDeveloper, updateAppSettings } from "@/lib/actions/earnings";
 import { hours, rateFromMicros, timestamp, usdFromCents } from "@/lib/format";
 import type { AppSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 const FIELD =
   "h-[34px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-[10px] text-[13.5px] text-[var(--ink)]";
@@ -293,6 +294,17 @@ function ExchangeRate({ settings }: { settings: AppSettings }) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
   const [draft, setDraft] = useState(
     settings.usdEgpRateMicros ? rateFromMicros(settings.usdEgpRateMicros) : ""
   );
@@ -356,6 +368,8 @@ function ExchangeRate({ settings }: { settings: AppSettings }) {
           onChange={(event) => setDraft(event.target.value)}
         />
         <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
           type="button"
           onClick={saveManual}
           disabled={pending}
@@ -365,6 +379,8 @@ function ExchangeRate({ settings }: { settings: AppSettings }) {
         </button>
         {settings.usdEgpSource === "manual" ? (
           <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
             type="button"
             onClick={backToLive}
             disabled={pending}

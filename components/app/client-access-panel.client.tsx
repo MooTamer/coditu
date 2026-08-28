@@ -26,6 +26,7 @@ import {
 } from "@/lib/actions/client-access";
 import type { ClientAccessRow } from "@/lib/data/client-access";
 import { calendarDate } from "@/lib/format";
+import { control } from "@/lib/interactive";
 
 const FIELD =
   "h-11 w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-3 text-[14px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]";
@@ -60,6 +61,17 @@ export function ClientAccessPanel({
 }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
   const [openInviteFor, setOpenInviteFor] = useState<string | null>(null);
   const [issued, setIssued] = useState<{ email: string; password: string } | null>(null);
 
@@ -192,6 +204,8 @@ export function ClientAccessPanel({
 
                     {isAdmin ? (
                       <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
                         type="button"
                         disabled={pending}
                         onClick={() => {
@@ -261,6 +275,8 @@ export function ClientAccessPanel({
 
                   {isAdmin ? (
                     <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
                       type="button"
                       disabled={pending}
                       onClick={() =>
@@ -456,12 +472,13 @@ function InviteForm({
       </div>
 
       <p className="text-[12.5px] leading-[1.5] text-[var(--ink-faint)]">
-        No email is sent — this application has no mail transport. You will be given a password once,
-        to pass on yourself.
+        No email is sent for a client account. You will be given a password once, to pass on
+        yourself — unlike an internal invitation, which does send a link.
       </p>
 
       <div className="flex flex-wrap gap-3">
         <button
+          {...control(busy ? "pending" : "idle")}
           type="submit"
           disabled={pending || busy || projectIds.length === 0}
           className="inline-flex h-11 items-center rounded-control bg-[var(--ink)] px-4 text-[13.5px] font-medium text-[var(--canvas)] disabled:opacity-60"
