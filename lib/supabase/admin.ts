@@ -7,9 +7,10 @@ import type { Database } from "./database.types";
 /**
  * The service-role client. Bypasses RLS entirely.
  *
- * Use it for exactly two things: the seed, and the signed-URL issuer for
- * private storage buckets. Anything else that reaches for this is a policy
- * that has not been written yet.
+ * Use it only behind a narrow server-side capability: account/bootstrap work,
+ * private Storage signing, push cleanup, and the backup-canary reporter. A
+ * caller must still constrain its own operation; holding this client is not an
+ * authorization decision.
  *
  * The key is read lazily inside the function rather than at module scope, so
  * importing this file in an environment without the key is not a crash — it is

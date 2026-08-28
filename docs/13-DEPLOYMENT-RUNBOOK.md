@@ -38,6 +38,12 @@ The required GitHub `Production` environment variable is:
 - `PRODUCTION_BASE_URL` — the stable, public HTTPS production origin without a trailing
   slash or path. It must be the origin users reach, not an immutable protected deployment.
 
+The freshness canary additionally needs `BACKUP_CANARY_REPORT_SECRET` in GitHub's
+`Production` environment. Put the same randomly generated 32+-character value in Vercel's
+Production environment. GitHub sends it only to `/api/backup-health`; the application uses
+its server-held copy to authorize that one singleton report. It is not an R2 or database
+credential.
+
 Get the two Vercel ids by linking a clean local checkout to the **existing** project and
 reading `.vercel/project.json`; do not create a second project and do not commit `.vercel/`.
 Add secrets through GitHub's encrypted secret UI or `gh secret set` from a non-recorded
@@ -47,9 +53,10 @@ source. Never paste or print them in an issue, transcript, screenshot or documen
 
 Before merging the first gated release:
 
-1. Add the four environment secrets and confirm only their names with
+1. Add the four deploy secrets plus `BACKUP_CANARY_REPORT_SECRET` and confirm only their names with
    `gh secret list -R MooTamer/coditu --env Production`.
-2. Add `PRODUCTION_BASE_URL` through the GitHub `Production` environment variable UI and
+2. Add the same report secret to Vercel Production, then add `PRODUCTION_BASE_URL` through
+   the GitHub `Production` environment variable UI and
    confirm it with
    `gh variable get PRODUCTION_BASE_URL -R MooTamer/coditu --env Production`. Before adding
    it, make sure it is the intended public origin and does not redirect to Vercel login.
@@ -63,7 +70,11 @@ Before merging the first gated release:
    names the checked commit.
 6. Do not call the gate active until one deliberately failing blocking check produces zero
    production deployment and the next green commit produces one.
-7. Create the free external uptime monitor only after step 5. Use a UptimeRobot **Keyword**
+7. Dispatch `Recovery copy freshness` after the first R2 upload. It must finish the R2
+   check, ping the independent heartbeat, receive HTTP 204 from `/api/backup-health`, and
+   make the Recovery Centre show `off-site canary current` before any backup figure is
+   treated as live.
+8. Create the free external uptime monitor only after step 5. Use a UptimeRobot **Keyword**
    monitor named `Coditu production`, URL `${PRODUCTION_BASE_URL}/login`, five-minute
    interval, and require the exact phrase `Coditu is an internal tool.`. Send alerts to
    Mohamed's owner email and complete UptimeRobot's emailed confirmation. A plain 200 monitor
@@ -165,13 +176,14 @@ The blocking local job regenerates database types and requires a zero diff first
 closes the other half of the loop: migrations → generated contract → hosted contract →
 application build.
 
-As read on 2026-08-28, the hosted migration list ends at `20260827130000`. Local has 37
-migrations and hosted has 35; `20260828120000_invited_is_not_accepted.sql` and
-`20260828140000_a_role_that_can_only_read.sql` are not hosted. Therefore the production
+As read on 2026-08-28, the hosted migration list ends at `20260827130000`. Local has 38
+migrations and hosted has 35; `20260828120000_invited_is_not_accepted.sql`,
+`20260828140000_a_role_that_can_only_read.sql` and
+`20260828220000_backup_health_from_canary.sql` are not hosted. Therefore the production
 preflight is expected to fail today. The activation order is:
 
 1. use the hosted owner URL with `scripts/push-to-hosted.sh --db-url '<URI>' --verify-only`;
-2. run `supabase db push --db-url '<URI>' --dry-run` and review the two pending files;
+2. run `supabase db push --db-url '<URI>' --dry-run` and review the three pending files;
 3. apply through `scripts/push-to-hosted.sh --db-url '<URI>' --yes`;
 4. set a unique password on `coditu_backup` out of band and store its URL only in
    `HOSTED_SCHEMA_DB_URL` (and the backup secret where applicable);

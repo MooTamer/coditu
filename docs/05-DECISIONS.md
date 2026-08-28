@@ -4894,3 +4894,25 @@ page every five minutes for Coditu-specific text and email Mohamed. A plain HTTP
 was rejected because Vercel's own login can return 200. It is not created until a real public
 production origin exists and passes; activating it against today's protected/unknown URL would
 manufacture an incident rather than monitor one.
+
+## 2026-08-28 · The Recovery Centre believes one canary row, and time can revoke it
+
+The page does not receive R2 credentials and GitHub does not receive a service-role key. After
+reading R2, the canary sends its validated sidecar through `/api/backup-health` with one
+high-entropy bearer capability shared only by GitHub and Vercel. The server maps that request
+to `record_backup_health`, a service-role-only RPC that can upsert one singleton and refuses
+to replace newer evidence with an older object. An endpoint credential can therefore report
+this one fact and cannot become a general database writer.
+
+The sidecar is downloaded, not merely `HEAD`ed. Its backup id, archive name, encrypted bytes
+and SHA-256 must match the R2 object; database table/row and Storage bucket/object counts must
+be non-negative integers. The canary's 26-hour threshold includes scheduler/alerting grace.
+The product objective remains 24 hours: a 25-hour object may still let the canary produce a
+specific alert, but the screen calls the objective missed.
+
+Absence is the initial state and renders no infrastructure number. A present row earns only
+dated evidence. The page recomputes two clocks on every request: a canary report older than two
+hours is stale, and an object older than 24 hours misses the RPO. Either turns the card amber
+without waiting for another job to write. Counts and size are described as sidecar evidence,
+never as a restore; retention, monthly integrity, decryption and RTO remain explicitly separate.
+The sentence **“Version history is not a backup”** is unchanged.

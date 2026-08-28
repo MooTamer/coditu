@@ -19,6 +19,7 @@ jobs:
     name: newest R2 set is complete and younger than 26 hours
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: Production
 
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +32,7 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_PREFIX: coditu
           BACKUP_MAX_AGE_SECONDS: "93600"
+          BACKUP_CANARY_OUTPUT: ${{ runner.temp }}/backup-canary.json
         run: ./scripts/check-backup-freshness.sh
 
       - name: Tell the independent monitor this check completed
@@ -44,3 +46,22 @@ jobs:
             --retry-connrefused \
             --output /dev/null \
             "$BACKUP_CANARY_HEARTBEAT_URL"
+
+      - name: Publish only the evidence this canary read
+        env:
+          PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+          BACKUP_CANARY_REPORT_SECRET: ${{ secrets.BACKUP_CANARY_REPORT_SECRET }}
+          BACKUP_CANARY_OUTPUT: ${{ runner.temp }}/backup-canary.json
+        run: |
+          set -euo pipefail
+          test -n "$PRODUCTION_BASE_URL"
+          test -n "$BACKUP_CANARY_REPORT_SECRET"
+          test -s "$BACKUP_CANARY_OUTPUT"
+          curl --fail --silent --show-error \
+            --max-time 20 \
+            --retry 2 \
+            --retry-all-errors \
+            --header "Authorization: Bearer $BACKUP_CANARY_REPORT_SECRET" \
+            --header "Content-Type: application/json" \
+            --data-binary "@$BACKUP_CANARY_OUTPUT" \
+            "$PRODUCTION_BASE_URL/api/backup-health"

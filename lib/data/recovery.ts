@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import type { BackupHealthEvidence } from "@/lib/backup-health";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingColumn, isMissingRelation } from "@/lib/supabase/schema";
 import type { PersonRef } from "@/lib/data/sprint";
@@ -103,6 +104,58 @@ export interface RecoveryStanding {
   accessEvents: number;
   attachments: number;
 }
+
+interface BackupHealthRow {
+  source: "r2-canary";
+  backup_id: string;
+  checked_at: string;
+  last_modified_at: string;
+  encrypted_bytes: number;
+  sha256: string;
+  database_tables: number;
+  database_rows: number;
+  storage_buckets: number;
+  storage_objects: number;
+}
+
+/**
+ * The newest infrastructure fact the independent R2 reader reported.
+ *
+ * `null` is intentionally the expand/contract answer. Until both the table and
+ * a successful canary exist, the Recovery Centre keeps its warning and renders
+ * no objective, size, count or timestamp.
+ */
+export const getBackupHealth = cache(async (): Promise<BackupHealthEvidence | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("backup_health")
+    .select(
+      "source, backup_id, checked_at, last_modified_at, encrypted_bytes, sha256, " +
+        "database_tables, database_rows, storage_buckets, storage_objects"
+    )
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingRelation(error.code) || isMissingColumn(error.code)) return null;
+    throw error;
+  }
+  if (!data) return null;
+
+  const row = data as unknown as BackupHealthRow;
+  return {
+    source: row.source,
+    backupId: row.backup_id,
+    checkedAt: row.checked_at,
+    lastModifiedAt: row.last_modified_at,
+    encryptedBytes: row.encrypted_bytes,
+    sha256: row.sha256,
+    databaseTables: row.database_tables,
+    databaseRows: row.database_rows,
+    storageBuckets: row.storage_buckets,
+    storageObjects: row.storage_objects,
+  };
+});
 
 /**
  * How much there is to recover, right now.

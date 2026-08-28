@@ -6,7 +6,9 @@ provider statement into a fact. The current boundary is in
 
 ## 1. One-time activation
 
-1. Apply `20260828140000_a_role_that_can_only_read.sql` to the hosted database.
+1. Apply `20260828140000_a_role_that_can_only_read.sql` and
+   `20260828220000_backup_health_from_canary.sql` to the hosted database through the normal
+   reviewed migration path.
 2. In Supabase SQL Editor, generate a unique 32+ character password and set it with
    `alter role coditu_backup with password '<generated value>';`. Do not put the password
    in a shell history, document, issue, workflow, screenshot, or log.
@@ -15,12 +17,18 @@ provider statement into a fact. The current boundary is in
 4. Activate an R2 Standard bucket and create object read/write/delete keys scoped to that
    bucket. Stop if Cloudflare asks for a payment method: Mohamed explicitly refused a card.
 5. Add the secret names listed in `09-BACKUP-PROPOSAL.md` §8 to `MooTamer/coditu`.
-6. Keep Vercel and the Recovery Centre unchanged. Dispatch `Nightly recovery copy` once.
+   Generate `BACKUP_CANARY_REPORT_SECRET` once, store the same value in GitHub's and
+   Vercel's Production environments, and never print it.
+6. Deploy the report endpoint and migrated Recovery Centre through the gated release in
+   `13-DEPLOYMENT-RUNBOOK.md`. It must still render `not verified by this app`; code is not
+   a backup record. Dispatch `Nightly recovery copy` once.
 7. Verify the workflow output names one uploaded key, `nightly_retained=1`, and no secret.
    Independently `HEAD` the object and compare its byte size and `sha256` metadata to the
    adjacent JSON sidecar.
 8. Dispatch `Recovery copy freshness`. It must print the same backup id, an age below
-   93,600 seconds and a non-zero encrypted size.
+   93,600 seconds, a non-zero encrypted size, and the database/Storage counts read from the
+   downloaded sidecar. It must also receive HTTP 204 from `/api/backup-health`; only then
+   may the Recovery Centre show the measured values and 24-hour objective.
 9. Create a free UptimeRobot heartbeat named `Coditu backup freshness`, set it to expect an
    hourly check-in with enough grace for normal GitHub queue delay, and send its email alert
    to Mohamed. Store its unique URL only as `BACKUP_CANARY_HEARTBEAT_URL`; never paste it in

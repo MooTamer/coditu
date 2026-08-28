@@ -7,9 +7,16 @@ import { RehearseRecovery } from "@/components/app/rehearse-recovery.client";
 import { Mono } from "@/components/coditu/mono";
 import { ToneChip } from "@/components/coditu/status-chip";
 import { Reveal } from "@/components/motion/reveal";
-import { getRecoveryStanding, listRecoveryRuns, type RecoveryRun } from "@/lib/data/recovery";
+import { assessBackupHealth } from "@/lib/backup-health";
+import {
+  getBackupHealth,
+  getRecoveryStanding,
+  listRecoveryRuns,
+  type RecoveryRun,
+} from "@/lib/data/recovery";
 import { CHECK_LABEL } from "@/lib/recovery";
 import { getCurrentProfile } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Backup & recovery" };
 
@@ -20,9 +27,10 @@ export const metadata = { title: "Backup & recovery" };
  *
  * **Infrastructure** — managed database backups, point-in-time recovery, and
  * Storage, which managed database backups do not cover at all. This
- * application cannot verify any of that from inside itself, so **it does not
- * claim it**. The card says what is known and what is not, and the two facts it
- * states were read from the hosting provider directly rather than assumed.
+ * application cannot create or inspect that infrastructure itself. It accepts
+ * one deliberately narrow fact: the independent R2 canary can report the
+ * object and sidecar it just read. No report means no claim, and old evidence
+ * turns amber by elapsed time without waiting for another write.
  *
  * ## What this card got wrong, and why it is worth a paragraph
  *
@@ -43,14 +51,15 @@ export const metadata = { title: "Backup & recovery" };
  *
  * ## Nothing here invents a number
  *
- * No schedule, no retention period, no snapshot id, no recovery objective.
- * The prototype has all four and every one of them is demonstration content —
+ * No schedule, retention period, snapshot id or recovery objective is rendered
+ * before a successful canary record exists. The prototype has all four and
+ * every one of them is demonstration content —
  * "Nightly · 03:00 UTC", "42 MB", `snap-2026-08-25-03`. A recovery screen is
  * the last place in an application to display a figure nobody chose: it would
  * be believed, and it would be believed on the worst day.
  *
- * `docs/05-DECISIONS.md` records what still has to be decided before this
- * screen can say more. Until then it says what it measured and names the gap.
+ * `docs/05-DECISIONS.md` records the capability boundary. The screen says only
+ * what the canary measured, dates it, and names what that evidence cannot prove.
  */
 export default async function RecoveryPage() {
   const profile = await getCurrentProfile();
@@ -62,8 +71,14 @@ export default async function RecoveryPage() {
   // worth their reading: what recovery rests on, and what has been checked.
   // They simply get no runs and a disabled button that says why.
   const canRun = profile.role === "admin";
-  const [runs, standing] = await Promise.all([listRecoveryRuns(), getRecoveryStanding()]);
+  const [runs, standing, backupHealth] = await Promise.all([
+    listRecoveryRuns(),
+    getRecoveryStanding(),
+    getBackupHealth(),
+  ]);
   const latest = runs[0] ?? null;
+  const backupAssessment = backupHealth ? assessBackupHealth(backupHealth) : null;
+  const backupCurrent = backupAssessment?.state === "current";
 
   return (
     <PageShell measure="recovery">
@@ -84,19 +99,32 @@ export default async function RecoveryPage() {
         as="section"
         aria-labelledby="infrastructure"
         data-infrastructure
-        className="rounded-list border border-[var(--tone-amber-fg)] bg-[var(--raised)] p-6"
+        data-backup-health={backupCurrent ? "current" : backupHealth ? "stale" : "unverified"}
+        className={cn(
+          "rounded-list border bg-[var(--raised)] p-6",
+          backupCurrent ? "border-[var(--tone-jade-fg)]" : "border-[var(--tone-amber-fg)]"
+        )}
       >
         <div className="flex flex-wrap items-baseline gap-3">
           <h2 id="infrastructure" className="text-[16px] font-bold tracking-[-0.015em]">
             Infrastructure backups
           </h2>
-          <ToneChip tone="amber">not verified by this app</ToneChip>
+          <ToneChip tone={backupCurrent ? "jade" : "amber"}>
+            {backupCurrent
+              ? "off-site canary current"
+              : backupHealth
+                ? "off-site canary stale"
+                : "not verified by this app"}
+          </ToneChip>
         </div>
 
         <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-          Coditu cannot see its own hosting from inside itself, so nothing on this card is a claim
-          the application is making. The first two were read from the provider directly, and
-          together they are the ones that matter most:
+          {backupHealth
+            ? `The independent R2 reader last reported at ${stamp(backupHealth.checkedAt)}. ` +
+              (backupCurrent
+                ? "Its evidence and the newest encrypted set are both inside their current windows."
+                : "That evidence is now outside the report or recovery-point window, so it makes no current coverage claim.")
+            : "No successful off-site canary has reported into this database. Code, a schedule and an objective are not a restore point, so this card still states no backup figure."}
         </p>
 
         <dl className="mt-4 flex flex-col gap-2.5">
@@ -108,21 +136,45 @@ export default async function RecoveryPage() {
           />
           <Fact
             label="Provider-held backups"
-            value="none"
-            detail="The same read returned an empty set — no backup the provider could restore from. Its daily backups cover the Pro, Team and Enterprise plans; this project is on Free, where the documented advice is to export your own copy, and nobody has. There is no restore point: not last night's, not any. `docs/09-BACKUP-PROPOSAL.md` §1 carries the command, its output, and what it would take to fix."
-            tone="amber"
+            value={
+              backupHealth
+                ? `Supabase none · R2 ${backupCurrent ? "current" : "stale"}`
+                : "none"
+            }
+            detail={
+              backupHealth
+                ? `Supabase still has no managed restore point. Separately, the R2 canary read recovery set ${backupHealth.backupId} at ${stamp(backupHealth.checkedAt)}; ${backupCurrent ? "that off-site evidence is current" : "that off-site evidence is stale and must not be treated as current coverage"}.`
+                : "The same read returned an empty set — no backup the provider could restore from. Its daily backups cover the Pro, Team and Enterprise plans; this project is on Free, where the documented advice is to export your own copy, and nobody has. There is no restore point: not last night's, not any. `docs/09-BACKUP-PROPOSAL.md` §1 carries the command, its output, and what it would take to fix."
+            }
+            tone={backupCurrent ? "jade" : "amber"}
           />
           <Fact
             label="Storage buckets"
-            value="not covered"
-            detail="A managed database backup covers the database and nothing else. Avatars and work attachments live in Storage and would not be inside one even if this project had one — which is why the rehearsal checks attachments separately."
-            tone="amber"
+            value={backupHealth ? `${backupHealth.storageObjects.toLocaleString("en-GB")} objects recorded` : "not covered"}
+            detail={
+              backupHealth
+                ? `The downloaded sidecar records ${backupHealth.storageBuckets.toLocaleString("en-GB")} buckets and ${backupHealth.storageObjects.toLocaleString("en-GB")} objects beside ${backupHealth.databaseTables.toLocaleString("en-GB")} database tables and ${backupHealth.databaseRows.toLocaleString("en-GB")} rows. The freshness canary matches that sidecar to R2 metadata; only the quarterly private-key restore proves the ciphertext contains readable bytes.`
+                : "A managed database backup covers the database and nothing else. Avatars and work attachments live in Storage and would not be inside one even if this project had one — which is why the rehearsal checks attachments separately."
+            }
+            tone={backupCurrent ? "jade" : "amber"}
           />
           <Fact
-            label="Retention, RPO and RTO"
-            value="proposed, not set"
-            detail="Nobody has agreed how long deleted work is kept, how much loss is acceptable, or how quickly it must come back. `docs/09-BACKUP-PROPOSAL.md` proposes figures and prices them; until they are chosen this screen states no schedule and no retention period, because a number nobody chose would be believed — and would be believed on the worst day."
-            tone="amber"
+            label="Recovery objective and drills"
+            value={
+              backupHealth && backupAssessment
+                ? backupCurrent
+                  ? "24-hour objective met"
+                  : backupAssessment.rpoMet
+                    ? "canary report stale"
+                    : "24-hour objective missed"
+                : "not set"
+            }
+            detail={
+              backupHealth && backupAssessment
+                ? `At render, the encrypted set is ${formatAge(backupAssessment.backupAgeSeconds)} old and ${formatBytes(backupHealth.encryptedBytes)}. Freshness does not prove retention, monthly integrity or a restore; those remain separate controls, and RTO remains unset.`
+                : "The chosen objective is deliberately withheld here until a real off-site canary reports. Retention, integrity and restore timing remain unverified, because a number nobody measured would be believed on the worst day."
+            }
+            tone={backupCurrent ? "jade" : "amber"}
           />
         </dl>
 
@@ -136,8 +188,9 @@ export default async function RecoveryPage() {
           It protects against somebody changing their mind. It protects against nothing that
           happens to the database itself — every version, every binned story and every access
           event is a row in the same project, and a project that is gone takes all three with it.
-          That is what the four facts above are about, and it is why none of them is something
-          this application can fix from inside itself.
+          That is what the four facts above are about. This application can display a canary&apos;s
+          narrow evidence; it still cannot create, decrypt or restore the off-site copy from inside
+          itself.
         </p>
       </Reveal>
 
@@ -286,7 +339,7 @@ function Fact({
   label: string;
   value: string;
   detail: string;
-  tone: "amber" | "slate";
+  tone: "amber" | "slate" | "jade";
 }) {
   // `<dt>` and `<dd>` are DIRECT children of the one grouping `<div>`, which is
   // the only nesting a `<dl>` allows. The first version put them inside a
@@ -329,6 +382,18 @@ function Count({ label, value, href }: { label: string; value: number; href?: st
   ) : (
     <div className="rounded-inner border border-[var(--hairline)] p-4">{body}</div>
   );
+}
+
+function formatAge(seconds: number): string {
+  const safe = Math.max(0, seconds);
+  const hours = Math.floor(safe / 3_600);
+  const minutes = Math.floor((safe % 3_600) / 60);
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
+function formatBytes(bytes: number): string {
+  const mebibytes = bytes / (1024 * 1024);
+  return `${mebibytes.toFixed(mebibytes < 10 ? 1 : 0)} MiB`;
 }
 
 /** `26 Aug, 21:11` in Africa/Cairo — invariant 5, at the render edge. */

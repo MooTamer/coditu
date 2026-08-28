@@ -234,9 +234,9 @@ there so that neither of the other two columns can be mistaken for the status qu
 
 Two notes on these figures.
 
-**The RTO is a guess until a drill has been run.** Four hours is what a restore of a
-database this size *should* take, including the time to notice and the time to decide. The
-first drill replaces it with a measurement, and the measurement is what goes on the screen.
+**The RTO is a guess until a hosted drill has been run.** A local data restore measures
+neither incident decision time, provider creation nor DNS/environment cutover. Only a full
+hosted drill can replace the guess, and until then the Recovery Centre leaves RTO unset.
 
 **The bin's 90 days is a product decision, not an infrastructure one.** The handoff's own
 unresolved-decisions list flags it: *"Trash retention — described as workspace policy with
@@ -391,6 +391,9 @@ secrets without printing their values:
 - `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
 - `BACKUP_CANARY_HEARTBEAT_URL` — the unique UptimeRobot heartbeat URL; treat the path as a
   credential because possessing it can forge successful check-ins.
+- `BACKUP_CANARY_REPORT_SECRET` — one randomly generated 32+-character capability stored in
+  both GitHub's and Vercel's Production environments. It can report one validated canary
+  result through `/api/backup-health`; it is not a database or R2 credential.
 
 Then dispatch `Nightly recovery copy` once, verify the encrypted object and sidecar by
 `HEAD`, and only then let the schedule establish the first real recovery point. The local
@@ -412,3 +415,12 @@ Storage counts. It deliberately receives no age private key. That makes compromi
 scheduled reader unable to expose the backup, but it also means this is an integrity drill,
 not a restore. The first Saturday of January, April, July and October is the manual full
 decrypt-and-restore drill in `docs/12-RECOVERY-RUNBOOK.md` §6.
+
+The Recovery Centre hand-off is implemented on the same fail-closed rule. The freshness
+check downloads the sidecar and requires its id, encrypted bytes, SHA-256 and four counts to
+match the R2 object it just read. A scoped report endpoint writes those facts to a singleton
+row, refuses stale/replayed payloads, and cannot move the row backwards to an older object.
+The page renders no backup id, age, size, count or 24-hour claim while that row is absent;
+after two hours without a new report, or once the newest object crosses 24 hours, the card
+turns amber by elapsed time alone. There is currently no hosted row because R2 is still
+card-blocked and the migration has not been applied.

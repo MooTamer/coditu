@@ -4865,3 +4865,34 @@ There is no configured public production origin, generated deployment URLs curre
 Vercel protection, `coditu.vercel.app` returns 404, and GitHub's Production environment has no
 secret or `PRODUCTION_BASE_URL` variable. The repository is ready for activation; no workflow,
 monitor, deployment, domain or provider setting changed in this block.
+
+## 2026-08-28 · Infrastructure Block 7 — backup figures now require canary evidence
+
+`check-backup-freshness.sh` now downloads the metadata sidecar and matches its id, archive,
+byte size and SHA-256 to the R2 object before emitting database/Storage counts. A successful
+workflow pings the independent heartbeat, then reports the same JSON through a scoped bearer
+endpoint. `backup_health` is one RLS-protected row; active internal members may read it, only
+the server capability may report it, and its RPC atomically ignores an older recovery set.
+
+The Recovery Centre has three states. With no row it preserves `not verified by this app`,
+shows no id, timestamp, size, count or objective, and still says **“Version history is not a
+backup.”** A recent report whose object is within 24 hours shows the measured sidecar values.
+A report older than two hours or object older than 24 hours turns amber by render-time clock;
+the 26-hour canary alert grace never becomes a 26-hour product claim. Retention, checksum
+integrity, decryption, a restore and RTO are still named as controls freshness does not prove.
+
+Evidence came from an isolated 546xx Supabase stack, never the shared `_coditu` database:
+**459/459** pgTAP assertions passed. The real HTTP route returned **401** for a wrong bearer,
+**422** for stale evidence and **204** for a valid report; a later out-of-order HTTP report
+also returned 204 while preserving the newer id. Unit tests are **506/506**. A gitignored
+Chromium check at 390px rendered the current and stale states, found no axe violations or
+horizontal overflow, and confirmed stale evidence removes the `24-hour objective met` claim.
+The existing number-free fallback assertion also passed with the singleton absent.
+The production build, token verifier and budgets passed; app shell remains **78.0 / 110 KB own,
+217.9 / 220 KB total**.
+
+Activation is still deliberately absent. Hosted has 35 migrations while local now has 38;
+the new canary-health migration is not hosted, R2 has no object, GitHub's Production secret
+list has no report capability, and no Vercel environment was changed or inspected. This local
+screen would stay in its number-free unverified state against the current hosted schema. No
+database, workflow, secret, monitor or deployment was changed outside the isolated local proof.
