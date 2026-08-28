@@ -4805,3 +4805,16 @@ Supabase stack restored **130/130 table counts, 5,245/5,245 rows and 115/115 Sto
 objects**, then re-downloaded byte-identical objects. A local S3-compatible target accepted
 the encrypted artifact and metadata; retention was seeded above its limits and finished at
 exactly **30 nightly + 12 monthly**. No hosted database, R2 account or GitHub secret changed.
+
+## 2026-08-28 · The backup alarm must survive the scheduler it watches
+
+The freshness canary runs independently from the nightly writer and reads the newest R2
+object rather than trusting a workflow conclusion. It fails closed after **26 hours**, for
+no object, a malformed key, an empty archive or sidecar, missing SHA-256 metadata, or an
+implausibly future timestamp.
+
+An hourly successful canary pings a UptimeRobot heartbeat. The heartbeat is the external
+watcher: if every GitHub schedule stops, check-ins stop and Mohamed receives the email
+outside GitHub. The unique heartbeat URL is a GitHub secret because a third party could use
+it to forge health. The free monitor is not activated before the first R2 upload and pushed
+workflow exist; activating it now would knowingly create a false incident.

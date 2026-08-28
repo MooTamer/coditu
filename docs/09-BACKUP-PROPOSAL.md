@@ -321,6 +321,12 @@ dashboard rather than here.
    R2 requires an activated subscription checkout, and Cloudflare says a primary payment
    method is required to purchase products and services. This is why a technically free
    allowance still crosses Mohamed's no-card boundary.
+7. **UptimeRobot — Cron job monitoring and Free plan.**
+   <https://uptimerobot.com/cron-job-monitoring/> and
+   <https://help.uptimerobot.com/en/articles/11604710-who-should-use-uptimerobot-s-free-plan>.
+   Re-read 2026-08-28: a heartbeat gets a unique URL, an absent check-in after its interval
+   and grace period sends an alert, and the Free plan includes heartbeat monitoring, email
+   alerts and no card requirement.
 
 ---
 
@@ -383,9 +389,18 @@ secrets without printing their values:
 - `SUPABASE_STORAGE_S3_URL`, `SUPABASE_STORAGE_ACCESS_KEY_ID`,
   `SUPABASE_STORAGE_SECRET_ACCESS_KEY`, `SUPABASE_STORAGE_REGION`;
 - `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
+- `BACKUP_CANARY_HEARTBEAT_URL` — the unique UptimeRobot heartbeat URL; treat the path as a
+  credential because possessing it can forge successful check-ins.
 
 Then dispatch `Nightly recovery copy` once, verify the encrypted object and sidecar by
 `HEAD`, and only then let the schedule establish the first real recovery point. The local
 copy is pulled with `scripts/sync-backup-local.sh` using a `coditu-r2` AWS profile stored
 outside the repository. `docs/12-RECOVERY-RUNBOOK.md` carries the exact activation and
 restore sequence.
+
+The independent freshness control is also implemented locally. `Recovery copy freshness`
+reads R2 hourly and accepts only a complete nightly set no older than 26 hours, then pings an
+external heartbeat. UptimeRobot's Free plan currently includes heartbeat monitoring, email
+alerts and needs no card. The monitor is deliberately **not created yet**: without an R2
+object or pushed workflow it would report a manufactured outage. Activation follows the
+ordered steps in `docs/12-RECOVERY-RUNBOOK.md` after the first upload succeeds.

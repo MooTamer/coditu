@@ -19,7 +19,14 @@ provider statement into a fact. The current boundary is in
 7. Verify the workflow output names one uploaded key, `nightly_retained=1`, and no secret.
    Independently `HEAD` the object and compare its byte size and `sha256` metadata to the
    adjacent JSON sidecar.
-8. Configure a local `coditu-r2` AWS profile outside Git and run:
+8. Dispatch `Recovery copy freshness`. It must print the same backup id, an age below
+   93,600 seconds and a non-zero encrypted size.
+9. Create a free UptimeRobot heartbeat named `Coditu backup freshness`, set it to expect an
+   hourly check-in with enough grace for normal GitHub queue delay, and send its email alert
+   to Mohamed. Store its unique URL only as `BACKUP_CANARY_HEARTBEAT_URL`; never paste it in
+   a log, issue or document. Run the canary again and wait for UptimeRobot to record the
+   check-in before enabling notifications. This order avoids a false incident during setup.
+10. Configure a local `coditu-r2` AWS profile outside Git and run:
 
    ```bash
    R2_ENDPOINT='<account endpoint>' R2_BUCKET='<bucket>' \
@@ -75,3 +82,16 @@ S3 to remove it.
 The local pull does not use `--delete`: an accidental R2 deletion is not propagated onto the
 Mac. Check local disk use monthly and remove only copies already represented by a newer
 verified set and the 30 + 12 policy.
+
+## 5. Freshness alert
+
+`Recovery copy freshness` runs at minute 47 of every hour. It lists R2 itself, selects the
+newest nightly encrypted archive, and fails if there is no archive, its key is malformed,
+the adjacent metadata sidecar is absent or empty, its recorded SHA-256 is absent, or its
+R2 `LastModified` age exceeds 93,600 seconds (26 hours). A timestamp more than five minutes
+in the future also fails instead of disguising clock or metadata corruption.
+
+Only a complete, fresh check pings `BACKUP_CANARY_HEARTBEAT_URL`. UptimeRobot therefore
+alerts Mohamed both when the R2 copy becomes stale and when GitHub stops dispatching the
+canary itself. The monitor is a separate control plane; GitHub's own workflow status is not
+treated as the only alarm for GitHub scheduling.

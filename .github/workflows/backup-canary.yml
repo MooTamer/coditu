@@ -1,0 +1,46 @@
+name: Recovery copy freshness
+
+on:
+  schedule:
+    # Away from the top-of-hour load peak. The external heartbeat detects if
+    # this schedule stops being dispatched at all.
+    - cron: "47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-copy-freshness
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: newest R2 set is complete and younger than 26 hours
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the newest off-site recovery set
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PREFIX: coditu
+          BACKUP_MAX_AGE_SECONDS: "93600"
+        run: ./scripts/check-backup-freshness.sh
+
+      - name: Tell the independent monitor this check completed
+        env:
+          BACKUP_CANARY_HEARTBEAT_URL: ${{ secrets.BACKUP_CANARY_HEARTBEAT_URL }}
+        run: |
+          test -n "$BACKUP_CANARY_HEARTBEAT_URL"
+          curl --fail --silent --show-error \
+            --max-time 15 \
+            --retry 2 \
+            --retry-connrefused \
+            --output /dev/null \
+            "$BACKUP_CANARY_HEARTBEAT_URL"

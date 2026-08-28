@@ -4763,3 +4763,18 @@ credential is configured in this checkout or shell. Current Cloudflare documenta
 checkout and a primary payment method is required; Mohamed explicitly prohibited a card.
 So this block is **implemented and locally restored, not scheduled, not off-site, not
 hosted-migrated, not a 24-hour RPO**. The Recovery Centre remains unchanged and truthful.
+
+## 2026-08-28 · Infrastructure Block 2 — the canary is independent, activation still waits at the same boundary
+
+`scripts/check-backup-freshness.sh` reads R2 rather than the backup writer's state. It
+requires a correctly named nightly ciphertext, a non-empty adjacent metadata sidecar,
+SHA-256 object metadata and a `LastModified` age no greater than **93,600 seconds**. It also
+rejects a timestamp more than five minutes in the future. `.github/workflows/backup-canary.yml`
+runs that check hourly at minute 47 and pings the external heartbeat only after it passes.
+
+The external monitor is UptimeRobot Free: its current published plan includes heartbeat
+monitoring and email without a credit card. It has not been created. R2 has no first object,
+the workflows are not pushed and the repository still has no secrets, so activation now
+would cause a false alarm. The runbook orders activation as first upload → direct canary
+read → monitor creation → recorded check-in → notifications. Until those steps happen, this
+block is **implemented locally, not alerting and not evidence of a 24-hour RPO**.
