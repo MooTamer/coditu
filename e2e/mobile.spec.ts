@@ -621,3 +621,59 @@ test.describe("the editor does not zoom an iPhone in and leave it there", () => 
     expect(tooSmall, "a field under 16px will zoom mobile Safari in").toEqual([]);
   });
 });
+
+/**
+ * The export dialog, on a thumb.
+ *
+ * PF-11 rewrote its three selection presets — `all` / `none` / `drop drafts`
+ * became `Select all` / `Select none` / `Drop drafts`, each with a pressed
+ * state — and longer words in a row that already had four things in it is
+ * exactly the change that wraps badly or pushes a panel past the screen.
+ *
+ * The aggregate coarse sweep above cannot see any of this: it walks ROUTES, and
+ * a dialog is not a route. Nothing behind a click is measured by it, which is
+ * worth knowing about that sweep and is not fixed here.
+ */
+test.describe("the export dialog on a phone", () => {
+  // On the CONTEXT, so this holds on chromium too. The 44px floor lives in
+  // `@media (pointer: coarse)`, which Chromium derives from `isMobile` — a
+  // headless desktop context reports `pointer: fine` and passes this test
+  // without ever applying the rule it is about.
+  test.use({ sprintTotals: "read", hasTouch: true, isMobile: true });
+
+  for (const width of [320, 390, 768]) {
+    test(`its presets clear 44px and it does not overflow at ${width}px`, async ({
+      adminPage: page,
+    }) => {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(SPRINT);
+      await page.getByRole("button", { name: "Export" }).click();
+
+      const dialog = page.getByRole("dialog", { name: /^Export EVIM/ });
+      await expect(dialog).toBeVisible();
+
+      const small = await dialog.evaluate((root) =>
+        ["Select all", "Select none", "Drop drafts"]
+          .map((label) => {
+            const el = [...root.querySelectorAll<HTMLElement>("button")].find(
+              (b) => (b.textContent ?? "").trim() === label
+            );
+            if (!el) return `${label} — not on the page`;
+            const box = el.getBoundingClientRect();
+            return box.width >= 44 && box.height >= 44
+              ? null
+              : `${label} ${Math.round(box.width)}×${Math.round(box.height)}`;
+          })
+          .filter(Boolean)
+      );
+      expect(small, `presets under 44px at ${width}px`).toEqual([]);
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+      );
+      expect(overflow, `horizontal overflow at ${width}px`).toBeLessThanOrEqual(0);
+
+      expect(await auditA11y(page)).toEqual([]);
+    });
+  }
+});

@@ -87,6 +87,83 @@ test.describe("export dialog", () => {
     const open = dialog.getByRole("link", { name: /Open report to print/ });
     await expect(open).toHaveAttribute("href", `${SPRINT}/report`);
   });
+
+  /**
+   * PF-12. The report replaces this screen, so the dialog was always going to
+   * go — the complaint is about WHEN. It used to leave on the navigation's
+   * commit, which on a dynamic route is long enough to read as a stuck modal.
+   *
+   * So the assertion is not "it eventually closes". It is that the close beats
+   * the navigation, by a margin big enough that no plausible commit time
+   * satisfies it accidentally.
+   */
+  test("Open report to print closes the dialog on the click, not on the commit", async ({
+    adminPage: page,
+  }) => {
+    const dialog = await openDialog(page);
+    await dialog.getByRole("radio", { name: /PDF — for the client/ }).click();
+
+    const started = Date.now();
+    await dialog.getByRole("link", { name: /Open report to print/ }).click();
+
+    await expect(dialog).toBeHidden({ timeout: 2000 });
+    const closedAfter = Date.now() - started;
+
+    await expect(page).toHaveURL(`${SPRINT}/report`, { timeout: 20_000 });
+    const arrivedAfter = Date.now() - started;
+
+    console.log(JSON.stringify({ closedAfter, arrivedAfter }));
+    expect(closedAfter, `the dialog took ${closedAfter}ms to close`).toBeLessThan(400);
+    // And it really did go, rather than being scrolled out of view.
+    await expect(page.getByRole("dialog", { name: /^Export EVIM/ })).toHaveCount(0);
+  });
+
+  /**
+   * PF-11. `all` / `none` / `drop drafts` named no object and carried no state:
+   * which one described the list on screen could only be learned by pressing
+   * one. Reported as "the sort buttons are not clear" — they are the dialog's
+   * only cluster of small buttons, and they sort nothing; they select.
+   */
+  test("the item presets say what they select, and which one is in force", async ({
+    adminPage: page,
+  }) => {
+    const dialog = await openDialog(page);
+    const all = dialog.getByRole("button", { name: "Select all", exact: true });
+    const none = dialog.getByRole("button", { name: "Select none", exact: true });
+    const drafts = dialog.getByRole("button", { name: "Drop drafts", exact: true });
+
+    // Visible before any click: which preset is in force, and the count.
+    await expect(all).toHaveAttribute("aria-pressed", "true");
+    await expect(none).toHaveAttribute("aria-pressed", "false");
+    await expect(drafts).toHaveAttribute("aria-pressed", "false");
+    await expect(
+      dialog.getByText(`${SEED.itemCount} of ${SEED.itemCount} selected`)
+    ).toBeVisible();
+
+    await drafts.click();
+    await expect(drafts).toHaveAttribute("aria-pressed", "true");
+    await expect(all).toHaveAttribute("aria-pressed", "false");
+    await expect(
+      dialog.getByText(`${SEED.nonDraftCount} of ${SEED.itemCount} selected`)
+    ).toBeVisible();
+
+    await none.click();
+    await expect(none).toHaveAttribute("aria-pressed", "true");
+    await expect(drafts).toHaveAttribute("aria-pressed", "false");
+    await expect(dialog.getByText(`0 of ${SEED.itemCount} selected`)).toBeVisible();
+
+    // A hand-picked selection is a real state and matches no preset. None
+    // pressed is the honest answer, which is why these are toggles and not a
+    // radio group.
+    await all.click();
+    // An ITEM's checkbox. The Include options are `role="checkbox"` as well,
+    // and `.first()` on the dialog finds "Acceptance criteria", which changes
+    // the export's contents and not its selection.
+    await dialog.locator("[data-export-items] [role=checkbox]").first().click();
+    for (const preset of [all, none, drafts]) {
+      await expect(preset).toHaveAttribute("aria-pressed", "false");
+    }
+  });
 });
 
 test.describe("the client report", () => {
