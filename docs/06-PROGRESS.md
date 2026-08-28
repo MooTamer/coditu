@@ -4896,3 +4896,40 @@ the new canary-health migration is not hosted, R2 has no object, GitHub's Produc
 list has no report capability, and no Vercel environment was changed or inspected. This local
 screen would stay in its number-free unverified state against the current hosted schema. No
 database, workflow, secret, monitor or deployment was changed outside the isolated local proof.
+
+## 2026-08-28 · Infrastructure Block 8 — nine browser reds, zero current app defects
+
+From a fresh reset on the isolated 546xx stack, the exact baseline selection reproduced **9/9
+failures**: `motion:135` on three engines and one each in earnings, version history, presence,
+project home, sprint notes and sprint table. Each failure was then traced through the rendered page,
+current Notion seed and owning component instead of changing an assertion or restoring retired UI.
+
+All nine are stale or mis-scoped test preconditions. Motion asks for an `in progress` filter when the
+seed contains only `draft` and `done`; earnings compares a real 3,540-minute live total with a
+hard-coded 1,050-minute confirmation; version history chooses the last row of a mixed-surface story
+timeline and then watches only description revisions. Presence reaches its first socket assertion
+and spends the remaining budget looking for the removed inline-notes button. Project home uses a
+direct-child CSS path invalidated by `PageShell`; sprint notes still contain the expected words on
+their dedicated route; and the burn-up retains the expected label inside its intentionally closed
+disclosure.
+
+The page-first countercheck is local-only and gitignored. It passed **4/4** in Chromium: two columns
+at 1440 and one at 1360 with zero clipping, current notes visible and editable, the folded burn-up's
+real accessible label after opening, and presence frames carrying surface names but none of a typed
+draft. The separately scoped current-description restore test passed **1/1**. There is no genuine app
+issue to patch in this block, so the committed result is the corrected evidence ledger only; the old
+browser assertions remain report-only and visibly red rather than being weakened or hidden.
+
+## 2026-08-28 · Free Supabase pause risk checked, keepalive proposed
+
+Supabase's current official policy confirms the Free Plan can pause a project after low user
+database activity over seven days. The provider sends an owner warning roughly one week before the
+pause and says a few database requests per day are typically enough to avoid it. That pause is an
+availability incident outside Git and Vercel rollback.
+
+The five-minute `/login` monitor is not counted as database keepalive evidence: a signed-out request
+reaches Supabase Auth but does not make an explicit public-table query. The runbooks propose a
+dynamic, no-store database health route backed by a fixed-output, anon-executable read-only RPC, with
+UptimeRobot Keyword monitoring and a seven-day dashboard check. It is deliberately **not implemented
+or activated** in this branch. The backup-report endpoint will never be pinged synthetically for this
+purpose, because a fake freshness report would make recovery evidence untrustworthy.

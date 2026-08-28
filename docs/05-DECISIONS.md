@@ -4916,3 +4916,33 @@ hours is stale, and an object older than 24 hours misses the RPO. Either turns t
 without waiting for another job to write. Counts and size are described as sidecar evidence,
 never as a restore; retention, monthly integrity, decryption and RTO remain explicitly separate.
 The sentence **“Version history is not a backup”** is unchanged.
+
+## 2026-08-28 · A red browser assertion does not earn a product rollback
+
+The nine stable browser failures were inspected from the page inward. None is a current product
+defect: each asks the current app to expose a retired location, a hidden disclosure without opening
+it, a status absent from the real seed, an obsolete payout total, or one document surface while its
+selector chose another. The rendered behaviors behind the four page mismatches pass when exercised
+through their current routes and controls.
+
+**Decision.** Do not reintroduce inline sprint notes, unfold the burn-up, remove `PageShell`, show
+filters with no matching work, flatten a mixed-surface history, or change a correct earnings delta to
+make those assertions green. Do not quietly loosen or commit rewrites of the E2E specs either. They
+remain visible in the report-only browser job until their contracts are deliberately rewritten as a
+separate test-maintenance change.
+
+**Why.** A test is evidence only while its preconditions still describe the product. Preserving an
+obsolete assertion by regressing a measured page would turn the gate into an incentive to make the
+application wrong. The local-only probes record the current behavior without promoting diagnostic
+code into the repository.
+
+## 2026-08-28 · Do not turn backup evidence into a free-plan keepalive
+
+Supabase may pause a low-activity Free Plan project over a seven-day window. The selected keepalive
+proposal is a dedicated fixed-output database health read monitored outside Supabase. It is not the
+backup canary report.
+
+**Why.** `/api/backup-health` means one exact R2 recovery set was independently read and validated.
+Calling it without that evidence to manufacture database activity would keep the project awake by
+making the Recovery Centre lie. Availability and recoverability are separate controls even when one
+scheduled request could technically serve both.

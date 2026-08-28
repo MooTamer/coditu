@@ -1796,3 +1796,31 @@ something nobody has identified.
 Four are pages whose spec and behaviour disagree and need the **page** looked at rather than the
 selector; five already failed before this branch existed. None of them is a flake, and that is the
 point of the exercise: **the failure list is a list now, not a distribution.**
+
+---
+
+# Eleventh pass — the nine baseline failures inspected page first, 2026-08-28
+
+The exact nine-test selection was run after a fresh isolated reset. It reproduced **9 failed**:
+the same nine tests, with no extra failure. Then the rendered pages, current seed and the document
+surfaces behind each locator were inspected. This corrects three earlier shorthand diagnoses:
+the sprint note text did not move, the presence socket did not time out, and the earnings delta is
+not caused by another test's write.
+
+| Failure | Current cause | Product verdict |
+|---|---|---|
+| `motion.spec.ts:135` — chromium | Week 17 now contains only `draft` and `done`, and the filter bar correctly offers only statuses present. The test waits for an absent `in progress` button before it measures any animation. | Stale fixture assumption; no motion behavior was reached. |
+| `motion.spec.ts:135` — mobile-safari | Same absent-status precondition on the current Notion seed. | Same; not an engine-specific animation failure. |
+| `motion.spec.ts:135` — mobile-chrome | Same absent-status precondition on the current Notion seed. | Same; not an engine-specific animation failure. |
+| `earnings.spec.ts:255` | The synthetic confirmation is hard-coded at 1,050 minutes while the real Week 17 seed is 3,480 minutes. Adding 60 minutes correctly reports `41.5 h added` against that snapshot; `1.0 h added` assumes the snapshot already matched the live seed. | The immutable confirmed figure and stale delta are correct. The fixture is obsolete. |
+| `version-history.spec.ts:125` | The story timeline contains every document surface. `.last()` selects the seeded comment revision, not the oldest description revision, so the test watches the description count after choosing a different document. The scoped current-description restore test passes. | Mixed-surface history is intentional and the restore path works. The test selects the wrong surface. |
+| `presence.spec.ts:90` | The initial presence-frame poll succeeds. The test then waits on a `button` for the old inline notes panel; sprint notes are now a route reached by a link, and the swallowed click error consumes the 30-second test budget. | Presence works. A current-route probe captured surface frames and no typed draft. |
+| `project-home.spec.ts:204` | `PageShell` inserts the measured inner column, so `main > div.grid` is no longer the project grid. The real grid is still two columns at 1440, stacks at 1360 and clips zero sprint descendants at 1440. | Layout is correct; the CSS path is stale. |
+| `sprint-notes.spec.ts:46` | The exact expected Notion sentence still exists, but on `/sprints/17/notes`; the old assertion looks for it on the sprint table after the inline panel was deliberately removed. | Notes render and open in the editor on their dedicated route. |
+| `sprint-table.spec.ts:298` | The burn-up is deliberately a closed `<details>` below the designed header. Playwright's role locator excludes its hidden SVG until the disclosure opens; once opened, its label still says `against 0.0 estimated`. | The chart and accessible values are correct; the test does not open the control. |
+
+A gitignored page-first probe covered the four current surfaces in Chromium: project breakpoint and
+clipping, dedicated notes route and editor, folded burn-up semantics, and presence frames while
+typing on notes and criteria. **4/4 passed.** No production file or committed browser spec was changed;
+making the application recreate retired UI for these assertions would regress decisions already
+measured and recorded above.

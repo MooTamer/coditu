@@ -327,6 +327,12 @@ dashboard rather than here.
    Re-read 2026-08-28: a heartbeat gets a unique URL, an absent check-in after its interval
    and grace period sends an alert, and the Free plan includes heartbeat monitoring, email
    alerts and no card requirement.
+8. **Supabase — Free project pausing.**
+   <https://supabase.com/docs/guides/platform/free-project-pausing>.
+   Re-read 2026-08-28: a Free Plan project may pause after low user database activity over
+   seven days; Supabase sends an owner warning roughly one week before the pause and says a few
+   user database requests per day are typically enough to avoid it. The database-backed health
+   route proposed in `12-RECOVERY-RUNBOOK.md` §7 is not implemented in this branch.
 
 ---
 

@@ -6,9 +6,11 @@ provider statement into a fact. The current boundary is in
 
 ## 1. One-time activation
 
-1. Apply `20260828140000_a_role_that_can_only_read.sql` and
+1. Apply `20260828120000_invited_is_not_accepted.sql`,
+   `20260828140000_a_role_that_can_only_read.sql` and
    `20260828220000_backup_health_from_canary.sql` to the hosted database through the normal
-   reviewed migration path.
+   reviewed migration path. The hosted release preflight requires every local migration, not
+   only the two directly used by recovery.
 2. In Supabase SQL Editor, generate a unique 32+ character password and set it with
    `alter role coditu_backup with password '<generated value>';`. Do not put the password
    in a shell history, document, issue, workflow, screenshot, or log.
@@ -134,3 +136,32 @@ On the first Saturday of January, April, July and October, Mohamed performs the 
 The first local proof completed the data restore in under one minute after its isolated
 stack was healthy. Keep recording the quarterly measurements; it is not an RTO because
 hosted project creation, DNS/environment changes and incident decision time remain untested.
+
+## 7. Free-plan project pausing
+
+Supabase's current policy says a Free Plan project with low user database activity over a
+seven-day window may be paused. It sends an owner warning roughly one week before pausing and
+says a few user database requests per day are typically sufficient to avoid it. A paused project
+is application downtime even when the release and Vercel deployment are healthy.
+
+The planned `/login` Keyword monitor is not accepted as a keepalive proof. A signed-out render
+calls Supabase Auth, but it does not issue the explicit public-table query the provider describes;
+whether Supabase counts that request is not a repository fact.
+
+Before calling the free-plan production setup unattended, add a narrow database-backed health
+route and make the five-minute external monitor use it:
+
+1. expose one `security invoker`, anon-executable RPC that performs only a fixed `select 1`-style
+   database check and returns no row or project data;
+2. call it from a dynamic, `no-store` `/api/health/database` route that returns one fixed keyword
+   on success and 503 otherwise;
+3. point UptimeRobot's Keyword monitor at that route, keep the owner email alert enabled, and
+   verify the Supabase dashboard records user database activity over seven days;
+4. treat any Supabase pause-warning email as an incident even when this check is green, because
+   the provider alone decides whether activity is sufficient.
+
+This is a **proposal, not implemented code or active monitoring**. Do not use
+`/api/backup-health` as a synthetic keepalive: that endpoint is evidence about a real R2 object,
+and reporting fabricated freshness to keep a database awake would corrupt the Recovery Centre.
+The only no-code alternative that removes the pause class entirely is moving the organization to
+a paid plan, which is outside Mohamed's no-card decision.

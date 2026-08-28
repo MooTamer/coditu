@@ -191,3 +191,15 @@ preflight is expected to fail today. The activation order is:
 6. allow the Vercel build only after it prints `hosted_schema_verified=true`.
 
 No hosted migration was applied while writing this block.
+
+## 7. Free-plan pause is a separate availability state
+
+Supabase documents automatic pausing for Free Plan projects with low activity over seven days:
+<https://supabase.com/docs/guides/platform/free-project-pausing>. This is independent of Git,
+Vercel and the release rollback. A green deployment cannot recover a paused database.
+
+The current `/login` monitor remains the first public-origin smoke, but it is not yet proof of a
+database keepalive. Before the setup is called unattended, implement and monitor the narrow
+database-backed health route specified in `12-RECOVERY-RUNBOOK.md` §7, then confirm a week of
+recorded project activity and receipt routing for Supabase's owner warning email. That route is
+proposed, not present in this branch; no monitor or provider setting was changed here.
