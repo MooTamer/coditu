@@ -182,6 +182,7 @@ export function ComponentMultiPicker({
   className,
   emptyLabel = "not attributed",
   allowCreate = true,
+  allowSelectAll = true,
   disabledReason = "Only an admin or lead can change an item's components",
 }: {
   components: ComponentRef[];
@@ -196,6 +197,15 @@ export function ComponentMultiPicker({
   className?: string;
   emptyLabel?: string;
   allowCreate?: boolean;
+  /**
+   * PF-7's presets. On by default, and OFF in the sprint filter.
+   *
+   * In the filter, selecting nothing already means *all components* — so a
+   * `Select all` there writes forty slugs into the URL to express what an empty
+   * parameter expresses in none of them, and the toolbar chip would then have
+   * two ways to say the same thing.
+   */
+  allowSelectAll?: boolean;
   disabledReason?: string;
 }) {
   const router = useRouter();
@@ -266,6 +276,25 @@ export function ComponentMultiPicker({
                 : [...working, component]
             )
           }
+          /**
+           * PF-7. Select-all and shift-range both land here, and both are ONE
+           * edit of the draft rather than a loop of `onToggle` — which would be
+           * forty renders and, if it ever escaped the panel, forty writes.
+           *
+           * The panel still commits once when it closes, so ticking forty boxes
+           * and ticking one cost the same single call to
+           * `setWorkItemComponents`, which takes the whole set and works out
+           * the difference itself.
+           */
+          allowSelectAll={allowSelectAll}
+          onSetMany={(group, picked) => {
+            const ids = new Set(group.map((component) => component.id));
+            setDraft(
+              picked
+                ? [...working.filter((held) => !ids.has(held.id)), ...group]
+                : working.filter((held) => !ids.has(held.id))
+            );
+          }}
           onCreated={(component) => {
             setCreated((was) => [...was, component]);
             setDraft([...working, component]);
@@ -285,6 +314,15 @@ const OPTION =
   "flex w-full items-center gap-2 rounded-chip px-2 py-[7px] text-left text-[13.5px] hover:bg-[var(--canvas)]";
 const FIELD =
   "h-[34px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-[10px] text-[13.5px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]";
+/**
+ * The two presets above a multi-select list.
+ *
+ * 44px on a coarse pointer and 26px on a fine one, the same pair of heights the
+ * rest of the app uses — the picker opens inside a sheet on a phone and these
+ * are the newest thing in it that a thumb has to hit.
+ */
+const PRESET =
+  "inline-flex min-h-11 cursor-pointer items-center rounded-chip border border-[var(--hairline)] px-2 text-[11px] text-[var(--ink-muted)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-50 aria-pressed:border-[var(--accent)] aria-pressed:text-[var(--accent)] md:min-h-[26px]";
 
 function PickerPanel({
   components,
@@ -295,6 +333,8 @@ function PickerPanel({
   allowCreate,
   onChoose,
   onToggle,
+  onSetMany,
+  allowSelectAll = true,
   onCreated,
 }: {
   components: ComponentRef[];
@@ -313,6 +353,10 @@ function PickerPanel({
   allowCreate: boolean;
   onChoose: (next: ComponentRef | null) => void;
   onToggle?: (component: ComponentRef) => void;
+  /** Multi-select: tick or untick a whole group in one edit. See PF-7. */
+  onSetMany?: (components: ComponentRef[], picked: boolean) => void;
+  /** Whether to draw the Select all / Select none row. See PF-7. */
+  allowSelectAll?: boolean;
   onCreated: (component: ComponentRef) => void;
 }) {
   const multi = selectedIds !== undefined;
@@ -320,6 +364,16 @@ function PickerPanel({
     multi ? selectedIds!.includes(component.id) : component.id === value?.id;
   const [adding, setAdding] = useState(false);
   const [filter, setFilter] = useState("");
+  /**
+   * The anchor a shift-range extends from: the last option touched on its own.
+   *
+   * Held as an ID rather than an index, because the filter can change the list
+   * under it and an index would silently point at a different component. When
+   * the anchor is not in the shown list — filtered away, or never set — there
+   * is nothing to extend from and a shift-click is an ordinary toggle, which is
+   * the honest answer rather than a range drawn from a guess.
+   */
+  const [anchorId, setAnchorId] = useState<string | null>(null);
 
   if (adding && allowCreate) {
     return (
@@ -330,6 +384,35 @@ function PickerPanel({
         onCreated={onCreated}
       />
     );
+  }
+
+  /**
+   * PF-7's range select.
+   *
+   * Shift and a click — or Shift with Enter or Space, which is the same thing
+   * from the keyboard and is why this is not a `click` handler — extends from
+   * the anchor to the option in hand and sets the WHOLE run to what the clicked
+   * option is becoming. That is the behaviour of every file list and every
+   * spreadsheet: the destination decides, and the run follows it.
+   *
+   * Without an anchor, or without Shift, it is an ordinary toggle and the
+   * option becomes the new anchor.
+   */
+  function pick(component: ComponentRef, extend: boolean) {
+    const picked = !isPicked(component);
+    const from = extend && anchorId ? shown.findIndex((row) => row.id === anchorId) : -1;
+    const to = shown.findIndex((row) => row.id === component.id);
+
+    if (from !== -1 && to !== -1 && onSetMany) {
+      const [start, end] = from <= to ? [from, to] : [to, from];
+      onSetMany(shown.slice(start, end + 1), picked);
+      // The anchor deliberately stays put, so a second shift-click re-draws the
+      // range from the same place rather than from wherever the last one ended.
+      return;
+    }
+
+    setAnchorId(component.id);
+    onToggle?.(component);
   }
 
   const needle = filter.trim().toLowerCase();
@@ -378,6 +461,51 @@ function PickerPanel({
         }}
       />
 
+      {multi && allowSelectAll ? (
+        /**
+         * PF-7 — "select all components at once in a story (global changes)".
+         *
+         * Scoped to what is SHOWN, not to the registry: with a filter typed,
+         * "Select all" means the eight things you are looking at, which is the
+         * useful reading and the only one that can be checked at a glance. The
+         * label says so when a filter is on.
+         *
+         * Two toggles rather than a radio pair, carrying `aria-pressed` for
+         * whether the current selection IS that state — the same contract the
+         * export dialog's presets got in PF-11, and for the same reason: a
+         * hand-picked selection matches neither, and *neither pressed* is the
+         * honest answer.
+         */
+        <div className="flex flex-wrap items-center gap-1 px-1 pb-1">
+          <button
+            type="button"
+            data-select-all=""
+            aria-pressed={shown.length > 0 && shown.every(isPicked)}
+            disabled={shown.length === 0}
+            onClick={() => onSetMany?.(shown, true)}
+            className={PRESET}
+          >
+            {needle ? `Select all ${shown.length}` : "Select all"}
+          </button>
+          <button
+            type="button"
+            data-select-none=""
+            aria-pressed={shown.length > 0 && !shown.some(isPicked)}
+            disabled={shown.length === 0}
+            onClick={() => onSetMany?.(shown, false)}
+            className={PRESET}
+          >
+            Select none
+          </button>
+          {/* Just the count. "N of M" would have to say which M — the registry,
+              or the filtered list — and it is a different number in each case;
+              the number that matters is on `Select all` when a filter is on. */}
+          <Mono size="meta" className="ml-auto shrink-0 tabular-nums text-[var(--ink-faint)]">
+            {selectedIds!.length} selected
+          </Mono>
+        </div>
+      ) : null}
+
       <div
         role="listbox"
         aria-label={multi ? "Components" : "Component"}
@@ -404,7 +532,19 @@ function PickerPanel({
             role="option"
             aria-selected={isPicked(component)}
             title={component.name}
-            onClick={() => (multi ? onToggle?.(component) : onChoose(component))}
+            onClick={(event) =>
+              multi ? pick(component, event.shiftKey) : onChoose(component)
+            }
+            onKeyDown={(event) => {
+              // Shift+Enter and Shift+Space are the range gesture from the
+              // keyboard. Without them "select a run" would be a mouse-only
+              // feature, which is the shape this app does not ship — the sort
+              // panel's drag handle carries the same argument.
+              if (!multi || !event.shiftKey) return;
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              pick(component, true);
+            }}
             className={cn(OPTION, isPicked(component) && "bg-[var(--canvas)]")}
           >
             {multi ? (

@@ -198,6 +198,10 @@ export function FilterBar({
           projectSlug={projectSlug}
           canEdit
           allowCreate={false}
+          // Selecting nothing here already means every component, so a
+          // Select-all would write forty slugs into the URL to say what an
+          // empty parameter says in none of them. See PF-7.
+          allowSelectAll={false}
           onChange={setComponents}
           emptyLabel="all components"
           className="h-[32px]"

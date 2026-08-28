@@ -4663,3 +4663,19 @@ has not been archived.
 
 **Not decided here: which projects should be archived.** That is a statement about engagements and
 it is Mohamed's to make. `/app/projects` → project admin has the control.
+
+## 2026-08-28 · `setWorkItemComponents` accepts 200 components, not 24
+
+PF-7 asks for "select all components at once in a story (global changes)". MEINEvim's registry has
+**40** live components and the input schema capped `componentIds` at **24**, so the feature's whole
+purpose — a change that touches every component — was refused by validation before it reached the
+database.
+
+**Decided.** 200. The cap exists to refuse an absurd payload, not to express a product limit, and a
+cap a feature cannot satisfy is a bug with a good excuse. The registry is synced from the delivery
+repository and only ever grows, so the new number leaves room rather than tracking it.
+
+**The write was already one write.** `setWorkItemComponents` takes the complete set and computes the
+difference itself, and the multi-picker accumulates a draft and commits once on close — so forty
+ticks and one tick cost the same single Server Action. `e2e/component-select-all.spec.ts` counts the
+POSTs rather than the rows, because a row count cannot tell one call from forty.
