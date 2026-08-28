@@ -2188,3 +2188,85 @@ What did survive the elimination: the document height never changed (1466 px thr
 every frame), so it was never a clamp; focus never left the clicked link; and the dialog's own scroll
 lock, its `panelRef.focus()`, and every `Reveal` animation were each disabled in turn with the result
 bit-for-bit identical.
+
+---
+
+## `scroll-behavior: smooth` will be blamed for two different bugs before you find it
+
+One line in `app/globals.css` produced both of PF-9's and PF-6's most stubborn symptoms, and in
+neither case did it look like CSS.
+
+**It made a router scroll look like an application bug.** Opening a story moved the document to its
+maximum scroll — 68 px at 1280×720, **1970 px on a phone** — on the first open only and never on
+WebKit. Because smooth animates it over ~165 ms, it reads exactly like something easing the page
+somewhere on purpose. The actual caller is Next's own `ScrollAndFocusHandler.handlePotentialScroll`,
+bringing the newly-rendered `@modal` segment into view; `scroll={false}` on the link turns it off.
+Two plausible hypotheses were measured and thrown away first — Chrome's scroll anchoring
+(`overflow-anchor: none` changed nothing) and the dialog's `focus()` (forcing `preventScroll: true`
+changed nothing) — and the answer came from hooking every scroll API and reading the stack.
+
+**It made the editor lose the caret.** A browser scrolls the caret back into view on every keystroke.
+With smooth on the scrolling element it has to *animate* that, so at typing speed each keystroke
+restarts an animation that never arrives: thirty to-do items typed into the sprint notes left the
+caret **856 px below the fold**, coming back about 0.7 s after typing stopped. Chrome only. It reads
+as "the editor is slow" when the keystroke itself is 12.3 ms.
+
+```css
+html:has(.ProseMirror:focus) { scroll-behavior: auto; }
+```
+
+**What to remember.** If a scroll moves over more than one frame, the property is involved. And it is
+per-*scrolling-element*, so `:has()` on `html` is enough to switch it off for a state without
+touching anything else.
+
+---
+
+## A spec's teardown must delete only the rows it created
+
+Four files have now been fixed for one bug with one shape, and it costs a day every time because the
+failure surfaces somewhere else entirely.
+
+| spec | what it deleted that it did not create |
+|---|---|
+| `inline-edit.spec.ts` | every time entry on its item — **12.0 h** off the sprint |
+| `reliable-writes.spec.ts` | every comment and time entry on `COD-239` — **60 min**, one picture |
+| `composer.spec.ts` | `COD-240`'s imported picture |
+| `history.spec.ts` | all **seven** of `COD-235`'s imported revisions, never restored |
+
+Each is destructive for **the rest of the run**, and the spec that fails is a later one asserting a
+seeded total. `sprint-table.spec.ts:17` and `:92` are the two assertions in the suite that read the
+`SEED.totals` literal, and they were the two that failed in company and passed alone for weeks.
+
+```ts
+let seeded: string[] = [];
+test.beforeAll(async () => { seeded = (await query(`select id::text as id …`)).map(r => r.id); });
+// then, in the teardown:
+`delete from … where <the spec's scope> and not (id::text = any($1::text[]))`
+```
+
+**Move the counts with the delete.** If the spec asserts "one comment", count the same bounded set —
+relaxing the assertion to `2` to accommodate the seed is the easy fix and a weaker test.
+
+**Prove it by ordering, not by reading.** `A` alone, then `A` then `B`, then `B` alone. That is what
+identified `inline-edit` and it is faster than any amount of staring.
+
+---
+
+## The suite's failure count tracks the machine
+
+Five serial runs of the full suite from five fresh resets, same tree, same stack, gave **16, 15, 19,
+22 and 15** failures. The count rose with memory pressure — swap went from comfortable to 25.5 GB of
+26.6 across the sweep, runs 3 and 4 took 32 and 34 minutes against run 1's 24 — and run 4 contains
+`page.goto: Could not connect to the server`.
+
+Before diagnosing a flaky spec, check `sysctl vm.swapusage` and the wall time of the run it failed
+in. Twelve of the fifteen flips were five-second `expect` waits that a swapping machine could not
+meet; the default is 10 s now. Only three were real, and all three were found by *reading* the
+failure rather than by running it again:
+
+- an unscoped `getByText` matching the streaming tree's copy (strict-mode violation);
+- an interaction on a control behind `next/dynamic`, done once, before it was live;
+- `waitForTimeout` then a single read of an asynchronous scroll restoration.
+
+Two of those three are "read once at a fixed moment". If a spec sleeps and then reads, it is not
+asserting — it is guessing.

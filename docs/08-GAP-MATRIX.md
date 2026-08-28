@@ -1628,3 +1628,113 @@ their file is run alone; `sprint-table` alone was 1 failed / 23 passed on two co
 | `earnings:255`, `motion:135` ×3, `version-history:125` | **(ii)** | Fail identically at `b63f4c7`. Pre-date this branch and are not this pass's. |
 | `sprint-table:17`, `sprint-table:92` | **(i)/(iii)** | Still fail in company, still pass alone, and the `inline-edit` cause is now fixed — so **a second writer is doing the same thing** and has not been found. Named rather than assumed closed. |
 | `marketing:200` (mobile-safari) | **(ii)** | A 30 s timeout on the WebKit build only. |
+
+---
+
+# Tenth pass — the suite measured five times, 2026-08-28
+
+## Why five, and what the ninth pass could not say
+
+The ninth pass reported two full runs that disagreed by four failures in each direction on the same
+tree, and carried "fourteen reproduce" as the honest figure. Two runs cannot tell a flaky test from a
+busy machine. Five can.
+
+```bash
+# five times, each preceded by `supabase db reset` on an ISOLATED stack,
+# one warm dev server, nothing else changed between them
+E2E_BASE_URL=http://localhost:3011 \
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54521 \
+E2E_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54522/postgres \
+npx playwright test --workers=1 --reporter=json
+```
+
+The stack is a second Supabase project on 545xx, disjoint from the shared 544xx one. Binding proved
+from the proxy rather than from an environment variable: **2205 requests to `supabase_kong_coditu-det`
+and 0 to `supabase_kong_coditu`** in the same three-minute window.
+
+## The number
+
+| run | failed | passed | skipped | wall |
+|---|---|---|---|---|
+| 1 | **16** | 643 | 66 | 23.9m |
+| 2 | **15** | 650 | 60 | ~24m |
+| 3 | **19** | 641 | 65 | ~32m |
+| 4 | **22** | 638 | 65 | ~34m |
+| 5 | **15** | 644 | 66 | ~24m |
+
+**14 failed in all five runs. 15 flipped.**
+
+## The fourteen, which are the baseline
+
+| run 1–5 | project | spec | what it is |
+|---|---|---|---|
+| `FFFFF` | chromium | `home.spec.ts:38` | **fixed this pass** — the sprint card had no `h2` |
+| `FFFFF` | chromium | `home.spec.ts:62` | **fixed this pass** — the redesign dropped `· ended` |
+| `FFFFF` | chromium | `home.spec.ts:82` | **fixed this pass** — the tab said `Assigned`, not `Assigned to me` |
+| `FFFFF` | chromium | `sprint-table.spec.ts:17` | **fixed this pass** — `reliable-writes` was deleting 60 min of the seed |
+| `FFFFF` | chromium | `sprint-table.spec.ts:92` | **fixed this pass** — the same 60 minutes |
+| `FFFFF` | chromium | `earnings.spec.ts:255` | (ii) fails identically at `b63f4c7`; pre-dates this branch |
+| `FFFFF` | chromium ×1, phones ×2 | `motion.spec.ts:135` | (ii) pre-dates this branch |
+| `FFFFF` | chromium | `version-history.spec.ts:125` | (ii) pre-dates this branch |
+| `FFFFF` | chromium | `presence.spec.ts:90` | (i) a socket assertion that times out |
+| `FFFFF` | chromium | `project-home.spec.ts:204` | (i) `main > div.grid` no longer exists on that page |
+| `FFFFF` | chromium | `sprint-notes.spec.ts:46` | (i) the seeded note text moved at the re-import |
+| `FFFFF` | chromium | `sprint-table.spec.ts:298` | (i) the burn-up's `aria-label` no longer says *against 0.0 estimated* |
+
+Five of the fourteen were this pass's work and are closed. The remaining nine are the real baseline:
+four whose page and spec disagree and need the page looked at rather than the selector, and five that
+already failed at `b63f4c7`.
+
+## The fifteen that flipped, and why they are not fifteen flaky tests
+
+**The failure count tracks the machine, not the tree.** Swap went from comfortable to **25.5 GB of
+26.6** across the sweep; runs 3 and 4 took 32 and 34 minutes against run 1's 24, and run 4 contains
+
+```
+page.goto: Could not connect to the server
+```
+
+A suite whose failure count rises with memory pressure is not measuring the application. Three of the
+fifteen are real harness bugs, found by **reading** the failures rather than by rerunning them; the
+other twelve are five-second waits.
+
+| run 1–5 | spec | what it was |
+|---|---|---|
+| `F...F` | `trash.spec.ts:146` | **Real.** `getByText("+ added: …")` unscoped — matched the streaming tree's copy and raised a strict-mode violation on one run in two. The fault `shell()` exists for, missed by the ninth pass's sweep of eleven files. Scoped. |
+| `.F...` | `sort-panel.spec.ts:100` | **Real.** `selectOption` on a control behind `next/dynamic`, read once. A select that lands before the panel is live changes the box and writes no URL — observed as `key:asc` after a 5 s poll. It retries now, the way `palette-realtime` re-presses Meta+k. |
+| `F..F.` | `mobile.spec.ts:195` | **Real.** `waitForTimeout(300)` and one `window.scrollY`, against an *asynchronous* scroll restoration: it caught the page mid-climb and reported 62 for a value that settles above 300. Polled now — the same read-once mistake `expectLock` in that very file already documents. |
+| `..F..` | `a11y.spec.ts:101` | 30 s test budget, two 20 s theme waits and axe over the whole sprint table. 90 s now. |
+| `..F..` `...F.` ×11 | `export`, `favourites` ×2, `inline-edit`, `interactive-states`, `motion:164` ×2, `navigation:372`, `item-detail:39`, `mobile:195`, `motion:106` | Five-second waits a swapping machine could not meet — an export preview still saying *building the preview…*, a peek whose dialog had not arrived, a breadcrumb whose navigation had not committed. |
+
+**`expect.timeout` is 10 s now**, set in `playwright.config.ts` with the reason beside it. It weakens
+nothing: none of those assertions is a claim about latency, and the ones that *are* —
+`peek-measure.local`, `editor-measure.local`, `interactive-states` — take their own numbers. A wrong
+answer is still wrong after ten seconds.
+
+**`interactive-states.spec.ts:72` is named separately**, because it *is* a latency assertion — PF-4's
+100 ms pending budget — and it failed on the run where the machine was slowest. A latency budget
+asserted in the routine suite cannot be deterministic on a shared machine. It is left as it is rather
+than relaxed: PF-4 is closed on that number.
+
+## What was fixed in the harness, beyond the three above
+
+**Three more teardowns were deleting rows they did not create** — the shape `inline-edit.spec.ts` was
+fixed for last week, and the one the ninth pass called "a second writer somewhere":
+
+| spec | what it destroyed | who read it |
+|---|---|---|
+| `reliable-writes.spec.ts` | every comment and time entry on `COD-239` — **60 min** and one imported picture | `sprint-table:17` and `:92`, the only two assertions that read the `SEED.totals` literal |
+| `composer.spec.ts` | `COD-240`'s imported picture | nothing yet |
+| `history.spec.ts` | all **seven** of `COD-235`'s imported revisions, never restored | nothing yet |
+
+All three snapshot what the item already had in `beforeAll` and delete only what is not in that set.
+The counts moved with the deletes, so *"this file wrote one row, not two"* is still the claim rather
+than being relaxed to accommodate the seed.
+
+## The honest caveat
+
+Runs 2 and 3 overlapped a handful of `tsc --noEmit` and `vitest run` invocations on the same machine.
+That is named rather than buried: it is part of why the count climbed, and it is the reason the
+`expect` timeout was raised rather than the reason the flips are dismissed. The five-run table above
+is the **before**; a suite that only holds on an idle machine is not one anybody can trust, and the
+fixes are aimed at exactly that.
