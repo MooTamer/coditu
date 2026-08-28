@@ -550,7 +550,7 @@ Branch `visual-conformance`, from `origin/main` at `b63f4c7`.
 | Row | What changed | Evidence |
 |---|---|---|
 | **V-0** | The four workspace files are in `design/project/`; `README-REPO.md` names `Coditu Workspace.dc.html` as the source of truth for `/app` and records the two places the prototype is not the authority | `030fd6a`. Byte-compare showed the five older artboards, `doc-page.js` and `support.js` identical between bundles, so nothing was duplicated and no runtime added |
-| **V-A1 – V-A15** | One `PageShell` carries all fifteen measures; four routes gained a `main` landmark they never had | `e2e/measures.local.spec.ts` — **15/15 at 1920**, each asserting the exact `max-width`, a `main`, and no horizontal overflow |
+| **V-A1 – V-A15** | One `PageShell` carries all fifteen measures; four routes gained a `main` landmark they never had | `e2e/navigation.spec.ts › the surfaces carry their measure` — **15/15 at 1920**, each asserting the exact `max-width`, a `main`, and no horizontal overflow. *(Was `e2e/measures.local.spec.ts`, which git does not carry; promoted 2026-08-28 — Eighth pass.)* |
 | **V-C1** | Breadcrumbs at every width; below `lg` the trail collapses to `Coditu / … / COD-229` instead of disappearing; folded crumbs stay in the accessibility tree | `e2e/navigation.spec.ts` **15/15**, including a rewritten spec that asserts the ellipsis, the surviving middle crumb, and the trail on Home. Measured at 320: the trail occupies 161px of 320 |
 | **V-C8** | Export removed from the global topbar, added to the sprint header beside Sprint notes | Browser at 1440: `topbarHasExport: false`, `pageHasExport: true`. `a11y.spec.ts › axe: the export dialog` passes against the new location |
 | **V-C9** | Topbar is `min-height: 56px` and wraps, not a fixed 60 | Served CSS carries `--topbar-h: 56px` |
@@ -656,14 +656,14 @@ Unless stated otherwise the evidence is
 | **V-B2** | The sprint goal is the first of the card's three columns, `max-w-[44ch]`, and is printed **once** | Every non-empty paragraph in the card is counted; any repeat fails the test. The loose copy under the sprint name is gone, and the days-left chip moved to the header row where the source draws it |
 | **V-B3** | 10px stacked status bar, one span per status by share, with a legend **that filters** | Each legend entry's `href` is asserted, clicked, the resulting URL awaited, and the sprint's `tbody tr` count compared to the number the legend printed — for every slice |
 | **V-B4** | Per-person load bars: initials, 5px track, hours, measured against the **busiest** person | `lib/home.ts` `loadShare`/`busiest`, with fixtures in `tests/home.test.ts` proving it divides by the largest entry and not the sum, and does not divide by zero. Real minutes throughout; `hours()` is the only division by 60 |
-| **V-B5** | The 320px right column, beginning **level with the sprint card** | Measured at 1440: the card is inside `[data-home-left]` and is its first child, `grid-template-columns` ends `320px`, the card's width equals the left track's, and its top is within 1px of `Online now`'s |
-| **V-B6** | My work is three tabs — Assigned / Reviewing / Due this sprint — as a real tablist | Every tab has `aria-controls` pointing at a real `tabpanel` that names it back; exactly one tab is in the tab sequence and exactly one is selected; ArrowRight/ArrowLeft/Home/End move selection **and** focus, wrapping both ways. "Due this sprint" is scoped to the active project **and** sprint before the deadline is applied — six fixtures in `tests/home.test.ts`, including another project's work with a deadline in range, and the rendered rows are asserted to be under the active sprint's path |
+| **V-B5** | The 320px right column, beginning **level with the sprint card** | **The track:** `e2e/navigation.spec.ts › … › Home is one column below 1180 and a 320px aside above it` — `grid-template-columns` ends ` 320px` at 1920/1440/1180 and does not at 1024/834/768/390/320. **The alignment:** measured at 1440 in `e2e/home-shell.local.spec.ts` — the card is inside `[data-home-left]` and is its first child, its width equals the left track's, its top within 1px of `Online now`'s — and that half is still local, so a clone cannot re-run it. *(Split 2026-08-28 — Eighth pass.)* |
+| **V-B6** | My work is three tabs — Assigned / Reviewing / Due this sprint — as a real tablist | `e2e/a11y.spec.ts › keyboard contracts a scanner cannot see › My work is a real tablist with a panel and roving focus` *(promoted 2026-08-28 — Eighth pass)*: every tab has `aria-controls` pointing at a real `tabpanel` that names it back; exactly one tab is in the tab sequence and exactly one is selected; ArrowRight/ArrowLeft/Home/End move selection **and** focus, wrapping both ways. "Due this sprint" is scoped to the active project **and** sprint before the deadline is applied — six fixtures in `tests/home.test.ts`, including another project's work with a deadline in range. The assertion that the *rendered* rows sit under the active sprint's path was **not** promoted and is still `e2e/home-shell.local.spec.ts`, so a clone re-runs the predicate and the tablist but not that |
 | **V-B7** | Home `h1` is 26px / `-0.024em` | `font-size: 26px` and the computed letter-spacing, measured at 1440 |
 | **V-C2** | `Search or run` + `⌘K` at the top of the sidebar | Asserted in the rail, and **clicked**: it opens the same dialog `⌘K` and the phone's Search tab open |
 | **V-C3** | `Trash` and `Workspace settings` in the rail footer | Both asserted in the rail. Admin-only, because both routes are |
 | **V-C4** | `workspace · N members` under the name | Compared against the number of rows `Online now` actually lists, so the count cannot drift from the roster |
 | **V-C5** | A jade presence dot on your own face in the rail | Exactly one, `rgb(35, 201, 127)` |
-| **V-C6** | The 768–1179 overlay drawer | Opens from the topbar hamburger at `x = 0`, `width = 320`; the rail is still in the document behind it; `body` overflow changes while open and is restored on close; Tab and Shift+Tab each cycle past the end without escaping; Escape closes it and focus returns to the opener; a navigation from inside it closes it. `rail-project-spaces` and `drawer-project-spaces` each appear exactly once, and no id in the page is duplicated |
+| **V-C6** | The 768–1179 overlay drawer | `e2e/a11y.spec.ts › keyboard contracts a scanner cannot see › the tablet drawer traps, restores, locks and closes` *(promoted 2026-08-28 — Eighth pass)*: opens from the topbar hamburger at `x = 0`, `width = 320`; the rail is still in the document behind it; `body` overflow changes while open and is restored on close; Tab and Shift+Tab each cycle past the end without escaping; Escape closes it and focus returns to the opener; a navigation from inside it closes it. `rail-project-spaces` and `drawer-project-spaces` each appear exactly once, and no id in the page is duplicated |
 
 ## V-B8 is NOT closed — *closed in the Seventh pass below, 2026-08-28*
 
@@ -1287,6 +1287,66 @@ fixed here — they are outside what this batch was asked to do, and each is a d
    before them. It is an ordering assumption inside one file, visible only at `--workers=1`.
 3. `sprint-notes.spec.ts:46` — the seeded notes are not on the page. Its serial `describe` then
    skips the rest of the file, which is why one test "did not run".
+
+## The long-term answer, taken
+
+`05-DECISIONS.md`, *The visual evidence lives in three specs git does not carry*, listed promoting
+the durable assertions as the right answer and asked that somebody choose it rather than default
+into it. Chosen. The four claims it names are in the committed suite now, where `npm run gate`
+runs them:
+
+| Claim | Now lives in |
+|---|---|
+| the fifteen measures at 1920 | `e2e/navigation.spec.ts › the surfaces carry their measure` — fifteen tests, one per route |
+| the 320px right column | `e2e/navigation.spec.ts › … › Home is one column below 1180 and a 320px aside above it` |
+| the tablist keyboard contract | `e2e/a11y.spec.ts › keyboard contracts a scanner cannot see › My work is a real tablist with a panel and roving focus` |
+| the drawer focus trap | `e2e/a11y.spec.ts › … › the tablet drawer traps, restores, locks and closes` |
+
+The Evidence column above cites those specs for **V-A1 – V-A15**, **V-B5**, **V-B6** and **V-C6**,
+and the ADR's dependency table is reduced to match. `e2e/measures.local.spec.ts` now backs **no row
+in this file**.
+
+**Two rows moved in half, and say so.** V-B5's 320px track is committed; that the sprint card sits
+inside `[data-home-left]` with its top within 1px of `Online now`'s is not. V-B6's tablist contract
+is committed; that "Due this sprint"'s *rendered* rows sit under the active sprint's path is not —
+the predicate behind it already has six fixtures in `tests/home.test.ts`. Splitting a row is less
+tidy than moving it and it is the only version that is true.
+
+**What deliberately did not move.** The 26px greeting, the four quick-action labels, the status
+legend's `href`s, the jade presence dot's exact `rgb`, the member count, the two-context presence
+check, and the whole coarse-pointer sweep are still local. They are answers to particular questions
+somebody had once; a gate held to `font-size: 26px` is a gate held to somebody's afternoon, which is
+the cost `05-DECISIONS.md` weighed when it kept the local files out of git in the first place. The
+decision itself is unchanged — the three files stay ignored.
+
+**Chromium only.** Both target files run on three projects. A 1920 measure taken on a Pixel 7
+emulation measures nothing the desktop run did not, and there is no Tab key on either phone; the
+promoted tests are gated on `isMobile`, and the phone shape of the same screens stays
+`mobile.spec.ts`'s subject.
+
+### The run
+
+```bash
+E2E_BASE_URL=http://localhost:3011 \
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54521 \
+E2E_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54522/postgres \
+npx playwright test e2e/navigation.spec.ts e2e/a11y.spec.ts --workers=1
+```
+
+**105 passed, 0 failed, 39 skipped**, three projects, from a fresh reset. The 39 are the eighteen
+promoted tests on the two mobile projects, plus the `@prod`-gated console check on all three.
+
+### One failure fixed on the way, and it is not one of the six
+
+`a11y.spec.ts:124` opened the composer with a bare `getByText("Write a comment — @ to mention")` —
+the *same selector* the four-way measurement above sampled, on the same kind of streaming route. It
+was failing on it before any of this work: run on the pre-promotion file it fails identically, on
+`mobile-chrome` one run and `chromium` the next.
+
+It is scoped through `shell()` now. That is a fix to a **seventh** instance of an already-measured
+harness case rather than a new diagnosis — but it was outside the six this pass was asked to
+repair, so it is named here rather than folded quietly into the promotion. The alternative was
+promoting durable assertions into a suite that was red for a reason already understood.
 
 ## Still outstanding after this batch
 

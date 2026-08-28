@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 
-import { expect, test } from "./fixtures";
+import { expect, shell, test } from "./fixtures";
 
 /**
  * §12, verified with a tool rather than by eye.
@@ -121,7 +121,11 @@ test.describe("accessibility", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`${SPRINT}/items/COD-240`);
 
-    await page.getByText("Write a comment — @ to mention").click();
+    // `shell()`, for the reason measured in the Eighth pass of 08-GAP-MATRIX.md:
+    // this exact selector resolves to two on a streaming item route — the
+    // second one inside DIV#S:1 — and this test was failing on it before the
+    // promotion below arrived, on a different project each run.
+    await shell(page).getByText("Write a comment — @ to mention").click();
     await expect(page.locator(".coditu-prose")).toBeVisible();
     await page.locator(".coditu-prose").click();
     await page.keyboard.type("Checking the composer for violations.");
@@ -334,5 +338,169 @@ test.describe("keyboard and pointer", () => {
     // The rail, the topbar, the filters, and the rows all have to be reachable.
     expect(seen.size, "too few focus stops — something is unreachable").toBeGreaterThan(15);
     expect(invisible, "a focused control had no visible focus ring").toBeNull();
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Promoted out of e2e/home-shell.local.spec.ts, 2026-08-28                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The two keyboard contracts the local sweep proved and git could not carry.
+ *
+ * `05-DECISIONS.md`, *The visual evidence lives in three specs git does not
+ * carry*, named this as the right long-term answer and left the choice open on
+ * purpose. Both of these are durable: a tablist that stops answering arrow
+ * keys, or a dialog that lets Tab out of it, is a WCAG failure and not a change
+ * of taste — which is what separates them from the diagnostics left behind in
+ * the local file, where a 26px greeting is one answer to one question.
+ *
+ * Neither is something axe can see. `aria-selected` moving with the arrow keys
+ * and focus staying inside a dialog are behaviours, and a scanner reads a
+ * snapshot.
+ *
+ * Chromium only: both are keyboard contracts, and there is no keyboard on the
+ * two mobile projects this file otherwise runs on.
+ */
+test.describe("keyboard contracts a scanner cannot see", () => {
+  test.skip(({ isMobile }) => !!isMobile, "keyboard behaviour; the phone has no Tab key");
+
+  /**
+   * The tabs had `role="tab"` and nothing else — no panel, no `aria-controls`,
+   * no arrow keys. A tablist that is only a role is worse than three buttons:
+   * it promises a keyboard interface and then does not have one.
+   */
+  test("My work is a real tablist with a panel and roving focus", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/app");
+    await expect(shell(page)).toBeVisible();
+
+    const tabs = shell(page).getByRole("tab");
+    await expect(tabs).toHaveCount(3);
+
+    // Every tab points at a panel, that panel is a tabpanel, and it names the
+    // tab back.
+    const wiring = await shell(page).evaluate((main) =>
+      [...main.querySelectorAll('[role="tab"]')].map((tab) => {
+        const panelId = tab.getAttribute("aria-controls");
+        const panel = panelId ? document.getElementById(panelId) : null;
+        return {
+          controls: panelId,
+          panelIsTabpanel: panel?.getAttribute("role") === "tabpanel",
+          selected: tab.getAttribute("aria-selected"),
+          tabIndex: (tab as HTMLElement).tabIndex,
+          labelledBack: panel?.getAttribute("aria-labelledby") === tab.id,
+        };
+      })
+    );
+
+    for (const tab of wiring) {
+      expect(tab.controls, "every tab needs aria-controls").toBeTruthy();
+      expect(tab.panelIsTabpanel, "aria-controls must point at a tabpanel").toBe(true);
+    }
+    // Roving: exactly one stop in the tab sequence, and one selected.
+    expect(wiring.filter((tab) => tab.tabIndex === 0)).toHaveLength(1);
+    expect(wiring.filter((tab) => tab.selected === "true")).toHaveLength(1);
+    expect(wiring[0].labelledBack, "the panel names its selected tab").toBe(true);
+
+    // Arrow keys move selection and take focus with them.
+    await tabs.nth(0).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.nth(1)).toBeFocused();
+
+    await page.keyboard.press("End");
+    await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.nth(2)).toBeFocused();
+
+    // Wrapping, both ways, and Home.
+    await page.keyboard.press("ArrowRight");
+    await expect(tabs.nth(0)).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("ArrowLeft");
+    await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("Home");
+    await expect(tabs.nth(0)).toHaveAttribute("aria-selected", "true");
+  });
+
+  /**
+   * The tablet drawer: trapped, scroll-locked, restoring, and not doubled.
+   *
+   * The rail and the drawer are the same components rendered twice at once, so
+   * the `id` namespacing is part of the contract and not decoration — a
+   * duplicate `id` breaks every `aria-labelledby` that points at it, which is
+   * the half a focus test would otherwise miss.
+   */
+  test("the tablet drawer traps, restores, locks and closes", async ({ adminPage: page }) => {
+    await page.setViewportSize({ width: 834, height: 1000 });
+    await page.goto("/app");
+    await expect(shell(page)).toBeVisible();
+
+    const opener = page.getByRole("button", { name: "Open workspace navigation" });
+    const scrollBefore = await page.evaluate(() => getComputedStyle(document.body).overflow);
+
+    await opener.click();
+    const drawer = page.getByRole("dialog", { name: "Workspace navigation" });
+    await expect(drawer).toBeVisible();
+
+    // Docked left, at the handoff's width.
+    const box = (await drawer.boundingBox())!;
+    expect(Math.round(box.x), "docked to the left edge").toBe(0);
+    expect(Math.round(box.width), "min(320px, 86vw)").toBe(320);
+
+    // Scroll lock, with the rail behind it still in the document.
+    const locked = await page.evaluate(() => ({
+      overflow: getComputedStyle(document.body).overflow,
+      railStillThere: !!document.querySelector("aside[data-app-chrome]"),
+    }));
+    expect(locked.overflow, "the page behind must not scroll").not.toBe(scrollBefore);
+    expect(locked.railStillThere, "the rail is still rendered behind the drawer").toBe(true);
+
+    // Nothing in the page is doubled while both are mounted. Polled, because a
+    // client transition can hold the outgoing and incoming trees for a frame.
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(() => {
+            const seen = new Map<string, number>();
+            for (const node of document.querySelectorAll("[id]")) {
+              seen.set(node.id, (seen.get(node.id) ?? 0) + 1);
+            }
+            return [...seen.entries()].filter(([, times]) => times > 1).map(([id]) => id);
+          }),
+        { message: "duplicate element ids while the drawer is open", timeout: 5000 }
+      )
+      .toEqual([]);
+
+    // Focus is trapped, forwards and backwards.
+    const focusables = await drawer.locator("a[href], button:not([disabled])").count();
+    expect(focusables).toBeGreaterThan(1);
+
+    const inside = async () =>
+      page.evaluate(() => {
+        const panel = document.querySelector('[role="dialog"]');
+        return !!(panel && document.activeElement && panel.contains(document.activeElement));
+      });
+
+    for (let i = 0; i < focusables + 2; i += 1) {
+      await page.keyboard.press("Tab");
+      expect(await inside(), `Tab ${i + 1} escaped the drawer`).toBe(true);
+    }
+    for (let i = 0; i < focusables + 2; i += 1) {
+      await page.keyboard.press("Shift+Tab");
+      expect(await inside(), `Shift+Tab ${i + 1} escaped the drawer`).toBe(true);
+    }
+
+    // Escape closes it, focus goes back to what opened it, scrolling returns.
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+    await expect(opener, "focus must return to the opener").toBeFocused();
+    expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe(scrollBefore);
+
+    // And a navigation closes it, including one it did not handle itself.
+    await opener.click();
+    await expect(drawer).toBeVisible();
+    await drawer.getByRole("link", { name: "People" }).first().click();
+    await page.waitForURL(/\/app\/people/);
+    await expect(drawer).toHaveCount(0);
   });
 });

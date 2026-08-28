@@ -4359,11 +4359,24 @@ response to it.
 
 **Which rows depend on it today.**
 
+*(Updated 2026-08-28. The table below is what remains after the promotion recorded under
+"What was rejected" — see the note that follows it. The decision itself is unchanged: the three
+files stay out of git.)*
+
 | Depends on | Rows |
 |---|---|
-| `e2e/home-shell.local.spec.ts` | **V-B1, V-B2, V-B3, V-B5, V-B7, V-C2, V-C3, V-C4, V-C5, V-C6** entirely; **V-B4** and **V-B6** for their rendered half only — the fixtures behind both are in the committed `tests/home.test.ts`. Also the Sixth pass's three whole-run rows: `16 passed` three times over, the eight-width light-and-dark sweep, and the two-context cross-route presence check |
-| `e2e/measures.local.spec.ts` | **V-A1 – V-A15**, the fifteen page measures at 1920 |
+| `e2e/home-shell.local.spec.ts` | **V-B1, V-B2, V-B3, V-B7, V-C2, V-C3, V-C4, V-C5** entirely; **V-B5** for the sprint-card alignment only — the 320px track itself is committed; **V-B6** for the rendered rows of "Due this sprint" only — the tablist contract itself is committed; **V-B4** for its rendered half only, the fixtures behind it being in the committed `tests/home.test.ts`. Also the Sixth pass's three whole-run rows: `16 passed` three times over, the eight-width light-and-dark sweep, and the two-context cross-route presence check |
+| `e2e/measures.local.spec.ts` | **nothing.** V-A1 – V-A15 are `e2e/navigation.spec.ts › the surfaces carry their measure` now |
 | `e2e/touch-targets.local.spec.ts` | **V-G7**, and the Sixth pass's aggregate 21-route coarse-pointer sweep |
+
+Now committed, and citing a spec a clone can run:
+
+| Row | Committed spec |
+|---|---|
+| **V-A1 – V-A15** | `e2e/navigation.spec.ts › the surfaces carry their measure › <route> is capped at <n>px, and renders a main landmark` — fifteen tests at 1920 |
+| **V-B5**, the 320px track | `e2e/navigation.spec.ts › the surfaces carry their measure › Home is one column below 1180 and a 320px aside above it` |
+| **V-B6**, the tablist contract | `e2e/a11y.spec.ts › keyboard contracts a scanner cannot see › My work is a real tablist with a panel and roving focus` |
+| **V-C6** | `e2e/a11y.spec.ts › keyboard contracts a scanner cannot see › the tablet drawer traps, restores, locks and closes` |
 
 Everything else in both passes cites a committed spec, a committed unit test, `npm run budgets`, or a
 commit SHA, and survives a clone.
@@ -4384,3 +4397,24 @@ different piece of work: the durable claims (the 320px column, the tablist keybo
 drawer's focus trap, the fifteen measures) belong in `e2e/navigation.spec.ts` and `a11y.spec.ts`
 where the gate already runs them, and the throwaway ones do not belong anywhere. Named here so that
 somebody chooses it rather than defaults into it.
+
+**Chosen, 2026-08-28.** All four named claims are in the committed suite — the second table above
+says which spec holds each — and the dependency table has been reduced accordingly. Three notes on
+what that did and did not settle:
+
+- **The throwaway assertions stayed put**, which is the half that makes this work. The 26px
+  greeting, the four quick-action labels, the legend's `href`s, the jade dot's exact `rgb`, the
+  member count, `Due this sprint`'s scoping against live rows, `Online now`'s two-context presence
+  check, and the coarse-pointer sweep are all still local. A gate held to `font-size: 26px` is a
+  gate held to somebody's afternoon.
+- **V-B5 and V-B6 each moved in half.** `grid-template-columns` ending in ` 320px` above 1180 is committed; that
+  the sprint card sits inside `[data-home-left]` with its top within 1px of `Online now`'s is not,
+  because it is an assertion about one arrangement of one screen rather than about a number the
+  design system owns. V-B6 the same way: the tablist's keyboard contract is committed, while the
+  check that "Due this sprint"'s *rendered* rows sit under the active sprint's path stays local —
+  the predicate behind it is already proved by six fixtures in `tests/home.test.ts`. Both rows are
+  honest about which half a clone can re-run.
+- **The promoted tests are chromium-only**, gated on `isMobile`. Both files run on three projects,
+  and a 1920 measure taken on a Pixel 7 emulation measures nothing the desktop run did not, at
+  three times the wall clock. The phone shape of the same screens is `mobile.spec.ts`'s subject and
+  stays there.
