@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "roundtrip": "./scripts/roundtrip.sh",
     "db:migrate": "supabase migration up",
     "db:reset": "supabase db reset",
     "db:seed": "supabase db reset",

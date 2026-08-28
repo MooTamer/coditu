@@ -31,6 +31,13 @@ step "git diff --check"; git diff --check
 step "lint";             npm run lint
 step "typecheck";        npm run typecheck
 step "test";             npm run test
+
+# PF-2's spec is executable and red on purpose, so it is NOT in `npm run test`
+# any more — a permanently-red suite cannot say whether anything new broke. It
+# runs here instead, and the check is inverted: this step fails the gate the day
+# the round trip starts working, which is the day the exclusion comes out.
+step "roundtrip (PF-2, expected red)"; npm run roundtrip
+
 step "db:test";          npm run db:test
 
 step "db:types (no diff)"

@@ -4533,3 +4533,36 @@ and therefore does not need the privilege.
 **Rejected: resetting the database between spec files.** It is the obvious fix and it turns a
 twenty-five minute suite into an hour of `supabase db reset`. The seed is a shared, read-mostly
 fixture and the rule above is what makes that work.
+
+## 2026-08-28 · PF-2's deliberate red leaves `npm run test` and becomes a check of its own
+
+`tests/notion-roundtrip.test.ts` is PF-2's specification made executable and it is red on purpose.
+For a day that was a good idea. Then `npm run test` reported **480 passed, 1 failed** every time it
+ran, and a command that is always red cannot answer the one question it is asked — *did I just break
+something?* This repository has already paid for that lesson once: `scripts/gate.sh`'s own header
+records a production-only bundle assertion that failed quietly for weeks because nothing ran it, and
+everybody had learned to read past the noise.
+
+**Decided.** `vitest.config.mts` excludes the file by name; `npm run test` is **480 passed, 0
+failed**. The red moves to `npm run roundtrip` (`scripts/roundtrip.sh`), which runs the same test
+through `vitest.roundtrip.config.mts`, still fails, and still prints the four-line drift — every
+field that did not survive the round trip, each named with the section of
+`docs/11-NOTION-ROUNDTRIP.md` that explains it. That output is PF-2's build checklist and it has not
+been weakened by a character.
+
+**The check is inverted, which is what makes it a check.** The script exits **0** while the test
+fails, and **1** the day it passes — with instructions to take the exclusion out and close PF-2. It
+is a step on `npm run gate`. Both branches were proven by pointing the config at a passing file and
+watching it exit 1.
+
+**A guard, because the first version was wrong.** `--exclude` on the vitest CLI is *appended* to the
+config's list rather than replacing it, so naming the file on the command line matched nothing,
+printed "No test files found" and exited 1 — indistinguishable from the test failing, and it
+reported a green PF-2. The script now refuses that output explicitly, and the second config is why
+it never has to.
+
+**Rejected: `it.fails()`.** It would keep the file in the suite and go green, and it would swallow
+the drift message, which is the only part of this test anybody will ever read.
+
+**Rejected: `it.skip()` with the ticket in its name.** A skipped test does not run, so the day the
+spec and the schema disagree nobody finds out.
