@@ -5360,3 +5360,60 @@ whole of what was added to it · `sprint-notes.spec.ts`
 `editable.spec.ts` → *withdrawn, not vanished*, which passes 1/1 alone and
 passes serially — two spec files sharing one item's comment fixture, category 2
 of the field notes' triage, and not this work.
+
+## 2026-08-29 · T1.3 — one trunk, and R4 closed by doing it in two pushes instead of one
+
+**R4 was that the control arrived with the thing it was controlling.** `vercel.json` existed only
+on the design branch, so the protection would have landed *attached to* the 59-commit merge — the
+one push where it had never been observed to hold. Split into two:
+
+| Step | Push | Vercel deployments since `1787851083871` | GitHub's last deployment |
+|---|---|---|---|
+| (a) `vercel.json` alone, 1 file, 6 insertions | `b63f4c7..ade2396` 20:46:01Z | **0** | `b63f4c7`, 2026-08-27 |
+| (c) the merge, 59 commits | `ade2396..0b836b6` 20:47:03Z | **0** | `b63f4c7`, 2026-08-27 |
+| the rescued fix | `0b836b6..a73e1ce` 20:50:17Z | **0** | `b63f4c7`, 2026-08-27 |
+
+Checked immediately after (a), immediately after (c), and again 90 seconds later. Three pushes to
+`main`, **zero deployments**. The control holds when it is already in force, which is the thing R4
+said had never been demonstrated.
+
+**A merge commit, not a squash.** `git cat-file -p HEAD | grep -c '^parent'` → **2**, parents
+`ade2396` and `4d53155`. 59 commits of reasoning kept. All 59 authored by
+`Mohamed Tamer Mohamed Saber`, and a scan of every message for `co-authored-by`, `generated with`,
+`claude.ai/code`, `anthropic` and the robot emoji returned nothing.
+
+**One branch was not stale, and deleting it would have been silent data loss.** The tier named
+three branches to delete. Checking each against `main` first:
+
+| Branch | Commits not on `main` | |
+|---|---|---|
+| `client-portal-and-access` | **0** | fully contained; the merge brought it in |
+| `workspace-redesign` | **0** | fully contained — the field note about "36 local commits and 12 migrations production has never seen" is now stale |
+| `workspace-redesign-before-migration-consolidation` | **0** | fully contained |
+| `claude/busy-kowalevski-2f13a3` | **1** | **not contained** — and not on the delete list |
+
+That one commit is a real hydration fix with tests: `tests/comment-nesting.test.tsx` (269 lines)
+was **absent from `main`**, and `lib/blocks/schema.ts` was missing its 42 lines. A `paragraph`
+inside a `paragraph` made the renderer emit `<p><p>`, which a browser parses as two siblings, so
+the sprint page threw a hydration mismatch on every load.
+
+**Decision: carry it onto `main` rather than delete it or leave it.** Leaving a stray branch
+holding the only copy of a tested fix contradicts the whole point of collapsing to one trunk, and
+deleting it would have thrown the fix away. The code applied to today's `main` **unchanged** — the
+only conflicts were the three append-only ledgers, each resolved by keeping `main`'s file and
+appending the section that commit added, which is what append-only means. `npm run test` →
+**517 passed / 38 files**, up from 506 / 37, so the 11 rescued tests pass against current `main`.
+`typecheck` and `lint` both clean.
+
+**The end state.**
+
+```
+git branch          -> main only
+git ls-remote origin -> refs/heads/main only  (visual-conformance deleted, local and remote)
+git worktree list   -> 1 entry
+```
+
+`.claude/worktrees/` also held two directories git did not know about —
+`app-perf-optimization-5996ff` and `silly-moore-771a77`, no `.git`, no source, 0B and 24K of tool
+cache. Removed, so the directory is empty rather than merely unregistered. The `abdelrahman`
+remote is untouched, as instructed.
