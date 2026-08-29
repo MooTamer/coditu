@@ -5661,3 +5661,24 @@ prevent carried it to production.
 There is **no `build-health.json`** on the live origin, which is the independent confirmation that
 CI did not make this deployment: only `scripts/write-build-health.mjs` in the gated path produces
 that file.
+
+## 2026-08-30 · T0.3 closes for real — the keepalive is active, not merely built
+
+It was recorded as *"done for the code, inert until deployed"*, closing at T1.5. The deployment
+that was not supposed to happen carried it to production, so the only thing left was the repository
+**variable** `PRODUCTION_BASE_URL` — the public origin, not a credential.
+
+Set to `https://coditu-phi.vercel.app` and dispatched: run **33277586425**, **success**, log ends
+`database_awake=true`. The workflow checks the **keyword** and not the status code, because a 200
+from a CDN error page would keep it green while the database slept — and the keyword it read is
+`coditu-database-awake`, which only `public.database_heartbeat()` produces, which only exists on
+hosted because T1.2 applied migration 39.
+
+So the Supabase seven-day pause risk is mitigated end to end for the first time: a real query
+against a real user table, four times a day, verified by its answer rather than by its exit code.
+The 120 minutes a month this costs is already in the R5 budget.
+
+**Only the non-credential value was set.** `VERCEL_TOKEN` and `HOSTED_SCHEMA_DB_URL` remain unset
+and are Mohamed's — the first is an API token to be minted, the second embeds the `coditu_backup`
+password. `gh secret list` is still empty, so the `deploy` job still refuses at its own guard,
+which is the correct state.
