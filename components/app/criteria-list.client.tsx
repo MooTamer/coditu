@@ -243,7 +243,14 @@ export function CriteriaList({
       setItems({ id: criterion.id, isDone: !criterion.isDone });
       const result = await trackedSave(
         () => setCriterionDone({ criterionId: criterion.id, isDone: !criterion.isDone }),
-        "That tick did not save — check your connection."
+        "That tick did not save — check your connection.",
+        // Replay-safe: a tick is an assignment to a known value, not a toggle
+        // of whatever the server currently holds, so replaying it cannot
+        // untick something somebody else ticked in the meantime.
+        {
+          mutation: { kind: "criterion", criterionId: criterion.id, isDone: !criterion.isDone },
+          label: `${criterion.isDone ? "Untick" : "Tick"} “${criterion.body.slice(0, 30)}”`,
+        }
       );
       if (!result.ok) toast(result.error ?? "That tick did not save.");
     });

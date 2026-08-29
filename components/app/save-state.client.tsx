@@ -11,7 +11,7 @@ import {
 } from "react";
 
 import { ToneChip, type ChipTone } from "@/components/coditu/status-chip";
-import { settle } from "@/lib/action-result";
+import { isUnreachable, settle, type UnreachableOutcome } from "@/lib/action-result";
 
 /**
  * The five words the whole application uses for "did that save".
@@ -62,6 +62,85 @@ export const SAVE_STATES = [
   "failed",
   "recovered",
 ] as const;
+
+/**
+ * ── The queue behind "will retry" ──────────────────────────────────────────
+ *
+ * `Offline — will retry` has been on screen since this vocabulary was written,
+ * and until now nothing retried. The sentence was aspirational, which is worse
+ * than a sentence that promises less: somebody reading it had every reason to
+ * close the tab believing their change was safe.
+ *
+ * `lib/pending-queue.ts` makes it true. What lives *here* is only the part the
+ * shell cannot avoid paying for:
+ *
+ * - a synchronous `localStorage` read, so the shell knows on load whether
+ *   anything is waiting;
+ * - a `dynamic import()` of the queue, so its code is fetched the first time a
+ *   write actually fails and never on a session where nothing does.
+ *
+ * The app shell had roughly four kilobytes of headroom against §5's total. A
+ * queue that everybody downloads for a failure most people never have would
+ * have spent most of it on nothing.
+ */
+const PENDING_COUNT_KEY = "coditu.pending.n";
+const SAME_TAB_EVENT = "coditu:local-storage";
+
+/** The mirrored depth of the unsent queue. Zero when there is nothing waiting. */
+function readPendingCount(): number {
+  try {
+    return Number(window.localStorage.getItem(PENDING_COUNT_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function subscribePending(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener(SAME_TAB_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(SAME_TAB_EVENT, onChange);
+  };
+}
+
+/**
+ * How many of this reader's writes have not reached the server.
+ *
+ * Zero on the server render — there is no storage there, and claiming a number
+ * before hydration is a mismatch blamed on something unrelated later
+ * (`07-FIELD-NOTES.md`).
+ */
+export function usePendingCount(): number {
+  return useSyncExternalStore(subscribePending, readPendingCount, () => 0);
+}
+
+/**
+ * Drain the queue, at most once at a time.
+ *
+ * The guard is not theoretical: `online` can fire while a flush started by the
+ * visibility check is still in flight, and two drains racing would replay the
+ * same entry twice. `status` and `criterion` would survive that and `time`
+ * would survive it only because of its idempotency key — which is a thin thing
+ * to lean on when a boolean prevents it.
+ */
+let flushing = false;
+
+async function flushPending(report?: (state: SaveState) => void): Promise<void> {
+  if (flushing || readPendingCount() === 0) return;
+  flushing = true;
+  try {
+    const { drain } = await import("@/lib/pending-queue");
+    const result = await drain();
+    if (result.rejected.length > 0) report?.("failed");
+    else if (result.sent > 0) report?.("saved");
+  } catch {
+    // The import failed (offline, and the chunk was never cached) or IndexedDB
+    // is unavailable. The queue is unchanged and the badge still shows it.
+  } finally {
+    flushing = false;
+  }
+}
 
 export type SaveState = (typeof SAVE_STATES)[number];
 
@@ -163,7 +242,15 @@ export function SaveStateProvider({ children }: { children: React.ReactNode }) {
     const goOnline = () => {
       online.current = true;
       if (state.current === "offline") store.report("draft");
+      void flushPending(store.report);
     };
+
+    // A tab that comes back to life after the `online` event already fired —
+    // laptop reopened, phone unlocked — never sees the event. The queue would
+    // then sit full until the next write. This is the cheapest way to notice:
+    // one synchronous integer read, and the module is only fetched if it is
+    // non-zero.
+    if (navigator.onLine && readPendingCount() > 0) void flushPending(store.report);
 
     window.addEventListener("offline", goOffline);
     window.addEventListener("online", goOnline);
@@ -214,14 +301,76 @@ export function useTrackedSave() {
   return useCallback(
     async <T extends { ok: boolean; error?: string }>(
       run: () => Promise<T>,
-      fallback: string
-    ): Promise<T | { ok: false; error: string }> => {
+      fallback: string,
+      /**
+       * What to replay if this write never reaches a server.
+       *
+       * Optional, and deliberately so. Passing it opts one call site into the
+       * queue; every existing caller keeps exactly the behaviour it had. A
+       * write is only queueable if replaying it later is *correct* — which is a
+       * judgement about that specific write, not something this function can
+       * infer. `lib/pending-queue.ts` explains what makes one replay-safe.
+       */
+      retry?: { mutation: import("@/lib/pending-queue").PendingMutation; label: string }
+    ): Promise<T | UnreachableOutcome> => {
       report("sending");
       const result = await settle(run, fallback);
+
       // `saved` only after the server said so — the handoff's own wording is
       // *"Saved (after acknowledgement)"*, and a chip that says Saved because a
       // request was sent is the exact lie this vocabulary exists to prevent.
-      report(result.ok ? "saved" : "failed");
+      if (result.ok) {
+        report("saved");
+        return result;
+      }
+
+      /**
+       * Queue only what the network refused, never what the server refused.
+       *
+       * Both arrive as `{ ok: false }` and they want opposite treatment: a
+       * rejected `fetch` means nobody has seen this write yet and it should be
+       * sent again; `{ ok: false, error: "Only the assignee can move this
+       * item" }` means a server read it and said no, and replaying it tomorrow
+       * gets the same no. `isUnreachable` is the discriminator, set by `settle`
+       * at the one place that can tell them apart.
+       *
+       * `navigator.onLine` is deliberately not used here. It answers "is there
+       * a network interface", not "did this request arrive", and it is
+       * cheerfully `true` on hotel wifi that resolves nothing.
+       */
+      if (retry && isUnreachable(result)) {
+        try {
+          const { enqueue } = await import("@/lib/pending-queue");
+          await enqueue(retry.mutation, retry.label);
+          report("offline");
+          /**
+           * The sentence is replaced, not passed through.
+           *
+           * Every call site toasts `result.error`, and the fallback it supplied
+           * says the write did not save — which was true before there was a
+           * queue and is now a contradiction of the chip sitting next to it
+           * saying the same write will be retried. Changing it here fixes all
+           * three call sites at once and costs them nothing.
+           *
+           * `ok` stays `false`. It has to: the server has not acknowledged
+           * anything, so `router.refresh()` must not run and the optimistic
+           * value must still fall back to what the server actually holds. The
+           * reader is told where their change went instead of watching it
+           * vanish unexplained, which is what invariant 4 asks for.
+           */
+          return {
+            ok: false as const,
+            error: "No connection — this is saved and will be sent when you are back online.",
+            unreachable: true as const,
+          };
+        } catch {
+          // Queueing failed — no IndexedDB, private mode, quota. Fall through
+          // and report the plain failure rather than claiming a retry that
+          // will not happen.
+        }
+      }
+
+      report("failed");
       return result;
     },
     [report]
@@ -255,15 +404,32 @@ export function useSaveState(): SaveState {
  */
 export function SaveChip({ className }: { className?: string }) {
   const state = useSaveState();
-  if (state === "idle") return null;
+  const pending = usePendingCount();
+
+  /**
+   * An unsent write outranks `idle`, and survives a reload.
+   *
+   * This is the half of the durability promise that is not the database. The
+   * queue must never be the only copy of somebody's work — so whenever it holds
+   * anything, the chip says so, in a count rather than a colour, whether or not
+   * anything is currently being saved and whether or not this is the same page
+   * load that queued it. Somebody who reloads with two changes outstanding sees
+   * "2 unsent" rather than a screen that looks finished.
+   */
+  if (state === "idle" && pending === 0) return null;
+
+  const queued = pending > 0;
+  const tone = queued && state !== "sending" ? SAVE_TONE.offline : SAVE_TONE[state];
+  const label = queued ? `${pending} unsent — will retry` : SAVE_LABEL[state];
 
   return (
     <ToneChip
-      tone={SAVE_TONE[state]}
+      tone={tone}
       role="status"
       aria-live="polite"
       data-save-chip
-      data-state={state}
+      data-state={queued ? "offline" : state}
+      data-pending={queued ? pending : undefined}
       className={`h-[26px] shrink-0 gap-1.5 ${className ?? ""}`}
     >
       <span
@@ -271,7 +437,7 @@ export function SaveChip({ className }: { className?: string }) {
         className="size-1.5 rounded-full"
         style={{ background: "currentColor", opacity: state === "sending" ? 0.5 : 1 }}
       />
-      {SAVE_LABEL[state]}
+      {label}
     </ToneChip>
   );
 }
