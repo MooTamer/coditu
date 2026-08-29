@@ -5331,3 +5331,70 @@ one — there is no dashboard toggle for disabling automatic production deployme
 anybody, so it is made **tamper-evident** rather than duplicated: a unit test asserts it still
 carries the setting, so removing it turns the suite red, and the post-push provider check that has
 now held across three pushes stays the second control.
+
+## 2026-08-30 · The migration squash is abandoned: `supabase migration squash` is not faithful here
+
+**The decision.** The 39 migrations stay as 39 migrations. `supabase migration squash` was run,
+verified, and its output **rejected**. Hosted's migration history was never touched — the run was
+stopped before `migration repair`, which is the only step that would have been hard to undo.
+
+**Why the ordering in the earlier ADR mattered.** That entry set the order as *real backup →
+hosted caught up to local → squash → verify with `db dump --linked`, because `db diff` ignores
+grants*. Every one of those clauses earned its place here. The verification is what caught this,
+and it caught it in the one place `db diff` would have stayed silent.
+
+**What the squash actually produced.** `supabase migration squash --version 20260829120000`
+replays the migrations into the shadow database and dumps the result. Three things did not survive
+the round trip. All were measured by dumping the local database before and after and diffing.
+
+| | 39 migrations | 1 baseline |
+|---|---|---|
+| `GRANT … TO "anon"` statements | **3** | **43** |
+| `authenticated` holding `TRUNCATE` or `ALL` | **23** | **62** |
+| `coditu_backup` in `db dump --role-only` | present, with `pg_read_all_data` and both timeouts | **absent** |
+| mentions of `coditu_backup` in the migration files | its own migration | **0** |
+
+1. **The grants are wider, and one of them is a data-loss hole.** After a reset from the baseline,
+   `information_schema.role_table_grants` says `anon has TRUNCATE,REFERENCES,TRIGGER on
+   public.work_items`. **`TRUNCATE` ignores row-level security entirely.** The anon key ships in
+   the browser bundle. This repository has a pgTAP assertion whose whole subject is that no table
+   in `public` lets a non-owner truncate it, and the baseline breaks it on every table.
+   The cause is the shadow database applying the Data-API default of exposing new entities to
+   `anon`/`authenticated`; the dump then records that as explicit `GRANT`s, and they become part
+   of the "schema".
+2. **The backup role vanishes.** `supabase db dump` is schema-only and roles are a separate dump
+   (`--role-only`), so `20260828140000`'s `create role coditu_backup` is simply not in the
+   baseline. A database rebuilt from it has no role for the nightly backup to connect as.
+3. **Data written by migrations is gone.** The storage-bucket rows are inserted by migrations, and
+   a schema-only dump does not carry rows. Four `storage.buckets` assertions fail after a baseline
+   reset, including *"the avatars bucket is public"* returning `NULL`.
+
+**And a fourth, which was fixable and is worth recording anyway.** The generated baseline opens
+with pg_dump's preamble, including `select pg_catalog.set_config('search_path', '', false)`. The
+third argument is `false` — session, not transaction — so the empty search path outlives the file,
+and `supabase db reset` seeds on the same connection. `supabase/seed.sql` calls `gen_salt()`
+unqualified, so the reset died with `42883 function gen_salt(unknown) does not exist` two lines
+after the baseline had installed pgcrypto. None of the 39 hand-written migrations carries a
+pg_dump preamble, so this hazard arrives with the squash. A trailing `RESET search_path` fixed it,
+and the reset then completed — which is how the other three were discovered at all.
+
+**Rejected: fix the baseline by hand.** Every defect above is repairable — re-add the role, add
+the bucket inserts, revoke the 40 extra `anon` grants. That produces a 6,000-line file, generated
+by a tool but then hand-edited, whose correctness rests on somebody having spotted every
+divergence in a diff. The thing being replaced is 39 files that are individually readable, in git,
+and known-good against production. Trading a proved artefact for a hand-patched generated one, to
+save reset time, is a bad trade — and this pass found three defects, which is evidence about how
+many a careful reader misses, not evidence that there were only three.
+
+**Rejected: squash a prefix only.** Same failure mode on whatever prefix is chosen, with the added
+problem that the seam has to be reasoned about too.
+
+**What the squash was worth.** The stated cost of 39 migrations is reset time in the sweeps that
+reset five times. That is real and it is minutes. The cost of getting this wrong is `anon` holding
+`TRUNCATE` on every table in production, or a restore that comes back without the role its own
+backup connects as. Revisit only if the CLI's squash learns to carry roles, grants and
+migration-inserted rows — and re-run exactly this verification, because it is the one that works.
+
+**How it was verified, for whoever tries again.** Dump local before, squash, `db reset`, dump
+local after, `diff`. Then `npm run db:test`, which failed on three separate assertions the diff
+had already predicted. `db diff` was never used and would not have shown any of it.

@@ -5434,3 +5434,63 @@ destructive path in one.
 
 Also folded into `CLAUDE.md`: migrations reach hosted before the code that reads them, always, and
 `vercel.json` is load-bearing.
+
+## 2026-08-30 · T2.1 — the squash was attempted, verified, and rejected
+
+**Outcome: the 39 migrations stay.** `supabase migration squash` was run against a full set of
+preconditions — T0.1's restore point, T1.2's hosted catch-up, and a post-migration backup that had
+been decrypted and read — and its output failed verification. **Hosted was never touched.** The run
+stopped before `supabase migration repair`, which is the only irreversible step, so the hosted
+history is still the same 39 rows it started the evening with.
+
+**A restore point for the one thing the backup does not hold.** Before starting, hosted's
+`supabase_migrations.schema_migrations` was read out and written to a restore script — 39 rows,
+version and name. This mattered because §T1.2 established that the nightly archive does **not**
+contain that table, so the migration history had no backup at all until this was taken.
+
+**What the verification found.** Dump local, squash, `db reset`, dump local again, diff. Three
+divergences, none of which `db diff` can see:
+
+| | 39 migrations | 1 baseline |
+|---|---|---|
+| `GRANT … TO "anon"` | **3** | **43** |
+| `authenticated` with `TRUNCATE`/`ALL` | **23** | **62** |
+| `coditu_backup` in `--role-only` | present | **absent** |
+| the baseline's own mentions of `coditu_backup` | — | **0** |
+
+The first is the one that matters. After a baseline reset the live database answers:
+
+```
+anon has TRUNCATE,REFERENCES,TRIGGER on public.work_items
+```
+
+**`TRUNCATE` ignores RLS**, and the anon key ships in the browser bundle. The second loses the role
+the nightly backup connects as. The third is `storage.buckets`: those rows are *inserted* by
+migrations and a schema-only dump does not carry rows, so four bucket assertions fail, including
+*"the avatars bucket is public"* returning `NULL`.
+
+**This repository's own suite caught it, unprompted.** `npm run db:test` against the baseline
+failed *"authenticated holds no backup-health write privilege"*, *"the server capability may
+report but cannot delete or truncate evidence"* and *"authenticated holds no insert, update,
+delete or truncate on recovery_runs"* — three assertions written for other reasons, all reacting
+to the same widened grants.
+
+**One defect was fixed rather than merely found, because it hid the others.** The generated
+baseline opens with pg_dump's `set_config('search_path', '', false)` — session-scoped, not
+transaction-scoped — and `supabase db reset` seeds on the same connection, so the reset died at
+`42883 function gen_salt(unknown) does not exist` before reaching anything else. A trailing
+`RESET search_path` got past it, and that is how the three real divergences became visible.
+
+**Restored and re-verified.**
+
+```
+git checkout -- supabase/migrations/   ->  39 files, working tree clean
+npm run db:reset                       ->  migrations: 39
+                                           anon grants on work_items: NONE
+                                           coditu_backup: PRESENT
+npm run db:test                        ->  Files=8, Tests=462, Result: PASS
+```
+
+Hosted re-checked afterwards: **39**. The reasoning, the rejected alternatives and the exact
+verification recipe are in the ADR of 2026-08-30, so the next person can re-run it rather than
+re-argue it.

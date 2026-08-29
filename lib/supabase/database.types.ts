@@ -2278,6 +2278,7 @@ export type Database = {
           message_id: string
         }[]
       }
+      database_heartbeat: { Args: never; Returns: string }
       derive_key_prefix: {
         Args: { p_exclude?: string; p_slug: string }
         Returns: string
