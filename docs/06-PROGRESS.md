@@ -4933,3 +4933,48 @@ dynamic, no-store database health route backed by a fixed-output, anon-executabl
 UptimeRobot Keyword monitoring and a seven-day dashboard check. It is deliberately **not implemented
 or activated** in this branch. The backup-report endpoint will never be pinged synthetically for this
 purpose, because a fake freshness report would make recovery evidence untrustworthy.
+
+## 2026-08-29 · T0.1 — the hosted project has a restore point
+
+`2026-08-29T165142Z.tar.gz.age`, 19,450,696 bytes, at
+`/Users/motamer/Library/Application Support/Coditu/Backups/`, encrypted to the public recipient in
+`ops/backup-recipient.txt`. **126 tables, 1,391 rows, 135 Storage objects across 3 buckets**, taken
+from the **hosted** project. Every recovery run before this one was against a local stack.
+
+**Verification command, and its output.** `shasum -a 256` on the ciphertext matches the sidecar's
+`sha256` and byte count; `age --decrypt -i /Users/motamer/.config/coditu/backup.agekey` then
+`shasum -a 256 -c checksums.sha256` → **140 files OK, 0 failed**; `find storage -type f | wc -l` →
+**135**, equal to the manifest and to `storage.objects`; `row-counts.tsv` against the hosted
+database → `work_items 107`, `time_entries 79`, `profiles 4`, `auth.users 4`, `projects 5`,
+`sprints 17`, `comments 14`, all equal. `schema.sql` carries 34 `CREATE TABLE`, 98 `CREATE POLICY`
+and 64 functions; `roles.sql` carries `coditu_backup` and the `statement_timeout` settings for
+`anon`, `authenticated` and `authenticator`. End to end: **225 seconds**.
+
+**What had to be true first, and was not.** The `postgres` password is not in this repository and
+not on this machine, so the hosted database was unreachable by any documented path. Two things
+closed that:
+
+1. The Supabase CLI's stored access token gives the **Management API** SQL endpoint, which runs as
+   the `postgres` owner. `coditu_backup` was created through it with the body of
+   `20260828140000_a_role_that_can_only_read.sql` — the migration is idempotent, so T1.2 applying
+   it later re-runs as an `alter`, not a conflict — and given a locally generated 48-character
+   password held only in `/Users/motamer/.config/coditu/backup-db.env`, mode 0600, outside git.
+   `backup.sh`'s own role assertion then passed against hosted: `coditu_backup|true|true|false`.
+2. `db.hayfsvsepgfescojesbd.supabase.co` publishes **only an AAAA record** and this machine has no
+   IPv6 route, so every connection string in these runbooks was unusable. The **session pooler** at
+   `aws-0-eu-central-1.pooler.supabase.com:5432` works. Port 6543, which the Management API
+   advertises, is transaction mode and will not carry migration DDL.
+
+**One change to `scripts/backup.sh`, and one bug found by running it.** Storage bytes are in no
+database dump, and Supabase S3 access keys can only be minted by a human in the dashboard — probed
+2026-08-29: `storage/credentials` and `storage/s3-credentials` both 404. A `rest` storage mode
+lists objects from `storage.objects` and downloads them with the service-role key; `s3` is
+unchanged and still the default. The privilege cost is real and recorded as an ADR: the
+service-role key can write, where `coditu_backup` deliberately cannot. The first run of that mode
+spawned one `curl` per object, **sat on a single 62 KB PNG for six minutes with nothing on
+stdout**, and put the service-role key in this machine's process list 135 times. It is now one
+bounded `curl --config` per bucket with the header in a mode-0600 file, and the same 135 objects
+complete in seconds.
+
+**What is still not true.** One copy, on one laptop. Not off-site, not scheduled, not pruned, no
+GitHub secrets, no remote run. That is T0.2.

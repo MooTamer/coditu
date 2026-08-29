@@ -131,6 +131,105 @@ Found and deliberately not fixed. Any PF pass touching these areas inherits them
 
 ---
 
+## Priority order — set 2026-08-29, supersedes every earlier ordering
+
+Work top-down. A tier does not start until the one above it is done, because each tier removes a
+risk the next would otherwise inherit. Mohamed authorised **push and merge to `main`** on
+2026-08-29; he did **not** authorise an unplanned production deploy. Four rails follow from that
+and hold for the whole pass:
+
+1. Nothing deploys until **T1.1** and **T1.2** are done, in that order.
+2. Never push code whose migrations are not already on the hosted database.
+3. Never run a destructive database operation before **T0.1** exists.
+4. No paid service and no card. **R2 is out** — its allowance is free, its account is not.
+
+### Tier 0 — there is no restore point. Nothing jumps this.
+
+| | | Status |
+|---|---|---|
+| **T0.1** | A manual dump of the **hosted** project — roles, schema and data separately — plus the Storage bucket, encrypted to the established public key, with its location written down | `done` — `2026-08-29T165142Z`, 19,450,696 bytes, 126 tables / 1,391 rows / 135 Storage objects, verified by decryption and a 140-file checksum pass. `docs/09-BACKUP-PROPOSAL.md` §7 |
+| **T0.2** | Re-point the nightly off R2 onto card-free storage: a dedicated **private GitHub repo** for the age-encrypted dumps with GFS pruning, plus **Google Drive via rclone** (15 GB, no card) as the off-provider leg. Proved end to end — run it, restore its output into a throwaway stack, diff row counts | `open` |
+| **T0.3** | The keepalive. Free Supabase projects pause after ~7 days of low activity, and a paused database is downtime with no deploy involved. A database-backed health endpoint hit externally; `/login` does not count | `open` |
+
+### Tier 1 — collapse to one trunk, safely. The order is not negotiable.
+
+| | | Status |
+|---|---|---|
+| **T1.1** | Turn Vercel's automatic production deploy **off** in the project's Git settings, and confirm it is off, **before any push** | `open` |
+| **T1.2** | Apply the three pending migrations to hosted with the code still unshipped, then verify hosted == local at 38 and that the schema preflight passes against hosted | `open` |
+| **T1.3** | Merge `visual-conformance` into `main` as a **real merge commit** — 51 commits of reasoning is the audit trail — push, then delete the branch, the two `.claude/worktrees` and every stale branch. `git worktree list` must end with one entry | `open` |
+| **T1.4** | Write the branch model into `CLAUDE.md` and an ADR: trunk-based, `main` always deployable and tagged on release, short-lived `feat/*` and `fix/*` through PRs that CI runs, Vercel previews as the testing/UAT environment — with the known limitation stated, that previews share the hosted database | `open` |
+| **T1.5** | Activate the deploy gate that is already built and wired to nothing, then make **one** deliberate deployment and verify the live site, reporting the SHA from the provider rather than from git | `open` |
+
+### Tier 2 — housekeeping, now that it is safe.
+
+| | | Status |
+|---|---|---|
+| **T2.1** | Squash the 38 migrations into one baseline. Only now, and only because T0.1 and T1.2 are done. Repair the hosted migration history to match, then verify equality with `supabase db dump --linked` — **not** `db diff`, which ignores grants | `open` |
+| **T2.2** | Fix the nine stale browser specs to the current routes and seed — the Block 8 diagnosis stands, it is spec drift and no app defect — then run the suite serially from a fresh reset and report the number | `open` |
+
+### Tier 3 — what the team will feel.
+
+| | | Status |
+|---|---|---|
+| **PF-15** | Fast, not local-first. Server stays the source of truth | `open` |
+| **PF-1** | Distil the copy | `open` |
+| **PF-2** | The Notion round trip | `open` — §5's open question is now **decided**, see below |
+
+### Tier 4 — only if there is runway.
+
+| | | Status |
+|---|---|---|
+| **PF-16** | Yjs + TipTap on documents only | `open` |
+
+---
+
+## New rows
+
+| ID | What | Why it is scoped this way | Status | Evidence |
+|---|---|---|---|---|
+| **PF-15** | Perceived-instant navigation, and writes that survive a dropped connection | Full local-first was rejected: CRDTs merge text, not business invariants, and this app has money in it. It would also put RLS behind a client-side filter, need a hosted sync service there is no budget for, and cost 40–60 KB against single-digit headroom. Measured reality: the story peek is already 147 ms and the keystroke 12.3 ms, so local-first buys ~120 ms. **Four parts:** (a) route prefetch on the paths people actually take; (b) stale-while-revalidate reads for the active sprint; (c) optimistic UI on the frequent writes — status, criterion tick, log time — on the `useTrackedSave`/`useOptimistic` machinery that already exists; (d) an IndexedDB queue for **pending mutations only**, never the dataset. Budget: single-digit KB, measured before and after; if (d) alone exceeds 6 KB, say so and stop rather than trimming elsewhere. Guard the durability trap — Safari evicts script-writable storage after ~7 days without interaction, so call `navigator.storage.persist()`, and **never let a queued mutation be the only copy of a user's work**: surface unsent edits in the UI | `open` | — |
+| **PF-16** | Yjs/TipTap collaborative editing on documents only — descriptions, sprint notes, acceptance criteria | The one surface where a CRDT earns its keep: it is text, the conflicts are real, and a dynamic import on editor routes keeps it off the app shell budget, proved with `npm run budgets` before and after. Business data stays server-authoritative; no CRDT near status, hours, assignment or payouts | `open` | — |
+
+---
+
+## Architecture decisions — 2026-08-29
+
+**Full local-first: rejected.** Reasons above. Revisit only if the product gains real offline field
+use, or a user count where the round trip stops being affordable. Neither is true for four people
+at desks.
+
+**Migrations: squash, but not yet.** 38 is not a scalability problem — it is a reset-time and
+readability one, and it costs most in the E2E sweeps that reset five times. Squashing rewrites
+history the hosted project has already applied, so the order is immovable: **real backup → hosted
+caught up to local → squash → verify with `db dump --linked`, because `db diff` ignores grants.**
+Squashing a database with no restore point is the single most dangerous thing on this list.
+
+**Branch model: trunk-based, not testing/uat/production.** Three long-lived branches create
+permanent merge debt and three things to keep in sync — for four people with ONE database that is
+cost with no benefit. Instead: `main` is the trunk and is always deployable; work happens on
+short-lived `feat/*` and `fix/*` branches that merge back through a PR CI runs; **Vercel's
+per-branch preview deployments ARE the testing/UAT environment**, free, with their own URLs, and
+they die with the branch; releases are tagged so a rollback has a name. **Known limitation, stated
+not hidden:** previews point at the same hosted Supabase, so a preview is isolated in code and not
+in data. A second free Supabase project could be a staging database later; it doubles the migration
+work, so not now.
+
+**PF-2's sub-item question is decided — option 2.** Notion has sub-items; Coditu has no item→item
+relation, because invariant 1 makes a work item a leaf. Carry the parent's Notion page id on the
+child in a column nothing in the app reads or renders, scoped as **migration-only with a removal
+ticket filed at the same time**. Reason: during the parallel fortnight the team is still working in
+Notion, so flattening their board is the one visibly damaging option, and "it will still be there
+in a year" is answered by naming its expiry. `grouping` as a lossy stand-in was rejected — it
+overloads a field the team uses for something else, which is worse than an inert column.
+
+**R2 is abandoned, not blocked.** §4 question 2 of `docs/09-BACKUP-PROPOSAL.md` chose Cloudflare
+R2. Its allowance is free; its account requires a billing profile with a payment method, which
+Mohamed refused. T0.2 replaces it with a dedicated **private GitHub repo** for the encrypted
+archives plus **Google Drive via rclone** as the off-provider leg.
+
+---
+
 ## Change log
 
 | Date | Change |

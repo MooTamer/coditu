@@ -4946,3 +4946,60 @@ backup canary report.
 Calling it without that evidence to manufacture database activity would keep the project awake by
 making the Recovery Centre lie. Availability and recoverability are separate controls even when one
 scheduled request could technically serve both.
+
+## 2026-08-29 · The Storage leg copies over REST with the service-role key, not S3
+
+`scripts/backup.sh` gains `SOURCE_STORAGE_MODE`. `s3` is unchanged and remains the default.
+`rest` lists objects from `storage.objects` — which the read-only role can already see — and
+downloads each one from `/storage/v1/object/<bucket>/<name>` with the project's service-role key.
+
+**Why.** Supabase Storage S3 access keys can only be created by a human in the dashboard; the
+Management API has no endpoint that mints them, probed on 2026-08-29 (`storage/credentials` and
+`storage/s3-credentials` both 404, `config/storage` confirms the S3 protocol is enabled). Under
+an autonomy contract where no answer is coming, that made the S3 path unreachable and the whole
+Storage half of the first hosted backup unreachable with it.
+
+**What it costs, stated rather than buried.** The service-role key can WRITE, where
+`coditu_backup` deliberately cannot. The database leg's least privilege is intact; the Storage
+leg's is not. That is a real weakening and the comment in the script says so. It is accepted
+because the alternative on 2026-08-29 was **no Storage copy at all**, and 135 objects — every
+attachment and comment image in the workspace — are in no database dump by design. Revisit the
+moment somebody with dashboard access can mint an S3 key pair; the `s3` mode is still there and
+still the default.
+
+**Rejected: skipping Storage for the first backup.** The proposal has said since it was written
+that database backups exclude Storage files. A first restore point that silently omits every
+image would be exactly the "failure that completed successfully" the read-only role migration's
+own header warns about.
+
+## 2026-08-29 · One curl per bucket, bounded, with the key off the process list
+
+The first hosted Storage run spawned one `curl` per object. It sat on a single 62 KB PNG for six
+minutes with nothing on stdout, and the service-role key was an argument of all 135 invocations,
+visible to anything that can run `ps`.
+
+**Decision.** One `curl --config` per bucket. The auth header is written once into a mode-0600
+file inside the mode-0700 temp tree the exit trap already removes, so it is never an argument.
+Every request carries `connect-timeout 15`, `max-time 300`, `retry 3` and `fail-early`; each
+bucket prints its object count before it starts.
+
+**Why it matters beyond tidiness.** An unbounded request in a scheduled job does not fail — it
+hangs, and a hung nightly is indistinguishable from a nightly that has not run yet until the
+freshness canary fires a day later. Bounding it converts a silent stall into a loud failure. The
+TLS handshake to Storage costs several seconds on this connection and is now paid three times
+instead of 135: the same 135 objects that had not finished in six minutes completed inside a
+225-second end-to-end run.
+
+## 2026-08-29 · The hosted database is reached through the session pooler, not the direct host
+
+Every runbook in this repository gives the connection string as
+`db.hayfsvsepgfescojesbd.supabase.co:5432`. That host publishes **only an AAAA record**, and the
+machine this work runs on has no IPv6 route — `getaddrinfo` fails outright.
+
+**Decision.** Use `aws-0-eu-central-1.pooler.supabase.com:5432` (the **session** pooler; the
+6543 port the Management API advertises is transaction mode and will not carry migration DDL),
+with the username `<role>.<project-ref>`. The runbooks now say so.
+
+**Why this is worth an ADR.** The failure is a connection timeout with no explanation, and the
+obvious first suspicion is the password or the role, both of which were newly created here. An
+hour can go into that. It is a property of the network path, not of the project.

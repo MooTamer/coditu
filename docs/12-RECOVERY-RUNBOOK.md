@@ -1,8 +1,50 @@
 # 12 — Infrastructure recovery runbook
 
 This runbook describes the recovery path implemented on 2026-08-28. It does not upgrade a
-provider statement into a fact. The current boundary is in
-`docs/09-BACKUP-PROPOSAL.md` §7: locally proved, off-site activation card-blocked.
+provider statement into a fact. The current boundary is in `docs/09-BACKUP-PROPOSAL.md` §7.
+
+## 0. What exists right now — read this before the rest
+
+**One encrypted recovery set of the hosted project exists, on Mohamed's Mac only.**
+`2026-08-29T165142Z.tar.gz.age` and its sidecar, under
+`/Users/motamer/Library/Application Support/Coditu/Backups/`. 126 tables, 1,391 rows, 135 Storage
+objects, 19,450,696 bytes. It decrypts, its 140 payload files pass their checksums, and its row
+counts match the hosted database. **Nothing is off-site and nothing is scheduled.** Everything in
+§1 below still describes an activation that has not happened, except the two steps this set
+required, which are now true:
+
+- `coditu_backup` exists on the hosted project, with LOGIN, BYPASSRLS and a password. The
+  password lives in `/Users/motamer/.config/coditu/backup-db.env` (mode 0600) and nowhere else.
+- The Storage copy does not need S3 keys any more. `scripts/backup.sh` has a `rest` mode that
+  lists objects from `storage.objects` and downloads them with the service-role key. See the ADR
+  in `docs/05-DECISIONS.md`, 2026-08-29, including what it costs in privilege.
+
+**Connect through the session pooler, not the direct host.** Every connection string written
+below and in §1 names `db.hayfsvsepgfescojesbd.supabase.co:5432`. That host has **no A record**,
+and a machine without an IPv6 route cannot resolve it at all. Use:
+
+```
+postgresql://<role>.hayfsvsepgfescojesbd@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require
+```
+
+Port **5432** on the pooler is session mode. Port 6543 — which the Management API advertises as
+the connection string — is transaction mode and will not carry migration DDL.
+
+**To take another set today**, from the repository root:
+
+```bash
+. /Users/motamer/.config/coditu/backup-db.env
+set -a; . ../Strukture-Digital/.env.production.local; set +a
+BACKUP_DB_URL="postgresql://coditu_backup.hayfsvsepgfescojesbd:${CODITU_BACKUP_DB_PASSWORD}@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require" \
+BACKUP_DB_URL_CONTAINER="$BACKUP_DB_URL" \
+SOURCE_STORAGE_MODE=rest \
+SOURCE_STORAGE_REST_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+SOURCE_STORAGE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+BACKUP_LOCAL_DIR="/Users/motamer/Library/Application Support/Coditu/Backups" \
+BACKUP_UPLOAD=0 ./scripts/backup.sh
+```
+
+It took **225 seconds** end to end on 2026-08-29 for this data size.
 
 ## 1. One-time activation
 

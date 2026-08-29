@@ -15,6 +15,7 @@ backup_recipient_file=${BACKUP_RECIPIENT_FILE:-$backup_repo_root/ops/backup-reci
 backup_postgres_image=${BACKUP_POSTGRES_IMAGE:-public.ecr.aws/supabase/postgres:17.6.1.143}
 backup_pg_runtime=${BACKUP_PG_RUNTIME:-docker}
 backup_upload=${BACKUP_UPLOAD:-0}
+backup_storage_mode=${SOURCE_STORAGE_MODE:-s3}
 
 fail() {
   printf 'backup: %s\n' "$*" >&2
@@ -47,15 +48,43 @@ file_bytes() {
   fi
 }
 
-for backup_command in age aws docker jq psql sed supabase tar; do
+for backup_command in age docker jq psql sed supabase tar; do
   need_command "$backup_command"
 done
 need_value BACKUP_DB_URL
-need_value SOURCE_STORAGE_S3_URL
-need_value SOURCE_STORAGE_ACCESS_KEY_ID
-need_value SOURCE_STORAGE_SECRET_ACCESS_KEY
-need_value SOURCE_STORAGE_REGION
 need_value BACKUP_LOCAL_DIR
+
+# Storage bytes are not in any database dump, so they are copied separately.
+# There are two ways in, and which one is available is a credential question,
+# not a preference:
+#
+#   s3   — the S3-compatible endpoint with an access key pair. Least coupled to
+#          the app, but the key pair can only be minted in the dashboard by a
+#          human; the Management API has no endpoint for it.
+#   rest — the Storage REST API with the service-role key, listing objects from
+#          `storage.objects` rather than from the bucket. Available wherever the
+#          project's own server credentials are, which is what made the first
+#          hosted recovery set possible at all.
+#
+# The honest trade: the REST leg holds a credential that can also WRITE, where
+# the database leg deliberately cannot. It is not least privilege. It is the
+# only card-free path to a Storage copy today, and a Storage copy that exists
+# beats a least-privilege one that does not.
+case "$backup_storage_mode" in
+  s3)
+    need_command aws
+    need_value SOURCE_STORAGE_S3_URL
+    need_value SOURCE_STORAGE_ACCESS_KEY_ID
+    need_value SOURCE_STORAGE_SECRET_ACCESS_KEY
+    need_value SOURCE_STORAGE_REGION
+    ;;
+  rest)
+    need_command curl
+    need_value SOURCE_STORAGE_REST_URL
+    need_value SOURCE_STORAGE_SERVICE_KEY
+    ;;
+  *) fail "SOURCE_STORAGE_MODE must be s3 or rest" ;;
+esac
 
 [ -f "$backup_recipient_file" ] || fail "public age recipient not found: $backup_recipient_file"
 backup_recipient=$(tr -d '[:space:]' < "$backup_recipient_file")
@@ -218,14 +247,66 @@ count_storage_rows() {
 
 backup_storage_before=$(count_storage_rows)
 
+# Percent-encode everything outside the unreserved set, but leave `/` alone:
+# object names carry their folder structure and the path separator must survive.
+url_encode_object_path() {
+  printf '%s' "$1" | jq -sRr '@uri' | sed 's/%2F/\//g'
+}
+
+# One curl per bucket rather than one per object, for two reasons that both
+# turned out to matter on the first hosted run: the TLS handshake to Storage
+# costs several seconds and is worth paying once, and a per-object invocation
+# puts the service-role key in this machine's process list 135 times over. The
+# key is written once into a mode-0600 file inside the mode-0700 temp tree that
+# the exit trap removes, and curl reads it from there.
+#
+# Every request is bounded. The first attempt at this leg ran without a timeout
+# and sat on a single object for six minutes with nothing on stdout to say so;
+# an unbounded backup is a backup that can hang the schedule it runs on.
+copy_bucket_over_rest() {
+  rest_bucket=$1
+  rest_listing=$backup_tool_dir/objects-$rest_bucket.txt
+  rest_config=$backup_tool_dir/curl-$rest_bucket.conf
+  psql -X -qAt "$BACKUP_DB_URL" -v ON_ERROR_STOP=1 \
+    -c "select name from storage.objects where bucket_id = '$rest_bucket' order by name" \
+    > "$rest_listing"
+
+  : > "$rest_config"
+  chmod 600 "$rest_config"
+  printf 'header = "Authorization: Bearer %s"\n' "$SOURCE_STORAGE_SERVICE_KEY" >> "$rest_config"
+  printf 'silent\nshow-error\nfail-early\ncreate-dirs\nretry = 3\nretry-delay = 2\nretry-all-errors\nconnect-timeout = 15\nmax-time = 300\n' >> "$rest_config"
+
+  rest_objects=0
+  while IFS= read -r rest_object; do
+    [ -n "$rest_object" ] || continue
+    # Fail closed on anything that could escape the payload directory or break
+    # the config-file quoting, rather than encoding around it.
+    case "$rest_object" in
+      /*|*..*|*'"'*|*'\'*) fail "unsafe Storage object name in $rest_bucket: $rest_object" ;;
+    esac
+    printf 'url = "%s/storage/v1/object/%s/%s"\noutput = "%s"\n' \
+      "${SOURCE_STORAGE_REST_URL%/}" "$rest_bucket" "$(url_encode_object_path "$rest_object")" \
+      "$backup_payload_dir/storage/$rest_bucket/$rest_object" >> "$rest_config"
+    rest_objects=$((rest_objects + 1))
+  done < "$rest_listing"
+
+  printf 'backup: copying %s object(s) from %s over REST\n' "$rest_objects" "$rest_bucket" >&2
+  [ "$rest_objects" -gt 0 ] || return 0
+  curl --config "$rest_config" || fail "Storage REST copy failed for bucket $rest_bucket"
+}
+
 while IFS= read -r backup_bucket; do
   mkdir -p "$backup_payload_dir/storage/$backup_bucket"
-  AWS_ACCESS_KEY_ID=$SOURCE_STORAGE_ACCESS_KEY_ID \
-  AWS_SECRET_ACCESS_KEY=$SOURCE_STORAGE_SECRET_ACCESS_KEY \
-  AWS_DEFAULT_REGION=$SOURCE_STORAGE_REGION \
-    aws --endpoint-url "$SOURCE_STORAGE_S3_URL" s3 sync \
-      "s3://$backup_bucket" "$backup_payload_dir/storage/$backup_bucket" \
-      --no-progress --only-show-errors
+  if [ "$backup_storage_mode" = s3 ]; then
+    AWS_ACCESS_KEY_ID=$SOURCE_STORAGE_ACCESS_KEY_ID \
+    AWS_SECRET_ACCESS_KEY=$SOURCE_STORAGE_SECRET_ACCESS_KEY \
+    AWS_DEFAULT_REGION=$SOURCE_STORAGE_REGION \
+      aws --endpoint-url "$SOURCE_STORAGE_S3_URL" s3 sync \
+        "s3://$backup_bucket" "$backup_payload_dir/storage/$backup_bucket" \
+        --no-progress --only-show-errors
+  else
+    copy_bucket_over_rest "$backup_bucket"
+  fi
 done < "$backup_included_buckets"
 
 backup_storage_after=$(count_storage_rows)

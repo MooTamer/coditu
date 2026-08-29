@@ -338,17 +338,53 @@ dashboard rather than here.
 
 ## 7. Status
 
-**Decided and implemented locally; not activated off-site.** The six decisions in §4 are
-answered. The workflow, read-only role migration, public-key encryption, exact GFS pruning,
-local-copy command and restore verifier exist. A real local run on 2026-08-28 encrypted
-5,245 rows from 130 tables and 115 objects from three Storage buckets, then restored those
-row counts and object bytes into an isolated Supabase stack.
+### 2026-08-29 — the hosted project has a restore point for the first time
 
-There are still **zero GitHub repository secrets**, no configured R2 target or credentials
-reachable from this checkout, and no remote workflow run. R2 activation reaches Cloudflare's subscription checkout, whose billing profile
-requires a primary payment method. Under Mohamed's no-card decision, this block stops at
-that boundary. Therefore the truthful hosted status remains: no off-site restore point,
-no achieved 24-hour RPO, and no active retention policy.
+`2026-08-29T165142Z.tar.gz.age`, 19,450,696 bytes, at
+`/Users/motamer/Library/Application Support/Coditu/Backups/` on Mohamed's Mac, encrypted to
+the public recipient in `ops/backup-recipient.txt`. It holds **126 tables, 1,391 rows and 135
+Storage objects across 3 buckets** — read from the **hosted** project, not from a local stack.
+Everything before this line was a local rehearsal of a hosted capability that did not exist.
+
+Verified rather than assumed, immediately after the run: the ciphertext's SHA-256 and byte
+count match the sidecar; it decrypts with the private key at
+`/Users/motamer/.config/coditu/backup.agekey`; all **140** payload files pass
+`shasum -a 256 -c checksums.sha256`; the extracted tree really holds 135 Storage files; and the
+row-count manifest agrees with the hosted database table by table — 107 work items, 79 time
+entries, 4 profiles, 4 `auth.users`, 5 projects, 17 sprints, 14 comments. `schema.sql` carries
+34 tables, 98 policies and 64 functions; `roles.sql` carries the custom roles and their grants.
+
+**This is one copy, on one laptop.** It is not the nightly, not off-site, and not pruned. It is
+the thing that had to exist before anything else in this pass was allowed to touch production.
+
+### What the credentials actually are
+
+Two hosted credentials were established for it, and neither is the `postgres` password — which
+is not in this repository, not on this machine, and was never needed:
+
+- **`coditu_backup`** was created on the hosted project with the body of
+  `20260828140000_a_role_that_can_only_read.sql` — the migration is idempotent, so applying it
+  later re-runs as an `alter` rather than a conflict — and given a 48-character alphanumeric
+  password generated locally and held only in
+  `/Users/motamer/.config/coditu/backup-db.env` (mode 0600, outside git). The role contract the
+  script asserts holds against hosted: `coditu_backup|true|true|false` — it is the backup role,
+  it has BYPASSRLS, it can SELECT `work_items`, it cannot INSERT.
+- **The Storage leg used the service-role key**, not an S3 key pair, over a new `rest` mode in
+  `scripts/backup.sh`. See the ADR: S3 access keys can only be minted by a human in the
+  dashboard, and the Management API has no endpoint for them.
+
+The connection is the **session pooler on port 5432**, not `db.<ref>.supabase.co`. The direct
+host publishes only an AAAA record and this machine has no IPv6 route, so the direct connection
+string in every runbook here is unusable from it. That is a property of the network, not of the
+project, and any future reader hitting a silent connection failure should check it first.
+
+### What is still not true
+
+There are still **zero GitHub repository secrets** and no remote workflow run. R2 is now
+abandoned, not blocked: its allowance is free and its account is not (§4 question 2 is
+superseded by the T0.2 decision in `docs/10-PRODUCT-FEEDBACK.md`). So there is still **no
+off-site restore point, no achieved 24-hour RPO, and no active retention policy** — but there
+is now, for the first time, a restore point.
 
 ## 8. The implemented nightly set and its activation boundary
 
