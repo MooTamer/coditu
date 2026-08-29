@@ -5671,3 +5671,99 @@ That is what `CLAUDE.md` already described; until today nothing enforced it.
 `require_extra_approval_for_unattributed_changes` to `true` on the pull-request rule. It was not
 requested. With zero required approvals it has nothing to gate today, but it is the kind of default
 that becomes visible the day a review requirement is added.
+
+## 2026-08-30 · PF-15: one of its four parts was new work, and the other three were already answered
+
+PF-15 asked for four things: **(a)** route prefetch on the paths people take, **(b)**
+stale-while-revalidate reads for the active sprint, **(c)** optimistic UI on the frequent writes,
+**(d)** an IndexedDB queue for pending mutations only. Building all four would have meant undoing
+two measured decisions and re-implementing a third. What follows is what each one turned out to be,
+because "we did not build it" and "it is already built" and "we measured it and it lost" are three
+very different answers and only one of them is a gap.
+
+### (c) — already built. Verified, not assumed.
+
+All three writes PF-15 names are already optimistic, through `useOptimistic` plus `useTrackedSave`:
+
+| Write | Where | Optimistic since |
+|---|---|---|
+| status | `components/app/row-editors.client.tsx:71` | before this pass |
+| criterion tick | `components/app/criteria-list.client.tsx:152` | before this pass |
+| log time | `components/app/log-time.client.tsx:62` | before this pass |
+
+Nothing was needed. This is recorded rather than silently ticked because a ledger that cannot tell
+"done earlier" from "done now" stops being useful for planning.
+
+### (a) — rejected, and it was already rejected with numbers.
+
+The prefetch ADR of 2026-08-27 measured exactly this, on a production build with
+`pg_stat_statements` reset before each run:
+
+| | RSC renders | Database statements | Open an item | Rail navigation |
+|---|---|---|---|---|
+| prefetch on | 28 | 178 | 210 ms | 269 ms |
+| `prefetch={false}` | **0** | **40** | 206 ms | 277 ms |
+
+Turning prefetch back on costs **138 extra database statements per sprint page view** and buys
+8 ms across a 270 ms navigation, which is noise. Every route under `/app` is dynamic, so each
+prefetch is a full server render — and `staleTimes.dynamic` defaults to `0`, so the payload is stale
+on arrival and the click re-fetches anyway. The renders are performed and discarded.
+
+**Prefetch-on-intent was considered and does not rescue it.** Hovering would fire one speculative
+render instead of twenty-eight, which fixes the cost — but `staleTimes.dynamic: 0` means that one
+render is *also* thrown away on the click. It would be a smaller waste, not a win.
+
+### (b) — rejected, for correctness, and by the same ADR.
+
+Stale-while-revalidate on the sprint **is** `experimental.staleTimes.dynamic` with a non-zero value;
+that is the mechanism. The earlier ADR rejected it in these words: this is a live sprint board with
+realtime subscriptions, and *the reason the footer total is trusted is that it is never out of date*.
+A reader who tabs to People and back would be shown the sprint as it was up to N seconds ago, and
+the number this application's credibility rests on is a sum of minutes.
+
+Trading that for ~8 ms — the measured size of the prize — is not a trade worth making. If PF-15's
+author wants it anyway, it is one config line and this entry is where the argument against it lives.
+
+### (d) — built. The only part of PF-15 that was a gap.
+
+`lib/pending-queue.ts`, and it is the part that makes an existing sentence true rather than a new
+feature: the save chip has said **"Offline — will retry"** since the vocabulary was written, and
+nothing retried. A promise nobody kept is worse than no promise, because the person who read it
+closed the tab.
+
+**It stores intentions, not data.** No dataset, no cache, no conflict resolution; nothing in
+IndexedDB is ever read to render a screen. That is what keeps it inside the local-first rejection
+rather than reopening it — the server is still the only source of truth, and the only local fact is
+"this write has not landed yet".
+
+**A Server Action cannot be serialized and called tomorrow**, so the queue stores a descriptor and a
+replay table maps it back to the real action at drain time. The consequence that matters is that
+invariant 3 is untouched: a replay goes through the *same* action, zod-validated and re-authorized
+server-side, so somebody whose access was revoked while they were offline has their replay refused
+exactly as a fresh attempt would be.
+
+**Only replay-safe writes are wired**, and the reasoning is per-write rather than blanket:
+
+- `status` and `criterion` are **assignments** to a named value, not toggles of whatever the server
+  currently holds — so arriving twice changes nothing, and a replayed tick cannot untick something
+  somebody else ticked in between;
+- `time` **appends**, so it is the one that needs the `idempotencyKey` the action already accepts,
+  minted once per submission and reused by every retry.
+
+**The discriminator became explicit, and that was a real bug found on the way.** Queueing must
+happen when the network refused the write and must NOT happen when the *server* refused it — replay
+a server's "no" and you get the same "no" forever, with a badge that never clears. The first version
+told them apart by comparing the error string against the fallback. That is wrong at every real call
+site, because several of them wrap `settle` around `settle`: the inner one catches first, so the
+outer sees a resolved result carrying the *inner* sentence, and the comparison is quietly false.
+`settle` now marks its own synthesised failure with `unreachable: true`, and
+`tests/action-result.test.ts` holds exactly the nested case that broke the string version.
+
+**Rejected: keeping server-refused replays on the queue.** An entry the server has read and declined
+is dropped, with its reason returned to the caller. Keeping it would produce a queue that can never
+empty.
+
+**Rejected: `navigator.onLine` as the test for whether to queue.** It answers "is there a network
+interface", not "did this request arrive", and it is cheerfully `true` on hotel wifi that resolves
+nothing. It is still used for the *chip's wording*, which is a different question and the one it can
+actually answer.
