@@ -5611,3 +5611,63 @@ to save minutes on a database reset is a bad trade in whichever direction it is 
 Supabase CLI's squash learning to carry roles, grants and migration-inserted rows. If that ever
 happens, re-run *exactly* the verification in the ADR above — dump, squash, reset, dump, diff, then
 `npm run db:test` — because `db diff` is blind to every one of these and would have reported success.
+
+## 2026-08-30 · `main` is protected by a branch ruleset, which is the control upstream of the deploy controls
+
+**The decision.** A GitHub **repository ruleset** (id `21825959`, *"main moves only through a green
+pull request"*) is active on the default branch. It requires a pull request, requires the
+`blocking release checks` status check to pass, and blocks force-push and deletion. Enforcement is
+`active`, `bypass_actors` is empty, and the API reports `current_user_can_bypass: never` — including
+for the repository owner.
+
+**Why this sits above the Vercel controls rather than beside them.** The two deploy controls
+(`vercel.json` and the Ignored Build Step) both answer the question *"should this commit deploy?"*
+after the commit is already on `main`. This one answers *"should this commit be on `main` at all?"*
+If `main` can only move through a green CI run, then a deploy from `main` is a deploy of tested code
+**by construction**, and the deploy controls become a second line rather than the only one. It is
+also the only control here that survives someone deciding to deploy by hand.
+
+**Verified by refusal, not by reading the settings back.** An empty commit was made, pushed directly
+at `main`, and rejected. The commit was then discarded locally and `origin/main` confirmed unmoved at
+`2c4dd29`:
+
+```
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: Review all repository rules at https://github.com/MooTamer/coditu/rules?ref=refs%2Fheads%2Fmain
+remote:
+remote: - Changes must be made through a pull request.
+remote:
+remote: - Required status check "blocking release checks" is expected.
+remote:
+To https://github.com/MooTamer/coditu.git
+ ! [remote rejected] main -> main (push declined due to repository rule violations)
+```
+
+Both rules fired, which is worth noting: the status-check rule is not merely configured, it is
+evaluated on the push path too.
+
+**Force-push and deletion were NOT tested by attempting them**, and that is deliberate rather than
+an omission. The only way to test "can `main` be deleted" is to try to delete `main`, and if the
+answer turned out to be yes there is no undo worth having. The `deletion` and `non_fast_forward`
+rules are recorded in the ruleset object returned by the API; that is the evidence, and it is the
+right amount of evidence for a test whose failure mode is losing the trunk.
+
+**Rejected: requiring an approving review.** `required_approving_review_count` is **0**. GitHub does
+not let an author approve their own pull request, and Mohamed is the only account with write access
+here. Requiring one approval would mean nothing could ever merge — a control so strict it gets
+switched off in a week, which protects less than a weaker one that stays on. The pull request itself
+is what forces the CI run; the approval would only add a person, and there is not a second person.
+
+**Rejected: adding a bypass actor for the owner.** It was tempting while writing this — the
+remaining work in this pass now has to go through a pull request, which costs a CI run. But a
+control with a bypass for the only person who would ever bypass it is not a control, and the cost is
+one run of a workflow that ought to run on a code change anyway.
+
+**Consequence, stated plainly.** Direct pushes to `main` are over, including from an autonomous
+pass. Work goes on `feat/*` or `fix/*`, and merges through a pull request CI has gone green on.
+That is what `CLAUDE.md` already described; until today nothing enforced it.
+
+**Note for whoever reads the ruleset JSON later:** GitHub defaulted
+`require_extra_approval_for_unattributed_changes` to `true` on the pull-request rule. It was not
+requested. With zero required approvals it has nothing to gate today, but it is the kind of default
+that becomes visible the day a review requirement is added.

@@ -300,3 +300,34 @@ workflow once and check whether a deployment is actually created.
 
 Record the observed answer here when T1.5(d) runs, and delete this subsection's speculation. Until
 then, treat the CI deploy path as unproven under this setting.
+
+## 9. The control upstream of both deploy controls
+
+Sections 1 and 8 stop a commit on `main` from deploying. This one stops a commit reaching `main`.
+
+Repository ruleset `21825959`, *"main moves only through a green pull request"*, is **active** on the
+default branch with no bypass actors:
+
+| Rule | Effect |
+|---|---|
+| `pull_request` (0 approvals) | direct pushes to `main` are refused |
+| `required_status_checks` → `blocking release checks` | the PR cannot merge until CI's blocking job is green |
+| `non_fast_forward` | force-push refused |
+| `deletion` | branch deletion refused |
+
+Inspect it with:
+
+```bash
+gh api repos/MooTamer/coditu/rulesets/21825959
+```
+
+**Why the required check is `blocking release checks` and nothing else.** It is the only CI job with
+no `if:` condition, so it reports on every pull request. `browser baseline` and `lighthouse` are both
+gated on `needs.scope.outputs.code == 'true'` and are skipped on a documentation-only change — and a
+required check that never reports leaves the pull request pending forever. Adding either to this
+ruleset would deadlock every ledger edit. `browser` becomes a hard dependency through §4's ten-run
+promotion rule, inside the workflow, not here.
+
+**What this buys the deploy story.** With this on, `main` only contains commits that passed the
+blocking job. A production deploy from `main` is therefore a deploy of tested code by construction,
+which is what §1 assumed and nothing previously guaranteed.
