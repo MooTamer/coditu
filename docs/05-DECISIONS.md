@@ -5236,3 +5236,58 @@ have made the check pass and meant nothing — the pooler demonstrably accepts c
 `sslmode=disable` → exit **1**, `database connection is not encrypted`.
 `HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1` with no CA → exit **1**, naming
 `SELF_SIGNED_CERT_IN_CHAIN`. It still fails closed, on the thing it is actually about.
+
+
+## 2026-08-26 · The allowlist gains a second dimension: not only what renders, but where
+
+`ALLOWED_NODES` was a flat list of the node types `comment-body.tsx` is willing
+to draw. A flat list cannot say that a `paragraph` inside a `paragraph` is not a
+document, so the renderer drew one — `<p><p>`, which is invalid HTML. The browser
+parses that as two siblings, React's tree still says nested, and the sprint page
+threw `Hydration failed` on every load.
+
+The shape is not exotic. `documentSchema` validates the **root node only**, and
+that is deliberate and documented: a recursive schema walks the whole tree while
+validating, so a deeply nested `body_json` overflows the stack *inside the
+validator*, before any depth guard runs. Every `*_json` column is jsonb and
+stores what it is given. `e2e/comments.spec.ts` stores a 3,000-deep chain of
+exactly this on purpose, to prove the renderer survives it.
+
+**Decided:** the vocabulary states the containment rule, and the renderer obeys
+it. `lib/blocks/schema.ts` gains `INLINE_NODES` — the nodes whose case emits
+phrasing content — and `PHRASING_ONLY_NODES` — `paragraph` and `heading`, whose
+elements accept nothing else. A block node reached inside one of those renders
+its **text and no tag**.
+
+Degrading, not dropping, and that is the point: it is the path `default:` has
+always taken for an unrecognised node, so a misplaced block costs a tag and
+never a sentence. A reader of a malformed document still reads it.
+
+### What was rejected
+
+- **Fixing the document.** There is nothing to fix. `supabase/seed.sql` never
+  writes `notes_json`, the `block_documents` migration adds columns and
+  backfills nothing, `documentFromText` emits `doc > paragraph > inline` and
+  cannot nest, and TipTap's own schema gives `paragraph` a content expression of
+  `inline*`. The nested document was transient database state — a spec's
+  fixture, or a hand-written row — and a migration to repair the repo's data
+  would have been a migration over no bad rows.
+- **Rejecting it at write time.** That means validating the tree, which is the
+  stack overflow the shallow schema exists to avoid. The renderer is the layer
+  that owns the HTML contract; it is where the rule belongs.
+- **Restructuring in `pruneToDepth`.** It is the server-exit boundary and looked
+  like the tidy place, but unwrapping a nested paragraph changes what
+  `flattenToText` produces, and that string is `comments.body_text` — search,
+  exports and notification previews. `tests/prune-depth.test.ts` pins
+  `flattenToText(pruneToDepth(doc)) === flattenToText(doc)`, and that invariant
+  is worth more than the tidiness. Pruning bounds depth and flattens attributes;
+  it does not edit documents.
+- **A special case for `paragraph`.** The same defect exists for `heading`,
+  and for a list, a table or a rule inside either. One rule covers all of them,
+  and covers the next block type somebody adds — `tests/comment-nesting.test.tsx`
+  drives its check off `ALLOWED_NODES` rather than off a list written by hand,
+  so a new node type is put inside a paragraph by the suite whether or not
+  anybody remembered to think about it.
+
+A `listItem`, a `tableCell` and a `<summary>` take flow content, so a paragraph
+inside them is correct HTML and is untouched.

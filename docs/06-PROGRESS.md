@@ -5275,3 +5275,88 @@ is worth knowing it is also an unavoidable step of any real restore.
 
 **The decrypted copy was deleted from the scratchpad as soon as it had been read.** It is every
 profile, comment and client thread in the workspace in plaintext.
+
+
+## 2026-08-26 — a paragraph inside a paragraph, and the allowlist that could not say no
+
+The sprint page logged `In HTML, <p> cannot be a descendant of <p>` and then
+`Hydration failed` on every load. Pre-existing and unrelated to W6: the renderer
+was last touched in `af38ed8` (W3), and nothing in the suite could see it.
+
+**The reported cause was wrong, and checking that was most of the work.** The
+theory was a malformed seeded document or the legacy-text conversion. Neither
+holds:
+
+| Suspect | Verdict |
+|---|---|
+| `supabase/seed.sql` | Writes `sprints.notes` (text). Never writes `notes_json`. |
+| `20260825130000_block_documents.sql` | Adds the columns. Backfills nothing. |
+| `documentFromText` (the W3d conversion) | Emits `doc > paragraph > text│hardBreak`, or `doc > callout > paragraph`. Cannot nest a paragraph. |
+| The editor | TipTap's `paragraph` is `inline*`. The schema forbids it. |
+
+`notes_json` was **NULL for all fifteen meinevim sprints** when this was
+checked, and sprint 17's 409 characters of Notion text render as four sibling
+paragraphs. Nothing in this repository can produce the shape. The document was
+transient local database state — `e2e/sprint-notes.spec.ts` writes `notes_json`
+and restores it in `afterEach`, so an interrupted run leaves one behind.
+
+**The defect it exposed is real, and is ours.** Confirmed by planting a 20-deep
+chain in `notes_json` and loading the page: the exact reported error, the exact
+reported component stack, twenty nested `<p>` in the response bytes. Removing
+the row cleared it.
+
+### The allowlist was flat, and a flat allowlist has nothing to say about nesting
+
+`ALLOWED_NODES` names the node types the renderer will draw. It has never said
+where one may appear, so `case "paragraph"` emitted `<p>` and recursed into
+whatever the children were. `documentSchema` validates the root node only — for
+a good reason, written down in `validate.ts`: a recursive schema overflows the
+stack on the deep document it exists to survive. So the shape is storable by
+anything that writes a jsonb column, and `e2e/comments.spec.ts` stores 3,000
+levels of it on purpose.
+
+`lib/blocks/schema.ts` gains `INLINE_NODES` and `PHRASING_ONLY_NODES`; a block
+node reached inside a `<p>` or a heading renders its text and no tag — the path
+`default:` has always taken for an unrecognised node, so the words survive and
+only the illegal tag is lost. The flag travels **downwards** rather than being
+checked per parent, because `paragraph > bulletList > listItem > paragraph` puts
+the offending `<p>` three levels below the element whose scope it breaks.
+Reasoning and the four rejected alternatives are in `05-DECISIONS.md`.
+
+### Two tests, and the reason neither could have been written by looking at the DOM
+
+`document.querySelectorAll("p p")` returns **0** — before the fix and after it.
+The parser closes the first `<p>` when it meets the second, so the DOM holds
+siblings and the disagreement with React's tree *is* the bug. Both new tests
+assert on the string a server sent, never on a parsed tree; `07-FIELD-NOTES.md`
+has the general form.
+
+- `tests/comment-nesting.test.tsx` — the first component test in `tests/`
+  (`vitest.config.mts` already included `*.test.tsx`; nothing had used it).
+  `renderToStaticMarkup`, and a tag-stack scan for any block element inside a
+  phrasing-only one. It has a test **of the scan**, because a detector that
+  never fires would let every other case pass on a broken renderer. The
+  completeness case is driven off `ALLOWED_NODES` rather than a hand-written
+  list, so a node type added later is put inside a paragraph by the suite
+  whether or not anybody remembers to think about it.
+- `e2e/sprint-notes.spec.ts` — stores the hostile document, asserts on
+  `(await page.goto(…))?.text()`, and watches the console for
+  `cannot be a descendant of`. That message is **not** the flaky hydration
+  warning the suite filters elsewhere: it comes from `validateDOMNesting`, it is
+  a property of the markup, and it fires on every load or on none. It is also
+  development-only, which is why the response bytes are asserted as well.
+
+Both were confirmed to fail without the fix, by disabling the guard and
+re-running — a regression test nobody watched fail is a regression test nobody
+has.
+
+`test` **304** (293 + 11) · `lint`, `typecheck` clean · `budgets` **OK 74.6 / 110
+own, 214.6 / 220 total** — unchanged from W6e, which is the number that mattered
+here: `lib/blocks/schema.ts` is reachable from the browser through the notes
+panel and the item fields, and two `as const` arrays and two predicates are the
+whole of what was added to it · `sprint-notes.spec.ts`
+**8/8** · `comments` + `sprint-notes` + `criteria` + `editable`, `--workers=1`:
+**33 passed, 1 skipped**. At `--workers=3` the same set failed
+`editable.spec.ts` → *withdrawn, not vanished*, which passes 1/1 alone and
+passes serially — two spec files sharing one item's comment fixture, category 2
+of the field notes' triage, and not this work.

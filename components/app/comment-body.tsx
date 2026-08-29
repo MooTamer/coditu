@@ -7,6 +7,8 @@ import {
   CALLOUT_TONES,
   CODE_LANGUAGES,
   MAX_DEPTH,
+  isInlineNode,
+  isPhrasingOnlyNode,
   isSafeHref,
   isSafeImageSrc,
   parseNode,
@@ -23,9 +25,11 @@ import { cn } from "@/lib/utils";
  * this file, and no `dangerouslySetInnerHTML` — React escapes every text node
  * it renders, so a `<script>` in a comment is characters on a page, not a tag.
  *
- * The rule is fail-closed: an unrecognised node renders its text content, or
+ * The rule is fail-closed: a node this file does not recognise — or recognises
+ * but cannot legally draw where it was put — renders its text content, or
  * nothing. That is why a hostile document does not need to be rejected at write
- * time — there is nothing here that could execute it. See docs/05-DECISIONS.md.
+ * time: there is nothing here that could execute it, and nothing it can say
+ * that produces markup a browser has to guess at. See docs/05-DECISIONS.md.
  */
 
 const lowlight = createLowlight(common);
@@ -56,18 +60,44 @@ export function CommentBody({ doc }: { doc: unknown }) {
   return <div className="flex flex-col gap-2 text-[14px] leading-[1.55]">{renderNode(root, "0", 0)}</div>;
 }
 
-function renderChildren(node: ProseMirrorNode, key: string, depth: number): ReactNode {
+function renderChildren(node: ProseMirrorNode, key: string, depth: number, inline = false): ReactNode {
   // Children arrive as `unknown` — the schema is shallow on purpose — so each
   // one is parsed as it is reached, with the depth counted here.
+  //
+  // `inline` is the containment rule travelling downwards. It has to travel
+  // rather than be decided by each parent, because the offending block is
+  // usually not the paragraph's own child: `paragraph > bulletList > listItem >
+  // paragraph` puts it three levels below the element whose scope it breaks.
+  //
+  // Every case below calls this without the flag, and that is correct rather
+  // than an omission: a case body only runs when the node was legal where it
+  // was found, so the scope can only be opened here, by the parent's own type.
+  const within = inline || isPhrasingOnlyNode(node.type);
   return (node.content ?? []).map((child, index) => {
     const parsed = parseNode(child);
-    return parsed ? renderNode(parsed, `${key}.${index}`, depth + 1) : null;
+    return parsed ? renderNode(parsed, `${key}.${index}`, depth + 1, within) : null;
   });
 }
 
-function renderNode(node: ProseMirrorNode, key: string, depth: number): ReactNode {
+function renderNode(node: ProseMirrorNode, key: string, depth: number, inline = false): ReactNode {
   // A document nested deeper than this is not a comment somebody wrote.
   if (depth > MAX_DEPTH) return null;
+
+  // Inside a `<p>` or a heading, a block node renders its text and no tag.
+  //
+  // Drawing the tag produced `<p><p>`, and to a browser that is not nesting:
+  // the parser closes the first `<p>` and builds two siblings, so the DOM
+  // disagreed with React's tree and the sprint page threw a hydration mismatch
+  // on every load. The document does not have to be hostile to get here —
+  // `body_json` is jsonb and `documentSchema` validates the root node only, so
+  // a paragraph inside a paragraph is a shape any writer of the column can
+  // store, and `e2e/comments.spec.ts` stores 3,000 of them deliberately.
+  //
+  // Degrading rather than dropping: this is the path `default:` has always
+  // taken, so the words stay on the page and only the illegal tag is lost.
+  if (inline && !isInlineNode(node.type)) {
+    return <Fragment key={key}>{renderChildren(node, key, depth, true)}</Fragment>;
+  }
 
   switch (node.type) {
     case "doc":

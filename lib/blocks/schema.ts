@@ -79,6 +79,48 @@ export const ALLOWED_NODES = [
 export type AllowedNode = (typeof ALLOWED_NODES)[number];
 
 /**
+ * The other half of the allowlist: not *whether* a node renders, but **where**.
+ *
+ * `ALLOWED_NODES` was flat, and a flat allowlist cannot say that a paragraph
+ * inside a paragraph is not a document. It is not a theoretical shape —
+ * `e2e/comments.spec.ts` stores a 3,000-deep chain of exactly that on purpose,
+ * `documentSchema` validates the root node only (a recursive schema overflows
+ * the stack on the input it exists to survive), and every `*_json` column is
+ * jsonb, so anything that reaches a Server Action is stored as written.
+ *
+ * The consequence was invalid HTML. `<p><p>` is not nesting to a browser — the
+ * parser closes the first `<p>` and builds siblings, so the DOM disagreed with
+ * React's tree and the sprint page threw a hydration mismatch on every load.
+ * Nothing caught it: the renderer's own tests read helpers rather than markup,
+ * and no e2e spec asserted a clean console.
+ *
+ * These two lists are the rule. `INLINE_NODES` are the nodes whose case in
+ * `comment-body.tsx` emits phrasing content — text, a `<br>`, a `<span>`, a
+ * `<button>`. `PHRASING_ONLY_NODES` are the nodes whose own element accepts
+ * nothing else: `<p>`, and the headings. A block node reached inside one of
+ * those renders its text and no tag, which is the same fail-closed path an
+ * unrecognised node has always taken.
+ *
+ * A `listItem`, a `tableCell` and a `<summary>` take flow content, so a
+ * paragraph inside them is correct HTML and is left alone.
+ */
+export const INLINE_NODES = ["text", "hardBreak", "image", "mention"] as const;
+export type InlineNode = (typeof INLINE_NODES)[number];
+
+/** Nodes whose element accepts phrasing content only. */
+export const PHRASING_ONLY_NODES = ["paragraph", "heading"] as const;
+
+/** Does this node type render phrasing content, and so belong inside a `<p>`? */
+export function isInlineNode(type: string): boolean {
+  return (INLINE_NODES as readonly string[]).includes(type);
+}
+
+/** Does this node type render an element that accepts phrasing content only? */
+export function isPhrasingOnlyNode(type: string): boolean {
+  return (PHRASING_ONLY_NODES as readonly string[]).includes(type);
+}
+
+/**
  * Callout tones.
  *
  * An allowlist, because the value reaches a `style` attribute at the render edge

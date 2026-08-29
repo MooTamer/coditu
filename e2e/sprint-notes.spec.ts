@@ -160,6 +160,68 @@ test.describe("sprint notes", () => {
     await expect(page.locator("input[type=checkbox]").first()).toBeDisabled();
   });
 
+  test("a paragraph inside a paragraph never reaches the page as one", async ({
+    adminPage: page,
+  }) => {
+    /**
+     * `notes_json` is jsonb and `documentSchema` validates the ROOT node only —
+     * deliberately, because a recursive schema overflows the stack on the deep
+     * document it exists to survive. So this shape is storable by anything that
+     * writes the column, and it WAS stored: sprint 17 was carrying one when the
+     * hydration error was reported.
+     *
+     * `<p><p>` is not nesting to a browser. The parser closes the first `<p>`
+     * and builds two siblings, so the DOM disagrees with React's tree and the
+     * page throws a hydration mismatch on every single load.
+     *
+     * Nothing here would have caught it. No spec asserted a clean console, and
+     * the DOM cannot show the nesting from the other side: `querySelectorAll("p
+     * p")` is zero whether the markup was right or wrong, because the parser
+     * has already repaired it before any assertion can look. Which is why the
+     * assertion below is on the RESPONSE, not on the page.
+     */
+    const depth = 20;
+    const nested =
+      `{"type":"doc","content":[` +
+      `{"type":"paragraph","content":[`.repeat(depth) +
+      `{"type":"text","text":"bottom of the well"}` +
+      `]}`.repeat(depth) +
+      `]}`;
+
+    await query(
+      `update sprints set notes_json = $1::jsonb
+        where id = (select s.id from sprints s join projects p on p.id = s.project_id
+                    where p.slug = 'meinevim' and s.number = 17)`,
+      [nested]
+    );
+
+    // React reports invalid nesting once, in the console, and nowhere else.
+    // This is NOT the flaky hydration warning the rest of the suite filters out:
+    // that one is a Suspense race on a loaded dev server, and this one is a
+    // property of the markup — it happens on every load or on none.
+    const nesting: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() !== "error") return;
+      if (/cannot be a descendant of/i.test(message.text())) nesting.push(message.text());
+    });
+
+    const response = await page.goto(SPRINT);
+    const html = (await response?.text()) ?? "";
+
+    // `<p …><p` with no `</p>` between them — the one shape a parser cannot
+    // keep. Asserted against the server's own bytes rather than the console,
+    // because React's nesting warning is development-only and this half holds
+    // against a production build too. (`\b` is what keeps `<path>` out of it:
+    // there is no word boundary between `p` and `a`.)
+    expect(html).toContain("bottom of the well");
+    expect(/<p\b[^>]*>(?:(?!<\/p>)[\s\S])*?<p\b/.test(html)).toBe(false);
+
+    // Fail closed, not fail silent. The illegal tag is dropped; the words the
+    // document carried are still on the page.
+    await expect(page.getByText("bottom of the well")).toBeVisible();
+    expect(nesting).toEqual([]);
+  });
+
   test("escape abandons the edit and keeps what was there", async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(SPRINT);

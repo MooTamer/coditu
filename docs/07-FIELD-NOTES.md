@@ -2292,3 +2292,53 @@ lists those rows, believes objects of the same size already exist, skips every P
 green. GET then returns Storage `InternalError` because the bytes are absent. Force a recursive
 `aws s3 cp` from the archive, download again, and compare bytes. A restored metadata row is not
 a restored object.
+
+
+### `p p` is a selector that can only ever return nothing
+
+A `paragraph` inside a `paragraph` in `sprints.notes_json` made the renderer emit
+`<p><p>`, and the sprint page threw a hydration mismatch on every load. The
+obvious way to look for it does not work:
+
+```js
+document.querySelectorAll("p p").length   // 0 — before the fix and after it
+```
+
+**`<p><p>` is not nesting to a browser.** The HTML parser closes the first `<p>`
+when it meets the second, so the DOM holds two siblings and nineteen stray
+`</p>` are discarded. That disagreement *is* the bug — React's tree says nested,
+the parsed DOM says siblings — and then React repairs the DOM with
+`appendChild`, which does not obey the parser's rules, so after hydration
+`innerHTML` shows the nesting that `querySelectorAll` still cannot match.
+
+So the DOM is a witness to nothing here, in either direction. Look at the bytes
+the server sent:
+
+```bash
+curl -s -H "Cookie: sb-127-auth-token=$TOKEN" "$URL" | grep -c '<p class="whitespace-pre'
+```
+
+In a spec, `(await page.goto(url))?.text()` is the same bytes and is not
+timing-dependent. `e2e/sprint-notes.spec.ts` asserts on that rather than on the
+page, and `tests/comment-nesting.test.tsx` on `renderToStaticMarkup` for the
+same reason — a test that parses the markup first applies the very repair it is
+looking for and passes on a broken renderer.
+
+The general form: **for any "invalid HTML" claim, assert on the string, never on
+the tree.** The tree is the browser's opinion of what you meant.
+
+### React's nesting warning is not the hydration flake, and must not be filtered with it
+
+`comments.spec.ts` and `components.spec.ts` both filter
+`/^Hydration failed|hydrated but some attributes|did not match/i`, and the
+measurement behind that is real — 10 in 60 dev-server loads, 0 in 60 against a
+production build.
+
+`In HTML, <p> cannot be a descendant of <p>` is a **different** message and a
+different kind of fact: it comes from `validateDOMNesting`, it is a property of
+the markup, and it fires on every load or on none. It is safe to assert on and
+it is worth asserting on — it is the only signal the browser gives for a whole
+class of invalid output. Filter the race; never filter this.
+
+It is development-only, though, so a spec that relies on it alone proves nothing
+against a production build. Assert the response bytes as well.
