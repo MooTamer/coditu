@@ -5241,3 +5241,37 @@ node scripts/check-hosted-schema.mjs
 Still fails closed: `sslmode=disable` → exit **1** `database connection is not encrypted`;
 `HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1` with no CA → exit **1** naming `SELF_SIGNED_CERT_IN_CHAIN`.
 `npm run typecheck` and `npm run lint` both exit 0.
+
+### T1.2's restore point — taken after the schema moved, and opened to check
+
+The T0.1 sets predate migration 39, so a restore from them would have rebuilt a database the code
+no longer matches. `Nightly recovery copy` was dispatched immediately after the push (run
+**33274103707**, success) and produced `nightly-2026-08-29T204055Z`, 19,401,107 bytes.
+
+**Verified by opening it, not by its own say-so.** Downloaded, SHA-256 recomputed →
+`a9b80bf6482f8160dbf38ff25559a594a2ccd6af1b44a04115371c75d95225cf`, byte-identical to the release
+notes *and* the sidecar. Decrypted with the age key and extracted: 218 entries,
+`shasum -c checksums.sha256` clean across every Storage object.
+
+The new schema is genuinely in it:
+
+| Object | Evidence in the archive |
+|---|---|
+| `public.backup_health` | `schema.sql:3061 CREATE TABLE IF NOT EXISTS "public"."backup_health"`, and `row-counts.tsv` lists `public.backup_health 0` |
+| `public.database_heartbeat()` | `schema.sql:667`, with its comment and `REVOKE ALL … FROM PUBLIC` at 5773 |
+| `record_backup_health()` | `schema.sql:1558` |
+| `allowed_emails.invited_at` | `schema.sql:3102` |
+| `coditu_backup` | 5 references in `roles.sql` |
+
+`databaseTables` is **64**, up from 63 in the 18:13Z set — the one new table, counted.
+`databaseRows` 1,391, buckets 3, objects 135, all unchanged. `Recovery copy freshness` then ran
+against it: run **33274226384**, success.
+
+**Noted for T2.1, because it changes what "restore" means.** `supabase_migrations.schema_migrations`
+is **not** in the dump — `grep -c supabase_migrations schema.sql data.sql` → `0`, `0`. A restore
+rebuilds the schema and the data but arrives with **no migration history**, so the history has to
+be repaired by hand afterwards. That is exactly the operation T2.1 performs deliberately, and it
+is worth knowing it is also an unavoidable step of any real restore.
+
+**The decrypted copy was deleted from the scratchpad as soon as it had been read.** It is every
+profile, comment and client thread in the workspace in plaintext.
