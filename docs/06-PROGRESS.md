@@ -5417,3 +5417,20 @@ git worktree list   -> 1 entry
 `app-perf-optimization-5996ff` and `silly-moore-771a77`, no `.git`, no source, 0B and 24K of tool
 cache. Removed, so the directory is empty rather than merely unregistered. The `abdelrahman`
 remote is untouched, as instructed.
+
+## 2026-08-29 · T1.4 — the branch model is written down where the next person reads it
+
+Trunk-based. `main` is the only long-lived branch and is always deployable; work happens on
+short-lived `feat/*` and `fix/*` through pull requests CI runs; releases are tagged; Vercel's
+per-branch previews are the testing/UAT environment. Recorded in **two** places on purpose:
+`CLAUDE.md` gets the rule, because that is the file a session reads before touching anything, and
+`docs/05-DECISIONS.md` gets the reasoning and the two rejected alternatives.
+
+**The limitation is stated, not buried.** A preview points at the same hosted Supabase as
+production, so it is isolated in **code** and not in **data** — writing an item or deleting a
+comment in a preview does it to the real workspace. It is a block quote in `CLAUDE.md` rather than
+a footnote, because the failure mode is somebody reading "preview" as "sandbox" and testing a
+destructive path in one.
+
+Also folded into `CLAUDE.md`: migrations reach hosted before the code that reads them, always, and
+`vercel.json` is load-bearing.

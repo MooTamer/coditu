@@ -5291,3 +5291,43 @@ never a sentence. A reader of a malformed document still reads it.
 
 A `listItem`, a `tableCell` and a `<summary>` take flow content, so a paragraph
 inside them is correct HTML and is untouched.
+
+## 2026-08-29 · Trunk-based, not testing/uat/production — and previews are not isolated data
+
+**The decision.** `main` is the only long-lived branch and is always deployable. Work happens on
+short-lived `feat/*` and `fix/*` branches that merge back through a pull request CI runs. Releases
+are tagged. Vercel's per-branch preview deployments are the testing/UAT environment. Production
+deploys from CI on green rather than from a push.
+
+**Rejected: a `testing` → `uat` → `production` chain.** It is the shape people reach for, and for
+this team it is cost with no benefit. Three long-lived branches create permanent merge debt
+*between* them — every fix has to be landed three times or cherry-picked forward, and the drift
+between them becomes a thing somebody owns. That buys environment separation, which is the point.
+But **this project has one database.** A `uat` branch pointing at the same hosted Supabase as
+`production` is not an environment, it is a second copy of the same code reading the same rows.
+Paying the merge tax for separation you do not actually get is the worst of both.
+
+**Rejected: keeping long-lived branches until a staging database exists.** That inverts the
+dependency. The branches would be justified by a database nobody has budgeted; meanwhile the merge
+debt accrues from the first day. If a staging database ever lands, adding a branch then is cheap —
+un-picking three months of divergence is not.
+
+**What previews actually give, and what they do not.** A preview is a full build of a branch on
+its own URL, free, dying with the branch — genuinely useful for looking at a change before it
+lands. It is isolated in **code**. It is **not** isolated in **data**: it points at the same hosted
+Supabase as production, so writing an item or deleting a comment in a preview does it to the real
+workspace. This is written into `CLAUDE.md` as a block quote rather than a footnote, because the
+failure mode is somebody assuming "preview" implies "sandbox" and testing a destructive path in
+one. A second free Supabase project would fix it and would double the migration work on every
+change; not now, and revisit when the migration count is a baseline rather than 39 files.
+
+**Consequence for the four people using this.** There is no "promote to UAT" step. A change is
+reviewed on its preview URL, merged to `main`, and CI deploys it. The rollback is `vercel rollback`
+to a tagged release, not a revert-and-redeploy race.
+
+**Consequence for `vercel.json`.** `git.deploymentEnabled` is the documented control and the only
+one — there is no dashboard toggle for disabling automatic production deployments, and the older
+`github.enabled` is deprecated in its favour. That makes the file load-bearing and editable by
+anybody, so it is made **tamper-evident** rather than duplicated: a unit test asserts it still
+carries the setting, so removing it turns the suite red, and the post-push provider check that has
+now held across three pushes stays the second control.

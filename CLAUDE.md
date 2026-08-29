@@ -69,6 +69,32 @@ These are not guidelines. Any change that breaks one of them is a bug, regardles
 | `docs/coditu-revamp-prompt.md` | The earlier brief the designs were built from. Source for voice, positioning, and company facts. |
 | `design/` | The approved Claude Design bundle, committed verbatim. Five artboards. Prototypes, not code. |
 
+## Branches: trunk-based. There is one long-lived branch and it is `main`.
+
+`main` is the trunk and is **always deployable**. Work happens on short-lived `feat/*` and `fix/*`
+branches that merge back through a pull request CI runs. Releases are tagged, so a rollback has a
+name to point at. Nothing else is long-lived: as of 2026-08-29 the repository has exactly one
+branch, one remote ref and one worktree, and it should stay that way.
+
+**Vercel's per-branch preview deployments are the testing/UAT environment.** They are free, they
+get their own URL, and they die with the branch. There is no `testing`, `uat` or `production`
+branch and there should not be — three long-lived branches for four people with one database is
+permanent merge debt and three things to keep in sync, bought for nothing.
+
+> **The limitation, stated rather than buried: a preview points at the same hosted Supabase that
+> production does.** A preview is isolated in **code** and not in **data**. Anything you do in a
+> preview — writing an item, logging time, deleting a comment — happens to the real workspace. A
+> second free Supabase project could be a staging database later; it doubles the migration work
+> every time, so not now.
+
+Production deploys from CI on green, not from a push. `vercel.json` carries
+`git.deploymentEnabled`, which is the one documented mechanism for that (`github.enabled` is
+deprecated in its favour), so treat that file as load-bearing: a unit test asserts it is still
+there, and removing it turns the suite red.
+
+**Migrations reach hosted before the code that reads them.** Always. That ordering is the
+2026-08-21 outage, and it is what the schema preflight fails closed on.
+
 ## How to work here
 
 - Work one step of `docs/coditu-implementation-prompt.md` §13 at a time. Do not start the next before
