@@ -5093,3 +5093,43 @@ the canary and the monthly integrity check. The alternative was no Storage copy 
 objects — every attachment and comment image in the workspace — are in no database dump on any
 Supabase plan. Revisit the moment somebody with dashboard access can mint an S3 key pair; the
 `s3` mode is still there and still the default.
+
+## 2026-08-29 · The keepalive probe is `security definer`, and the canary drops to three-hourly
+
+**The probe.** `public.database_heartbeat()` performs one bounded read of
+`public.app_settings` and returns the fixed string `coditu-database-awake`.
+`/api/health/database` calls it with the anon key, no session, `no-store`, and a 5-second
+deadline, and answers with that one word or 503.
+
+**Why `security definer`, which is normally the thing to argue against.** The first version was
+`security invoker`, on the reasoning that RLS would hide every row from `anon`. It never gets to
+a policy: `anon` has no `SELECT` **grant** on `public.app_settings`, so the call fails with
+`42501 permission denied` outright. The two ways forward were to grant `anon` select on a real
+settings table — a standing, quiet read on production data so that a liveness probe can run — or
+to let this one function read on the owner's behalf.
+
+It is safe *here* for a structural reason rather than a careful one: the function takes **no
+arguments** and its only `return` is a string literal. There is nothing to inject through and no
+path by which a row can leave. The migration asserts all three — zero arguments, exactly one
+`return`, and that the literal is the keyword — so a later edit that gives it a parameter fails
+the migration instead of shipping a steerable definer function. It also asserts that `anon` has
+**not** been granted select on `app_settings`, because that grant is the thing this exists to
+avoid needing.
+
+**Why the endpoint and not `/login`.** A signed-out `/login` render reaches Supabase **Auth**, a
+separate service in front of the same database. Whether the provider counts that as user database
+activity is not a fact this repository can assert. And `/api/backup-health` must never be used:
+it means a real off-site archive was read, so pinging it to keep a database awake would make the
+Recovery Centre lie.
+
+**The canary drops from hourly to three-hourly, and this is a recoverability decision.** GitHub
+Free gives a private repository 2,000 Actions minutes a month, billed per job rounded up to the
+minute. Hourly is 720 runs — **a third of the whole allowance** — to re-read a file that changes
+once a day. Add the nightly (~150), CI, and the keepalive, and the month gets tight; the failure
+mode of running out is that **the nightly backup silently stops**, which is precisely the
+condition Tier 0 exists to prevent. Three-hourly costs 240 and still detects a stale copy nine
+times over inside the 26-hour threshold it is measuring against. The keepalive runs every six
+hours — four a day clears the provider's stated "a few requests per day" with room.
+
+Consequence for setup: the UptimeRobot heartbeat must expect a check-in every **three** hours,
+not every hour. The runbook says so.

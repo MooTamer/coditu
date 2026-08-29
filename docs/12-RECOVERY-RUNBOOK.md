@@ -55,8 +55,8 @@ BACKUP_UPLOAD=0 ./scripts/backup.sh
 Everything below needs a human at a browser. Nothing else is outstanding.
 
 1. **Alerting.** Create a free UptimeRobot **heartbeat** monitor named `Coditu backup freshness`,
-   expecting an hourly check-in with enough grace for normal GitHub queue delay, emailing
-   Mohamed. Store its URL **only** as the repository secret `BACKUP_CANARY_HEARTBEAT_URL` in
+   expecting a check-in every **three** hours — the canary's cadence, see the ADR of 2026-08-29 —
+   with enough grace for normal GitHub queue delay, emailing Mohamed. Store its URL **only** as the repository secret `BACKUP_CANARY_HEARTBEAT_URL` in
    `MooTamer/coditu-recovery`; never paste it in a log, issue or document. Run
    `Recovery copy freshness` once and wait for UptimeRobot to record the check-in before
    enabling notifications, so setup does not raise a false incident. Until this exists the
@@ -134,7 +134,7 @@ represented by a newer verified set and the 30 + 12 policy.
 
 ## 5. Freshness alert
 
-`Recovery copy freshness` runs at minute 47 of every hour. It picks the newest `nightly-*`
+`Recovery copy freshness` runs at minute 47 of every third hour. It picks the newest `nightly-*`
 release and refuses to let any single record speak for the set. There are three, written by
 different steps: the release **asset** (its real size, and when GitHub received it), the release
 **notes** (written by the uploader), and the **sidecar** (written by the backup itself,
@@ -193,27 +193,37 @@ project and why RTO stays unset until one has been done.
 
 Supabase's current policy says a Free Plan project with low user database activity over a
 seven-day window may be paused. It sends an owner warning roughly one week before pausing and
-says a few user database requests per day are typically sufficient to avoid it. A paused project
-is application downtime even when the release and Vercel deployment are healthy.
+says a few user database requests per day are typically sufficient. A paused project is
+application downtime even when the release and Vercel deployment are healthy.
 
-The planned `/login` Keyword monitor is not accepted as a keepalive proof. A signed-out render
-calls Supabase Auth, but it does not issue the explicit public-table query the provider describes;
-whether Supabase counts that request is not a repository fact.
+**Implemented 2026-08-29, not yet active.**
 
-Before calling the free-plan production setup unattended, add a narrow database-backed health
-route and make the five-minute external monitor use it:
+- `public.database_heartbeat()` — one bounded read of `public.app_settings`, returning the fixed
+  string `coditu-database-awake` and nothing else. `security definer`, no arguments, one literal
+  `return`, and the migration asserts all of that plus that `anon` was **not** granted select on
+  `app_settings`. See the ADR of 2026-08-29 for why definer is the safer of the two options here.
+- `/api/health/database` — dynamic, `no-store`, no session, 5-second deadline. 200 with the
+  keyword, or 503. Not on the middleware matcher. `e2e/keepalive.spec.ts` → **2 passed**: the
+  keyword exactly, `no-store` present, and the whole body asserted so the probe cannot grow a
+  payload.
+- `Database keepalive` (`.github/workflows/keepalive.yml`) — every six hours, checking the
+  **keyword** and not the status code, because a 200 from a CDN error page would keep it green
+  while the database slept.
 
-1. expose one `security invoker`, anon-executable RPC that performs only a fixed `select 1`-style
-   database check and returns no row or project data;
-2. call it from a dynamic, `no-store` `/api/health/database` route that returns one fixed keyword
-   on success and 503 otherwise;
-3. point UptimeRobot's Keyword monitor at that route, keep the owner email alert enabled, and
-   verify the Supabase dashboard records user database activity over seven days;
-4. treat any Supabase pause-warning email as an incident even when this check is green, because
-   the provider alone decides whether activity is sufficient.
+**What makes it active:** set the repository variable `PRODUCTION_BASE_URL` on `MooTamer/coditu`
+once the app is deployed. Until then the workflow skips with a visible notice. Then add an
+UptimeRobot **Keyword** monitor on the same route as a second control plane, keep the owner email
+alert on, and check the Supabase dashboard after seven days to confirm the provider records the
+activity. Treat any Supabase pause-warning email as an incident **even when this check is green**,
+because the provider alone decides whether activity is sufficient.
 
-This is a **proposal, not implemented code or active monitoring**. Do not use
-`/api/backup-health` as a synthetic keepalive: that endpoint is evidence about a real off-site archive,
-and reporting fabricated freshness to keep a database awake would corrupt the Recovery Centre.
-The only no-code alternative that removes the pause class entirely is moving the organization to
-a paid plan, which is outside Mohamed's no-card decision.
+One more thing that can switch this off without anybody doing it: GitHub disables scheduled
+workflows in a repository with no activity for 60 days. A quiet fortnight is fine; a quiet
+quarter is not.
+
+The `/login` Keyword monitor is still not accepted as keepalive proof: a signed-out render calls
+Supabase Auth, and whether that counts as a user database request is not a repository fact. Do not
+use `/api/backup-health` as a synthetic keepalive: that endpoint is evidence about a real off-site
+archive, and reporting fabricated freshness to keep a database awake would corrupt the Recovery
+Centre. The only no-code alternative that removes the pause class entirely is a paid plan, which
+is outside Mohamed's no-card decision.

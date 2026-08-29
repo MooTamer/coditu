@@ -2,9 +2,15 @@ name: Recovery copy freshness
 
 on:
   schedule:
-    # Away from the top-of-hour load peak. The external heartbeat detects if
-    # this schedule stops being dispatched at all.
-    - cron: "47 * * * *"
+    # Every three hours, away from the top-of-hour load peak. The external
+    # heartbeat detects if this schedule stops being dispatched at all.
+    #
+    # It was hourly. 720 runs a month, each billed as a whole minute, is a third
+    # of the free private-repo allowance spent re-reading a file that changes
+    # once a day — and the failure mode of running out is that the NIGHTLY
+    # BACKUP stops, silently. Three-hourly still detects a stale copy nine times
+    # inside the 26-hour threshold it is checking against. ADR, 2026-08-29.
+    - cron: "47 */3 * * *"
   workflow_dispatch:
 
 permissions:

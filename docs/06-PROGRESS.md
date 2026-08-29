@@ -5025,3 +5025,46 @@ OAuth consent is Mohamed's. The schedule has been dispatched by hand twice, not 
 **And the age private key exists in exactly one place**, `/Users/motamer/.config/coditu/backup.agekey`
 — if that Mac is what is lost, every archive in the recovery repository is noise. That is the
 largest remaining risk in the design and it needs Mohamed, not code.
+
+## 2026-08-29 · T0.3 — the keepalive, built and inert until the app is deployed
+
+A free Supabase project pauses after about seven days of low **user database** activity. That is
+downtime with no deploy involved, no rollback that helps, and nothing in git that caused it.
+
+**Three pieces.**
+
+1. `20260829120000_database_heartbeat.sql` — `public.database_heartbeat()`: one bounded read of
+   `public.app_settings`, returning the fixed string `coditu-database-awake`. It is
+   `security definer`, and the first version was not: `anon` has no `SELECT` **grant** on
+   `app_settings`, so `security invoker` failed with `42501 permission denied` before RLS was
+   ever consulted. The choice was between granting `anon` a standing read on a settings table so
+   a liveness probe could run, or letting one argument-free function with a single literal
+   `return` read on the owner's behalf. The migration asserts zero arguments, exactly one
+   `return`, the literal keyword, that `anon` can execute it — and that `anon` has **not** been
+   granted select on `app_settings`, since that grant is the thing this exists to avoid.
+2. `app/api/health/database/route.ts` — dynamic, `no-store`, anon key, no cookies, 5-second
+   deadline. 200 with the keyword or 503. Not on the middleware matcher.
+3. `.github/workflows/keepalive.yml` — every six hours, asserting the **keyword** rather than the
+   status code, because a 200 from a CDN error page would keep it green while the database slept.
+
+**Verified.** Against the local stack: `POST /rest/v1/rpc/database_heartbeat` as `anon` →
+`"coditu-database-awake"`, **200**; the same anon key reading `app_settings` directly → **401**,
+unchanged. Against a real server: `npx playwright test e2e/keepalive.spec.ts --project=chromium`
+→ **2 passed** — the keyword exactly, `no-store` present, and the whole body asserted so the probe
+cannot quietly grow a payload. `npm run test` → **506 passed**; `npm run lint` clean.
+
+**A Tier-0 decision taken while doing it: the freshness canary drops from hourly to three-hourly.**
+GitHub Free gives a private repository 2,000 Actions minutes a month, billed per job rounded up.
+Hourly is 720 runs — a third of the allowance — to re-read a file that changes once a day. Add the
+nightly, CI and the keepalive and the month gets tight, and the failure mode of running out is that
+**the nightly backup silently stops**. Three-hourly costs 240 and still catches a stale copy nine
+times over inside the 26-hour threshold. The UptimeRobot heartbeat must therefore expect a
+three-hourly check-in, and the runbook says so.
+
+**Not active.** `PRODUCTION_BASE_URL` is unset, so the workflow skips with a visible notice, and
+the route is not deployed. Both close at T1.5. Also worth knowing: GitHub disables scheduled
+workflows in a repository with no activity for 60 days.
+
+**A note on T1.2's scope.** This adds a fourth pending migration. T1.2 was written as "the three
+pending migrations"; because the tier order puts T0.3 first, it is **four** by the time T1.2 runs,
+and hosted must reach **39**, not 38.
