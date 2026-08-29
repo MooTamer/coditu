@@ -247,6 +247,11 @@ export function FilterBar({
             type="button"
             onClick={() => toggleStatus(status)}
             aria-pressed={on}
+            // Which statuses appear here depends on what the sprint holds, so a
+            // test that names one couples itself to the seed and starts timing
+            // out the week that status stops occurring. This is the stable
+            // handle for "a status chip, whichever ones exist".
+            data-status-filter={status}
             {...control(state(`status:${status}`))}
             className={cn(
               "flex h-8 items-center gap-2 rounded-pill border px-3 text-[13px]",

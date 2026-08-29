@@ -90,29 +90,85 @@ async function stopTrackingEarnings(): Promise<void> {
   await query(`update public.app_settings set payout_from_sprint_id = null where id = 1`);
 }
 
-async function confirmedPayoutExists(): Promise<string> {
+const HOURLY_RATE_CENTS = 1200;
+const USD_EGP_RATE_MICROS = 50_860_000;
+
+/**
+ * What the confirmed snapshot must say for the card to read `confirmed`.
+ *
+ * This used to hard-code 1,050 minutes. A snapshot is "stale" precisely when it
+ * disagrees with the live total, so the fixture was asserting `confirmed` on a
+ * card that had every right to say `stale` — and it did, from the moment Week 17
+ * was re-imported and its real total became 3,480 minutes. Writing 3,480 here
+ * instead would buy one green run and break again on the next re-import.
+ *
+ * So the snapshot is derived from the same rows the page derives its live total
+ * from, and the money is derived from the snapshot. Nothing in this file names a
+ * number that the seed decides.
+ */
+const LIVE_MINUTES_SQL = `
+  select coalesce(sum(t.minutes), 0)::int as minutes
+  from public.time_entries t
+  join public.work_items w on w.id = t.work_item_id
+  where w.sprint_id = $1 and w.deleted_at is null
+`;
+
+type ConfirmedPayout = {
+  sprintId: string;
+  minutes: number;
+  potCents: number;
+  /** e.g. "$696.00" */
+  usd: string;
+  /** e.g. "35,398.56" */
+  egp: string;
+};
+
+function money(minutes: number) {
+  // The same arithmetic the app does: minutes -> hours -> cents, then cents to
+  // dollars, then dollars at the rate the snapshot was confirmed at.
+  const potCents = Math.round((minutes / 60) * HOURLY_RATE_CENTS);
+  const usd = potCents / 100;
+  const egp = usd * (USD_EGP_RATE_MICROS / 1_000_000);
+  return {
+    potCents,
+    usd: `$${usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    egp: egp.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  };
+}
+
+async function confirmedPayoutExists(): Promise<ConfirmedPayout> {
   const [sprint] = await query<{ id: string }>(SPRINT_ID_SQL);
   const [admin] = await query<{ id: string }>(
     `select id from public.profiles where full_name = 'Mohamed Tamer'`
   );
+  const [live] = await query<{ minutes: number }>(LIVE_MINUTES_SQL, [sprint.id]);
+  const minutes = Number(live.minutes);
+  const { potCents, usd, egp } = money(minutes);
 
   await query(
     `insert into public.sprint_payouts
        (id, sprint_id, confirmed_by, total_minutes, hourly_rate_cents, pot_cents,
         usd_egp_rate_micros, usd_egp_source)
-     values ('99999999-9999-4999-8999-999999999999', $1, $2, 1050, 1200, 21000, 50860000, 'live')
+     values ('99999999-9999-4999-8999-999999999999', $1, $2, $3, $4, $5, $6, 'live')
      on conflict (id) do nothing`,
-    [sprint.id, admin.id]
+    [sprint.id, admin.id, minutes, HOURLY_RATE_CENTS, potCents, USD_EGP_RATE_MICROS]
   );
   await trackEarningsFrom(sprint.id);
   await query(
     `insert into public.sprint_payout_shares (payout_id, profile_id, minutes_logged, share_cents)
-     values ('99999999-9999-4999-8999-999999999999', $1, 1050, 21000)
+     values ('99999999-9999-4999-8999-999999999999', $1, $2, $3)
      on conflict do nothing`,
-    [admin.id]
+    [admin.id, minutes, potCents]
   );
-  return sprint.id;
+  return { sprintId: sprint.id, minutes, potCents, usd, egp };
 }
+
+/**
+ * The snapshot the current `beforeAll` wrote, so the assertions can quote its
+ * own figures back. Module-level is safe because this whole file is `serial`
+ * for the `app_settings` reason above — only one describe is ever live.
+ */
+let confirmed: ConfirmedPayout;
 
 async function removePayout(): Promise<void> {
   await query(`delete from public.sprint_payouts where id = '99999999-9999-4999-8999-999999999999'`);
@@ -122,7 +178,7 @@ test.describe("money never reaches a screen a client sees", () => {
   test.use({ sprintTotals: "read" });
 
   test.beforeAll(async () => {
-    await confirmedPayoutExists();
+    confirmed = await confirmedPayoutExists();
   });
   test.afterAll(async () => {
     await removePayout();
@@ -214,7 +270,7 @@ test.describe("the earnings board", () => {
   test.use({ sprintTotals: "read" });
 
   test.beforeAll(async () => {
-    await confirmedPayoutExists();
+    confirmed = await confirmedPayoutExists();
   });
   test.afterAll(async () => {
     await removePayout();
@@ -245,11 +301,12 @@ test.describe("the earnings board", () => {
   test("a confirmed sprint shows its snapshot, not a live recomputation", async ({ adminPage }) => {
     await adminPage.goto("/app/settings/payouts");
     const card = adminPage.getByRole("region", { name: /Earnings for Sprint — Week 17/ });
+    // `confirmed` and not `stale` only because the snapshot was written from
+    // the live total. The figures below are that snapshot's own arithmetic, so
+    // they move with the seed instead of being re-typed after every re-import.
     await expect(card).toContainText("confirmed");
-    // 1050 minutes at 1200 cents an hour is exactly $210.00.
-    await expect(card).toContainText("$210.00");
-    // And the EGP figure at the rate it was confirmed at: 210 x 50.86.
-    await expect(card).toContainText("10,680.60");
+    await expect(card).toContainText(confirmed.usd);
+    await expect(card).toContainText(confirmed.egp);
   });
 
   test("a change to the minutes makes it stale, loudly, without moving the figures", async ({

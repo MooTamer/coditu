@@ -146,7 +146,18 @@ test.describe("motion", () => {
     );
     expect(new Set(rowTiers)).toEqual(new Set(["none"]));
 
-    await page.getByRole("button", { name: "in progress", exact: true }).click();
+    // The bar renders a status chip only for a status the sprint actually
+    // holds — `filter-bar.client.tsx` builds its list from the statuses
+    // present, not from the enum. This asked for "in progress" by name; Week 17
+    // now holds only `draft` and `done`, so that chip is not on the page and
+    // the click had been timing out since the sprint closed.
+    //
+    // What this test is about is that filtering does not re-run a blur, and any
+    // chip demonstrates that. So take whichever one the page offers rather than
+    // naming a status and coupling a motion assertion to the seed again.
+    const statusChip = page.locator("[data-status-filter]").first();
+    await expect(statusChip, "the sprint offers at least one status filter").toBeVisible();
+    await statusChip.click();
     await page.waitForTimeout(150);
 
     const blurring = await page.evaluate(() =>

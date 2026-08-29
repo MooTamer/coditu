@@ -47,7 +47,11 @@ test.describe("sprint notes", () => {
     adminPage: page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(SPRINT);
+    // Notes are their own route now, with their own history — `sprint-header.tsx`
+    // says so in as many words. This used to open the sprint table and look for
+    // the notes inline, which is where they were when it was written. The words
+    // are still in the database and still render; they render *here*.
+    await page.goto(`${SPRINT}/notes`);
 
     // The seeded notes are the real Notion import — plain text, no document —
     // and they still read. Converted on the way out rather than by rewriting

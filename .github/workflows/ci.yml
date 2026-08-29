@@ -140,6 +140,20 @@ jobs:
       # tiers have vanished from a green build before.
       - run: ./scripts/verify-tokens.sh
 
+      # `check-budgets.mjs` measures transferred bytes by loading each route in a
+      # real browser, and `check-degraded-dependency.mjs` renders a PDF, so both
+      # need Chromium. This job never installed one — only the `browser` job did
+      # — so the budget step has been dying on
+      # `browserType.launch: Executable doesn't exist` every time it was reached,
+      # which until today was never, because `db:test` failed first. It works
+      # locally, where a browser is already on the machine. Another check that
+      # only ran when somebody remembered.
+      #
+      # The headless shell rather than full Chromium: it is the binary these two
+      # scripts actually launch, and it is the smaller download of the two on a
+      # job that runs on every push.
+      - run: npx playwright install --with-deps chromium-headless-shell
+
       # Fails the build when a route's own JavaScript exceeds its cap.
       - run: SKIP_BUILD=1 ./scripts/with-prod-server.sh node scripts/check-budgets.mjs
 

@@ -5398,3 +5398,92 @@ migration-inserted rows — and re-run exactly this verification, because it is 
 **How it was verified, for whoever tries again.** Dump local before, squash, `db reset`, dump
 local after, `diff`. Then `npm run db:test`, which failed on three separate assertions the diff
 had already predicted. `db diff` was never used and would not have shown any of it.
+
+## 2026-08-30 · R5 — the Actions minutes are one pool, and the arithmetic says the backup loses
+
+**The risk, stated properly.** GitHub Free gives a private repository **2,000 Actions minutes a
+month**, billed **per job, rounded up to the whole minute**, and the allowance belongs to the
+**account**, not the repository — so `MooTamer/coditu` and `MooTamer/coditu-recovery` draw on the
+same pool. CI, the nightly backup, the freshness canary and the keepalive are therefore not
+independent. The failure mode is not that CI gets slow. It is that a busy fortnight of pushes
+exhausts the allowance, **the nightly backup stops**, and the canary — also Actions — cannot run
+to say so. Shipping speed and backup survival are coupled, and nothing had named it.
+
+**Measured, not estimated** (billed minutes, Linux 1×, each figure from real runs):
+
+| Job | Observed wall clock | Billed | Where |
+|---|---|---|---|
+| `scope` (new) | 5s, 6s | **1** | coditu |
+| `lighthouse` | 270s, 277s, 280s, 281s, 285s, 287s, 288s | **5** | coditu |
+| Nightly recovery copy | 148s, 254s, 325s | **3, 5, 6** | coditu-recovery |
+| Recovery copy freshness | 8s, 9s, 11s | **1** | coditu-recovery |
+
+The canary is the sharpest illustration of the rounding: it does eleven seconds of work and is
+billed a **whole minute**, sixty times more than it uses.
+
+**Two figures are bounded rather than measured, and are marked as such.** `browser` has never
+completed in CI — it is `needs: check` and `check` had been red since 27 August. Its local serial
+reference is 23.6 minutes for 631 specs, plus `npm ci`, `supabase start`, `db reset` and a
+Playwright browser install, so **~40 minutes** is the working figure against its 70-minute timeout.
+`deploy` has never run at all — no secrets — so **~7 minutes** is inferred from its steps.
+
+**The fixed cost, before anybody pushes anything:**
+
+| Scheduled job | Cadence | Runs/month | × billed | Minutes |
+|---|---|---|---|---|
+| Recovery copy freshness | every 3h | 240 | 1 | **240** |
+| Nightly recovery copy | daily | 30 | 5 | **150** |
+| Database keepalive | every 6h | 120 | 1 | **120** |
+| Monthly recovery-copy integrity | monthly | 1 | 2 | **2** |
+| | | | | **512** |
+
+**512 of 2,000 — a quarter of the allowance is spent before a line of code is pushed**, and 240 of
+it is the canary being billed a minute at a time for eleven seconds of work. That leaves
+**1,488 minutes** for CI.
+
+**What a push costs, and what the skip buys.**
+
+```
+code push : scope 1 + check ~13 + lighthouse 5 + browser ~40 + deploy ~7  =  ~66 min
+docs push : scope 1 + check ~13 +              (both skipped) + deploy ~7  =  ~21 min
+```
+
+102 of the last 119 commits here — **86%** — touch only Markdown, because this repository writes
+its ledger in the same commit as the work. Blending at that rate:
+
+```
+average push          = 0.14 x 66 + 0.86 x 21  =  27.3 min
+sustainable pushes    = 1488 / 27.3            =  ~54 per month
+without the skip      = 1488 / 66              =  ~22 per month
+```
+
+**And then halve both**, because the branch model routes work through pull requests and `on:
+pull_request` means each change is built twice — once on its PR, once on the merge. So the honest
+figures are **~27 changes a month with the skip, ~11 without it**. Eleven changes a month is less
+than this repository does in a day, and the thing that breaks when it runs out is the backup.
+
+**Decision.** Skip `browser` and `lighthouse` on documentation-only changes, decided by a `scope`
+job that costs one billed minute to save about forty-five. It fails **safe**: if the changed-file
+list cannot be determined, it reports `code=true` and everything runs. It is written as "not in
+the docs allowlist" rather than as a list of code paths, so a new top-level directory defaults to
+running the suite.
+
+**Rejected: `paths-ignore` on the workflow trigger.** It would cost zero rather than one minute,
+but it skips the *whole* workflow, taking `check` and `deploy` with it — so a documentation push
+to `main` would never deploy, and the blocking checks would stop running on the file that holds
+the deployment ledger.
+
+**Rejected: cutting the canary's cadence again.** It is already three-hourly, down from hourly, and
+240 minutes is what the rounding does to a job that runs for eleven seconds. Going to six-hourly
+saves 120 minutes and halves the resolution of the one control that detects a stopped backup. That
+is the wrong thing to economise on; CI is where the slack is.
+
+**Named, not done: the next lever is `browser`.** It is report-only, it is ~40 of the ~66 minutes a
+code push costs, and it is the reason the arithmetic is tight. Moving it to a nightly schedule
+would take a code push from ~66 to ~26 minutes and cost ~40 minutes a month instead of ~40 per
+push. That is a real change to what blocks a release, so it is recorded here as the next decision
+to take rather than taken quietly inside a budget exercise — and it should be taken with the
+ten-run determinism review, which is the other thing gating that job's promotion.
+
+**What would make this stop mattering.** The repository is private; a public repository has
+unlimited Actions minutes. Making it public is not a decision this pass can take.
