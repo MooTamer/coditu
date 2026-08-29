@@ -5105,3 +5105,52 @@ nothing.** The control is real and it is in force.
 **Also note for T1.5:** `deploymentEnabled: false` disables **previews as well**. T1.4 wants
 previews to be the UAT environment, so the end state is `{ "main": false }` — Git builds previews,
 and only CI deploys production. That change belongs with the gate, not before it.
+
+## 2026-08-29 · T0-CORRECTION — the backup heartbeat was specified against a paid feature
+
+**Supersedes, in this file, every earlier sentence naming UptimeRobot as the backup heartbeat** —
+notably the entries above that say *"the external monitor is UptimeRobot Free: its current
+published plan includes heartbeat monitoring"* and *"the UptimeRobot heartbeat must therefore
+expect a check-in every three hours"*. The cadence is right; the vendor is not. Those entries are
+left standing rather than edited, because a ledger that quietly rewrites what it once claimed
+cannot be used to audit itself.
+
+**The fact.** UptimeRobot's monitor-type picker: *"Cron job / Heartbeat monitoring — Available
+only in Solo, Team and Scale."* Free is HTTP, Keyword, Ping and Port. Under the standing
+no-paid-service constraint, the alerting leg of Tier 0 was specified against something
+unbuyable. Found by Mohamed using the product. The research error is recorded in the ADR of
+2026-08-29 and struck through, not deleted, at reference 7 of `09-BACKUP-PROPOSAL.md`.
+
+**The split now.** healthchecks.io — 20 cron checks free, no card, BSD-licensed — takes the
+backup heartbeat. UptimeRobot keeps both HTTPS jobs: public site uptime, and the Supabase
+keepalive Keyword check on `/api/health/database`. Those are free-plan types and were never
+wrong.
+
+**What changed in the repository.**
+
+| Change | Where |
+|---|---|
+| Heartbeat step moved to **last** in the job, explicit `if: success()` | `ops/recovery-repo/workflows/backup-canary.yml` |
+| Secret renamed `BACKUP_CANARY_HEARTBEAT_URL` → `HEARTBEAT_URL` | same, plus both runbooks |
+| Reference 7 struck through with the citation rule it produced | `docs/09-BACKUP-PROPOSAL.md` |
+| Activation step 1 rewritten for healthchecks.io | `docs/12-RECOVERY-RUNBOOK.md` §1 |
+| Free-plan scope caveat added to the UptimeRobot citation | `docs/13-DEPLOYMENT-RUNBOOK.md` |
+| ADR recording the error, the replacement, and the rejected alternatives | `docs/05-DECISIONS.md` |
+
+**Why last-and-on-success is the substantive half of this, not the vendor.** The ping was third
+of four steps, ahead of the report-publishing step. A heartbeat that fires before the job
+finishes proves the runner booted — not that the backup was verified. A dead-man's switch that
+reports "alive" while the thing it watches is broken is worse than no switch, because it is
+believed.
+
+**Verified.** `ops/recovery-repo/workflows/backup-canary.yml` parses (Psych) to **4 steps**, the
+heartbeat is index **3 of 3** with `if: success()`, and its only `env` key is `HEARTBEAT_URL`.
+The step body was executed directly in both branches: with the variable unset it prints
+`::notice::HEARTBEAT_URL is not set…` and **exits 0**, so an unconfigured canary stays green for
+backup reasons only; against a deliberately-500 endpoint `curl -fsS` **exits 56**, so a heartbeat
+that cannot be delivered is a red run rather than a silent success.
+
+**Still not true, and unchanged by this correction.** `HEARTBEAT_URL` is unset — the
+healthchecks.io check does not exist yet. Creating it and pasting one secret into
+`MooTamer/coditu-recovery` is Mohamed's, and it is now the **only** step between this canary and
+working alerting.

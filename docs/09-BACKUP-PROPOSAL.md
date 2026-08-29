@@ -321,12 +321,28 @@ dashboard rather than here.
    R2 requires an activated subscription checkout, and Cloudflare says a primary payment
    method is required to purchase products and services. This is why a technically free
    allowance still crosses Mohamed's no-card boundary.
-7. **UptimeRobot — Cron job monitoring and Free plan.**
+7. **~~UptimeRobot — Cron job monitoring and Free plan.~~ WRONG, corrected 2026-08-29.**
    <https://uptimerobot.com/cron-job-monitoring/> and
    <https://help.uptimerobot.com/en/articles/11604710-who-should-use-uptimerobot-s-free-plan>.
-   Re-read 2026-08-28: a heartbeat gets a unique URL, an absent check-in after its interval
-   and grace period sends an alert, and the Free plan includes heartbeat monitoring, email
-   alerts and no card requirement.
+   The 2026-08-28 reading — *"the Free plan includes heartbeat monitoring"* — **was not true and
+   was not sourced**. UptimeRobot's own monitor-type picker says *"Cron job / Heartbeat
+   monitoring — Available only in Solo, Team and Scale."* The free plan is HTTP, Keyword, Ping
+   and Port only. The claim came from "50 monitors free" on the marketing page; the help article
+   fetched at the time declined to enumerate free-tier monitor **types**, and that silence was
+   read as confirmation. Caught by the product, not by the research. **The lesson is the
+   citation discipline, not the vendor:** a plan page that says *how many* is not a source for
+   *which kinds*.
+7a. **healthchecks.io — the replacement for the heartbeat.**
+   <https://healthchecks.io/>. Read 2026-08-29 on their own homepage: *"Monitor 20 cron jobs for
+   free. No credit card required."* Purpose-built for this shape — their worked example is a
+   *prod backup* check — with email alerts and a first-class "expected every N, alert after a
+   grace period". Open-source (BSD-3), so it can be self-hosted if third-party alerting stops
+   being acceptable. A check gets a unique ping URL, `https://hc-ping.com/<uuid>`; possessing
+   that path is enough to forge a check-in, so it is stored as a secret, never in a document.
+7b. **UptimeRobot keeps the HTTPS work.** The free plan's HTTP/Keyword checks are exactly right
+   for the two jobs that are HTTPS requests: public site uptime (one already exists on
+   `coditu-phi.vercel.app`) and the Supabase keepalive Keyword check on `/api/health/database`.
+   Nothing about that half was wrong. Only the heartbeat moved.
 8. **Supabase — Free project pausing.**
    <https://supabase.com/docs/guides/platform/free-project-pausing>.
    Re-read 2026-08-28: a Free Plan project may pause after low user database activity over
@@ -434,9 +450,10 @@ therefore carries its own copy of the tooling, pushed by `scripts/sync-recovery-
 ### What is still not true
 
 
-- **Nothing alerts anybody.** `BACKUP_CANARY_HEARTBEAT_URL` is unset, so the canary skips its
-  heartbeat with a notice. Creating the UptimeRobot monitor is Mohamed's. Until it exists, a
-  canary that stops being dispatched is silent.
+- **Nothing alerts anybody.** `HEARTBEAT_URL` is unset, so the canary skips its heartbeat with a
+  notice. Creating the **healthchecks.io** check and adding that one secret to
+  `MooTamer/coditu-recovery` is Mohamed's — it is the only thing standing between the canary and
+  working alerting. Until it exists, a canary that stops being dispatched is silent.
 - **The Recovery Centre still says `not verified by this app`.** `PRODUCTION_BASE_URL` and
   `BACKUP_CANARY_REPORT_SECRET` are unset, so the canary skips the report step with a notice.
   The endpoint is also not deployed yet — that is T1.5.
@@ -494,8 +511,10 @@ secrets without printing their values:
 - `SUPABASE_STORAGE_S3_URL`, `SUPABASE_STORAGE_ACCESS_KEY_ID`,
   `SUPABASE_STORAGE_SECRET_ACCESS_KEY`, `SUPABASE_STORAGE_REGION`;
 - `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
-- `BACKUP_CANARY_HEARTBEAT_URL` — the unique UptimeRobot heartbeat URL; treat the path as a
-  credential because possessing it can forge successful check-ins.
+- `HEARTBEAT_URL` — the unique **healthchecks.io** ping URL, `https://hc-ping.com/<uuid>`; treat
+  the path as a credential because possessing it can forge successful check-ins. (Named
+  `BACKUP_CANARY_HEARTBEAT_URL` until 2026-08-29; renamed with the vendor correction, and safe to
+  rename because it had never been set.)
 - `BACKUP_CANARY_REPORT_SECRET` — one randomly generated 32+-character capability stored in
   both GitHub's and Vercel's Production environments. It can report one validated canary
   result through `/api/backup-health`; it is not a database or R2 credential.
@@ -507,10 +526,12 @@ outside the repository. `docs/12-RECOVERY-RUNBOOK.md` carries the exact activati
 restore sequence.
 
 The independent freshness control is also implemented locally. `Recovery copy freshness`
-reads R2 hourly and accepts only a complete nightly set no older than 26 hours, then pings an
-external heartbeat. UptimeRobot's Free plan currently includes heartbeat monitoring, email
-alerts and needs no card. The monitor is deliberately **not created yet**: without an R2
-object or pushed workflow it would report a manufactured outage. Activation follows the
+reads the newest off-site set every three hours and accepts only a complete nightly set no older
+than 26 hours, then — as its **last** step, on success only — pings an external heartbeat.
+That receiver is **healthchecks.io**: 20 cron checks free, email alerts, no card. (It was
+specified as UptimeRobot until 2026-08-29; UptimeRobot's heartbeat type is paid. See reference 7.)
+The check is deliberately **not created yet**: without a pushed workflow it would report a
+manufactured outage. Activation follows the
 ordered steps in `docs/12-RECOVERY-RUNBOOK.md` after the first upload succeeds.
 
 `Monthly recovery-copy integrity` is implemented on the same boundary. On day 02 it reads

@@ -39,21 +39,8 @@ jobs:
 
       # Both publishing steps are opt-in. An unset secret skips its step with a
       # notice rather than failing the canary: a missing heartbeat URL is a
-      # setup gap, and turning it into a red run every hour trains everyone to
-      # ignore the one colour that is supposed to mean something.
-      - name: Tell the independent monitor this check completed
-        env:
-          BACKUP_CANARY_HEARTBEAT_URL: ${{ secrets.BACKUP_CANARY_HEARTBEAT_URL }}
-        run: |
-          set -euo pipefail
-          if [ -z "${BACKUP_CANARY_HEARTBEAT_URL:-}" ]; then
-            echo "::notice::no heartbeat URL configured; external alerting is NOT active"
-            exit 0
-          fi
-          curl --fail --silent --show-error \
-            --max-time 15 --retry 2 --retry-connrefused \
-            --output /dev/null "$BACKUP_CANARY_HEARTBEAT_URL"
-
+      # setup gap, and turning it into a red run every three hours trains
+      # everyone to ignore the one colour that is supposed to mean something.
       - name: Publish only the evidence this canary read
         env:
           PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
@@ -72,3 +59,30 @@ jobs:
             --header "Content-Type: application/json" \
             --data-binary "@$BACKUP_CANARY_OUTPUT" \
             "$PRODUCTION_BASE_URL/api/backup-health"
+
+      # LAST, and on success only. `if: success()` is the default, but it is
+      # written out because the whole value of this step is *where* it sits: a
+      # ping that fires regardless of outcome proves the runner booted, not
+      # that the backup was verified — and a dead-man's switch that reports
+      # "alive" while the thing it watches is broken is worse than no switch,
+      # because it is believed.
+      #
+      # The receiver is healthchecks.io, NOT UptimeRobot: UptimeRobot's
+      # cron/heartbeat monitor type is paid ("Available only in Solo, Team and
+      # Scale"), and its free plan is HTTP / Keyword / Ping / Port only.
+      # healthchecks.io monitors 20 cron jobs free with no card. ADR 2026-08-29.
+      # `HEARTBEAT_URL` is `https://hc-ping.com/<uuid>` — treat the path as a
+      # credential, because possessing it can forge a successful check-in.
+      - name: Tell the independent monitor this check passed
+        if: success()
+        env:
+          HEARTBEAT_URL: ${{ secrets.HEARTBEAT_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HEARTBEAT_URL:-}" ]; then
+            echo "::notice::HEARTBEAT_URL is not set; external alerting is NOT active. Nothing will tell anybody if this canary stops running."
+            exit 0
+          fi
+          curl -fsS --max-time 15 --retry 2 --retry-connrefused \
+            --output /dev/null "$HEARTBEAT_URL"
+          echo "heartbeat sent"

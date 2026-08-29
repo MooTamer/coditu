@@ -54,13 +54,23 @@ BACKUP_UPLOAD=0 ./scripts/backup.sh
 
 Everything below needs a human at a browser. Nothing else is outstanding.
 
-1. **Alerting.** Create a free UptimeRobot **heartbeat** monitor named `Coditu backup freshness`,
-   expecting a check-in every **three** hours — the canary's cadence, see the ADR of 2026-08-29 —
-   with enough grace for normal GitHub queue delay, emailing Mohamed. Store its URL **only** as the repository secret `BACKUP_CANARY_HEARTBEAT_URL` in
-   `MooTamer/coditu-recovery`; never paste it in a log, issue or document. Run
-   `Recovery copy freshness` once and wait for UptimeRobot to record the check-in before
-   enabling notifications, so setup does not raise a false incident. Until this exists the
-   canary skips its heartbeat with a visible notice and **nothing alerts anybody**.
+1. **Alerting — healthchecks.io, not UptimeRobot.** Create a free **healthchecks.io** check named
+   `Coditu backup freshness`, period **three** hours — the canary's cadence, see the ADR of
+   2026-08-29 — with enough grace for normal GitHub queue delay, emailing Mohamed. Store its ping
+   URL (`https://hc-ping.com/<uuid>`) **only** as the repository secret `HEARTBEAT_URL` in
+   `MooTamer/coditu-recovery`; never paste it in a log, issue or document — possessing the path is
+   enough to forge a check-in. Run `Recovery copy freshness` once and wait for healthchecks.io to
+   record the check-in before enabling notifications, so setup does not raise a false incident.
+   Until this exists the canary skips its heartbeat with a visible notice and **nothing alerts
+   anybody**.
+
+   **Why not UptimeRobot.** Its cron/heartbeat monitor type is a paid feature — its own type
+   picker says *"Available only in Solo, Team and Scale"* — and the free plan covers HTTP,
+   Keyword, Ping and Port only. An earlier pass in this repository read "50 monitors free" off the
+   marketing page and did not check that it covered every type. healthchecks.io monitors 20 cron
+   jobs free, no card, and is open-source (BSD) so it can be self-hosted later. UptimeRobot is
+   still the right free tool for the **HTTPS** checks — the public site and the keepalive in §7 —
+   which are exactly the types its free plan does cover.
 2. **The Recovery Centre's numbers.** Generate `BACKUP_CANARY_REPORT_SECRET` once; store the same
    value as a repository secret in `MooTamer/coditu-recovery` and in Vercel's Production
    environment. Set the repository **variable** `PRODUCTION_BASE_URL` to the deployed origin.
@@ -143,7 +153,8 @@ is absent or empty, the notes carry no SHA-256, the three disagree with each oth
 asset is older than 93,600 seconds (26 hours). A timestamp more than five minutes in the future
 also fails, instead of disguising clock or metadata corruption.
 
-Only a complete, fresh check pings `BACKUP_CANARY_HEARTBEAT_URL`. UptimeRobot therefore alerts
+Only a complete, fresh check pings `HEARTBEAT_URL`, and the ping is the **last** step in the job
+so nothing between the check and the ping can fail unreported. healthchecks.io therefore alerts
 Mohamed both when the off-site copy becomes stale and when GitHub stops dispatching the canary
 itself. The monitor is a separate control plane; GitHub's own workflow status is not treated as
 the only alarm for GitHub scheduling. **That secret is not set yet**, so today the canary skips
@@ -212,9 +223,10 @@ application downtime even when the release and Vercel deployment are healthy.
 
 **What makes it active:** set the repository variable `PRODUCTION_BASE_URL` on `MooTamer/coditu`
 once the app is deployed. Until then the workflow skips with a visible notice. Then add an
-UptimeRobot **Keyword** monitor on the same route as a second control plane, keep the owner email
-alert on, and check the Supabase dashboard after seven days to confirm the provider records the
-activity. Treat any Supabase pause-warning email as an incident **even when this check is green**,
+UptimeRobot **Keyword** monitor on the same route as a second control plane — Keyword is an HTTPS
+check, which *is* on UptimeRobot's free plan, unlike the heartbeat type §1 needed — keep the owner
+email alert on, and check the Supabase dashboard after seven days to confirm the provider records
+the activity. Treat any Supabase pause-warning email as an incident **even when this check is green**,
 because the provider alone decides whether activity is sufficient.
 
 One more thing that can switch this off without anybody doing it: GitHub disables scheduled

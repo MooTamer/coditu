@@ -5133,3 +5133,60 @@ hours — four a day clears the provider's stated "a few requests per day" with 
 
 Consequence for setup: the UptimeRobot heartbeat must expect a check-in every **three** hours,
 not every hour. The runbook says so.
+
+## 2026-08-29 · The backup heartbeat moves to healthchecks.io; UptimeRobot's is a paid feature
+
+**The error.** Two earlier entries in this log and the runbooks that follow them say the backup
+canary pings *"an UptimeRobot heartbeat"* and that *"the Free plan includes heartbeat monitoring"*.
+The second half is false. UptimeRobot's own monitor-type picker says **"Cron job / Heartbeat
+monitoring — Available only in Solo, Team and Scale."** Its free plan is HTTP, Keyword, Ping and
+Port only. Under Mohamed's standing no-paid-service, no-card constraint, the alerting leg of the
+entire Tier 0 backup design was specified against a product nobody here can buy.
+
+**How it got in, which matters more than the fact.** The 2026-08-28 research pass read *"50
+monitors free"* off the pricing page and generalised it from a **count** to a **capability**. The
+help article it also cited enumerates check frequency, not which monitor types the free plan
+carries — it declined to confirm the point, and that silence was recorded as confirmation.
+Reference 7 in `09-BACKUP-PROPOSAL.md` is struck through rather than deleted so the shape of the
+mistake stays visible. **The rule this produces: a plan page that says _how many_ is never a
+source for _which kinds_. Cite the sentence that answers the question actually being asked, or
+record that no such sentence was found.** It was caught by Mohamed using the product, not by the
+research that was supposed to catch it.
+
+**The replacement: healthchecks.io.** Verified on their homepage 2026-08-29 — *"Monitor 20 cron
+jobs for free. No credit card required."* It is purpose-built for exactly this shape; their own
+worked example is a production backup check. Email alerts, and a first-class notion of "expected
+every N, alert after a grace period", which is the whole semantic a dead-man's switch needs.
+Open-source under BSD-3, so if third-party alerting ever stops being acceptable it can be
+self-hosted without redesigning the canary. One check is needed out of the twenty.
+
+**Rejected alternatives.** *A GitHub Actions workflow watching the canary* — rejected because it
+shares the failure it is meant to detect: R5 already names Actions minutes as one pool, and a
+watcher that dies when the schedule dies is decoration. *cron-job.org and similar* — no reason to
+prefer them over the purpose-built, open-source option. *Nothing, and read the Actions tab* — that
+is the status quo the canary exists to replace; a schedule that stops being dispatched produces no
+red run to notice.
+
+**The split, so no future pass re-derives the wrong answer.** healthchecks.io does the **backup
+heartbeat** — the one job that is a cron dead-man's switch. UptimeRobot keeps both **HTTPS**
+jobs — public site uptime, and the Supabase keepalive Keyword check on `/api/health/database` —
+because HTTP and Keyword *are* on its free plan and nothing about that half was wrong.
+
+**Two mechanical consequences.**
+
+1. The secret is renamed `BACKUP_CANARY_HEARTBEAT_URL` → **`HEARTBEAT_URL`**, in
+   `MooTamer/coditu-recovery`. Renaming is free precisely because it had never been set; doing it
+   now avoids a secret whose name asserts the wrong vendor forever. Its value will be
+   `https://hc-ping.com/<uuid>`. The path is a credential — possessing it forges a check-in — so
+   it lives only in the repository's secrets.
+2. The ping moves to the **last** step of the canary job, explicitly `if: success()`. It was
+   third of four, ahead of the report-publishing step. A heartbeat that fires before the job
+   finishes proves the runner booted, not that the backup was verified — and a dead-man's switch
+   that says "alive" while the thing it watches is broken is worse than no switch at all, because
+   it is believed. The step is a no-op with a visible `::notice::` when the secret is absent, so
+   the canary never goes red for a reason unrelated to backups.
+
+**Status.** The workflow is one secret away from working. Creating the check and adding
+`HEARTBEAT_URL` is Mohamed's; it is the only remaining step. The correction to the three-hourly
+cadence in the entry above stands — the check's period is three hours, plus grace for GitHub
+queue delay — only the vendor changed.

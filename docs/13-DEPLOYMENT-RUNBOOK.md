@@ -70,10 +70,11 @@ Before merging the first gated release:
    names the checked commit.
 6. Do not call the gate active until one deliberately failing blocking check produces zero
    production deployment and the next green commit produces one.
-7. Dispatch `Recovery copy freshness` after the first R2 upload. It must finish the R2
-   check, ping the independent heartbeat, receive HTTP 204 from `/api/backup-health`, and
-   make the Recovery Centre show `off-site canary current` before any backup figure is
-   treated as live.
+7. Dispatch `Recovery copy freshness` after the first off-site set exists. It must finish the
+   freshness check, receive HTTP 204 from `/api/backup-health`, make the Recovery Centre show
+   `off-site canary current`, and — last, on success only — ping the **healthchecks.io**
+   heartbeat, before any backup figure is treated as live. Not UptimeRobot: its heartbeat type
+   is paid. ADR 2026-08-29.
 8. Create the free external uptime monitor only after step 5. Use a UptimeRobot **Keyword**
    monitor named `Coditu production`, URL `${PRODUCTION_BASE_URL}/login`, five-minute
    interval, and require the exact phrase `Coditu is an internal tool.`. Send alerts to
@@ -151,7 +152,12 @@ hard dependency of `deploy` and remove `continue-on-error`. Any red run resets t
 - UptimeRobot Free-plan scope:
   <https://help.uptimerobot.com/en/articles/11604710-who-should-use-uptimerobot-s-free-plan>
   documents five-minute HTTP and keyword checks; <https://uptimerobot.com/pricing/>
-  documents email alerts.
+  documents email alerts. **Scope limit, learned the hard way 2026-08-29:** neither page is a
+  source for which monitor *types* the free plan carries. HTTP and Keyword — the two used
+  here — are free. Cron/Heartbeat is **not**; it is Solo, Team and Scale only, which is why the
+  backup heartbeat is healthchecks.io. ADR 2026-08-29.
+- healthchecks.io: <https://healthchecks.io/> — "Monitor 20 cron jobs for free. No credit card
+  required." The backup canary's dead-man's switch only.
 
 These pages and the pinned CLI 59.9.1 command help were re-read on 2026-08-28. Re-check them
 before changing the CLI or provider settings; a repository runbook is not evidence that a
