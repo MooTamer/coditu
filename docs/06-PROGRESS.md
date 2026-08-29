@@ -5494,3 +5494,70 @@ npm run db:test                        ->  Files=8, Tests=462, Result: PASS
 Hosted re-checked afterwards: **39**. The reasoning, the rejected alternatives and the exact
 verification recipe are in the ADR of 2026-08-30, so the next person can re-run it rather than
 re-argue it.
+
+## 2026-08-30 · T1.5 — the gate was built, wired to nothing, and could never have fired
+
+**The finding that mattered most: `deploy` is `needs: check`, and `check` had been red since
+27 August.** So the gate has been in the repository, correct, and structurally unable to run. Three
+separate defects were in the way, each of which passed locally and failed only in CI, or failed
+silently in both.
+
+1. **One pgTAP assertion.** `database_heartbeat` — shipped by T1.2 — is a third directly-callable
+   `security definer` function `anon` can reach, and the list named two. The assertion did exactly
+   what its own comment says it exists for: name the new one rather than absorb it. So the fix was
+   to decide, not to loosen. The keepalive is on the list with its licence **checked**: zero
+   arguments, and, called as `anon`, it returns the fixed keyword while `public.app_settings` stays
+   `42501` to that same caller. Plan 328 → 331.
+2. **`lib/supabase/database.types.ts` was one line short** — the keepalive's signature — so
+   `db:types` + `git diff --exit-code` failed the step after.
+3. **`check` has no browser.** `check-budgets.mjs` loads each route in Chromium to measure
+   transferred bytes, and `check-degraded-dependency.mjs` renders a PDF. Only the `browser` job
+   ever ran `playwright install`, so the budget step died on
+   `browserType.launch: Executable doesn't exist` — every time it was reached, which until today
+   was never, because `db:test` failed first. It passes locally because a browser is already on the
+   machine. **The third "check that only runs when somebody remembers" this repository has found.**
+
+**(b) `vercel.json` is tamper-evident.** There is no second control to duplicate into —
+`git.deploymentEnabled` is the documented mechanism and `github.enabled` is deprecated in its
+favour — so `tests/deploy-control.test.ts` makes removal *loud*. All three tampering routes were
+watched failing:
+
+| Tampering | Result |
+|---|---|
+| flag flipped to `true` | **1 test fails** |
+| `git` block deleted | **2 tests fail** |
+| swapped for the deprecated `github.enabled` | **3 tests fail** |
+| bare `false` (stricter than needed) | passes, deliberately |
+
+`vercel.json` also moved to `{ "main": false }`, its intended end state: a bare `false` disables
+**previews** too, and T1.4 makes previews the UAT environment. Production leaves Git; CI promotes
+it through the Vercel CLI, which is not a Git deployment and is not blocked by this setting.
+
+**(c) R5 is budgeted, with arithmetic.** Full workings in the ADR of 2026-08-30. The short version:
+the scheduled jobs cost **512 of the 2,000 free minutes a month before anybody pushes anything**,
+240 of that being the canary billed a whole minute for eleven seconds of work, eight times a day.
+That leaves 1,488 for CI. **102 of the last 119 commits here — 86% — touch only Markdown**, so
+`browser` and `lighthouse` no longer run on those, decided by a `scope` job that costs one billed
+minute to save about forty-five and **fails safe** (undetermined → run everything). Sustainable
+change rate goes from **~11 to ~27 a month** once PR-plus-merge double-building is counted.
+
+Verified on the runner, not just locally: run **33275526693** logged the four changed paths,
+`0 of 4 changed paths are documentation`, and ran the full suite. The nine classifier cases were
+checked against the system `grep` — including the one that matters, docs **plus** one source file
+→ `code=true`.
+
+**(a) and (d): what is NOT done, and why.** The `deploy` job needs `VERCEL_TOKEN`,
+`VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `HOSTED_SCHEMA_DB_URL` and the `PRODUCTION_BASE_URL`
+variable. `gh secret list` and `gh variable list` both return **empty**. Minting a Vercel API token
+is creating a credential, which this pass does not do, and the connected Vercel tooling exposes
+read plus deployment-protection only — no project-settings write. `HOSTED_SCHEMA_DB_URL` embeds the
+`coditu_backup` password, which is likewise not this pass's to place.
+
+So **there was no deliberate deployment (d)**, and the gate is proved only to the point of its own
+guard. That guard is correct and does fail closed: the job's first step refuses an unconfigured
+deploy rather than skipping it silently. Production is still `b63f4c7`, and everything merged
+tonight is on `main` and **not deployed** — which is the intended state until somebody adds two
+secrets. `docs/13-DEPLOYMENT-RUNBOOK.md` carries the sequence.
+
+The schema preflight the gate runs was proved separately against hosted: `hosted_schema_verified=true
+migrations=39`, exit 0, with both negative cases exiting 1. See T1.2.
