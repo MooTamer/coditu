@@ -5682,3 +5682,30 @@ The 120 minutes a month this costs is already in the R5 budget.
 and are Mohamed's — the first is an API token to be minted, the second embeds the `coditu_backup`
 password. `gh secret list` is still empty, so the `deploy` job still refuses at its own guard,
 which is the correct state.
+
+### The three `check` defects, confirmed fixed on the runner
+
+Run **33276729275** (`15d92cc`), step list — the first time this job has ever got past step 12:
+
+```
+ 9. success  npm run lint
+10. success  npm run typecheck
+11. success  npm run test
+12. success  npm run db:test                    <- the RLS assertion fix
+13. success  Generated database types match     <- the missing keepalive signature
+14. success  npm run build
+15. success  ./scripts/verify-tokens.sh
+16. success  npx playwright install chromium-headless-shell   <- new
+17. success  check-budgets.mjs                  <- has NEVER run in CI before
+18. success  npm run resilience
+19. in_progress  npm run degraded
+```
+
+**Eighteen of nineteen green.** `check-budgets.mjs` — the route-weight gate — executed in CI for
+the first time in this repository's history and passed. Step 19 was still running well past the
+job's own timeout because seven CI runs were queued against a free account's runners at once, which
+is the queueing cost the R5 postscript measures.
+
+The remaining unknown is `degraded` alone, and it is the one step that pauses containers and waits
+on recovery — the step most sensitive to a contended runner. It has never been red on cause; it has
+never been reached before tonight.
