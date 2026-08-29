@@ -155,7 +155,7 @@ and hold for the whole pass:
 
 | | | Status |
 |---|---|---|
-| **T1.1** | Turn Vercel's automatic production deploy **off** in the project's Git settings, and confirm it is off, **before any push** | `open` |
+| **T1.1** | Turn Vercel's automatic production deploy **off** in the project's Git settings, and confirm it is off, **before any push** | `done` for the effect, **partly by a different mechanism**. `vercel.json`'s `git.deploymentEnabled: false` holds it shut, and it was confirmed by observation: pushing 51 commits to `origin/visual-conformance` produced **`count: 0`** new deployments. The dashboard toggle could not be flipped — no Vercel CLI, no token, and the connected tooling has no project-settings write — so this is **one control, not two**, and Mohamed should still flip it |
 | **T1.2** | Apply the pending migrations to hosted with the code still unshipped, then verify hosted == local and that the schema preflight passes against hosted. **Four, not three, and 39 not 38** — T0.3 added `20260829120000_database_heartbeat.sql`, and the tier order puts it first | `open` |
 | **T1.3** | Merge `visual-conformance` into `main` as a **real merge commit** — 51 commits of reasoning is the audit trail — push, then delete the branch, the two `.claude/worktrees` and every stale branch. `git worktree list` must end with one entry | `open` |
 | **T1.4** | Write the branch model into `CLAUDE.md` and an ADR: trunk-based, `main` always deployable and tagged on release, short-lived `feat/*` and `fix/*` through PRs that CI runs, Vercel previews as the testing/UAT environment — with the known limitation stated, that previews share the hosted database | `open` |

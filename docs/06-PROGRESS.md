@@ -5068,3 +5068,40 @@ workflows in a repository with no activity for 60 days.
 **A note on T1.2's scope.** This adds a fourth pending migration. T1.2 was written as "the three
 pending migrations"; because the tier order puts T0.3 first, it is **four** by the time T1.2 runs,
 and hosted must reach **39**, not 38.
+
+## 2026-08-29 · T1.1 — automatic production deployment is off, confirmed by observation
+
+**What was true before.** Every push to `main` produced an automatic **production** deployment.
+Not inferred — read off the provider: the last twenty deployments each carry
+`githubDeployment: "1"`, `githubCommitRef: "main"` and `target: "production"`, one per commit, up
+to `b63f4c7` (`dpl_HYi7JZdpFrtFmcU2PspZDZTch74z`), which is what is serving now. Merging 51
+commits into `main` would have shipped every one of them, unreviewed, ahead of their migrations —
+the 2026-08-21 outage exactly, at 51× the size.
+
+**What holds it shut.** `vercel.json` on this branch sets `git.deploymentEnabled: false`, added by
+`eb5b141` when the release gate was built. Vercel reads it from the pushed commit and creates no
+deployment at all.
+
+**Confirmed, rather than asserted.** The deployment head was recorded
+(`dpl_HYi7JZdpFrtFmcU2PspZDZTch74z`, `created 1787851083870`), then `visual-conformance` — 51
+commits, never pushed before — was pushed to `origin`. Two minutes later,
+`list_deployments since=1787851083871` returned **`count: 0`**, and
+`GET repos/MooTamer/coditu/deployments` still ends at `b63f4c7`. **No preview, no production,
+nothing.** The control is real and it is in force.
+
+**Two limits, both stated rather than papered over.**
+
+1. **The dashboard toggle was not flipped, because it cannot be from here.** There is no Vercel
+   CLI on this machine, no API token, and the connected Vercel tooling exposes read plus
+   deployment-protection only — no project-settings write. The repo-level control is equally
+   binding for a push, but it lives in a file, so anybody who edits `vercel.json` turns automatic
+   deployment back on. **Mohamed should also set Settings → Git → Production Deployments to
+   off**, so the two controls are independent. Until he does, this is one control, not two.
+2. **`main` does not carry `vercel.json` today** — the file exists only on this branch, so the
+   protection arrives *with* the merge commit rather than before it. The merge push in T1.3 is
+   therefore the one moment this has not been observed to hold, and it will be checked the same
+   way, immediately, before anything else proceeds.
+
+**Also note for T1.5:** `deploymentEnabled: false` disables **previews as well**. T1.4 wants
+previews to be the UAT environment, so the end state is `{ "main": false }` — Git builds previews,
+and only CI deploys production. That change belongs with the gate, not before it.
