@@ -378,13 +378,76 @@ host publishes only an AAAA record and this machine has no IPv6 route, so the di
 string in every runbook here is unusable from it. That is a property of the network, not of the
 project, and any future reader hitting a silent connection failure should check it first.
 
+### 2026-08-29 — the nightly is real, off R2, and proved end to end
+
+The store is **GitHub releases in a dedicated private repository**,
+`MooTamer/coditu-recovery`. R2 is gone: its allowance is free and its account is not, and
+Mohamed refused a card.
+
+| | |
+|---|---|
+| Where | `nightly-<id>` and `monthly-<id>` releases; assets are `<id>.tar.gz.age` and `<id>.metadata.json` |
+| Written by | `Nightly recovery copy`, **in the recovery repository**, with that run's own `GITHUB_TOKEN` |
+| Credentials in the path | **No personal access token anywhere.** Three repository secrets: `BACKUP_DB_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
+| Retention | 30 nightly, 12 monthly, by deleting the release and its tag |
+| Off-provider leg | Mohamed's Mac (working). Google Drive via rclone (written, **not activated** — OAuth needs him) |
+
+**Why releases and not committed files.** Git objects are permanent. A `git rm` of a 19 MB
+archive reclaims nothing, so "keep 30" expressed as deletions would grow the repository
+forever and take clone time with it. Release assets delete for real.
+
+**Why the workflows live in the recovery repository.** Keeping them in `MooTamer/coditu` would
+need a personal access token with write access to a second repository, stored as a secret and
+readable by every workflow in the application repository — a much larger blast radius than a
+backup writer should have. And the application repository may be **the thing that was lost**: a
+restore path that begins by checking it out is not a restore path. The recovery repository
+therefore carries its own copy of the tooling, pushed by `scripts/sync-recovery-repo.sh`, whose
+`--check` mode reports drift against `ops/recovery-repo.json`.
+
+### The end-to-end proof, command by command
+
+| Step | Evidence |
+|---|---|
+| Nightly, in Actions | run `33267669539`, **success**. `backup_id=2026-08-29T181341Z`, `database_tables=63`, `database_rows=1391`, `storage_buckets=3`, `storage_objects=135`, `nightly_retained=2` |
+| Freshness canary, in Actions | run `33264940366`, **success**. `age_seconds=69`, and the asset size, the release notes and the downloaded sidecar all agreed |
+| Pull to the Mac | `sync-backup-local.sh` → `downloaded=1 already_present=1 sets_on_disk=3`, each archive checksummed against its own sidecar after download |
+| **Restore into a throwaway stack** | `verify-backup-restore.sh` → **exit 0 in 6 s**: `database_tables=63`, `database_rows=1391`, `storage_objects=135`, every one of the 63 tables matched count for count, and all 135 objects were pushed into the throwaway Storage service and byte-compared with `diff -qr` |
+
+### Three things running it found
+
+1. **`databaseTables` was double.** The row-count manifest was built with a `\gexec` loop, and
+   psql prints the generated `select …` statements to the same stream as their results — two
+   lines per table. Both of the first hosted sets claim **126 tables; there are 63**. The row
+   total was never wrong, because the noise lines have no second field to sum, which is why
+   nothing caught it. `scripts/sql/row-counts.sql` is one statement now.
+2. **A restore target older than the source fails halfway through the data.** Hosted
+   `storage.buckets` has `versioning_status` and `storage.objects` has `archived_at`,
+   `is_delete_marker` and `is_versioned`; the local `storage-api:v1.62.5` image has none of
+   them. The first drill died 1,729 lines into `data.sql` with a bare `column … does not exist`.
+   `verify-backup-restore.sh` now compares the `COPY` column lists against the target **before
+   writing anything** and says exactly which columns are missing and what it means.
+3. **Requiring identical table lists was the wrong assertion.** The local Storage image has
+   `storage.iceberg_namespaces` and `storage.iceberg_tables`; hosted does not. Both empty. The
+   check now requires every table the backup describes to match exactly, and any table only the
+   target has to be empty — and it prints those tables rather than hiding them.
+
 ### What is still not true
 
-There are still **zero GitHub repository secrets** and no remote workflow run. R2 is now
-abandoned, not blocked: its allowance is free and its account is not (§4 question 2 is
-superseded by the T0.2 decision in `docs/10-PRODUCT-FEEDBACK.md`). So there is still **no
-off-site restore point, no achieved 24-hour RPO, and no active retention policy** — but there
-is now, for the first time, a restore point.
+
+- **Nothing alerts anybody.** `BACKUP_CANARY_HEARTBEAT_URL` is unset, so the canary skips its
+  heartbeat with a notice. Creating the UptimeRobot monitor is Mohamed's. Until it exists, a
+  canary that stops being dispatched is silent.
+- **The Recovery Centre still says `not verified by this app`.** `PRODUCTION_BASE_URL` and
+  `BACKUP_CANARY_REPORT_SECRET` are unset, so the canary skips the report step with a notice.
+  The endpoint is also not deployed yet — that is T1.5.
+- **The Google Drive leg is written and inert.** `scripts/sync-backup-drive.sh` is finished;
+  rclone's Drive backend is OAuth and the consent screen is Mohamed's to click. One
+  `rclone config` and it runs.
+- **The 24-hour RPO is not yet achieved.** Two dispatched runs are not a schedule that has been
+  observed to fire. Say it after the cron has run unattended.
+- **The quarterly private-key drill against a fresh HOSTED project has still never happened.**
+  The drill above restores into a local stack whose Supabase service versions had to be brought
+  forward by hand. RTO remains unset.
 
 ## 8. The implemented nightly set and its activation boundary
 

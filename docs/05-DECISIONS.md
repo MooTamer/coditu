@@ -5003,3 +5003,93 @@ with the username `<role>.<project-ref>`. The runbooks now say so.
 **Why this is worth an ADR.** The failure is a connection timeout with no explanation, and the
 obvious first suspicion is the password or the role, both of which were newly created here. An
 hour can go into that. It is a property of the network path, not of the project.
+
+## 2026-08-29 · Backups are GitHub releases in a dedicated private repository, not R2
+
+R2 was chosen in `09-BACKUP-PROPOSAL.md` §4 and is abandoned. Its allowance is free; its account
+requires a billing profile with a payment method, which Mohamed refused. Nothing about that is
+going to change by waiting.
+
+**Decision.** `MooTamer/coditu-recovery`, private. One release per recovery set, tagged
+`nightly-<id>` or `monthly-<id>`, with the encrypted archive and its sidecar as assets. Retention
+deletes the release and its tag.
+
+**Why releases and not committed files.** The obvious shape is to commit
+`nightly/<id>/<id>.tar.gz.age` and `git rm` past retention. Git objects are permanent: deleting a
+19 MB blob from the tip reclaims nothing, so "keep 30 nightly and 12 monthly" expressed as
+deletions grows the repository without bound and takes clone time with it. Release assets are
+stored outside the object database and delete for real.
+
+**Rejected: keeping the workflows in `MooTamer/coditu`.** A workflow there cannot write to
+another private repository with its own `GITHUB_TOKEN`; it would need a personal access token
+stored as a secret, readable by every workflow in the application repository. That is a much
+larger blast radius than a backup writer should have, and a fine-grained token cannot be minted
+without a browser anyway. The workflows live in the recovery repository, where the token they
+already have is exactly the permission they need. **No personal access token exists in this path.**
+
+**And the reason that matters more.** The application repository may be the thing that was lost.
+A restore path whose first step is "check out the repository you are recovering" is not a restore
+path. The recovery repository therefore carries its own copy of the tooling, pushed by
+`scripts/sync-recovery-repo.sh`. The cost is a copy that can drift, and `--check` reports it
+against the digest in `ops/recovery-repo.json`.
+
+## 2026-08-29 · The row-count manifest counted every table twice
+
+`row-counts.tsv` was built with a `\gexec` loop. psql writes the generated `select …` statements
+and their results to the same stream, so every table produced two lines and `wc -l` reported
+double. The first two hosted recovery sets both record **126 tables; there are 63**.
+
+The row total was never affected — the statement lines have no tab-separated second field for
+`awk` to sum — which is exactly why it survived: the number that looked most likely to be wrong
+was right, and the one nobody checked was doubled.
+
+**Decision.** `scripts/sql/row-counts.sql`, one statement, one line per table, counting through
+`query_to_xml` so nothing but the answer reaches stdout. Both `backup.sh` and
+`verify-backup-restore.sh` use the same file, so the two sides of the comparison cannot drift.
+
+**What this says about the evidence discipline here.** A count printed beside a real archive is
+not evidence unless something compares it to an independent measurement. This one was printed,
+put in a sidecar, published, and read back by a canary that compared it only to itself.
+
+## 2026-08-29 · A restore target must be at least as new as its source, and the check comes first
+
+Supabase ships schema changes to hosted projects ahead of the CLI's pinned local images. Hosted
+`storage.buckets` has `versioning_status`; hosted `storage.objects` has `archived_at`,
+`is_delete_marker` and `is_versioned`; `storage-api:v1.62.5` has none of the four. Restoring a
+hosted backup into that stack died 1,729 lines into `data.sql` with a bare
+`column "versioning_status" of relation "buckets" does not exist` — after `roles.sql` and
+`schema.sql` had already been applied.
+
+**Decision.** `verify-backup-restore.sh` parses the `COPY` column lists out of `data.sql`,
+compares them against the target, and fails **before roles.sql** naming every missing column and
+what it means. Three consequences, all deliberate:
+
+- a failed drill leaves the target untouched, so the next attempt starts clean;
+- the message says "restore into a project at least as new as the one backed up" rather than
+  making the reader infer it from a Postgres error;
+- it is general. It catches any managed-schema drift, not the four columns that happened to
+  surface today.
+
+**Also decided: the row-count comparison stops requiring identical table lists.** The local
+Storage image has `storage.iceberg_namespaces` and `storage.iceberg_tables` and the hosted
+project does not; both are empty, and a `diff -u` of the two manifests failed on them. A restore
+target will always carry some platform scaffolding the source did not. Every table the backup
+describes must now match exactly, and any table only the target has must be **empty** — which
+catches a missing table, a short table and an unclean target, and drops the false alarm. The
+target-only tables are printed rather than hidden.
+
+## 2026-08-29 · The Storage service-role key is a GitHub Actions secret, and that is a weakening
+
+`SUPABASE_SERVICE_ROLE_KEY` is now a repository secret in `MooTamer/coditu-recovery` because the
+`rest` storage mode needs it and S3 access keys cannot be minted without a browser.
+
+**What it costs.** The database leg connects as `coditu_backup`, which cannot write anything. The
+Storage leg holds a credential that bypasses RLS and can write. The backup job is no longer
+uniformly least-privilege, and saying "least privilege" about it without this sentence would be
+false.
+
+**Why it is accepted.** The repository is private and its only three workflows are the backup,
+the canary and the monthly integrity check. The alternative was no Storage copy at all, and 135
+objects — every attachment and comment image in the workspace — are in no database dump on any
+Supabase plan. Revisit the moment somebody with dashboard access can mint an S3 key pair; the
+`s3` mode is still there and still the default.

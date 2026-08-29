@@ -4,6 +4,12 @@ set -euo pipefail
 # Read the off-site copy rather than trusting the writer's exit status. A
 # successful invocation prints only non-secret evidence and is safe to use as
 # the prerequisite for an external heartbeat.
+#
+# There are three records of the same recovery set and this script refuses to
+# let any one of them speak for the others: the release **asset** (its real
+# size, and when GitHub received it), the release **notes** (written by the
+# uploader), and the **sidecar** (written by the backup itself, downloaded and
+# read here). A set is fresh only when all three agree.
 
 fail() {
   printf 'check-backup-freshness: %s\n' "$*" >&2
@@ -24,90 +30,71 @@ file_bytes() {
   fi
 }
 
-for canary_required in R2_ENDPOINT R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET; do
-  need_value "$canary_required"
-done
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
 
-canary_prefix=${R2_PREFIX:-coditu}
+need_value RECOVERY_REPO
 canary_max_age=${BACKUP_MAX_AGE_SECONDS:-93600}
 canary_future_skew=${BACKUP_MAX_FUTURE_SKEW_SECONDS:-300}
-
-case "$canary_prefix" in
-  ""|/*|*..*) fail "R2_PREFIX must be a narrow relative prefix" ;;
-  *[!A-Za-z0-9._/-]*) fail "R2_PREFIX contains unsafe characters" ;;
-esac
-case "$R2_BUCKET" in
-  ""|*/*) fail "R2_BUCKET must be one bucket name" ;;
-esac
 printf '%s\n' "$canary_max_age" | grep -Eq '^[1-9][0-9]*$' ||
   fail "BACKUP_MAX_AGE_SECONDS must be a positive integer"
 printf '%s\n' "$canary_future_skew" | grep -Eq '^[0-9]+$' ||
   fail "BACKUP_MAX_FUTURE_SKEW_SECONDS must be a non-negative integer"
 
-for canary_command in aws jq node; do
+for canary_command in gh jq node; do
   command -v "$canary_command" >/dev/null 2>&1 || fail "missing required command: $canary_command"
 done
 
-r2_aws() {
-  AWS_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID \
-  AWS_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY \
-  AWS_DEFAULT_REGION=${R2_REGION:-auto} \
-    aws --endpoint-url "$R2_ENDPOINT" "$@"
-}
-
-canary_root=$canary_prefix/nightly
-canary_listing=$(r2_aws s3api list-objects-v2 \
-  --bucket "$R2_BUCKET" \
-  --prefix "$canary_root/" \
-  --output json) || fail "cannot list nightly recovery sets"
-canary_latest=$(printf '%s' "$canary_listing" | jq -cr \
-  --arg root "$canary_root/" \
-  '[.Contents[]? | select(.Key | startswith($root)) | select(.Key | endswith(".tar.gz.age"))] | sort_by(.LastModified) | last // empty') ||
-  fail "cannot parse the nightly recovery-set listing"
-[ -n "$canary_latest" ] || fail "no nightly encrypted recovery set exists"
-
-canary_key=$(printf '%s' "$canary_latest" | jq -er '.Key') ||
-  fail "newest recovery set has no object key"
-canary_relative=${canary_key#"$canary_root/"}
-[ "$canary_relative" != "$canary_key" ] || fail "newest object is outside the nightly prefix"
-canary_id=${canary_relative%%/*}
+canary_releases=$(gh release list --repo "$RECOVERY_REPO" --limit 400 --json tagName) ||
+  fail "cannot list nightly recovery sets"
+canary_id=$(printf '%s' "$canary_releases" | jq -r \
+  '.[].tagName | select(startswith("nightly-")) | ltrimstr("nightly-")' |
+  LC_ALL=C sort -r | head -1)
+[ -n "$canary_id" ] || fail "no nightly encrypted recovery set exists"
 printf '%s\n' "$canary_id" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z$' ||
-  fail "newest object has an unexpected recovery-set id"
-[ "$canary_key" = "$canary_root/$canary_id/$canary_id.tar.gz.age" ] ||
-  fail "newest object has an unexpected recovery-set key"
-canary_metadata_key=$canary_root/$canary_id/$canary_id.metadata.json
+  fail "newest release has an unexpected recovery-set id"
 
-canary_head=$(r2_aws s3api head-object --bucket "$R2_BUCKET" --key "$canary_key") ||
-  fail "cannot read newest encrypted archive metadata"
-canary_metadata_head=$(r2_aws s3api head-object --bucket "$R2_BUCKET" --key "$canary_metadata_key") ||
-  fail "newest recovery set has no metadata sidecar"
-canary_bytes=$(printf '%s' "$canary_head" | jq -er '.ContentLength') ||
+canary_view=$(gh release view "nightly-$canary_id" --repo "$RECOVERY_REPO" \
+  --json assets,body,tagName) || fail "cannot read the newest recovery set"
+
+canary_archive_name=$canary_id.tar.gz.age
+canary_metadata_name=$canary_id.metadata.json
+canary_asset=$(printf '%s' "$canary_view" | jq -c --arg n "$canary_archive_name" \
+  '.assets[] | select(.name == $n)') || fail "cannot parse the release assets"
+[ -n "$canary_asset" ] || fail "newest recovery set has no encrypted archive asset"
+canary_bytes=$(printf '%s' "$canary_asset" | jq -er '.size') ||
   fail "newest encrypted archive has no byte size"
-canary_metadata_bytes=$(printf '%s' "$canary_metadata_head" | jq -er '.ContentLength') ||
-  fail "newest metadata sidecar has no byte size"
-canary_sha=$(printf '%s' "$canary_head" | jq -er '.Metadata.sha256') ||
-  fail "newest encrypted archive has no SHA-256 metadata"
-canary_head_id=$(printf '%s' "$canary_head" | jq -er '.Metadata["backup-id"]') ||
-  fail "newest encrypted archive has no backup-id metadata"
-canary_last_modified=$(printf '%s' "$canary_head" | jq -er '.LastModified') ||
-  fail "newest encrypted archive has no LastModified timestamp"
+canary_uploaded_at=$(printf '%s' "$canary_asset" | jq -er '.createdAt') ||
+  fail "newest encrypted archive has no upload timestamp"
+canary_metadata_bytes=$(printf '%s' "$canary_view" | jq -er --arg n "$canary_metadata_name" \
+  '.assets[] | select(.name == $n) | .size') ||
+  fail "newest recovery set has no metadata sidecar"
 
 printf '%s\n' "$canary_bytes" | grep -Eq '^[1-9][0-9]*$' ||
   fail "newest encrypted archive is empty"
 printf '%s\n' "$canary_metadata_bytes" | grep -Eq '^[1-9][0-9]*$' ||
   fail "newest recovery set has no non-empty metadata sidecar"
-printf '%s\n' "$canary_sha" | grep -Eq '^[0-9a-f]{64}$' ||
-  fail "newest encrypted archive has no SHA-256 metadata"
-[ "$canary_head_id" = "$canary_id" ] ||
-  fail "newest encrypted archive backup-id metadata does not match its key"
 
-# The sidecar is small, non-secret evidence. Read it rather than treating its
-# mere existence as proof that the writer finished recording the set.
+# The release notes, parsed as the independent record they are meant to be.
+canary_notes_id=$(printf '%s' "$canary_view" | jq -r '.body' | sed -n 's/^backup-id=//p' | head -1)
+canary_notes_sha=$(printf '%s' "$canary_view" | jq -r '.body' | sed -n 's/^sha256=//p' | head -1)
+canary_notes_bytes=$(printf '%s' "$canary_view" | jq -r '.body' | sed -n 's/^bytes=//p' | head -1)
+printf '%s\n' "$canary_notes_sha" | grep -Eq '^[0-9a-f]{64}$' ||
+  fail "newest release notes carry no SHA-256"
+[ "$canary_notes_id" = "$canary_id" ] || fail "release notes name a different backup id"
+[ "$canary_notes_bytes" = "$canary_bytes" ] || fail "release notes disagree with the asset size"
+
 canary_temp_root=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/coditu-canary.XXXXXX")
-canary_metadata=$canary_temp_root/$canary_id.metadata.json
 trap 'rm -rf "$canary_temp_root"' EXIT INT TERM
-r2_aws s3 cp "s3://$R2_BUCKET/$canary_metadata_key" "$canary_metadata" \
-  --only-show-errors || fail "cannot download newest recovery-set sidecar"
+gh release download "nightly-$canary_id" --repo "$RECOVERY_REPO" \
+  --pattern "$canary_metadata_name" --dir "$canary_temp_root" ||
+  fail "cannot download newest recovery-set sidecar"
+canary_metadata=$canary_temp_root/$canary_metadata_name
 [ "$(file_bytes "$canary_metadata")" = "$canary_metadata_bytes" ] ||
   fail "newest recovery-set sidecar size changed while it was read"
 
@@ -127,12 +114,12 @@ canary_storage_objects=$(jq -er '.storageObjects | select(type == "number" and .
   fail "sidecar has no Storage object count"
 
 [ "$canary_format" = 1 ] || fail "unsupported recovery-set format: $canary_format"
-[ "$canary_sidecar_id" = "$canary_id" ] || fail "sidecar backup id does not match its key"
-[ "$canary_sidecar_archive" = "$canary_id.tar.gz.age" ] || fail "sidecar archive name does not match its key"
-[ "$canary_sidecar_sha" = "$canary_sha" ] || fail "sidecar SHA-256 does not match R2 metadata"
-[ "$canary_sidecar_bytes" = "$canary_bytes" ] || fail "sidecar byte size does not match R2"
+[ "$canary_sidecar_id" = "$canary_id" ] || fail "sidecar backup id does not match its release"
+[ "$canary_sidecar_archive" = "$canary_archive_name" ] || fail "sidecar archive name does not match its release"
+[ "$canary_sidecar_sha" = "$canary_notes_sha" ] || fail "sidecar SHA-256 does not match the release notes"
+[ "$canary_sidecar_bytes" = "$canary_bytes" ] || fail "sidecar byte size does not match the asset"
 
-canary_age=$(CANARY_LAST_MODIFIED="$canary_last_modified" \
+canary_age=$(CANARY_LAST_MODIFIED="$canary_uploaded_at" \
   CANARY_REFERENCE_TIME="${BACKUP_CANARY_NOW:-}" \
   node - <<'NODE'
 const lastModified = Date.parse(process.env.CANARY_LAST_MODIFIED ?? "");
@@ -146,7 +133,7 @@ if (!Number.isFinite(lastModified) || !Number.isFinite(reference)) {
 
 process.stdout.write(String(Math.floor((reference - lastModified) / 1000)));
 NODE
-) || fail "newest archive has an invalid LastModified timestamp"
+) || fail "newest archive has an invalid upload timestamp"
 
 if [ "$canary_age" -lt "-$canary_future_skew" ]; then
   fail "newest encrypted archive is implausibly far in the future"
@@ -169,8 +156,8 @@ if [ -n "${BACKUP_CANARY_OUTPUT:-}" ]; then
   canary_output_temp=$BACKUP_CANARY_OUTPUT.tmp.$$
   jq -n \
     --arg backupId "$canary_id" \
-    --arg lastModifiedAt "$canary_last_modified" \
-    --arg sha256 "$canary_sha" \
+    --arg lastModifiedAt "$canary_uploaded_at" \
+    --arg sha256 "$canary_sidecar_sha" \
     --argjson encryptedBytes "$canary_bytes" \
     --argjson databaseTables "$canary_database_tables" \
     --argjson databaseRows "$canary_database_rows" \

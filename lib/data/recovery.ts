@@ -119,7 +119,7 @@ interface BackupHealthRow {
 }
 
 /**
- * The newest infrastructure fact the independent R2 reader reported.
+ * The newest infrastructure fact the independent off-site reader reported.
  *
  * `null` is intentionally the expand/contract answer. Until both the table and
  * a successful canary exist, the Recovery Centre keeps its warning and renders

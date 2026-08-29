@@ -21,7 +21,7 @@ function refuse(status: number, error: string) {
  * The only public write path for backup evidence.
  *
  * The GitHub canary holds one high-entropy capability, not a service-role key
- * or an R2 credential in the application. A valid report can update one
+ * or a recovery-store credential in the application. A valid report can update one
  * singleton through an out-of-order-safe RPC and nothing else.
  */
 export async function POST(request: Request) {

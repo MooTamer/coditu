@@ -5,32 +5,35 @@ provider statement into a fact. The current boundary is in `docs/09-BACKUP-PROPO
 
 ## 0. What exists right now — read this before the rest
 
-**One encrypted recovery set of the hosted project exists, on Mohamed's Mac only.**
-`2026-08-29T165142Z.tar.gz.age` and its sidecar, under
-`/Users/motamer/Library/Application Support/Coditu/Backups/`. 126 tables, 1,391 rows, 135 Storage
-objects, 19,450,696 bytes. It decrypts, its 140 payload files pass their checksums, and its row
-counts match the hosted database. **Nothing is off-site and nothing is scheduled.** Everything in
-§1 below still describes an activation that has not happened, except the two steps this set
-required, which are now true:
+**The nightly runs, off-site, and has been restored end to end.** As of 2026-08-29:
 
-- `coditu_backup` exists on the hosted project, with LOGIN, BYPASSRLS and a password. The
-  password lives in `/Users/motamer/.config/coditu/backup-db.env` (mode 0600) and nowhere else.
-- The Storage copy does not need S3 keys any more. `scripts/backup.sh` has a `rest` mode that
-  lists objects from `storage.objects` and downloads them with the service-role key. See the ADR
-  in `docs/05-DECISIONS.md`, 2026-08-29, including what it costs in privilege.
+| | |
+|---|---|
+| Off-site store | GitHub releases in the private repository `MooTamer/coditu-recovery` |
+| Tags | `nightly-<id>`, `monthly-<id>`; assets `<id>.tar.gz.age` and `<id>.metadata.json` |
+| Newest proven set | `2026-08-29T181341Z` — 63 tables, 1,391 rows, 3 buckets, 135 Storage objects |
+| Local copy | `/Users/motamer/Library/Application Support/Coditu/Backups/` — 3 sets |
+| Private key | `/Users/motamer/.config/coditu/backup.agekey`, plus the offline copy Mohamed must make |
+| Backup role password | `/Users/motamer/.config/coditu/backup-db.env`, mode 0600, and nowhere else |
 
-**Connect through the session pooler, not the direct host.** Every connection string written
-below and in §1 names `db.hayfsvsepgfescojesbd.supabase.co:5432`. That host has **no A record**,
-and a machine without an IPv6 route cannot resolve it at all. Use:
+**Not yet true, and none of it should be described as if it were:** no alerting (no heartbeat
+URL), the Recovery Centre still shows `not verified by this app` (no report target, and the
+endpoint is not deployed), the Google Drive leg is written but un-authorised, and the schedule
+has been dispatched by hand twice rather than observed firing on its own.
+
+### Connect through the session pooler, not the direct host
+
+`db.hayfsvsepgfescojesbd.supabase.co` has **no A record**, and a machine without an IPv6 route
+cannot resolve it at all. Use:
 
 ```
 postgresql://<role>.hayfsvsepgfescojesbd@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require
 ```
 
 Port **5432** on the pooler is session mode. Port 6543 — which the Management API advertises as
-the connection string — is transaction mode and will not carry migration DDL.
+*the* connection string — is transaction mode and will not carry migration DDL.
 
-**To take another set today**, from the repository root:
+### To take a set by hand, right now
 
 ```bash
 . /Users/motamer/.config/coditu/backup-db.env
@@ -44,49 +47,38 @@ BACKUP_LOCAL_DIR="/Users/motamer/Library/Application Support/Coditu/Backups" \
 BACKUP_UPLOAD=0 ./scripts/backup.sh
 ```
 
-It took **225 seconds** end to end on 2026-08-29 for this data size.
+225 seconds on 2026-08-29 for this data size. Or, off-site and scheduled:
+`gh workflow run "Nightly recovery copy" --repo MooTamer/coditu-recovery`.
 
-## 1. One-time activation
+## 1. What is left to activate, and who has to do it
 
-1. Apply `20260828120000_invited_is_not_accepted.sql`,
-   `20260828140000_a_role_that_can_only_read.sql` and
-   `20260828220000_backup_health_from_canary.sql` to the hosted database through the normal
-   reviewed migration path. The hosted release preflight requires every local migration, not
-   only the two directly used by recovery.
-2. In Supabase SQL Editor, generate a unique 32+ character password and set it with
-   `alter role coditu_backup with password '<generated value>';`. Do not put the password
-   in a shell history, document, issue, workflow, screenshot, or log.
-3. Create S3 access keys for the Supabase Storage project. They are separate from the
-   database login because database backups do not contain Storage bytes.
-4. Activate an R2 Standard bucket and create object read/write/delete keys scoped to that
-   bucket. Stop if Cloudflare asks for a payment method: Mohamed explicitly refused a card.
-5. Add the secret names listed in `09-BACKUP-PROPOSAL.md` §8 to `MooTamer/coditu`.
-   Generate `BACKUP_CANARY_REPORT_SECRET` once, store the same value in GitHub's and
-   Vercel's Production environments, and never print it.
-6. Deploy the report endpoint and migrated Recovery Centre through the gated release in
-   `13-DEPLOYMENT-RUNBOOK.md`. It must still render `not verified by this app`; code is not
-   a backup record. Dispatch `Nightly recovery copy` once.
-7. Verify the workflow output names one uploaded key, `nightly_retained=1`, and no secret.
-   Independently `HEAD` the object and compare its byte size and `sha256` metadata to the
-   adjacent JSON sidecar.
-8. Dispatch `Recovery copy freshness`. It must print the same backup id, an age below
-   93,600 seconds, a non-zero encrypted size, and the database/Storage counts read from the
-   downloaded sidecar. It must also receive HTTP 204 from `/api/backup-health`; only then
-   may the Recovery Centre show the measured values and 24-hour objective.
-9. Create a free UptimeRobot heartbeat named `Coditu backup freshness`, set it to expect an
-   hourly check-in with enough grace for normal GitHub queue delay, and send its email alert
-   to Mohamed. Store its unique URL only as `BACKUP_CANARY_HEARTBEAT_URL`; never paste it in
-   a log, issue or document. Run the canary again and wait for UptimeRobot to record the
-   check-in before enabling notifications. This order avoids a false incident during setup.
-10. Configure a local `coditu-r2` AWS profile outside Git and run:
+Everything below needs a human at a browser. Nothing else is outstanding.
 
-   ```bash
-   R2_ENDPOINT='<account endpoint>' R2_BUCKET='<bucket>' \
-   LOCAL_BACKUP_DIR='/Users/motamer/Library/Application Support/Coditu/Backups' \
-   ./scripts/sync-backup-local.sh
-   ```
+1. **Alerting.** Create a free UptimeRobot **heartbeat** monitor named `Coditu backup freshness`,
+   expecting an hourly check-in with enough grace for normal GitHub queue delay, emailing
+   Mohamed. Store its URL **only** as the repository secret `BACKUP_CANARY_HEARTBEAT_URL` in
+   `MooTamer/coditu-recovery`; never paste it in a log, issue or document. Run
+   `Recovery copy freshness` once and wait for UptimeRobot to record the check-in before
+   enabling notifications, so setup does not raise a false incident. Until this exists the
+   canary skips its heartbeat with a visible notice and **nothing alerts anybody**.
+2. **The Recovery Centre's numbers.** Generate `BACKUP_CANARY_REPORT_SECRET` once; store the same
+   value as a repository secret in `MooTamer/coditu-recovery` and in Vercel's Production
+   environment. Set the repository **variable** `PRODUCTION_BASE_URL` to the deployed origin.
+   Both only work once the report endpoint is deployed — `docs/13-DEPLOYMENT-RUNBOOK.md`.
+3. **The off-provider leg.** `brew install rclone && rclone config` — a new remote named
+   `coditu-drive`, type `drive`. Then `LOCAL_BACKUP_DIR=… ./scripts/sync-backup-drive.sh`, and
+   schedule it beside the local pull. The consent screen is the only step nobody else can take.
+4. **An offline copy of the private key.** `/Users/motamer/.config/coditu/backup.agekey` is
+   currently the only one. If that Mac is what is lost, every archive in the recovery repository
+   is noise. This is the single largest remaining risk in the whole design.
 
-   Schedule that command daily on Mohamed's Mac only after the first pull succeeds.
+The local pull, to run daily on the Mac:
+
+```bash
+RECOVERY_REPO=MooTamer/coditu-recovery \
+LOCAL_BACKUP_DIR='/Users/motamer/Library/Application Support/Coditu/Backups' \
+./scripts/sync-backup-local.sh
+```
 
 ## 2. What a nightly recovery set contains
 
@@ -103,15 +95,18 @@ before activation.
 
 ## 3. Full recovery after losing the project
 
-1. Stop writes to the old application and record the newest R2 backup id. Do not let two
-   recoveries write to the same target.
-2. Create a fresh Supabase project in the same region and note its Postgres major version.
-3. Download the encrypted archive and metadata to Mohamed's local backup directory.
+1. Stop writes to the old application and record the newest release tag in
+   `MooTamer/coditu-recovery`. Do not let two recoveries write to the same target.
+2. Create a fresh Supabase project in the same region. Note its Postgres major version **and
+   that its Storage service is at least as new as the one backed up** — §6 says why.
+3. `gh release download nightly-<id> --repo MooTamer/coditu-recovery --dir <local backup dir>`.
 4. Verify the archive's SHA-256 and byte size against the metadata sidecar before decrypting.
 5. Use the platform restore owner, not the backup role, and run
    `scripts/verify-backup-restore.sh <archive> <private.agekey>` against the fresh project.
-   The restore order is roles → schema → data. The command fails if any of the 130 current
-   table counts differs.
+   The restore order is roles → schema → data, and a **preflight runs before any of them**: it
+   compares the `COPY` column lists in `data.sql` against the target and refuses to start if the
+   target is older. The command then fails if any table the backup describes is missing or
+   short, or if a table only the target has is non-empty.
 6. Force-upload Storage with recursive copy. Do **not** use `aws s3 sync` after restoring
    `storage.objects`: the metadata rows make sync believe absent bytes already exist.
 7. Re-run the object download and byte comparison, the SQL tests, and the hosted schema
@@ -119,65 +114,80 @@ before activation.
 8. Smoke marketing, sign-in, Home, one project, one image, Recovery Centre and a write with
    rollback. Re-open writes only after all pass.
 
-The local drill on 2026-08-28 took under one minute for 5,245 rows and 115 objects after the
-throwaway stack was healthy. That is evidence for this data size on this laptop, not an RTO:
-creating a hosted project, DNS/environment changes, decision time and provider queues were not
-measured. RTO therefore remains unset until the first hosted drill.
+The 2026-08-29 drill restored 63 tables, 1,391 rows and 135 Storage objects in **6 seconds**
+after the throwaway stack was healthy. That is evidence for this data size on this laptop, not
+an RTO: creating a hosted project, DNS/environment changes, decision time and provider queues
+were not measured. **RTO remains unset until the first hosted drill.**
 
 ## 4. Normal retention and local-copy checks
 
-Every nightly upload goes under `coditu/nightly/<backup-id>/`. A run on day 01 also writes
-the same encrypted set under `coditu/monthly/<backup-id>/`. `prune-backups.sh` sorts the
-timestamp ids and keeps exactly 30 and 12. It validates every deletion prefix before asking
-S3 to remove it.
+Every nightly publishes `nightly-<id>`. A run on day 01 also publishes the same encrypted set
+as `monthly-<id>`. `prune-backups.sh` sorts the timestamp ids and keeps exactly 30 and 12,
+deleting the release **and its tag** so a pruned set leaves nothing that looks like it is still
+there. It validates every id against the timestamp shape before asking GitHub to remove
+anything, and refuses to prune at all if the release listing came back truncated.
 
-The local pull does not use `--delete`: an accidental R2 deletion is not propagated onto the
-Mac. Check local disk use monthly and remove only copies already represented by a newer
-verified set and the 30 + 12 policy.
+The local pull never deletes: an accidental deletion in the recovery repository is not
+propagated onto the Mac. Every archive it downloads is checksummed against its own sidecar
+before it counts as a local copy. Check local disk use monthly and remove only copies already
+represented by a newer verified set and the 30 + 12 policy.
 
 ## 5. Freshness alert
 
-`Recovery copy freshness` runs at minute 47 of every hour. It lists R2 itself, selects the
-newest nightly encrypted archive, and fails if there is no archive, its key is malformed,
-the adjacent metadata sidecar is absent or empty, its recorded SHA-256 is absent, or its
-R2 `LastModified` age exceeds 93,600 seconds (26 hours). A timestamp more than five minutes
-in the future also fails instead of disguising clock or metadata corruption.
+`Recovery copy freshness` runs at minute 47 of every hour. It picks the newest `nightly-*`
+release and refuses to let any single record speak for the set. There are three, written by
+different steps: the release **asset** (its real size, and when GitHub received it), the release
+**notes** (written by the uploader), and the **sidecar** (written by the backup itself,
+downloaded and read). It fails if there is no release, the tag is malformed, the sidecar asset
+is absent or empty, the notes carry no SHA-256, the three disagree with each other, or the
+asset is older than 93,600 seconds (26 hours). A timestamp more than five minutes in the future
+also fails, instead of disguising clock or metadata corruption.
 
-Only a complete, fresh check pings `BACKUP_CANARY_HEARTBEAT_URL`. UptimeRobot therefore
-alerts Mohamed both when the R2 copy becomes stale and when GitHub stops dispatching the
-canary itself. The monitor is a separate control plane; GitHub's own workflow status is not
-treated as the only alarm for GitHub scheduling.
+Only a complete, fresh check pings `BACKUP_CANARY_HEARTBEAT_URL`. UptimeRobot therefore alerts
+Mohamed both when the off-site copy becomes stale and when GitHub stops dispatching the canary
+itself. The monitor is a separate control plane; GitHub's own workflow status is not treated as
+the only alarm for GitHub scheduling. **That secret is not set yet**, so today the canary skips
+the ping with a notice and nothing alerts anybody.
 
 ## 6. Monthly integrity and quarterly restore drills
 
-`Monthly recovery-copy integrity` runs at 03:23 UTC on day 02. It downloads the newest
-day-01 ciphertext and sidecar, requires exactly those two R2 objects, and compares:
+`Monthly recovery-copy integrity` runs at 03:23 UTC on day 02. It reads the newest `monthly-*`
+release and its matching `nightly-*`, requires each to hold **exactly** the archive and its
+sidecar, downloads the monthly ciphertext, and compares:
 
-- the downloaded ciphertext SHA-256 with the sidecar and R2 object metadata;
-- downloaded, sidecar, monthly R2 and matching nightly R2 byte sizes;
-- the monthly and matching nightly ciphertext SHA-256 values;
+- the downloaded ciphertext SHA-256 with the sidecar and with the release notes;
+- downloaded, sidecar, monthly and matching nightly byte sizes;
+- the monthly and matching nightly SHA-256 values;
 - the sidecar identity, format and recorded database/Storage counts.
 
-The job has R2 read credentials and **no age private key**. It proves that the encrypted
-set written on day 01 remains readable and unchanged; it cannot prove that the plaintext
-restores. Never report this monthly control as a restore.
+The job has read access to the recovery repository and **no age private key**. It proves the
+encrypted set written on day 01 remains readable and unchanged; it cannot prove that the
+plaintext restores. Never report this monthly control as a restore — it prints
+`this_is_not_a_restore=true` for exactly that reason.
 
 On the first Saturday of January, April, July and October, Mohamed performs the full drill:
 
-1. Pull the newest monthly ciphertext and sidecar to the local copy directory.
-2. Run `scripts/check-backup-integrity.sh` against R2 and compare its backup id and SHA-256
-   with the local files.
-3. Start a new isolated local Supabase stack on ports that do not overlap `_coditu`; never
-   reset or reuse the shared development stack.
-4. Point `RESTORE_DB_URL` and the four optional `RESTORE_STORAGE_*` values at only that
-   throwaway stack, then run `scripts/verify-backup-restore.sh <archive> <private.agekey>`.
+1. Pull the newest monthly ciphertext and sidecar with `sync-backup-local.sh`.
+2. Run `scripts/check-backup-integrity.sh` and compare its backup id and SHA-256 with the local
+   files.
+3. Start a new isolated local Supabase stack on ports that do not overlap `_coditu`; never reset
+   or reuse the shared development stack. **Leave `realtime` enabled** — disabling it removes
+   the `supabase_realtime_admin` role, and `roles.sql` grants to it and stops on the first line.
+4. Point `RESTORE_DB_URL` at that stack's **`supabase_admin`** login (on current local images
+   `postgres` is no longer a superuser and the verifier refuses it), set the four optional
+   `RESTORE_STORAGE_*` values from `supabase start`'s S3 block, then run
+   `scripts/verify-backup-restore.sh <archive> <private.agekey>`.
 5. Record elapsed time, every table/row/object count and the result in `docs/06-PROGRESS.md`.
 6. Stop the throwaway stack with `supabase stop --no-backup` and confirm only the shared
-   `_coditu` containers remain.
+   `_coditu` containers **and no `*_coditurestore` volumes** remain.
 
-The first local proof completed the data restore in under one minute after its isolated
-stack was healthy. Keep recording the quarterly measurements; it is not an RTO because
-hosted project creation, DNS/environment changes and incident decision time remain untested.
+**A local stack is an imperfect stand-in, and the 2026-08-29 drill proved it.** Supabase ships
+newer Storage schemas to hosted projects than the CLI's pinned images carry: hosted
+`storage.buckets` has `versioning_status`, hosted `storage.objects` has `archived_at`,
+`is_delete_marker` and `is_versioned`, and `storage-api:v1.62.5` has none of the four. The drill
+target had to be brought forward by hand with four `alter table` statements. A **fresh hosted
+project needs none of this**, which is why the quarterly drill's honest form is against a hosted
+project and why RTO stays unset until one has been done.
 
 ## 7. Free-plan project pausing
 
@@ -203,7 +213,7 @@ route and make the five-minute external monitor use it:
    the provider alone decides whether activity is sufficient.
 
 This is a **proposal, not implemented code or active monitoring**. Do not use
-`/api/backup-health` as a synthetic keepalive: that endpoint is evidence about a real R2 object,
+`/api/backup-health` as a synthetic keepalive: that endpoint is evidence about a real off-site archive,
 and reporting fabricated freshness to keep a database awake would corrupt the Recovery Centre.
 The only no-code alternative that removes the pause class entirely is moving the organization to
 a paid plan, which is outside Mohamed's no-card decision.

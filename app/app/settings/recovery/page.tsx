@@ -28,7 +28,7 @@ export const metadata = { title: "Backup & recovery" };
  * **Infrastructure** — managed database backups, point-in-time recovery, and
  * Storage, which managed database backups do not cover at all. This
  * application cannot create or inspect that infrastructure itself. It accepts
- * one deliberately narrow fact: the independent R2 canary can report the
+ * one deliberately narrow fact: the independent off-site canary can report the
  * object and sidecar it just read. No report means no claim, and old evidence
  * turns amber by elapsed time without waiting for another write.
  *
@@ -120,7 +120,7 @@ export default async function RecoveryPage() {
 
         <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
           {backupHealth
-            ? `The independent R2 reader last reported at ${stamp(backupHealth.checkedAt)}. ` +
+            ? `The independent off-site reader last reported at ${stamp(backupHealth.checkedAt)}. ` +
               (backupCurrent
                 ? "Its evidence and the newest encrypted set are both inside their current windows."
                 : "That evidence is now outside the report or recovery-point window, so it makes no current coverage claim.")
@@ -138,12 +138,12 @@ export default async function RecoveryPage() {
             label="Provider-held backups"
             value={
               backupHealth
-                ? `Supabase none · R2 ${backupCurrent ? "current" : "stale"}`
+                ? `Supabase none · off-site ${backupCurrent ? "current" : "stale"}`
                 : "none"
             }
             detail={
               backupHealth
-                ? `Supabase still has no managed restore point. Separately, the R2 canary read recovery set ${backupHealth.backupId} at ${stamp(backupHealth.checkedAt)}; ${backupCurrent ? "that off-site evidence is current" : "that off-site evidence is stale and must not be treated as current coverage"}.`
+                ? `Supabase still has no managed restore point. Separately, the freshness canary read recovery set ${backupHealth.backupId} at ${stamp(backupHealth.checkedAt)}; ${backupCurrent ? "that off-site evidence is current" : "that off-site evidence is stale and must not be treated as current coverage"}.`
                 : "The same read returned an empty set — no backup the provider could restore from. Its daily backups cover the Pro, Team and Enterprise plans; this project is on Free, where the documented advice is to export your own copy, and nobody has. There is no restore point: not last night's, not any. `docs/09-BACKUP-PROPOSAL.md` §1 carries the command, its output, and what it would take to fix."
             }
             tone={backupCurrent ? "jade" : "amber"}
@@ -153,7 +153,7 @@ export default async function RecoveryPage() {
             value={backupHealth ? `${backupHealth.storageObjects.toLocaleString("en-GB")} objects recorded` : "not covered"}
             detail={
               backupHealth
-                ? `The downloaded sidecar records ${backupHealth.storageBuckets.toLocaleString("en-GB")} buckets and ${backupHealth.storageObjects.toLocaleString("en-GB")} objects beside ${backupHealth.databaseTables.toLocaleString("en-GB")} database tables and ${backupHealth.databaseRows.toLocaleString("en-GB")} rows. The freshness canary matches that sidecar to R2 metadata; only the quarterly private-key restore proves the ciphertext contains readable bytes.`
+                ? `The downloaded sidecar records ${backupHealth.storageBuckets.toLocaleString("en-GB")} buckets and ${backupHealth.storageObjects.toLocaleString("en-GB")} objects beside ${backupHealth.databaseTables.toLocaleString("en-GB")} database tables and ${backupHealth.databaseRows.toLocaleString("en-GB")} rows. The freshness canary matches that sidecar to the stored archive and to the record written beside it; only the quarterly private-key restore proves the ciphertext contains readable bytes.`
                 : "A managed database backup covers the database and nothing else. Avatars and work attachments live in Storage and would not be inside one even if this project had one — which is why the rehearsal checks attachments separately."
             }
             tone={backupCurrent ? "jade" : "amber"}

@@ -16,36 +16,37 @@ concurrency:
 
 jobs:
   canary:
-    name: newest R2 set is complete and younger than 26 hours
+    name: newest set is complete and younger than 26 hours
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: Production
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Read the newest off-site recovery set
         env:
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          R2_PREFIX: coditu
+          RECOVERY_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BACKUP_MAX_AGE_SECONDS: "93600"
           BACKUP_CANARY_OUTPUT: ${{ runner.temp }}/backup-canary.json
         run: ./scripts/check-backup-freshness.sh
 
+      # Both publishing steps are opt-in. An unset secret skips its step with a
+      # notice rather than failing the canary: a missing heartbeat URL is a
+      # setup gap, and turning it into a red run every hour trains everyone to
+      # ignore the one colour that is supposed to mean something.
       - name: Tell the independent monitor this check completed
         env:
           BACKUP_CANARY_HEARTBEAT_URL: ${{ secrets.BACKUP_CANARY_HEARTBEAT_URL }}
         run: |
-          test -n "$BACKUP_CANARY_HEARTBEAT_URL"
+          set -euo pipefail
+          if [ -z "${BACKUP_CANARY_HEARTBEAT_URL:-}" ]; then
+            echo "::notice::no heartbeat URL configured; external alerting is NOT active"
+            exit 0
+          fi
           curl --fail --silent --show-error \
-            --max-time 15 \
-            --retry 2 \
-            --retry-connrefused \
-            --output /dev/null \
-            "$BACKUP_CANARY_HEARTBEAT_URL"
+            --max-time 15 --retry 2 --retry-connrefused \
+            --output /dev/null "$BACKUP_CANARY_HEARTBEAT_URL"
 
       - name: Publish only the evidence this canary read
         env:
@@ -54,13 +55,13 @@ jobs:
           BACKUP_CANARY_OUTPUT: ${{ runner.temp }}/backup-canary.json
         run: |
           set -euo pipefail
-          test -n "$PRODUCTION_BASE_URL"
-          test -n "$BACKUP_CANARY_REPORT_SECRET"
+          if [ -z "${PRODUCTION_BASE_URL:-}" ] || [ -z "${BACKUP_CANARY_REPORT_SECRET:-}" ]; then
+            echo "::notice::no report target configured; the Recovery Centre will keep showing 'not verified by this app'"
+            exit 0
+          fi
           test -s "$BACKUP_CANARY_OUTPUT"
           curl --fail --silent --show-error \
-            --max-time 20 \
-            --retry 2 \
-            --retry-all-errors \
+            --max-time 20 --retry 2 --retry-all-errors \
             --header "Authorization: Bearer $BACKUP_CANARY_REPORT_SECRET" \
             --header "Content-Type: application/json" \
             --data-binary "@$BACKUP_CANARY_OUTPUT" \

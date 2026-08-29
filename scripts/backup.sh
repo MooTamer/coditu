@@ -201,19 +201,18 @@ render_dump data "$backup_payload_dir/data.sql"
 
 # Counts are recovery evidence, not a guess from file size. They travel inside
 # the encrypted archive and are compared table-by-table during the restore.
-: > "$backup_payload_dir/row-counts.tsv"
-for backup_schema in public auth storage; do
-  psql -X -qAt "$BACKUP_DB_URL" -v ON_ERROR_STOP=1 <<SQL >> "$backup_payload_dir/row-counts.tsv"
-select format('select %L || E''\\t'' || count(*)::text from %I.%I;', schemaname || '.' || tablename, schemaname, tablename)
-from pg_tables
-where schemaname = '$backup_schema'
-  and tablename not in ('schema_migrations', 'migrations')
-order by tablename;
-\gexec
-SQL
-done
+#
+# This was a `\gexec` loop until 2026-08-29, and it was quietly wrong: psql
+# prints the generated `select ...` statements AND their results to the same
+# stream, so every table produced two lines and `wc -l` reported **twice** the
+# number of tables. The first hosted backups both claim 126 tables; there are
+# 63. The row total was right - the noise lines have no second field to sum -
+# which is why nothing else caught it. One statement now, one line per table.
+psql -X -qAt "$BACKUP_DB_URL" -v ON_ERROR_STOP=1 \
+  -f "$backup_repo_root/scripts/sql/row-counts.sql" \
+  > "$backup_payload_dir/row-counts.tsv"
 
-backup_table_count=$(wc -l < "$backup_payload_dir/row-counts.tsv" | tr -d ' ')
+backup_table_count=$(grep -c . "$backup_payload_dir/row-counts.tsv" | tr -d ' ')
 backup_row_count=$(awk -F '\t' '{sum += $2} END {print sum + 0}' "$backup_payload_dir/row-counts.tsv")
 [ "$backup_table_count" -gt 0 ] || fail "the row-count manifest contains no tables"
 

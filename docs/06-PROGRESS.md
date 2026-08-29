@@ -4978,3 +4978,50 @@ complete in seconds.
 
 **What is still not true.** One copy, on one laptop. Not off-site, not scheduled, not pruned, no
 GitHub secrets, no remote run. That is T0.2.
+
+## 2026-08-29 · T0.2 — the nightly is off R2, running in Actions, and restores
+
+**The store.** GitHub releases in the private repository `MooTamer/coditu-recovery`, one release
+per recovery set, tagged `nightly-<id>` / `monthly-<id>`, assets `<id>.tar.gz.age` and
+`<id>.metadata.json`. R2 is abandoned — its allowance is free and its account is not. Two ADRs in
+`05-DECISIONS.md` cover why releases rather than commits, and why the workflows live in the
+recovery repository rather than in `MooTamer/coditu`.
+
+**Proved end to end, in this order:**
+
+| Step | Command | Result |
+|---|---|---|
+| Publish the tooling | `scripts/sync-recovery-repo.sh` | `head=52778ed`, digest recorded in `ops/recovery-repo.json`; `--check` → `in_sync` |
+| Nightly, in Actions | `gh workflow run "Nightly recovery copy"` | run `33267669539` **success**: `backup_id=2026-08-29T181341Z`, `database_tables=63`, `database_rows=1391`, `storage_buckets=3`, `storage_objects=135`, `nightly_retained=2` |
+| Freshness canary | `gh workflow run "Recovery copy freshness"` | run `33264940366` **success**: `age_seconds=69`; asset size, release notes and downloaded sidecar all agreed |
+| Pull to the Mac | `sync-backup-local.sh` | `downloaded=1 already_present=1 sets_on_disk=3`, each archive checksummed against its own sidecar after download |
+| **Restore** | `verify-backup-restore.sh <archive> <agekey>` | **exit 0 in 6 s**: `database_tables=63`, `database_rows=1391`, `storage_objects=135`, all 63 tables matched count for count, all 135 objects pushed into the throwaway Storage service and byte-compared with `diff -qr`, `target_only_empty_tables=storage.iceberg_namespaces,storage.iceberg_tables` |
+
+**Three defects the run found, none of which a review would have.**
+
+1. **`databaseTables` was double.** The `\gexec` loop printed the generated statements and their
+   results to one stream. Both earlier hosted sets say 126 tables; **there are 63**. The row
+   total was right, which is why nothing caught it. `scripts/sql/row-counts.sql` is one statement
+   now, shared by the backup and the verifier so the two sides cannot drift.
+2. **A restore into an older target dies halfway through the data.** Hosted `storage.buckets` has
+   `versioning_status`; hosted `storage.objects` has `archived_at`, `is_delete_marker`,
+   `is_versioned`; `storage-api:v1.62.5` has none. The first drill failed 1,729 lines into
+   `data.sql`, after `roles.sql` and `schema.sql` had already run. There is a preflight now, and
+   it runs **before** the first write.
+3. **Requiring identical table lists was wrong.** The local image has two empty `iceberg_*`
+   tables the hosted project does not. The check is now per-table with an empty-only rule for
+   target extras, which is strictly stronger and no longer raises a false alarm.
+
+**One `backup.sh` change of substance and one of hygiene.** `SOURCE_STORAGE_MODE=rest` copies
+Storage with the service-role key over the REST API, because S3 access keys can only be minted by
+a human in the dashboard. It is a real weakening of least privilege and is written down as one.
+The copy is one bounded `curl --config` per bucket with the key in a mode-0600 file rather than
+135 invocations with the key in the process list.
+
+**What is still not true.** No alerting — `BACKUP_CANARY_HEARTBEAT_URL` is unset and the canary
+skips its ping with a notice. The Recovery Centre still reads `not verified by this app` — no
+report target, and the endpoint is not deployed. Google Drive is written and un-authorised; the
+OAuth consent is Mohamed's. The schedule has been dispatched by hand twice, not observed firing.
+**And the age private key exists in exactly one place**, `/Users/motamer/.config/coditu/backup.agekey`
+— if that Mac is what is lost, every archive in the recovery repository is noise. That is the
+largest remaining risk in the design and it needs Mohamed, not code.

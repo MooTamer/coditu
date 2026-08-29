@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Grandfather-father-son over releases: keep 30 nightly and 12 monthly, delete
+# the rest, and validate every tag before asking GitHub to remove anything.
+#
+# Deleting a release deletes its assets for real, which is the whole reason the
+# recovery sets are releases rather than commits. `--cleanup-tag` removes the
+# git tag with it so a pruned set leaves nothing behind that looks like it is
+# still there.
+
 fail() {
   printf 'prune-backups: %s\n' "$*" >&2
   exit 1
@@ -12,44 +20,37 @@ need_value() {
   [ -n "$prune_present" ] || fail "$prune_name is required"
 }
 
-for prune_required in R2_ENDPOINT R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET; do
-  need_value "$prune_required"
+for prune_command in gh jq; do
+  command -v "$prune_command" >/dev/null 2>&1 || fail "missing required command: $prune_command"
 done
-prune_prefix=${R2_PREFIX:-coditu}
-case "$prune_prefix" in
-  ""|/*|*..*) fail "R2_PREFIX must be a narrow relative prefix" ;;
-esac
-case "$R2_BUCKET" in
-  ""|*/*) fail "R2_BUCKET must be one bucket name" ;;
-esac
+need_value RECOVERY_REPO
 
-r2_aws() {
-  AWS_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID \
-  AWS_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY \
-  AWS_DEFAULT_REGION=${R2_REGION:-auto} \
-    aws --endpoint-url "$R2_ENDPOINT" "$@"
-}
+# One listing for both tiers. `gh release list` paginates; ask for more than any
+# sane retention could need and fail closed if the answer is suspiciously large,
+# because a runaway list is how a prune turns into a deletion spree.
+prune_all=$(gh release list --repo "$RECOVERY_REPO" --limit 400 --json tagName) ||
+  fail "cannot list releases"
+prune_count=$(printf '%s' "$prune_all" | jq 'length')
+[ "$prune_count" -lt 400 ] || fail "release listing hit its limit; refusing to prune a truncated list"
 
 prune_tier() {
   prune_tier_name=$1
   prune_keep=$2
-  prune_root=$prune_prefix/$prune_tier_name
-  prune_ids=$(r2_aws s3api list-objects-v2 --bucket "$R2_BUCKET" --prefix "$prune_root/" |
-    jq -r --arg root "$prune_root/" '.Contents[]?.Key | ltrimstr($root) | split("/")[0]' |
-    LC_ALL=C sort -ru)
+
+  prune_ids=$(printf '%s' "$prune_all" | jq -r --arg tier "$prune_tier_name-" \
+    '.[].tagName | select(startswith($tier)) | ltrimstr($tier)' | LC_ALL=C sort -ru)
   prune_total=$(printf '%s\n' "$prune_ids" | grep -c . || true)
-  [ "$prune_total" -gt "$prune_keep" ] || {
-    printf '%s_retained=%s\n' "$prune_tier_name" "$prune_total"
-    return
-  }
+  printf '%s_retained=%s\n' "$prune_tier_name" "$prune_total"
+  [ "$prune_total" -gt "$prune_keep" ] || return 0
 
   printf '%s\n' "$prune_ids" | tail -n "+$((prune_keep + 1))" |
     while IFS= read -r prune_id; do
       [ -n "$prune_id" ] || continue
       printf '%s\n' "$prune_id" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z$' ||
         fail "refusing unexpected backup id: $prune_id"
-      r2_aws s3 rm "s3://$R2_BUCKET/$prune_root/$prune_id/" \
-        --recursive --only-show-errors
+      gh release delete "$prune_tier_name-$prune_id" \
+        --repo "$RECOVERY_REPO" --cleanup-tag --yes ||
+        fail "cannot delete $prune_tier_name-$prune_id"
       printf 'pruned=%s/%s\n' "$prune_tier_name" "$prune_id"
     done
 }
