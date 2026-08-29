@@ -5150,6 +5150,21 @@ The step body was executed directly in both branches: with the variable unset it
 backup reasons only; against a deliberately-500 endpoint `curl -fsS` **exits 56**, so a heartbeat
 that cannot be delivered is a red run rather than a silent success.
 
+**Pushed and proven on the real runner, not just locally.**
+`scripts/sync-recovery-repo.sh` pushed the corrected tree to `MooTamer/coditu-recovery` at
+`ca86da5`; the diff against `2e1f5bb` is **1 file changed, 29 insertions, 15 deletions** — only
+`backup-canary.yml`, nothing else in the tree disturbed, and both nightly releases
+(`nightly-2026-08-29T181341Z`, `nightly-2026-08-29T170615Z`) still listed afterwards, because
+releases are not part of the tree a sync replaces.
+
+`Recovery copy freshness` was then dispatched: run **33273071687**, **success**, 13s. Its step
+list ends `4 success Publish only the evidence this canary read` → `5 success Tell the independent
+monitor this check passed`, and step 5's log shows `HEARTBEAT_URL:` empty followed by
+`##[notice]HEARTBEAT_URL is not set; external alerting is NOT active. Nothing will tell anybody if
+this canary stops running.` That is the whole contract demonstrated on the runner: the ping is
+last, it is reached only after everything else passed, and its absence is a visible notice on a
+green run rather than a failure.
+
 **Still not true, and unchanged by this correction.** `HEARTBEAT_URL` is unset — the
 healthchecks.io check does not exist yet. Creating it and pasting one secret into
 `MooTamer/coditu-recovery` is Mohamed's, and it is now the **only** step between this canary and
