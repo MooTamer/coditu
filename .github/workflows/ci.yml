@@ -9,6 +9,77 @@ permissions:
   contents: read
 
 jobs:
+  # GitHub Actions minutes are ONE pool. CI, the nightly backup, the freshness
+  # canary and the keepalive all draw on the same free monthly allowance, and
+  # the failure mode is not "CI gets slow" — it is that the allowance runs out
+  # mid-month and THE NIGHTLY BACKUP SILENTLY STOPS. Shipping speed and backup
+  # survival are coupled, so the expensive report-only jobs are not run on a
+  # change that cannot possibly affect them.
+  #
+  # Measured 2026-08-29: 102 of this repository's last 119 commits — 86% — touch
+  # only Markdown, because the ledger is updated in the same commit as the work.
+  # The browser job is the single largest line item in the budget. Not running
+  # it on a ledger edit is the cheapest minute available.
+  #
+  # This job costs one billed minute to save roughly forty. It fails SAFE: if
+  # the changed-file list cannot be determined for any reason, it reports
+  # `code=true` and everything runs.
+  scope:
+    name: what changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: classify
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -uo pipefail
+          changed=""
+          if [ "$EVENT" = pull_request ] && [ -n "${BASE_SHA:-}" ]; then
+            changed=$(git diff --name-only "$BASE_SHA" "$GITHUB_SHA" 2>/dev/null)
+          elif [ -n "${BEFORE:-}" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            changed=$(git diff --name-only "$BEFORE" "$GITHUB_SHA" 2>/dev/null)
+          fi
+
+          if [ -z "$changed" ]; then
+            echo "::notice::could not determine the changed files; running everything"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "changed files:"
+          printf '%s\n' "$changed" | sed 's/^/  /'
+
+          # Anything that is not documentation counts as code. Written as "not
+          # in the docs allowlist" rather than as a list of code paths, because
+          # a new top-level directory must default to running the suite, not to
+          # skipping it.
+          #
+          # Counted rather than tested with `grep -qv`. The two are equivalent
+          # on GNU grep, but this form states the decision in numbers that land
+          # in the log, so a wrong skip can be diagnosed from the run page
+          # instead of by re-deriving a regex.
+          total=$(printf '%s\n' "$changed" | grep -c '')
+          docs=$(printf '%s\n' "$changed" | grep -cE '^(docs/.+|[^/]+\.md)$' || true)
+          echo "$docs of $total changed paths are documentation"
+
+          if [ "$total" -eq "$docs" ]; then
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::documentation only; skipping the browser and lighthouse jobs"
+          else
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::this change touches more than documentation; running the full suite"
+          fi
+
   check:
     name: blocking release checks
     runs-on: ubuntu-latest
@@ -83,7 +154,8 @@ jobs:
 
   browser:
     name: browser baseline (report-only through the ten-run review)
-    needs: check
+    needs: [scope, check]
+    if: needs.scope.outputs.code == 'true'
     continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -199,6 +271,8 @@ jobs:
 
   lighthouse:
     name: lighthouse (marketing)
+    needs: scope
+    if: needs.scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # Reports rather than gates. Accessibility, best practices, and SEO sit at

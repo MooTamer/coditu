@@ -8,7 +8,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(328);
+select plan(331);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -3128,15 +3128,29 @@ select is(
 -- The ones that matter are the VOLATILE, directly-callable ones: those read or
 -- write through RLS on somebody else's behalf.
 --
--- Two are allowed, and both refuse `anon` in their own body. The third,
+-- Two of them refuse `anon` in their own body. A third,
 -- `rebalance_project_keys`, checked nothing and rewrote every row of
 -- `projects`; it aborted only because `safeupdate` objected to a missing
 -- `where` clause, which is a Supabase session setting and not a decision this
 -- schema made. `20260826211339_maintenance_rpc_is_not_an_endpoint.sql` revoked
 -- it.
 --
+-- `database_heartbeat` is the one entry here that is **meant** to answer `anon`,
+-- and it is on this list rather than filtered out of it because that is the
+-- honest place for it: it really is a definer function an anonymous caller can
+-- reach. It does not guard itself; it does not need to, and saying why is the
+-- point of the two assertions that follow this one. It takes no arguments, so
+-- there is nothing to steer it with, and its only `return` is a fixed string, so
+-- no row can leave through it. Its migration asserts both of those properties at
+-- apply time, and the second assertion below re-checks the one that matters — by
+-- calling it as `anon` and reading what comes back — because a later
+-- `create or replace` could change the body without touching this file.
+--
 -- Written as an exact list rather than a count, so the next one added is named
--- by the failure instead of being absorbed by it.
+-- by the failure instead of being absorbed by it. That is exactly what happened
+-- when the keepalive landed: this assertion failed with
+-- `have: database_heartbeat, …` and made somebody decide, which is the whole
+-- reason it is a list.
 -- ---------------------------------------------------------------------------
 
 select is(
@@ -3149,11 +3163,38 @@ select is(
       and p.provolatile = 'v'
       and t.typname <> 'trigger'
       and has_function_privilege('anon', p.oid, 'EXECUTE')),
-  'list_deleted_work_items, set_work_item_deleted',
-  'exactly two mutating security-definer functions are reachable by anon, and both guard themselves'
+  'database_heartbeat, list_deleted_work_items, set_work_item_deleted',
+  'exactly three directly-callable security-definer functions are reachable by anon: two that refuse anon in their own body, and the keepalive that answers it deliberately'
+);
+
+-- The keepalive's licence to be on that list, checked rather than asserted in a
+-- comment: no arguments at all.
+select is(
+  (select p.pronargs::int
+     from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'database_heartbeat'),
+  0,
+  'the keepalive takes no arguments, so an anonymous caller cannot steer it'
 );
 
 select pg_temp.act_as_anon();
+
+-- The other half, and the one a future edit could actually break: what an
+-- anonymous caller gets back. If somebody widens the body to return the row it
+-- counts, this fails as `anon` rather than being noticed in production.
+select is(
+  (select public.database_heartbeat()),
+  'coditu-database-awake',
+  'the keepalive returns its fixed keyword to anon and nothing else'
+);
+
+select throws_ok(
+  $$select count(*) from public.app_settings$$,
+  '42501',
+  null,
+  'negative: the table the keepalive reads is still closed to anon — the function reads on the owner behalf, it does not open the table'
+);
 
 select throws_ok(
   $$select public.set_work_item_deleted('00000000-0000-0000-0000-000000000000'::uuid, true)$$,
