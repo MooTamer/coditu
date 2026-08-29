@@ -5566,3 +5566,48 @@ back into the one file the second control exists to be independent of. `vercel.j
 neither. **T1.5(d) tests it**, and `ALLOW_MAIN_BUILD=1` is already in the command as the escape
 hatch if the answer is that it does. Guessing here would produce either a gate that ships nothing
 while reporting success, or a second control that was never actually needed.
+
+## 2026-08-30 · T2.1 is closed as ABANDONED, not deferred — and the generator will not be repaired
+
+**The decision, stated so nobody re-opens it by accident.** T2.1 — "squash the 39 migrations into
+one baseline" — is **abandoned**. Not deferred, not blocked, not waiting on a backup or a quieter
+week. The repository keeps 39 migration files. There is no follow-up ticket, and a future pass that
+finds this idea attractive should read this entry before spending an evening on it.
+
+The measurement ADR above records what the squash produced. This entry records that the matter is
+settled and why the trade is not close.
+
+**The three defects, restated because they are the whole argument.** All measured on the generated
+baseline, by dumping the local database before and after and diffing:
+
+1. **`anon` was granted `TRUNCATE` on every table.** Grants to `anon` went from **3 to 43**.
+   `TRUNCATE` ignores row-level security completely, and the `anon` key ships inside the browser
+   bundle. This is not a lint-level regression; it is a stranger being able to empty `work_items`.
+2. **The `coditu_backup` role was lost entirely.** `supabase db dump` is schema-only and roles are a
+   separate dump, so the role's own migration simply is not in the baseline — **0 mentions**. A
+   database rebuilt from it has no role for the nightly backup to connect as, which means the
+   artefact that exists to survive a disaster quietly stops being written.
+3. **The migration-inserted `storage.buckets` rows were dropped.** A schema-only dump carries no
+   rows, so four bucket assertions fail after a baseline reset, including *"the avatars bucket is
+   public"* returning `NULL`.
+
+**Three of those were caught unprompted by this repository's own pgTAP suite.** That is the fact
+that decides it. Nobody went looking for them; `npm run db:test` simply went red. Three found by
+accident is evidence about the density of what is there, not evidence that there were three.
+
+**The conclusion, in one line.** Thirty-nine migrations is a **readability cost**. A baseline that
+silently re-grants privileges is a **security hole**. That trade is not close, and no amount of
+reset time saved moves it.
+
+**Do not attempt to repair the generator.** Each defect is individually fixable — re-add the role,
+add the bucket inserts, revoke the forty extra `anon` grants, reset the search path — and repairing
+them is still the wrong move. What you would end up holding is a 6,000-line generated file, then
+hand-edited, whose correctness rests on one person having spotted every divergence in a diff that
+already hid three. What it replaces is 39 hand-written files that are individually readable, in git,
+reviewed, and known-good against production. Swapping a proved artefact for a patched generated one
+to save minutes on a database reset is a bad trade in whichever direction it is written down.
+
+**The one condition that would re-open this**, so the door is closed rather than locked: the
+Supabase CLI's squash learning to carry roles, grants and migration-inserted rows. If that ever
+happens, re-run *exactly* the verification in the ADR above — dump, squash, reset, dump, diff, then
+`npm run db:test` — because `db diff` is blind to every one of these and would have reported success.
