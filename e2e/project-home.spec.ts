@@ -207,7 +207,13 @@ test.describe("a project's own page", () => {
     await page.goto(EVIM);
 
     await page.setViewportSize({ width: 1440, height: 900 });
-    const grid = page.locator("main > div.grid");
+    // Descendant, not direct child. `PageShell` puts a max-width wrapper
+    // between `<main>` and the page's own content, so `main > div.grid` matched
+    // nothing and this failed on a layout that is correct. A depth-coupled
+    // selector breaks every time the shell gains a wrapper; this one does not.
+    // The page has exactly one `.grid`, and it is the outermost element under
+    // the header.
+    const grid = page.locator("main div.grid").first();
     await expect(grid).toHaveCSS("grid-template-columns", /^\d+(\.\d+)?px 320px$/);
     const clippedWide = await page.evaluate(() =>
       [...document.querySelectorAll('section[aria-labelledby="sprints"] *')].filter(

@@ -305,6 +305,14 @@ test.describe("sprint table", () => {
     await expect(bar).toHaveAttribute("aria-label", new RegExp(`done ${SEED.doneCount}`));
     await expect(bar).toHaveAttribute("aria-label", new RegExp(`draft ${SEED.draftCount}`));
 
+    // The burn-up — unlike the distribution bar above it — lives in a
+    // `<details>` that `sprint-header.tsx` deliberately ships CLOSED: "So it
+    // stays, below the designed header, closed." Content inside a closed
+    // disclosure is not in the accessibility tree, so `getByRole("img", …)`
+    // matched nothing and this failed looking for a label that is present and
+    // correct. Open it, the way a reader would.
+    await page.getByText("Burn-up · hours logged").click();
+
     const burn = page.getByRole("img", { name: /Cumulative hours logged/ });
     // Nothing in the Notion export is estimated, so the burn-up line sits at 0.
     const estimated = SEED.totals.split(" / ")[1];

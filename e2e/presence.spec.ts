@@ -104,8 +104,15 @@ test.describe("presence", () => {
     const secret = "ZZQX private draft nobody should transmit";
 
     // Type into the sprint notes — an internal, unpublished document, and the
-    // most sensitive writing surface on this page.
-    await page.getByRole("button", { name: /notes/i }).first().click().catch(() => {});
+    // most sensitive writing surface in this project.
+    //
+    // This used to click an inline "notes" button on the sprint table. Notes
+    // are their own route now, so that button does not exist: the click waited
+    // out its full timeout, the `.catch()` swallowed the failure, and the test
+    // fell through to the else-branch below having spent most of its budget
+    // and typed into no editor at all. It passed or failed on the wrong thing
+    // either way. Go where the editor is.
+    await page.goto(`${SPRINT}/notes`);
     const editor = page.locator(".coditu-prose").first();
     if (await editor.count()) {
       await editor.click();

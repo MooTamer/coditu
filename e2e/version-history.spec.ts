@@ -135,8 +135,18 @@ test.describe("version history", () => {
     expect(before).toHaveLength(3);
 
     const panel = page.getByRole("region", { name: "Version history" });
-    // The oldest entry is last; restore it.
-    const oldest = panel.getByRole("listitem").last();
+    // The oldest **description** entry, not the oldest entry.
+    //
+    // The timeline is mixed-surface — it carries criteria and title revisions
+    // alongside description ones — while `revisions()` above counts only
+    // `work_item_description`. So `.last()` was reaching for whatever happened
+    // to be oldest overall, which is not the row this test then asks to
+    // "Restore version 1" on. Name the surface, the way the assertion three
+    // tests up already does.
+    const oldest = panel
+      .getByRole("listitem")
+      .filter({ hasText: /Description · v1\b/ })
+      .last();
     await oldest.locator("summary").click();
     await oldest.getByRole("button", { name: "Restore as a new version" }).click();
     await oldest.getByRole("button", { name: /^Restore version 1$/ }).click();
