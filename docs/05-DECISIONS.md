@@ -5487,3 +5487,38 @@ ten-run determinism review, which is the other thing gating that job's promotion
 
 **What would make this stop mattering.** The repository is private; a public repository has
 unlimited Actions minutes. Making it public is not a decision this pass can take.
+
+### Postscript, same day: what this pass itself cost, measured
+
+The R5 arithmetic above was written from per-job figures. Here is the aggregate from one evening's
+work on `MooTamer/coditu`, completed jobs only, billed minutes:
+
+```
+lighthouse (marketing)                 46 min
+blocking release checks                33 min
+what changed                            9 min
+(older CI job name)                     5 min
+Database keepalive                      1 min
+                                       -------
+                                       94 min   in ~85 minutes of wall clock
+```
+
+**94 minutes — around 5% of the monthly allowance — in one sitting, and the `browser` job never ran
+once**, because `check` was red for most of it and skipped afterwards. Twelve pushes, seven of them
+still in flight when this was counted, so the real figure is higher.
+
+Two things the aggregate shows that the per-job table did not.
+
+**`lighthouse` is the second-largest line item and it is report-only.** 46 minutes, nine runs, every
+one of them failing on the same documented 93-against-95 Performance gap that
+`ci.yml` already explains is unreachable on this stack. It is now skipped on documentation-only
+pushes along with `browser`, which is most of them — but on code pushes it is five or six minutes
+to re-learn a number that has not moved and is not allowed to block anything. It belongs on the
+same nightly schedule proposed for `browser`.
+
+**Queueing is a cost too.** Seven runs were in flight simultaneously at one point, competing for
+runners; the `check` job's `degraded` step — which pauses containers and waits for recovery —
+stretched past twenty minutes under that contention against roughly four locally. Minutes are
+billed on wall clock, so a burst of pushes costs more per push than the same pushes spread out.
+Nothing here is a reason to batch commits, which would be worse for the ledger; it is a reason to
+keep the expensive jobs off the pushes that cannot possibly need them.
