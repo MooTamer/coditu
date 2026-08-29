@@ -5095,8 +5095,13 @@ nothing.** The control is real and it is in force.
    CLI on this machine, no API token, and the connected Vercel tooling exposes read plus
    deployment-protection only — no project-settings write. The repo-level control is equally
    binding for a push, but it lives in a file, so anybody who edits `vercel.json` turns automatic
-   deployment back on. **Mohamed should also set Settings → Git → Production Deployments to
-   off**, so the two controls are independent. Until he does, this is one control, not two.
+   deployment back on. Until a control exists that does not live in the repository, this is one
+   control, not two.
+
+   > **Corrected 2026-08-30.** This paragraph originally told Mohamed to set *Settings → Git →
+   > Production Deployments → off*. **There is no such toggle** — Mohamed checked the whole page.
+   > The instruction was wrong and was never executed. The real dashboard-side control is the
+   > **Ignored Build Step**, specified in `13-DEPLOYMENT-RUNBOOK.md` §8.
 2. **`main` does not carry `vercel.json` today** — the file exists only on this branch, so the
    protection arrives *with* the merge commit rather than before it. The merge push in T1.3 is
    therefore the one moment this has not been observed to hold, and it will be checked the same
@@ -5629,9 +5634,17 @@ boolean also held for four before it did not.
 
 **What this changes.**
 
-1. **The dashboard toggle is no longer belt-and-braces, it is required.** T1.1 recorded "this is
-   one control, not two, and Mohamed should still flip it" as tidiness. It is now the only control
-   that has never been observed to fail. **Settings → Git → Production Deployments → off.**
+1. **A second, non-repository control is no longer belt-and-braces, it is required.** T1.1
+   recorded "this is one control, not two, and Mohamed should still flip it" as tidiness. A
+   control that does not live in the repository is now the only kind that has never been observed
+   to fail.
+
+   > **Corrected 2026-08-30.** This step originally read *Settings → Git → Production Deployments
+   > → off*. **No such toggle exists**; Mohamed read the whole page. The correct control is the
+   > **Ignored Build Step** under Project Settings → Build and Deployment, with the exact command
+   > and its prerequisites in `13-DEPLOYMENT-RUNBOOK.md` §8. Note that it **fails open** if
+   > "Automatically Expose System Environment Variables" is off, and that whether it also blocks
+   > a CI `vercel deploy --prod` is untested — T1.5(d) settles that.
 2. **The tamper-evidence test still earns its place, and its limits are now known.** It proves the
    *setting is present*. It cannot prove the provider honours it.
 3. **The post-push provider check needs a longer window.** Checking at t+90s would have missed

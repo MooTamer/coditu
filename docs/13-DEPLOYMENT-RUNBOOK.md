@@ -209,3 +209,94 @@ database keepalive. Before the setup is called unattended, implement and monitor
 database-backed health route specified in `12-RECOVERY-RUNBOOK.md` §7, then confirm a week of
 recorded project activity and receipt routing for Supabase's owner warning email. That route is
 proposed, not present in this branch; no monitor or provider setting was changed here.
+
+## 8. The second deploy control, dashboard-side — Ignored Build Step
+
+**Correction, 2026-08-30.** Earlier passes told Mohamed to set *Settings → Git → Production
+Deployments → off*. **There is no such toggle.** Mohamed read the whole page and it is not there;
+that instruction was wrong and has been removed from `06-PROGRESS.md` and `10-PRODUCT-FEEDBACK.md`.
+It was never executed, so nothing was mis-configured — but a runbook step that cannot be followed is
+worse than no step, because the reader concludes the control is on when it is not.
+
+What *does* exist dashboard-side, and is the real second control, is the **Ignored Build Step**.
+
+### What Mohamed pastes
+
+**Project Settings → Build and Deployment → Ignored Build Step**, switch it from `Automatic` to
+`Custom`, and paste exactly this one line:
+
+```bash
+bash -c 'if [ "$VERCEL_GIT_COMMIT_REF" = "main" ] && [ "$ALLOW_MAIN_BUILD" != "1" ]; then exit 0; fi; exit 1'
+```
+
+**Exit 0 skips the build. Exit 1 proceeds with it.** That is Vercel's contract, stated in their own
+words on the `vercel.json` reference page: *"Exiting with code 0 ignores the build, while code 1
+continues it."* It reads backwards the first time — 0 is the success code everywhere else — so it is
+worth re-reading before deciding the line is inverted.
+
+What the line does, case by case:
+
+| Branch | `ALLOW_MAIN_BUILD` | Exit | Result |
+|---|---|---|---|
+| `main` | unset | 0 | **build skipped** — a push to the trunk does not deploy itself |
+| `main` | `1` | 1 | build proceeds — the deliberate escape hatch |
+| `feat/*`, `fix/*` | anything | 1 | build proceeds — previews keep working, which T1.4 requires |
+
+### Prerequisite: system environment variables must be exposed
+
+`VERCEL_GIT_COMMIT_REF` is a Vercel **system** environment variable. It only reaches the build when
+**Project Settings → Environment Variables → Automatically Expose System Environment Variables** is
+on. Vercel's own reference makes the dependency explicit in the neighbouring case:
+`VERCEL_GIT_PREVIOUS_SHA` is documented as *"only exposed when an Ignored Build Step is configured"*.
+
+**This control fails OPEN, and that is the thing to understand about it.** If the toggle is off,
+`$VERCEL_GIT_COMMIT_REF` expands to the empty string, `"" = "main"` is false, the guard falls
+through to `exit 1`, and **the build proceeds** — on `main`, unguarded, silently. There is no error
+and no log line saying the guard did not fire. So the toggle is not a detail of the setup; it is
+half of the control.
+
+Verify it rather than assuming it. After the setting is saved, push one no-op commit to a `feat/*`
+branch and read the build log: a preview that builds proves the command ran and returned 1. Then the
+`main` half is proved by §2 step 6 — one push to `main` that produces no deployment.
+
+### Do not add `ignoreCommand` to `vercel.json`
+
+`vercel.json` accepts an `ignoreCommand` key that **overrides the dashboard's Ignored Build Step**.
+Adding one would collapse the two controls back into one file that anybody can edit — which is the
+exact weakness this control exists to cover. `vercel.json` keeps `git.deploymentEnabled` and nothing
+else about ignoring builds. If a future change adds `ignoreCommand`, the dashboard control is
+silently dead and the tamper-evidence unit test will not notice, because it asserts about a
+different key.
+
+### Why there are two controls at all
+
+`vercel.json`'s `git.deploymentEnabled` is repository state: it is load-bearing, and it is editable
+by anybody with commit access — including by accident, in a merge. On 2026-08-29 it also **leaked
+once**: `707d03f` deployed to production while carrying `"deploymentEnabled": false` in its blanket
+form. That is recorded in `06-PROGRESS.md`, and it is why a second control that lives somewhere
+other than the repository is required rather than tidy.
+
+The Ignored Build Step is provider state. Editing the repo does not change it, and a merge cannot
+touch it. The two fail independently, which is the entire point.
+
+### What is NOT known, and must be tested
+
+**Whether the Ignored Build Step also blocks `vercel deploy --prod` issued from CI is not
+documented, and this runbook does not claim it either way.**
+
+The plausible reading is that it does not — the Ignored Build Step is described throughout Vercel's
+documentation in terms of Git-triggered builds, and `scripts/deploy-production.sh` deploys
+`--prebuilt` output that CI has already built, so there may be no build for the step to ignore. The
+equally plausible reading is that the setting is evaluated per deployment regardless of trigger, in
+which case CI's own deploy would be skipped and the gate would appear to succeed while shipping
+nothing. Both are guesses. Neither belongs in a runbook as fact.
+
+**T1.5(d) must test it**, and the test is cheap: with the Ignored Build Step set, run the deploy
+workflow once and check whether a deployment is actually created.
+
+- If CI deploys normally → nothing more to do; the two controls compose.
+- If CI is blocked → set `ALLOW_MAIN_BUILD=1` **in the Production environment only** so the CI path
+  is the one exception, and re-run. The escape hatch is already in the command for this reason.
+
+Record the observed answer here when T1.5(d) runs, and delete this subsection's speculation. Until
+then, treat the CI deploy path as unproven under this setting.

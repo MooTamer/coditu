@@ -5522,3 +5522,47 @@ stretched past twenty minutes under that contention against roughly four locally
 billed on wall clock, so a burst of pushes costs more per push than the same pushes spread out.
 Nothing here is a reason to batch commits, which would be worse for the ledger; it is a reason to
 keep the expensive jobs off the pushes that cannot possibly need them.
+
+## 2026-08-30 · The second deploy control is the Ignored Build Step, and an earlier ADR was wrong about it
+
+**What this corrects.** The trunk-based ADR above says of `git.deploymentEnabled`: *"the documented
+control and the only one — there is no dashboard toggle for disabling automatic production
+deployments"*. Half of that is confirmed and half of it is wrong, and the wrong half was load-bearing.
+
+**Confirmed:** there is no *Settings → Git → Production Deployments* toggle. Mohamed read the whole
+page. Two earlier passes told him to flip it; the instruction could not be followed and has been
+removed from `06-PROGRESS.md` and `10-PRODUCT-FEEDBACK.md`.
+
+**Wrong:** "the only one". Vercel exposes a second, provider-side control — the **Ignored Build
+Step**, under Project Settings → Build and Deployment. It is not a toggle and it is not on the Git
+page, which is why looking for a toggle on the Git page found nothing and concluded too much.
+
+**The decision.** `git.deploymentEnabled` in `vercel.json` stays, and the Ignored Build Step becomes
+the second control. The exact command, its prerequisites and its failure modes are in
+`13-DEPLOYMENT-RUNBOOK.md` §8 rather than here, because that is where somebody setting it up will
+look.
+
+**Why two controls rather than a better single one.** `vercel.json` is repository state: editable by
+anybody with commit access, including by accident in a merge — and on 2026-08-29 it **leaked once**
+regardless, at `707d03f`, while carrying the strongest form of the setting. The Ignored Build Step
+is provider state; a repository edit cannot reach it and a merge cannot touch it. Two controls that
+fail independently is the whole design. Two controls that fail together would be decoration.
+
+**The trap, recorded because it is the kind that hides.** The Ignored Build Step **fails open**. It
+reads `$VERCEL_GIT_COMMIT_REF`, which is a system environment variable, and system variables only
+reach a build when *Automatically Expose System Environment Variables* is on. With that off the
+variable is empty, the branch test is false, the command exits 1, and the build **proceeds** — on
+`main`, unguarded, with no error and no log line saying the guard did not fire. A control that
+disappears silently when a neighbouring setting is off has to be verified, not configured and
+believed. §8 says how.
+
+**Rejected: moving the ignore command into `vercel.json` as `ignoreCommand`.** It is a real key and
+it would work, and it would also **override** the dashboard setting — collapsing the two controls
+back into the one file the second control exists to be independent of. `vercel.json` therefore keeps
+`git.deploymentEnabled` and no ignore key at all.
+
+**Not asserted, because it is not known.** Whether the Ignored Build Step also blocks a
+`vercel deploy --prod` issued by CI is undocumented. Both readings are plausible and this ADR takes
+neither. **T1.5(d) tests it**, and `ALLOW_MAIN_BUILD=1` is already in the command as the escape
+hatch if the answer is that it does. Guessing here would produce either a gate that ships nothing
+while reporting success, or a second control that was never actually needed.
