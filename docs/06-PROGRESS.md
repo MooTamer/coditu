@@ -5601,3 +5601,63 @@ machine that is not swapping — or CI, which is the argument the determinism en
 *"a clean CI runner is likely MORE deterministic than this Mac."* The `browser` job now runs on
 every code push, so the first green `check` produces exactly this number without anybody
 remembering to ask for it.
+
+## 2026-08-30 · `git.deploymentEnabled: false` LEAKED ONCE — production is `707d03f`, not `b63f4c7`
+
+**This contradicts T1.1's conclusion and supersedes it.** That entry said *"The control is real and
+it is in force."* It is not reliably in force in the boolean form, and here is the evidence.
+
+**Twelve pushes to `main` tonight. Exactly one produced a production deployment.**
+
+| | |
+|---|---|
+| Deployment | `dpl_8dnEkDR9XgHT7bbULC8dPAV2NHHB`, target **production**, state READY |
+| Commit | **`707d03f`** — the T1.4 branch-model commit |
+| Pushed | 2026-08-29 **20:52** UTC |
+| Deployment created | 2026-08-29 **20:56:21** UTC |
+| GitHub's record | `2026-08-29T20:57:26Z 707d03f Production` — it is a **Git** deployment (`githubDeployment: 1`), not one CI made |
+| `vercel.json` at that commit | `{ "git": { "deploymentEnabled": false } }` |
+
+So the file said *do not deploy* and the provider deployed. The four pushes before it
+(`ade2396`, `0b836b6`, `a73e1ce`, `b3f3f89`) carried the **same** file and did **not** deploy, and
+the three checks made at the time all returned `count: 0` — they were simply made before 20:56.
+**A negative check minutes after a push is not proof; this one leaked at four minutes.**
+
+**Since the file changed to `{ "main": false }` at `fa2141d` (21:13), seven further pushes have
+produced zero deployments.** That is suggestive, not conclusive — seven is not many, and the
+boolean also held for four before it did not.
+
+**What this changes.**
+
+1. **The dashboard toggle is no longer belt-and-braces, it is required.** T1.1 recorded "this is
+   one control, not two, and Mohamed should still flip it" as tidiness. It is now the only control
+   that has never been observed to fail. **Settings → Git → Production Deployments → off.**
+2. **The tamper-evidence test still earns its place, and its limits are now known.** It proves the
+   *setting is present*. It cannot prove the provider honours it.
+3. **The post-push provider check needs a longer window.** Checking at t+90s would have missed
+   this. Anything under five minutes is not evidence.
+
+**Why this landed safely rather than as an outage, and it is not luck.** The deployed commit needs
+the four migrations from T1.2, and hosted has been at **39** since 20:35 — twenty minutes before
+the deployment. *Migrations before the code that reads them* is the rule the 2026-08-21 outage
+wrote, and this pass followed it for its own reasons and was rescued by it for a different one.
+Had the tiers run in the other order, this leak would have shipped `backup_health` and
+`database_heartbeat` readers against a schema that did not have them.
+
+**Production verified after the fact, since it is live either way:**
+
+```
+/                      200
+/login                 200
+/api/health/database   200   ->  coditu-database-awake
+```
+
+**And one step closed itself as a side effect.** T0.3's keepalive was recorded as *"done for the
+code, inert until deployed"*. `/api/health/database` is deployed now and answers with its keyword
+against the hosted database, so the Supabase seven-day pause risk is genuinely mitigated for the
+first time — not because anybody activated it, but because the deploy the control was supposed to
+prevent carried it to production.
+
+There is **no `build-health.json`** on the live origin, which is the independent confirmation that
+CI did not make this deployment: only `scripts/write-build-health.mjs` in the gated path produces
+that file.
