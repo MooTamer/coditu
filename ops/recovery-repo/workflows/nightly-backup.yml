@@ -1,0 +1,48 @@
+name: Nightly recovery copy
+
+on:
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+# The write is to this repository's own releases, with this run's own token.
+# There is no personal access token in this path and none is needed.
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-recovery-copy
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: database · Storage · encrypt · release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned because backup.sh asserts the generated dump script's shape and
+      # fails closed if the CLI changes its forced-role behaviour.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Install the public-key encryption and query clients
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes age postgresql-client
+
+      - name: Build, verify and publish the encrypted recovery set
+        env:
+          BACKUP_DB_URL: ${{ secrets.BACKUP_DB_URL }}
+          BACKUP_DB_URL_CONTAINER: ${{ secrets.BACKUP_DB_URL }}
+          BACKUP_LOCAL_DIR: ${{ runner.temp }}/coditu-backups
+          BACKUP_UPLOAD: "1"
+          SOURCE_STORAGE_MODE: rest
+          SOURCE_STORAGE_REST_URL: ${{ secrets.SUPABASE_URL }}
+          SOURCE_STORAGE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RECOVERY_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/backup.sh

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #EBEFF6; color: #0B0E14; font-family: Satoshi, "Instrument Sans", sans-serif; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3, h4, p, ul, ol, li, table, figure { margin: 0; }
+  ul, ol { padding: 0; list-style: none; }
+  a { color: #1E4AE0; text-decoration: none; }
+  a:hover { color: #0B0E14; }
+  table { border-collapse: collapse; width: 100%; }
+  *:focus-visible { outline: 2px solid #1E4AE0; outline-offset: 2px; border-radius: 4px; }
+</style>
+</helmet>
+
+<div style="--canvas: #EBEFF6; --raised: #F8FAFC; --overlay: #FFFFFF; --hairline: rgba(11,14,20,0.10); --hairline-strong: rgba(11,14,20,0.18); --ink: #0B0E14; --ink-muted: #52607A; --ink-faint: #5F6B80; --accent: #1E4AE0; background: var(--canvas); color: var(--ink); min-height: 100dvh; padding: clamp(20px, 4vw, 56px) clamp(16px, 4vw, 48px) 80px;">
+  <div style="max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: clamp(28px, 4vw, 48px);">
+
+    <header style="display: flex; flex-direction: column; gap: 18px;">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+          <path fill="url(#hoGrad)" d="M26.244 24.004 L25.263 25.089 L24.169 26.055 L22.974 26.89 L21.696 27.585 L20.35 28.13 L18.953 28.52 L17.524 28.75 L16.081 28.818 L14.642 28.723 L13.226 28.468 L11.849 28.055 L10.53 27.492 L9.285 26.785 L8.129 25.944 L7.077 24.98 L6.142 23.905 L5.335 22.735 L4.666 21.484 L4.143 20.167 L3.772 18.803 L3.557 17.408 L3.5 16 L3.602 14.597 L3.86 13.218 L4.271 11.878 L4.83 10.596 L5.527 9.386 L6.355 8.265 L7.301 7.246 L8.355 6.341 L9.501 5.563 L10.725 4.919 L12.012 4.417 L13.344 4.065 L14.705 3.864 L16.077 3.818 L17.444 3.927 L18.786 4.188 L20.089 4.597 L21.335 5.15 L22.508 5.837 L23.595 6.651 L24.582 7.58 L25.456 8.612 A 1 1 0 0 1 23.88 9.843 L23.122 9.012 L22.277 8.274 L21.356 7.636 L20.372 7.108 L19.337 6.694 L18.265 6.4 L17.168 6.229 L16.062 6.182 L14.961 6.26 L13.877 6.461 L12.826 6.781 L11.819 7.217 L10.87 7.762 L9.991 8.409 L9.192 9.148 L8.482 9.971 L7.872 10.867 L7.366 11.823 L6.973 12.828 L6.696 13.867 L6.538 14.93 L6.5 16 L6.583 17.065 L6.784 18.112 L7.102 19.127 L7.53 20.098 L8.064 21.012 L8.695 21.858 L9.416 22.626 L10.217 23.306 L11.087 23.891 L12.015 24.373 L12.988 24.746 L13.996 25.007 L15.023 25.153 L16.058 25.182 L17.087 25.094 L18.098 24.892 L19.076 24.579 L20.011 24.158 L20.891 23.636 L21.704 23.021 L22.44 22.319 L23.092 21.541 A 2 2 0 0 1 26.244 24.004 Z" />
+          <circle cx="26.4" cy="16" r="1.6" fill="#21E2C6" />
+          <defs><linearGradient id="hoGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2B57FF" /><stop offset="1" stop-color="#21E2C6" /></linearGradient></defs>
+        </svg>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-faint);">Coditu · internal workspace redesign · handoff</span>
+        <a href="Coditu Workspace.dc.html" style="margin-left: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 13px; border: 1px solid var(--hairline-strong); border-radius: 9px; font-size: 13px; font-weight: 500; color: var(--ink);">Open the prototype
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" /></svg>
+        </a>
+      </div>
+      <h1 style="font-size: clamp(30px, 4.4vw, 46px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; max-width: 22ch;">Notion's workspace logic, Coditu's instrument.</h1>
+      <p style="max-width: 74ch; font-size: 15.5px; line-height: 1.65; color: var(--ink-muted);">One connected prototype covering Workspace Home, the sprint database, the universal block editor, projects, People &amp; Access, private earnings, and the history / trash / recovery stack. Everything below is implemented in <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px;">Coditu Workspace.dc.html</span> — real state, real keyboard paths, real failure states. Data is the actual Week 17 EVIM sprint (COD-140 → COD-151, 16.0 h logged of 46.0 h estimated).</p>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <sc-for list="{{ meta }}" as="m" hint-placeholder-count="4">
+          <span style="display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border: 1px solid var(--hairline); border-radius: 999px; background: var(--raised); font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-muted);">
+            <span style="width: 6px; height: 6px; border-radius: 999px; background: {{ m.dot }};"></span>{{ m.label }}
+          </span>
+        </sc-for>
+      </div>
+    </header>
+
+    <section style="display: flex; flex-direction: column; gap: 14px;">
+      <h2 style="font-size: 11px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-faint);">01 — Navigation hierarchy</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+        <sc-for list="{{ navTree }}" as="n" hint-placeholder-count="4">
+          <div style="border: 1px solid var(--hairline); border-radius: 14px; background: var(--raised); padding: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 7px; height: 7px; border-radius: 2px; background: {{ n.dot }};"></span>
+              <span style="font-size: 14px; font-weight: 600;">{{ n.group }}</span>
+              <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--ink-faint);">{{ n.access }}</span>
+            </div>
+            <ul style="margin-top: 11px; display: flex; flex-direction: column; gap: 7px;">
+              <sc-for list="{{ n.items }}" as="i" hint-placeholder-count="4">
+                <li style="display: flex; gap: 9px; font-size: 13px; line-height: 1.5;">
+                  <span style="flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-faint); padding-top: 2px;">{{ i.path }}</span>
+                  <span style="color: var(--ink-muted);">{{ i.what }}</span>
+                </li>
+              </sc-for>
+            </ul>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 14px;">
+      <h2 style="font-size: 11px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-faint);">02 — Reusable components</h2>
+      <div style="border: 1px solid var(--hairline); border-radius: 14px; background: var(--raised); overflow: auto;">
+        <table>
+          <thead>
+            <tr style="border-bottom: 1px solid var(--hairline-strong);">
+              <th scope="col" style="text-align: left; padding: 11px 15px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Component</th>
+              <th scope="col" style="text-align: left; padding: 11px 15px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Where it appears</th>
+              <th scope="col" style="text-align: left; padding: 11px 15px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Spec</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ components }}" as="c" hint-placeholder-count="8">
+              <tr style="border-bottom: 1px solid var(--hairline);">
+                <td style="padding: 12px 15px; vertical-align: top; min-width: 180px;">
+                  <span style="display: block; font-size: 13.5px; font-weight: 600;">{{ c.name }}</span>
+                  <span style="display: block; margin-top: 3px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--ink-faint);">{{ c.file }}</span>
+                </td>
+                <td style="padding: 12px 15px; vertical-align: top; font-size: 13px; color: var(--ink-muted); min-width: 200px;">{{ c.where }}</td>
+                <td style="padding: 12px 15px; vertical-align: top; font-size: 13px; color: var(--ink); line-height: 1.55;">{{ c.spec }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 14px;">
+      <h2 style="font-size: 11px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-faint);">03 — Interaction rules</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px;">
+        <sc-for list="{{ rules }}" as="r" hint-placeholder-count="6">
+          <div style="border: 1px solid var(--hairline); border-radius: 14px; background: var(--raised); padding: 16px;">
+            <div style="font-size: 14px; font-weight: 600;">{{ r.title }}</div>
+            <ul style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+              <sc-for list="{{ r.lines }}" as="l" hint-placeholder-count="3">
+                <li style="display: flex; gap: 9px; font-size: 13px; line-height: 1.55; color: var(--ink-muted);">
+                  <span style="flex-shrink: 0; margin-top: 6px; width: 5px; height: 5px; border-radius: 999px; background: var(--hairline-strong);"></span>{{ l }}
+                </li>
+              </sc-for>
+            </ul>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 14px;">
+      <h2 style="font-size: 11px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-faint);">04 — Responsive behaviour</h2>
+      <div style="border: 1px solid var(--hairline); border-radius: 14px; background: var(--raised); overflow: auto;">
+        <table>
+          <thead>
+            <tr style="border-bottom: 1px solid var(--hairline-strong);">
+              <th scope="col" style="text-align: left; padding: 11px 15px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Width</th>
+              <th scope="col" style="text-align: left; padding: 11px 15px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Shell</th>
+              <th scope="col" style="text-align: left; padding: 11px 15px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Sprint database</th>
+              <th scope="col" style="text-align: left; padding: 11px 15px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);">Story</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ breakpoints }}" as="b" hint-placeholder-count="5">
+              <tr style="border-bottom: 1px solid var(--hairline);">
+                <td style="padding: 12px 15px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; white-space: nowrap;">{{ b.w }}</td>
+                <td style="padding: 12px 15px; font-size: 13px; color: var(--ink-muted); line-height: 1.5;">{{ b.shell }}</td>
+                <td style="padding: 12px 15px; font-size: 13px; color: var(--ink-muted); line-height: 1.5;">{{ b.table }}</td>
+                <td style="padding: 12px 15px; font-size: 13px; color: var(--ink-muted); line-height: 1.5;">{{ b.story }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size: 13px; line-height: 1.6; color: var(--ink-faint); max-width: 78ch;">Touch targets are ≥44 px on every control that appears below 768 px. Zero horizontal page overflow at 320, 360, 390, 430, 744, 834, 1024, 1280 and 1440. Dense desktop layouts stay readable at 200% zoom because the shell measures viewport width in JS and the table becomes cards on the same threshold.</p>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 14px;">
+      <h2 style="font-size: 11px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-faint);">05 — Designed states</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;">
+        <sc-for list="{{ stateGroups }}" as="g" hint-placeholder-count="4">
+          <div style="border: 1px solid var(--hairline); border-radius: 14px; background: var(--raised); padding: 16px;">
+            <div style="font-size: 13.5px; font-weight: 600;">{{ g.title }}</div>
+            <ul style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px;">
+              <sc-for list="{{ g.states }}" as="s" hint-placeholder-count="5">
+                <li style="padding: 4px 9px; border-radius: 6px; background: {{ s.bg }}; color: {{ s.fg }}; font-family: 'JetBrains Mono', monospace; font-size: 10px;">{{ s.label }}</li>
+              </sc-for>
+            </ul>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <h2 style="font-size: 11px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-faint);">06 — What changed from the current app</h2>
+        <ul style="display: flex; flex-direction: column; gap: 9px;">
+          <sc-for list="{{ changes }}" as="c" hint-placeholder-count="8">
+            <li style="display: flex; gap: 11px; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--raised);">
+              <span style="flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: {{ c.markColor }}; padding-top: 2px;">{{ c.mark }}</span>
+              <span style="min-width: 0;">
+                <span style="display: block; font-size: 13.5px; font-weight: 600;">{{ c.title }}</span>
+                <span style="display: block; margin-top: 4px; font-size: 12.5px; line-height: 1.55; color: var(--ink-muted);">{{ c.body }}</span>
+              </span>
+            </li>
+          </sc-for>
+        </ul>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <h2 style="font-size: 11px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-faint);">07 — Unresolved product decisions</h2>
+        <ul style="display: flex; flex-direction: column; gap: 9px;">
+          <sc-for list="{{ open }}" as="o" hint-placeholder-count="6">
+            <li style="padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--raised);">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="width: 6px; height: 6px; border-radius: 999px; background: #FFB020;"></span>
+                <span style="font-size: 13.5px; font-weight: 600;">{{ o.q }}</span>
+              </div>
+              <p style="margin-top: 5px; font-size: 12.5px; line-height: 1.55; color: var(--ink-muted);">{{ o.note }}</p>
+            </li>
+          </sc-for>
+        </ul>
+        <div style="padding: 14px; border: 1px solid var(--hairline-strong); border-radius: 12px; background: var(--overlay);">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-faint);">Not designed here, on purpose</div>
+          <p style="margin-top: 7px; font-size: 12.5px; line-height: 1.6; color: var(--ink-muted);">SQL, RLS policies and column guards stay in the delivery repository — this artifact never restates them. Client-facing portal surfaces, the PDF sprint report and the Notion importer keep their existing designs; only their entry points moved into the new shell.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 20px; border-top: 1px solid var(--hairline);">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-faint);">Coditu · Mohamed Tamer (admin) · prototype data = Week 17, 2026-08-25</span>
+      <a href="Coditu Workspace.dc.html" style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px;">→ Coditu Workspace.dc.html</a>
+    </footer>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1200}}">
+const TONE = {
+  amber: { bg: "rgba(255,176,32,0.18)", fg: "#7A4F00" },
+  jade: { bg: "rgba(35,201,127,0.18)", fg: "#0E6B4B" },
+  rose: { bg: "rgba(255,95,109,0.14)", fg: "#A81F2C" },
+  cobalt: { bg: "rgba(43,87,255,0.12)", fg: "#183FBF" },
+  slate: { bg: "rgba(107,122,144,0.14)", fg: "#3F4C63" },
+};
+
+class Component extends DCLogic {
+  renderVals() {
+    const chips = (arr) => arr.map((a) => ({ label: a[0], bg: TONE[a[1]].bg, fg: TONE[a[1]].fg }));
+    return {
+      meta: [
+        { label: "1 prototype file · 3 components", dot: "#2B57FF" },
+        { label: "light + dark, contrast AA", dot: "#21E2C6" },
+        { label: "role and connection are live tweaks", dot: "#FFB020" },
+        { label: "real Week 17 data, no invented metrics", dot: "#23C97F" },
+      ],
+      navTree: [
+        { group: "Workspace", dot: "#2B57FF", access: "everyone", items: [
+          { path: "/app", what: "Workspace Home — active sprint, my work, mentions, recents, presence, activity" },
+          { path: "/app/sprint", what: "Sprint database — table and board, saved views, multi-sort, filters" },
+          { path: "/app/sprint/notes", what: "Sprint notes — universal editor, publish, version history" },
+          { path: "/app/my-work", what: "Assigned, reviewing, due soon, mentions across projects" },
+        ] },
+        { group: "Projects", dot: "#12A594", access: "everyone", items: [
+          { path: "/app/projects", what: "Projects database — list and cards, search, status filter, archived" },
+          { path: "/app/projects/:slug", what: "Project home — sprints, components, pages, team, saved views, activity" },
+          { path: "/app/projects/:slug/import", what: "Notion importer (existing design, new entry point)" },
+        ] },
+        { group: "Account · private", dot: "#5B8CFF", access: "self only", items: [
+          { path: "/app/profile", what: "Identity, appearance, notifications, security, sign out" },
+          { path: "/app/earnings", what: "My earnings — provisional, confirmed, calculation, USD + EGP" },
+        ] },
+        { group: "Admin", dot: "#FFB020", access: "admin · lead", items: [
+          { path: "/app/people", what: "People & Access — team, invitations, client contacts, roles, deactivated, audit" },
+          { path: "/app/settings", what: "Workspace settings — rates, limits, capacity, notifications" },
+          { path: "/app/settings/payouts", what: "Team payouts — participants, exclusions, immutable snapshots" },
+          { path: "/app/settings/recovery", what: "Backup & recovery — snapshots, test restore, selective recovery" },
+          { path: "/app/trash", what: "Trash — stories, pages, comments, criteria, projects" },
+          { path: "/app/history", what: "Version history — filters, diff preview, restore as new version" },
+        ] },
+      ],
+      components: [
+        { name: "Workspace shell", file: "Coditu Workspace.dc.html", where: "every screen", spec: "268 px sidebar → 64 px collapsed (icons keep tooltips) → overlay drawer under 1180 px → bottom bar + More sheet under 768 px. 56 px topbar carries breadcrumbs, surface presence, save chip, theme, search, New." },
+        { name: "Universal block editor", file: "Coditu Editor.dc.html", where: "story body, sprint notes, project pages, criteria, comments", spec: "12 block types; drag handles double as Alt+↑/↓; / opens the block menu, @ the mention picker (both ↑↓ + ⏎ + Esc). Compact chrome for composers, full chrome for pages. Upload, failure and retry states live in the image block." },
+        { name: "Data table", file: "Coditu Table.dc.html", where: "my work, projects, people, trash, history, snapshots, payouts", spec: "Cell kinds: text (+ sub line), mono, chip, chip set, avatar stack, progress, action group. Header row is mono uppercase 10 px; rows 44 px min; overflow scrolls inside the card, never the page." },
+        { name: "Status chip", file: "shared token", where: "table, board, story, home, exports", spec: "Themed light/dark pair per status, 6 px radius, 10.5 px mono label, 6 px dot. Labels are the in-app words: in progress, peer review, in qa, changes req., ready, draft, blocked, done." },
+        { name: "Component chips", file: "shared token", where: "rows, cards, story properties", spec: "Two visible values plus +N; each chip opens that component's history. “not attributed” is a real, non-apologetic state. Picker is searchable, permission-aware and shows archived components read-only." },
+        { name: "Sort stack", file: "sprint panel", where: "sprint table", spec: "Header click sets primary and cycles asc → desc → cleared; shift-click appends. Numbered stack is reorderable and removable; manual drag order pauses with an explanation while any sort is active." },
+        { name: "Presence", file: "shell + surfaces", where: "topbar, sprint header, story, notes", spec: "Avatar stack with +N overflow, dot plus text label (never colour alone), and a typing indicator that names the surface: “Abdelrahman is editing the acceptance criteria”. Drafts stay private." },
+        { name: "Save confidence", file: "shell + editors", where: "topbar chip, story header, composers", spec: "Draft saved → Sending… → Saved (after acknowledgement) → Offline, will retry → Failed, draft kept. Duplicate submits are refused with a sentence. Nothing clears on failure." },
+      ],
+      rules: [
+        { title: "Editing and publishing", lines: [
+          "Presence appears on focus; draft text never leaves the author's screen.",
+          "⌘/Ctrl+⏎ publishes or sends; plain ⏎ makes a new block, Shift+⏎ a soft line break.",
+          "Comments appear only after Send succeeds; story and note changes only after Publish succeeds.",
+          "A failed publish leaves the previously published version untouched and the draft intact.",
+        ] },
+        { title: "Keyboard paths", lines: [
+          "⌘K opens search and commands; Enter runs the first result; Esc closes any overlay.",
+          "Slash and mention menus: ↑↓ to move, ⏎ or Tab to pick, Esc to dismiss.",
+          "Alt+↑/↓ moves the focused block; Backspace on an empty block removes it.",
+          "Every disabled control keeps its tooltip so the reason is reachable by keyboard.",
+        ] },
+        { title: "Database semantics", lines: [
+          "Sprints belong to a project — a project with no sprint shows an empty state, never another client's work.",
+          "A story can carry several components; filters offer explicit Match any / Match all.",
+          "Saved views are shared, shareable by link, and show an “unsaved” marker when edited.",
+          "Sorted state is in the URL; the copy-link button carries filters, sort and mode.",
+        ] },
+        { title: "Boundaries", lines: [
+          "Earnings are private: no project, sprint, export, report or client surface ever shows them.",
+          "Client-shareable surfaces and admin surfaces never share a screen.",
+          "Roles are Admin, Lead, Engineer — no Owner. Multiple admins are supported.",
+          "Self-demotion, self-deactivation and demoting the last admin are blocked, visibly, with the reason.",
+        ] },
+        { title: "Recovery", lines: [
+          "Restore writes a new current version; the version it came from stays readable.",
+          "The restore itself is recorded in the audit trail.",
+          "Withdrawn comments stay as tombstones in the thread and are recoverable only by an admin.",
+          "The recovery centre's primary action is a non-destructive test restore in an isolated preview.",
+        ] },
+        { title: "Motion and quiet", lines: [
+          "One entrance primitive: 10 px rise + 8 px blur, 320 ms, entrance easing, on route and overlay entry only.",
+          "Realtime inserts get opacity only — never a page-wide refresh or a permanent blur.",
+          "The rotating Coditu mark is the only spinner.",
+          "prefers-reduced-motion removes every animation, including the spinner rotation.",
+        ] },
+      ],
+      breakpoints: [
+        { w: "320–389", shell: "Bottom bar (Home, Sprint, My work, Search, More) + More sheet; safe-area padding.", table: "Story cards, no horizontal overflow; filter and sort open as full-height sheets.", story: "Full-screen page, properties stacked, composer above the keyboard." },
+        { w: "390–767", shell: "Same as 320 with wider cards and two-column stat rows.", table: "Cards with component chips and a hairline footer row.", story: "Full-screen page; time log and activity stack." },
+        { w: "768–1023", shell: "Icon rail (64 px) plus overlay drawer on demand; topbar keeps breadcrumbs.", table: "Full table, sticky Task column, sort/filter as a right-docked panel.", story: "Side peek at 620 px with an Open-as-full-page action." },
+        { w: "1024–1179", shell: "Icon rail; presence and search collapse into the topbar right cluster.", table: "Full table; board scrolls horizontally by column.", story: "Side peek 620 px; full page centred at 1080 px." },
+        { w: "1180+", shell: "Expanded 268 px sidebar with favourites, project spaces and footer tools.", table: "Table plus a 320 px right column on Home and project pages.", story: "Side peek or full page; full page holds a 760 px reading measure." },
+      ],
+      stateGroups: [
+        { title: "Save and network", states: chips([["saved", "jade"], ["draft saved", "amber"], ["sending…", "slate"], ["slow save", "slate"], ["offline — will retry", "amber"], ["failed — draft kept", "rose"], ["duplicate refused", "amber"], ["recovered draft", "cobalt"]]) },
+        { title: "Presence", states: chips([["online", "jade"], ["idle", "amber"], ["offline", "slate"], ["2 viewing", "cobalt"], ["+N overflow", "slate"], ["typing here", "cobalt"], ["co-editing", "cobalt"]]) },
+        { title: "Permission and role", states: chips([["admin", "cobalt"], ["lead", "jade"], ["engineer", "slate"], ["denied, explained", "rose"], ["self-protected", "amber"], ["last admin", "rose"]]) },
+        { title: "Data", states: chips([["empty", "slate"], ["loading", "slate"], ["large data", "slate"], ["no active sprint", "slate"], ["not attributed", "slate"], ["archived", "slate"], ["tombstone", "rose"], ["restored", "jade"]]) },
+        { title: "Money", states: chips([["provisional", "amber"], ["confirmed", "jade"], ["changed since confirmation", "rose"], ["not tracked", "slate"], ["excluded contributor", "amber"], ["superseded", "slate"]]) },
+        { title: "Recovery", states: chips([["verified", "jade"], ["delayed run", "amber"], ["missing attachments", "amber"], ["test passed", "jade"], ["test failed", "rose"], ["restored as copy", "jade"]]) },
+      ],
+      changes: [
+        { mark: "new", markColor: "#0E6B4B", title: "Workspace Home replaces the sprint-first landing", body: "/app opened straight into the sprint table. It now opens on Home: active sprint state, my work as a linked view, unread mentions, recents, who is online, and a compact activity stream — each section links to its source of truth instead of restating it." },
+        { mark: "new", markColor: "#0E6B4B", title: "A real workspace shell", body: "Collapsible sidebar with favourites, recents and expandable project spaces; breadcrumbs; ⌘K search and commands; tablet overlay; mobile bottom bar and More sheet. The old app had a hover rail and no breadcrumbs." },
+        { mark: "new", markColor: "#0E6B4B", title: "One universal block editor", body: "Story bodies, notes, criteria and comments used plain text. They now share one editor: 12 block types, slash menu, mentions, drag or Alt+↑/↓ reordering, upload states, and explicit publish with private drafts." },
+        { mark: "chg", markColor: "#183FBF", title: "Sprint table became a database view", body: "Every column sorts asc / desc / cleared with a numbered multi-sort stack, filters cover status, components and assignee, and views are saved, shared and linkable. Manual drag order is still available — and says when it is paused." },
+        { mark: "chg", markColor: "#183FBF", title: "Components are many-per-story", body: "One nullable component became a chip set with a searchable, permission-aware picker, +N overflow, archived handling and Match any / Match all filtering." },
+        { mark: "chg", markColor: "#183FBF", title: "Stories open as a side peek", body: "The old modal is now a 620 px peek with Open-as-full-page, compact Notion-style properties, presence, criteria, comments, time log, activity and version history in one scroll." },
+        { mark: "chg", markColor: "#183FBF", title: "Projects page became a project workspace", body: "The flat list is now a database (list + cards, search, filters, archived) plus a project home carrying sprints, components, pages, team and saved views." },
+        { mark: "new", markColor: "#0E6B4B", title: "People & Access, and a data-confidence stack", body: "Admin work moved out of Settings into People & Access with six sections and visible safety states; Trash, Version history and a Backup & recovery centre with a non-destructive test restore are new surfaces." },
+        { mark: "chg", markColor: "#183FBF", title: "Earnings split in two", body: "My Earnings is a private personal view with a transparent calculation; Team Payouts keeps the admin confirmation flow, exclusions and immutable snapshots. Neither appears in any client-facing surface." },
+      ],
+      open: [
+        { q: "Non-admin email addresses", note: "Only Mohamed's address is real. Teammate and client addresses in People & Access are placeholders pending the real ones." },
+        { q: "Threshold rule reads harshly on open sprints", note: "Week 17 shows one participant above 25% while a colleague with 3.0 h takes no share. Correct per the rule — worth deciding whether provisional figures should show the threshold as pending rather than final." },
+        { q: "Sprint notes editors", note: "Notes are admin/lead-authored in this design. If engineers should be able to add to them, the publish flow needs a section-level author, not a page-level one." },
+        { q: "Client contact capabilities", note: "view_effort, view_attachments and start_questions are still in no preset. The picker shows them as available — confirm they stay opt-in per grant." },
+        { q: "Trash retention", note: "Described as workspace policy with no number in the UI. A number will eventually need a home in Workspace settings." },
+        { q: "Board drag semantics", note: "Board cards are click-to-open in this prototype. Whether dragging between columns should also write status (and how that interacts with an active sort) is unresolved." },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

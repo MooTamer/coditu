@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { PageShell } from "@/components/app/page-shell";
 import { ImportPanel } from "@/components/app/import-panel.client";
 import { Reveal } from "@/components/motion/reveal";
 import { listProjects, listSprintsForProject } from "@/lib/data/projects";
@@ -26,7 +27,7 @@ export default async function ImportPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+    <PageShell measure="import">
       <Reveal tier="section" as="header">
         <h1 className="text-[26px] font-bold tracking-[-0.024em]">Import from Notion</h1>
         <p className="mt-2 max-w-[70ch] text-[14.5px] leading-[1.55] text-[var(--ink-muted)]">
@@ -51,6 +52,6 @@ export default async function ImportPage() {
           canCommit={profile.role === "admin" || profile.role === "lead"}
         />
       </Reveal>
-    </main>
+    </PageShell>
   );
 }

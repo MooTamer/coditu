@@ -6,6 +6,7 @@ import { ArrowRight, Download, X } from "lucide-react";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { settle } from "@/lib/action-result";
 import { listExportItems, renderExport } from "@/lib/actions/export";
 import { useMounted } from "@/lib/hooks/use-client-state";
 import { hours } from "@/lib/format";
@@ -64,6 +65,35 @@ const DEFAULTS: Stored = {
   excluded: [],
   options: { criteria: true, hours: true, comments: true, owners: true },
 };
+
+/**
+ * The three item-selection presets, as data.
+ *
+ * `select` returns the EXCLUDED keys, because that is what `Stored` holds — a
+ * list of exclusions rather than inclusions, so that an item added to the
+ * sprint after somebody last opened this dialog arrives selected rather than
+ * silently missing from their export.
+ */
+const SELECTIONS: Array<{
+  id: string;
+  label: string;
+  select: (items: ExportItemSummary[]) => string[];
+}> = [
+  { id: "all", label: "Select all", select: () => [] },
+  { id: "none", label: "Select none", select: (items) => items.map((i) => i.key) },
+  {
+    id: "drafts",
+    label: "Drop drafts",
+    select: (items) => items.filter((i) => i.isDraft).map((i) => i.key),
+  },
+];
+
+/** Order-independent, because `excluded` is a set that happens to be an array. */
+function sameSelection(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((key) => set.has(key));
+}
 
 function readStored(): Stored {
   try {
@@ -178,13 +208,13 @@ export function ExportDialog({
     if (format === "pdf" || selectedKeys === null) return;
     let cancelled = false;
     startTransition(async () => {
-      const result = await renderExport({
+      const result = await settle(() => renderExport({
         slug,
         sprintNumber,
         format,
         selectedKeys,
         options: stored.options,
-      });
+      }), "That preview could not be built.");
       if (cancelled) return;
       if (result.ok && result.text !== undefined) {
         setRendered({ text: result.text, filename: result.filename!, lines: result.lines! });
@@ -345,39 +375,64 @@ export function ExportDialog({
             </fieldset>
 
             <div className="flex min-w-0 flex-col gap-[10px]">
-              <div className="flex items-center gap-[10px]">
+              <div className="flex flex-wrap items-center gap-x-[10px] gap-y-[6px]">
                 <Mono size="eyebrow" className="text-[var(--ink-faint)]">
                   Items
                 </Mono>
-                <button
-                  type="button"
-                  disabled={!loaded}
-                  onClick={() => persist({ ...stored, excluded: [] })}
-                  className="ml-auto font-mono text-[10.5px] text-[var(--accent)] disabled:opacity-40"
+                {/* PF-11. These read as `all` `none` `drop drafts` — three
+                    10.5px lowercase words that name no object and show no
+                    state, so which of them is currently in force can only be
+                    learned by pressing one and watching the list. They are the
+                    dialog's selection controls; every one of them is a whole
+                    sentence about the item list, and the reader was being given
+                    one word of it.
+
+                    Each says what it selects, and carries `aria-pressed` for
+                    whether the selection on screen IS that one. None pressed is
+                    a real and common state — a hand-picked selection matches no
+                    preset — which is why these are toggle buttons and not a
+                    radio group. The count beside them is the same number the
+                    title bar carries; it is repeated here because this is where
+                    the decision is made and the title bar is 300px away. */}
+                {SELECTIONS.map((selection) => {
+                  const next = selection.select(list);
+                  const active = loaded && sameSelection(stored.excluded, next);
+                  return (
+                    <button
+                      key={selection.id}
+                      type="button"
+                      disabled={!loaded}
+                      aria-pressed={active}
+                      onClick={() => persist({ ...stored, excluded: next })}
+                      className={cn(
+                        "rounded-chip border px-2 py-[3px] font-mono text-[10.5px] transition-[background-color,border-color,color] duration-[var(--dur-micro)] disabled:opacity-40",
+                        active
+                          ? "border-[var(--accent)] bg-[var(--tint)] text-[var(--accent)]"
+                          : "border-transparent text-[var(--accent)] hover:border-[var(--hairline-strong)] hover:bg-[var(--canvas)]"
+                      )}
+                    >
+                      {selection.label}
+                    </button>
+                  );
+                })}
+                <Mono
+                  size="eyebrow"
+                  aria-live="polite"
+                  className="ml-auto normal-case tracking-normal text-[var(--ink-faint)]"
                 >
-                  all
-                </button>
-                <button
-                  type="button"
-                  disabled={!loaded}
-                  onClick={() => persist({ ...stored, excluded: list.map((i) => i.key) })}
-                  className="font-mono text-[10.5px] text-[var(--accent)] disabled:opacity-40"
-                >
-                  none
-                </button>
-                <button
-                  type="button"
-                  disabled={!loaded}
-                  onClick={() =>
-                    persist({ ...stored, excluded: list.filter((i) => i.isDraft).map((i) => i.key) })
-                  }
-                  className="font-mono text-[10.5px] text-[var(--accent)] disabled:opacity-40"
-                >
-                  drop drafts
-                </button>
+                  {loaded ? `${included} of ${list.length} selected` : "…"}
+                </Mono>
               </div>
 
-              <ul className="max-h-[300px] overflow-y-auto overflow-x-hidden rounded-inner border border-[var(--hairline)]">
+              {/* `data-export-items` so a spec can reach an ITEM's checkbox.
+                  The Include options above are `role="checkbox"` too, so
+                  `getByRole("checkbox").first()` inside this dialog finds
+                  "Acceptance criteria" and quietly changes nothing about the
+                  selection. */}
+              <ul
+                data-export-items
+                className="max-h-[300px] overflow-y-auto overflow-x-hidden rounded-inner border border-[var(--hairline)]"
+              >
                 {list.map((item) => {
                   const on = !stored.excluded.includes(item.key);
                   return (
@@ -478,6 +533,28 @@ export function ExportDialog({
                 </div>
                 <Link
                   href={`/app/projects/${slug}/sprints/${sprintNumber}/report`}
+                  // PF-12. The report replaces this screen, so the dialog was
+                  // always going to unmount — but only once the navigation
+                  // committed, which on a dynamic route is long enough to read
+                  // as "the button did nothing and the modal is stuck". Closing
+                  // on activation makes the click say so immediately.
+                  //
+                  // A modified click is deliberately NOT a close: cmd/ctrl/shift
+                  // and the middle button open the report in a new tab, this
+                  // screen stays where it was, and closing it would throw away
+                  // a selection the reader is still working on.
+                  onClick={(event) => {
+                    if (
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey ||
+                      event.button !== 0
+                    ) {
+                      return;
+                    }
+                    onClose();
+                  }}
                   className="signal-gradient mt-1 inline-flex h-[42px] items-center justify-center gap-[10px] rounded-control text-[14px] font-semibold text-[#07090E]"
                 >
                   Open report to print

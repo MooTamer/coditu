@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { PanelLeft } from "lucide-react";
+import { PanelLeft, Search, Settings, Trash2 } from "lucide-react";
 
 import { Favourites } from "@/components/app/favourites.client";
 import { navFor } from "@/components/app/nav-items";
@@ -9,6 +9,7 @@ import { NavIcon, NavLink } from "@/components/app/nav-link.client";
 import { PersonAvatar, type AvatarPerson } from "@/components/app/person-avatar";
 import { ProjectSpaces } from "@/components/app/project-spaces.client";
 import { CoditusMark } from "@/components/coditu/coditus-mark";
+import { Mono } from "@/components/coditu/mono";
 import { usePersistentFlag } from "@/lib/hooks/use-client-state";
 import type { FavouriteLink } from "@/lib/favourites";
 import type { SpaceProject } from "@/lib/project-spaces";
@@ -98,6 +99,17 @@ const LABEL = cn(
   "whitespace-nowrap opacity-0 motion-safe:transition-opacity motion-safe:duration-150"
 );
 
+/**
+ * The handoff's rail footer: `Trash` and `Workspace settings`, above your own
+ * face. Both are admin routes — `/app/settings` redirects a lead and
+ * `/app/trash` is admin-gated at the database — so a rail that offered them to
+ * an engineer would be offering a redirect.
+ */
+const FOOTER_TOOLS = [
+  { label: "Trash", href: "/app/trash", Icon: Trash2 },
+  { label: "Workspace settings", href: "/app/settings", Icon: Settings },
+] as const;
+
 export function Rail({
   me,
   role,
@@ -105,6 +117,7 @@ export function Rail({
   projects,
   componentCounts,
   favourites,
+  memberCount,
 }: {
   me: AvatarPerson;
   role: string;
@@ -118,8 +131,12 @@ export function Rail({
   /** What this reader has starred, already resolved to links by the shell.
    *  Empty draws nothing at all. */
   favourites: FavouriteLink[];
+  /** Active profiles, for the header's `workspace · N members`. The shell
+   *  already reads them for the topbar, so this is a length and not a query. */
+  memberCount: number;
 }) {
   const pathname = usePathname();
+  const canAdminister = role === "admin";
   const [collapsed, setCollapsed] = usePersistentFlag(COLLAPSED_KEY);
 
   return (
@@ -141,10 +158,19 @@ export function Rail({
         "motion-safe:transition-[width] motion-safe:duration-[220ms] motion-safe:ease-[var(--ease-entrance)]"
       )}
     >
-      <div className="mb-3 flex h-10 items-center gap-3 px-1">
+      <div className="mb-3 flex h-12 items-center gap-3 px-1">
         <CoditusMark size={26} hoverTravel />
-        <span data-rail-label className={cn(LABEL, "flex-1 text-[16px] font-bold tracking-[-0.02em]")}>
-          Coditu
+        <span data-rail-label className={cn(LABEL, "min-w-0 flex-1")}>
+          <span className="block truncate text-[16px] font-bold tracking-[-0.02em]">Coditu</span>
+          {/* The handoff's `workspace · 4 members`. A real count, from the
+              active profiles the layout already reads for the topbar — not a
+              number typed into a prototype. */}
+          <Mono
+            size="meta"
+            className="block truncate text-[9.5px] uppercase tracking-[0.06em] text-[var(--ink-faint)]"
+          >
+            workspace · {memberCount} {memberCount === 1 ? "member" : "members"}
+          </Mono>
         </span>
         {/* Only where it does something. Below 1180 the sidebar is icons at
             every setting, so a control that appears to change that and does
@@ -156,7 +182,7 @@ export function Rail({
           aria-label={collapsed ? "Show navigation labels" : "Collapse the navigation"}
           title={collapsed ? "Show navigation labels" : "Collapse the navigation"}
           data-rail-toggle
-          className="hidden size-8 shrink-0 items-center justify-center rounded-control text-[var(--ink-faint)] hover:bg-[var(--canvas)] hover:text-[var(--ink)]"
+          className="hidden size-8 shrink-0 items-center justify-center rounded-control text-[var(--ink-faint)] hover:bg-[var(--tint)] hover:text-[var(--ink)]"
         >
           <PanelLeft size={16} strokeWidth={1.9} aria-hidden />
         </button>
@@ -167,6 +193,31 @@ export function Rail({
           footer stay put — losing your own face and the collapse control off
           the bottom of a scroll is worse than scrolling the middle. */}
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
+        {/* The handoff puts search at the top of the sidebar, above the
+            destinations. Dispatches the event the topbar's palette listens for,
+            so `⌘K`, the phone's Search tab and this are one dialog and one
+            piece of state. */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("coditu:open-palette"))}
+          aria-haspopup="dialog"
+          aria-label="Search or run a command"
+          title="Search or run a command"
+          className="mb-2 flex h-9 shrink-0 cursor-pointer items-center gap-[10px] rounded-control border border-[var(--hairline)] bg-[var(--canvas)] px-[10px] text-left text-[var(--ink-faint)] hover:border-[var(--hairline-strong)]"
+        >
+          <Search size={15} strokeWidth={1.8} aria-hidden className="shrink-0" />
+          <span data-rail-label className={cn(LABEL, "min-w-0 flex-1 truncate text-[13.5px]")}>
+            Search or run
+          </span>
+          <Mono
+            data-rail-label
+            size="meta"
+            className={cn(LABEL, "shrink-0 rounded-chip border border-[var(--hairline)] px-[5px]")}
+          >
+            ⌘K
+          </Mono>
+        </button>
+
         <nav className="flex flex-col gap-1">
           {navFor(role).map(({ id, label, href, Icon, isActive }) => {
             const active = isActive(pathname);
@@ -178,7 +229,7 @@ export function Rail({
                 active={active}
                 className={cn(
                   "flex h-11 items-center gap-[14px] overflow-hidden whitespace-nowrap rounded-control px-3 transition-colors",
-                  active ? "bg-[var(--canvas)] text-[var(--ink)]" : "text-[var(--ink-muted)] hover:bg-[var(--canvas)]"
+                  active ? "bg-[var(--canvas)] text-[var(--ink)]" : "text-[var(--ink-muted)] hover:bg-[var(--tint)]"
                 )}
                 // The tapped item takes the active surface immediately. That is
                 // the half of the pending state that survives reduced motion,
@@ -216,14 +267,66 @@ export function Rail({
         <ProjectSpaces projects={projects} componentCounts={componentCounts} />
       </div>
 
-      <div className="flex h-11 shrink-0 items-center gap-3 border-t border-[var(--hairline)] px-3">
-        {/* Initials came from splitting the display name here, which is a
-            second answer to a question `profiles.initials` already answers.
-            It reads the column now, like every other face in the app. */}
-        <PersonAvatar person={me} size={26} fontSize={10} />
-        <span data-rail-label className={cn(LABEL, "text-[13px] text-[var(--ink-muted)]")}>
-          {me.fullName.split(" ")[0]} · {role}
-        </span>
+      <div className="shrink-0 border-t border-[var(--hairline)] pt-2">
+        {/* The handoff's rail footer. Trash and Workspace settings were
+            reachable only from inside other screens; they are workspace tools
+            and they live with the workspace. Admin-only, because that is who
+            the routes already admit — a link that lands on a redirect is not a
+            link. */}
+        {canAdminister ? (
+          <nav aria-label="Workspace tools" className="flex flex-col gap-1 px-0 pb-1">
+            {FOOTER_TOOLS.map(({ label, href, Icon }) => {
+              const active = pathname === href || pathname.startsWith(`${href}/`);
+              return (
+                <NavLink
+                  key={href}
+                  href={href}
+                  label={label}
+                  active={active}
+                  className={cn(
+                    "flex h-11 items-center gap-[14px] overflow-hidden whitespace-nowrap rounded-control px-3 transition-colors",
+                    active
+                      ? "bg-[var(--canvas)] text-[var(--ink)]"
+                      : "text-[var(--ink-muted)] hover:bg-[var(--tint)]"
+                  )}
+                  pendingClassName="bg-[var(--canvas)] text-[var(--ink)]"
+                >
+                  {(pending) => (
+                    <>
+                      <span className="flex size-[18px] shrink-0 items-center justify-center">
+                        <NavIcon Icon={Icon} pending={pending} />
+                      </span>
+                      <span data-rail-label className={cn(LABEL, "truncate text-[12.5px]")}>
+                        {label}
+                      </span>
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
+          </nav>
+        ) : null}
+
+        <div className="flex h-11 items-center gap-3 px-3">
+          {/* Initials came from splitting the display name here, which is a
+              second answer to a question `profiles.initials` already answers.
+              It reads the column now, like every other face in the app. */}
+          <span className="relative shrink-0">
+            <PersonAvatar person={me} size={26} fontSize={10} />
+            {/* You are online: you are reading this. The dot states the one
+                presence fact this component can know without a socket, which is
+                why it is here and the teammates' dots are on Home, where a
+                channel is actually subscribed. */}
+            <span
+              aria-hidden
+              title="online"
+              className="absolute -bottom-px -right-px size-[9px] rounded-pill border-2 border-[var(--raised)] bg-[#23C97F]"
+            />
+          </span>
+          <span data-rail-label className={cn(LABEL, "text-[13px] text-[var(--ink-muted)]")}>
+            {me.fullName.split(" ")[0]} · {role}
+          </span>
+        </div>
       </div>
     </aside>
   );

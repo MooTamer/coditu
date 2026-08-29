@@ -356,6 +356,48 @@ export type Database = {
           },
         ]
       }
+      backup_health: {
+        Row: {
+          backup_id: string
+          checked_at: string
+          database_rows: number
+          database_tables: number
+          encrypted_bytes: number
+          id: number
+          last_modified_at: string
+          sha256: string
+          source: string
+          storage_buckets: number
+          storage_objects: number
+        }
+        Insert: {
+          backup_id: string
+          checked_at: string
+          database_rows: number
+          database_tables: number
+          encrypted_bytes: number
+          id?: number
+          last_modified_at: string
+          sha256: string
+          source?: string
+          storage_buckets: number
+          storage_objects: number
+        }
+        Update: {
+          backup_id?: string
+          checked_at?: string
+          database_rows?: number
+          database_tables?: number
+          encrypted_bytes?: number
+          id?: number
+          last_modified_at?: string
+          sha256?: string
+          source?: string
+          storage_buckets?: number
+          storage_objects?: number
+        }
+        Relationships: []
+      }
       client_contacts: {
         Row: {
           accepted_at: string | null
@@ -2131,6 +2173,7 @@ export type Database = {
       allowlist_claimed: {
         Args: never
         Returns: {
+          accepted: boolean
           email: string
         }[]
       }
@@ -2257,6 +2300,20 @@ export type Database = {
         Returns: undefined
       }
       rebalance_project_keys: { Args: never; Returns: undefined }
+      record_backup_health: {
+        Args: {
+          p_backup_id: string
+          p_checked_at: string
+          p_database_rows: number
+          p_database_tables: number
+          p_encrypted_bytes: number
+          p_last_modified_at: string
+          p_sha256: string
+          p_storage_buckets: number
+          p_storage_objects: number
+        }
+        Returns: boolean
+      }
       rehearse_recovery: { Args: { p_scope: string[] }; Returns: string }
       reorder_criteria: {
         Args: { p_criterion_id: string; p_ordered_ids: string[] }

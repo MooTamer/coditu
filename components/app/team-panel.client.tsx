@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, unstable_rethrow } from "next/navigation";
 import { useEffect, useOptimistic, useState, useTransition } from "react";
 import { Check, Copy, KeyRound, RotateCcw, UserMinus } from "lucide-react";
 
@@ -19,6 +19,7 @@ import type { TeamMember } from "@/lib/data/profiles";
 import { hours } from "@/lib/format";
 import { APP_ROLES, type AppRole } from "@/lib/work-items";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 export interface TeamRow extends TeamMember {
   /** Load on the open sprint, when there is one. */
@@ -82,6 +83,17 @@ function PersonRow({
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
   const [role, setRole] = useState<AppRole>(person.role);
   const [active, setActive] = useState(person.isActive);
   const [confirming, setConfirming] = useState(false);
@@ -118,7 +130,7 @@ function PersonRow({
     const previous = role;
     setRole(next);
     startTransition(async () => {
-      const result = await setProfileRole({ profileId: person.id, role: next });
+      const result = await settle(() => setProfileRole({ profileId: person.id, role: next }), "That change did not save.");
       if (result.ok) {
         toast(
           `${person.fullName} is ${next === "engineer" ? "an" : "a"} ${next}.`,
@@ -147,7 +159,14 @@ function PersonRow({
         // it would put the thing that grants access to somebody's account into
         // a element that disappears on its own.
         router.refresh();
-      } catch {
+      } catch (error) {
+        // `unstable_rethrow` first, and it is not a formality. Next implements
+        // `redirect()` and `notFound()` by THROWING, so a bare catch around a
+        // Server Action swallows a working navigation and leaves a control that
+        // appears to do nothing. This block guards more than the action call —
+        // which is why it stays a block rather than becoming `settle()` — so the
+        // rethrow has to be written here.
+        unstable_rethrow(error);
         // A Server Action that THROWS never returns, so the branch above never
         // runs and the row would sit there looking as if nothing happened.
         toast("That did not work. Nothing has changed — try again.");
@@ -164,10 +183,10 @@ function PersonRow({
     setConfirming(false);
     setActive(next);
     startTransition(async () => {
-      const result = await setProfileActive({
+      const result = await settle(() => setProfileActive({
         profileId: person.id,
         isActive: next,
-      });
+      }), "That change did not save.");
       if (result.ok) {
         toast(
           next
@@ -326,6 +345,8 @@ function PersonRow({
       {isAdmin ? (
         <div className="flex flex-wrap items-center justify-end gap-2">
           <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
             type="button"
             onClick={issueTemporaryPassword}
               disabled={pending || !active || isSelf}
@@ -351,6 +372,8 @@ function PersonRow({
               Temporary password
             </button>
           <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
             type="button"
             onClick={toggleActive}
               disabled={pending || isSelf}

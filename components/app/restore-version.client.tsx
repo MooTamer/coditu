@@ -7,6 +7,7 @@ import { useToast } from "@/components/app/toast.client";
 import { settle } from "@/lib/action-result";
 import { restoreRevision } from "@/lib/actions/revisions";
 import type { RevisionSurface } from "@/lib/data/revisions";
+import { control } from "@/lib/interactive";
 
 /**
  * The one control on the history panel that needs JavaScript.
@@ -92,10 +93,10 @@ export function RestoreVersion({
         restore itself.
       </p>
       <button
+        {...control(pending ? "pending" : "idle")}
         type="button"
         onClick={run}
         disabled={pending}
-        aria-busy={pending}
         className="rounded-chip border border-[var(--hairline-strong)] bg-[var(--canvas)] px-[10px] py-[5px] text-[11.5px] text-[var(--ink)] disabled:opacity-60"
       >
         {pending ? "Restoring…" : `Restore version ${revisionNo}`}

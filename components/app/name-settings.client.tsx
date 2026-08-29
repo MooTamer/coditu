@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, unstable_rethrow } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Check } from "lucide-react";
 
@@ -9,6 +9,7 @@ import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { setMyName } from "@/lib/actions/profiles";
 import { initialsFor } from "@/lib/profile-initials";
+import { control } from "@/lib/interactive";
 
 /**
  * Correcting your own name.
@@ -73,7 +74,14 @@ export function NameSettings({
         // Refresh, so the face and name in the rail, the topbar and every board
         // card change without anybody reloading the page.
         router.refresh();
-      } catch {
+      } catch (error) {
+        // `unstable_rethrow` first, and it is not a formality. Next implements
+        // `redirect()` and `notFound()` by THROWING, so a bare catch around a
+        // Server Action swallows a working navigation and leaves a control that
+        // appears to do nothing. This block guards more than the action call —
+        // which is why it stays a block rather than becoming `settle()` — so the
+        // rethrow has to be written here.
+        unstable_rethrow(error);
         // A Server Action that THROWS never returns a result, so the branch
         // above never runs and the field would sit there looking saved.
         setSaved(previous);
@@ -122,6 +130,7 @@ export function NameSettings({
       </label>
 
       <button
+        {...control(pending ? "pending" : "idle")}
         type="submit"
         disabled={!changed || tooShort || pending}
         className="inline-flex h-11 shrink-0 items-center gap-2 rounded-control border border-[var(--hairline-strong)] px-4 text-[13.5px] font-medium hover:bg-[var(--canvas)] disabled:cursor-not-allowed disabled:opacity-50"

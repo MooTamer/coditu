@@ -9,6 +9,7 @@ import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
 import { rehearseRecovery } from "@/lib/actions/recovery";
 import { CHECK_DETAIL, CHECK_LABEL, RECOVERY_CHECKS, type RecoveryCheck } from "@/lib/recovery";
+import { control } from "@/lib/interactive";
 
 /**
  * Choosing what to rehearse, and pressing the one button on this screen.
@@ -101,6 +102,7 @@ export function RehearseRecovery({ canRun }: { canRun: boolean }) {
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
+        {...control(pending ? "pending" : "idle")}
           type="button"
           onClick={run}
           data-rehearse

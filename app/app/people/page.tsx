@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { PageShell } from "@/components/app/page-shell";
 import { AllowlistPanel } from "@/components/app/allowlist-panel.client";
 import { TeamPanel, type TeamRow } from "@/components/app/team-panel.client";
 import { Mono } from "@/components/coditu/mono";
@@ -93,7 +94,7 @@ export default async function PeoplePage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+    <PageShell measure="people">
       <Reveal tier="section" as="header">
         <h1 className="text-[26px] font-bold tracking-[-0.024em]">People</h1>
         <p className="mt-2 max-w-[72ch] text-[14.5px] text-[var(--ink-muted)]">
@@ -315,6 +316,6 @@ export default async function PeoplePage() {
           )}
         </div>
       </Reveal>
-    </main>
+    </PageShell>
   );
 }

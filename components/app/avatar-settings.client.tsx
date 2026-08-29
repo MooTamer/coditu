@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, unstable_rethrow } from "next/navigation";
 import { ImagePlus, Trash2 } from "lucide-react";
 
 import { PersonAvatar, type AvatarPerson } from "@/components/app/person-avatar";
@@ -9,6 +9,7 @@ import { Mono } from "@/components/coditu/mono";
 import { useToast } from "@/components/app/toast.client";
 import { removeMyAvatar, setMyAvatar } from "@/lib/actions/profiles";
 import { IMAGE_ACCEPT, isAllowedImageType } from "@/lib/images";
+import { control } from "@/lib/interactive";
 
 /** What the picture is stored and displayed at. Twice 40px, for a dense screen. */
 const EDGE = 256;
@@ -28,6 +29,17 @@ export function AvatarSettings({ me }: { me: AvatarPerson }) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
 
   /** A local preview of the file being uploaded. Null the rest of the time. */
   const [preview, setPreview] = useState<string | null>(null);
@@ -64,7 +76,14 @@ export function AvatarSettings({ me }: { me: AvatarPerson }) {
         // after the refresh, or the face flickers back to initials in between.
         router.refresh();
         setTimeout(() => clearPreview(objectUrl), 1200);
-      } catch {
+      } catch (error) {
+        // `unstable_rethrow` first, and it is not a formality. Next implements
+        // `redirect()` and `notFound()` by THROWING, so a bare catch around a
+        // Server Action swallows a working navigation and leaves a control that
+        // appears to do nothing. This block guards more than the action call —
+        // which is why it stays a block rather than becoming `settle()` — so the
+        // rethrow has to be written here.
+        unstable_rethrow(error);
         // A Server Action that THROWS never returns a result, so the branch
         // above never runs and the preview would sit there looking saved.
         clearPreview(objectUrl);
@@ -82,7 +101,14 @@ export function AvatarSettings({ me }: { me: AvatarPerson }) {
           return;
         }
         router.refresh();
-      } catch {
+      } catch (error) {
+        // `unstable_rethrow` first, and it is not a formality. Next implements
+        // `redirect()` and `notFound()` by THROWING, so a bare catch around a
+        // Server Action swallows a working navigation and leaves a control that
+        // appears to do nothing. This block guards more than the action call —
+        // which is why it stays a block rather than becoming `settle()` — so the
+        // rethrow has to be written here.
+        unstable_rethrow(error);
         toast("That did not save. Your picture is still there — try again.");
       }
     });
@@ -95,6 +121,8 @@ export function AvatarSettings({ me }: { me: AvatarPerson }) {
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
             type="button"
             disabled={pending}
             onClick={() => input.current?.click()}
@@ -106,6 +134,8 @@ export function AvatarSettings({ me }: { me: AvatarPerson }) {
 
           {me.avatarUrl ? (
             <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
               type="button"
               disabled={pending}
               onClick={remove}

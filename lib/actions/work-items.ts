@@ -914,7 +914,18 @@ const setComponentsInput = z.object({
    * leave a window where the item is in a state nobody chose. The client sends
    * what it is looking at; the server works out the difference.
    */
-  componentIds: z.array(uuid).max(24),
+  /**
+   * 200, not 24.
+   *
+   * The cap exists to refuse an absurd payload, and it was set below the size
+   * of a real registry: MEINEvim has **40** live components, so PF-7's "select
+   * all" — the whole point of which is a change that touches every component —
+   * was rejected by validation before it reached the database. A cap a feature
+   * cannot satisfy is not a guard, it is a bug with a good excuse. The registry
+   * is synced from the delivery repository and only ever grows, so this leaves
+   * room rather than tracking it.
+   */
+  componentIds: z.array(uuid).max(200),
 });
 
 /**

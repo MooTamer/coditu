@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { PageShell } from "@/components/app/page-shell";
 import { FilterBar } from "@/components/app/filter-bar.client";
 import { NoSprint } from "@/components/app/no-sprint";
 import { SprintBoard } from "@/components/app/sprint-board";
@@ -162,7 +163,7 @@ export default async function SprintPage({
   return (
     // `@container` so the table can switch to cards on its OWN width. The rail
     // pinning open changes that width without the viewport moving at all.
-    <main className="@container flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+    <PageShell measure="sprint" container>
       {/* This sprint only. Renders nothing — it subscribes, coalesces bursts
           through a 120ms buffer, and unsubscribes when the route changes. */}
       <SprintRealtime sprintId={sprint.id} />
@@ -248,6 +249,6 @@ export default async function SprintPage({
           </>
         )}
       </Reveal>
-    </main>
+    </PageShell>
   );
 }

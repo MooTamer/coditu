@@ -1,11 +1,12 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { Search } from "lucide-react";
 
 import { DialogShell } from "@/components/app/dialog-shell.client";
 import { Mono } from "@/components/coditu/mono";
+import { useUrlWrite } from "@/lib/hooks/use-url-write";
+import { control, type ControlState } from "@/lib/interactive";
 import { NONE, type FilterSpec } from "@/lib/sprint-filters";
 import { TYPE_LABEL, WORK_ITEM_TYPES, type WorkItemType } from "@/lib/work-items";
 import { cn } from "@/lib/utils";
@@ -51,19 +52,19 @@ export function FilterPanel({
    *  is a menu of empty tables. */
   groupings: number[];
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  // PF-4. Twenty-odd pills, every one of them a server round trip that used to
+  // announce nothing. `state(key)` is what tells the ONE that was pressed to
+  // say so.
+  const { params, write: writeUrl, state } = useUrlWrite();
   const [draft, setDraft] = useState(params.get("q") ?? "");
 
   const write = useCallback(
-    (mutate: (next: URLSearchParams) => void) => {
+    (mutate: (next: URLSearchParams) => void, key?: string) => {
       const next = new URLSearchParams(params);
       mutate(next);
-      const query = next.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+      writeUrl(next, key);
     },
-    [params, pathname, router]
+    [params, writeUrl]
   );
 
   /** One value in one dimension, on or off. */
@@ -74,7 +75,7 @@ export function FilterPanel({
       write((next) => {
         if (updated.length) next.set(key, updated.join(","));
         else next.delete(key);
-      });
+      }, `${key}:${value}`);
     },
     [write]
   );
@@ -102,8 +103,9 @@ export function FilterPanel({
                 for (const key of ["type", "assignee", "reviewer", "grouping", "q"]) {
                   next.delete(key);
                 }
-              });
+              }, "clear");
             }}
+            {...control(state("clear"))}
             className="h-[38px] flex-1 cursor-pointer rounded-control border border-[var(--hairline-strong)] text-[13px] hover:bg-[var(--canvas)]"
           >
             Clear these filters
@@ -162,6 +164,7 @@ export function FilterPanel({
               key={type}
               on={types.includes(type)}
               onClick={() => toggle("type", type, types)}
+              state={state(`type:${type}`)}
               label={TYPE_LABEL[type as WorkItemType]}
             />
           ))}
@@ -173,6 +176,7 @@ export function FilterPanel({
               key={`a-${person.initials}`}
               on={assignees.includes(person.initials.toUpperCase())}
               onClick={() => toggle("assignee", person.initials.toUpperCase(), assignees)}
+              state={state(`assignee:${person.initials.toUpperCase()}`)}
               label={person.fullName}
               mono={person.initials}
             />
@@ -180,6 +184,7 @@ export function FilterPanel({
           <Pill
             on={assignees.includes(NONE)}
             onClick={() => toggle("assignee", NONE, assignees)}
+              state={state(`assignee:${NONE}`)}
             label="unassigned"
           />
         </Group>
@@ -190,6 +195,7 @@ export function FilterPanel({
               key={`r-${person.initials}`}
               on={reviewers.includes(person.initials.toUpperCase())}
               onClick={() => toggle("reviewer", person.initials.toUpperCase(), reviewers)}
+              state={state(`reviewer:${person.initials.toUpperCase()}`)}
               label={person.fullName}
               mono={person.initials}
             />
@@ -197,6 +203,7 @@ export function FilterPanel({
           <Pill
             on={reviewers.includes(NONE)}
             onClick={() => toggle("reviewer", NONE, reviewers)}
+              state={state(`reviewer:${NONE}`)}
             label="no reviewer"
           />
         </Group>
@@ -207,12 +214,14 @@ export function FilterPanel({
               key={grouping}
               on={groupingValues.includes(String(grouping))}
               onClick={() => toggle("grouping", String(grouping), groupingValues)}
+              state={state(`grouping:${grouping}`)}
               label={`grouping ${grouping}`}
             />
           ))}
           <Pill
             on={groupingValues.includes(NONE)}
             onClick={() => toggle("grouping", NONE, groupingValues)}
+              state={state(`grouping:${NONE}`)}
             label="ungrouped"
           />
         </Group>
@@ -246,17 +255,21 @@ function Pill({
   onClick,
   label,
   mono,
+  state = "idle",
 }: {
   on: boolean;
   onClick: () => void;
   label: string;
   mono?: string;
+  /** This pill's own wait, not the panel's. */
+  state?: ControlState;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={on}
+      {...control(state)}
       className={cn(
         "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-control border px-3 text-[13px]",
         "transition-[background-color,border-color,color] duration-[var(--dur-micro)]",

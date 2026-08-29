@@ -4331,3 +4331,908 @@ the import now writes into two buckets, so there is no longer a default to assum
 
 **What was rejected.** A separate `bucket` column, which is the tidier schema and a migration nothing
 else needs.
+
+---
+
+## 2026-08-28 · The visual evidence lives in three specs git does not carry
+
+**Decision.** `.gitignore:75` keeps `/e2e/*.local.spec.ts` out of the repository, and it stays that
+way. The consequence is stated here rather than discovered: the Fifth and Sixth passes of
+`08-GAP-MATRIX.md` rest on three files that exist only on the machine that wrote them —
+`e2e/home-shell.local.spec.ts`, `e2e/measures.local.spec.ts`, `e2e/touch-targets.local.spec.ts` —
+and **no cloud session, teammate or fresh clone can re-run a single row that cites them.**
+
+**What the arrangement buys.** These are diagnostics, not guards. A local spec can be written at the
+speed of the question it answers, assert a `getComputedStyle` at one width against one seeded
+database, be deliberately failed to find something, and then be thrown away — none of which a suite
+other people have to keep green can afford. `playwright.config.ts`'s `testIgnore` is the other half
+of it: without the gitignore they would still *run*, because `testDir` is a directory and gitignore
+is not a test filter, so a sweep somebody left red would turn `npm run e2e` red for everybody who
+never had the file. Nobody inherits an obligation for a measurement somebody took once.
+
+**What it costs, stated plainly.** `git clone && npm ci && npm run gate` reproduces every number in
+this audit except the visual ones. A reviewer can re-run the unit fixtures in `tests/home.test.ts`
+and every committed spec; they cannot re-run the cell that reads **16 passed**. For anybody but this
+Mac those cells are not evidence — they are testimony. An audit whose strongest rows are the ones
+nobody else can check has the problem backwards, and writing that down is the minimum honest
+response to it.
+
+**Which rows depend on it today.**
+
+*(Updated 2026-08-28. The table below is what remains after the promotion recorded under
+"What was rejected" — see the note that follows it. The decision itself is unchanged: the three
+files stay out of git.)*
+
+| Depends on | Rows |
+|---|---|
+| `e2e/home-shell.local.spec.ts` | **V-B1, V-B2, V-B3, V-B7, V-C2, V-C3, V-C4, V-C5** entirely; **V-B5** for the sprint-card alignment only — the 320px track itself is committed; **V-B6** for the rendered rows of "Due this sprint" only — the tablist contract itself is committed; **V-B4** for its rendered half only, the fixtures behind it being in the committed `tests/home.test.ts`. Also the Sixth pass's three whole-run rows: `16 passed` three times over, the eight-width light-and-dark sweep, and the two-context cross-route presence check |
+| `e2e/measures.local.spec.ts` | **nothing.** V-A1 – V-A15 are `e2e/navigation.spec.ts › the surfaces carry their measure` now |
+| `e2e/touch-targets.local.spec.ts` | **V-G7**, and the Sixth pass's aggregate 21-route coarse-pointer sweep |
+
+Now committed, and citing a spec a clone can run:
+
+| Row | Committed spec |
+|---|---|
+| **V-A1 – V-A15** | `e2e/navigation.spec.ts › the surfaces carry their measure › <route> is capped at <n>px, and renders a main landmark` — fifteen tests at 1920 |
+| **V-B5**, the 320px track | `e2e/navigation.spec.ts › the surfaces carry their measure › Home is one column below 1180 and a 320px aside above it` |
+| **V-B6**, the tablist contract | `e2e/a11y.spec.ts › keyboard contracts a scanner cannot see › My work is a real tablist with a panel and roving focus` |
+| **V-C6** | `e2e/a11y.spec.ts › keyboard contracts a scanner cannot see › the tablet drawer traps, restores, locks and closes` |
+
+Everything else in both passes cites a committed spec, a committed unit test, `npm run budgets`, or a
+commit SHA, and survives a clone.
+
+**What was rejected.**
+
+*Committing the three files as they are.* They would join `npm run e2e`, which makes them guards:
+somebody would have to keep `font-size: 26px` green through the next type change, and a diagnostic
+written to fail on purpose would break the gate. That is a real cost and it buys reproducibility of
+the *file*, not of the *measurement* — the specs read a seeded local database on a dev server at a
+fixed viewport, and CI has none of those.
+
+*Pasting the runs into `docs/`.* A transcript is not a re-run. It moves the same testimony into a
+file where it looks more official, which is worse.
+
+*Promoting the assertions into the committed suite.* This is the right long-term answer and it is a
+different piece of work: the durable claims (the 320px column, the tablist keyboard contract, the
+drawer's focus trap, the fifteen measures) belong in `e2e/navigation.spec.ts` and `a11y.spec.ts`
+where the gate already runs them, and the throwaway ones do not belong anywhere. Named here so that
+somebody chooses it rather than defaults into it.
+
+**Chosen, 2026-08-28.** All four named claims are in the committed suite — the second table above
+says which spec holds each — and the dependency table has been reduced accordingly. Three notes on
+what that did and did not settle:
+
+- **The throwaway assertions stayed put**, which is the half that makes this work. The 26px
+  greeting, the four quick-action labels, the legend's `href`s, the jade dot's exact `rgb`, the
+  member count, `Due this sprint`'s scoping against live rows, `Online now`'s two-context presence
+  check, and the coarse-pointer sweep are all still local. A gate held to `font-size: 26px` is a
+  gate held to somebody's afternoon.
+- **V-B5 and V-B6 each moved in half.** `grid-template-columns` ending in ` 320px` above 1180 is committed; that
+  the sprint card sits inside `[data-home-left]` with its top within 1px of `Online now`'s is not,
+  because it is an assertion about one arrangement of one screen rather than about a number the
+  design system owns. V-B6 the same way: the tablist's keyboard contract is committed, while the
+  check that "Due this sprint"'s *rendered* rows sit under the active sprint's path stays local —
+  the predicate behind it is already proved by six fixtures in `tests/home.test.ts`. Both rows are
+  honest about which half a clone can re-run.
+- **The promoted tests are chromium-only**, gated on `isMobile`. Both files run on three projects,
+  and a 1920 measure taken on a Pixel 7 emulation measures nothing the desktop run did not, at
+  three times the wall clock. The phone shape of the same screens is `mobile.spec.ts`'s subject and
+  stays there.
+
+---
+
+## 2026-08-28 · One thing sends mail, and it is an admin's invitation
+
+**Reverses:** the standing decision that nothing in this application sends email. That decision is
+quoted in `app/auth/callback/route.ts`, in `lib/actions/auth.ts`, and in a passing test named
+`nothing in the repository sends mail`. It was the right call when recovery was the only reason to
+send anything and an admin reading out a temporary password was a cheaper answer than a mail
+dependency the team cannot operate.
+
+**What changed.** PF-10 deleted the sign-up form. It was correct — a four-person internal tool that
+offers to make you an account describes something else — and it left the application with **no path
+at all** from *on the allowlist* to *has an account*. `setTemporaryPassword` needs a profile that
+already exists. `/auth/callback` had no sender. Onboarding the fifth person meant an admin writing a
+row by hand. That is PF-14, and it is an onboarding regression rather than a missing feature.
+
+**Decided.** `lib/actions/allowlist.ts::sendInvitation` calls Supabase's
+`auth.admin.inviteUserByEmail` for an address that is **already** on `allowed_emails`. One caller,
+one purpose. `e2e/password.spec.ts` no longer asserts that nothing sends mail — it asserts that
+**exactly one thing does**, names the file, and still refuses `resetPasswordForEmail` and
+`signInWithOtp` by name. A grep that permits one call site and counts it is a stronger guard than
+one that permits none and gets deleted the day somebody needs a sender.
+
+**The gate did not move.** `sendInvitation` reads `allowed_emails` and never writes it — an address
+gets on that list by an admin deciding it should, a separate act with its own row and its own
+`invited_by`. The real refusal is still `enforce_email_allowlist`, the BEFORE INSERT trigger on
+`auth.users`, which `inviteUserByEmail` runs into like anything else. `e2e/invite.spec.ts` proves
+that by skipping the application entirely: it asks GoTrue directly with the **service-role key** and
+the invitation is still refused, with no `auth.users` row left behind. There is still no form a
+stranger can reach.
+
+**Rejected: adding the address to the allowlist as part of sending the invitation.** It is one
+fewer click and it makes the list grow as a side effect of a button whose label says nothing about
+it. Two deliberate acts, in that order.
+
+**Rejected: `generateLink` and sending the mail ourselves.** That is the mail dependency the
+original decision refused, and it would need a transport, a template and a bounce story for one
+message a quarter.
+
+## 2026-08-28 · An admin invitation comes back in the fragment, so a page finishes what the route started
+
+`app/auth/callback/route.ts` handles PKCE: the link returns `?code=`, the server exchanges it. Its
+own comment warned that "the older implicit flow put the token in the URL *fragment*, which never
+reaches the server at all — worth knowing if a link ever arrives with `#access_token=` instead."
+
+It does. An **admin-generated invitation has no PKCE verifier** — nobody ran `signInWithOtp` on the
+recipient's device, so there is no challenge to answer — and GoTrue therefore answers with the
+implicit flow:
+
+```
+/auth/callback#access_token=…&refresh_token=…&type=invite
+```
+
+The route saw no `code`, concluded the link was dead, and sent the invited person to
+`/login?error=link`. Measured, not reasoned: the first run of `e2e/invite.spec.ts` failed with that
+exact URL in its navigation log.
+
+**Decided.** When the callback finds neither a `code` nor an error it hands off to
+`/auth/complete?next=…` instead of declaring the link dead. The fragment survives that hop because
+a redirect to a target carrying no fragment of its own leaves the original in place — specified
+behaviour, not a browser accident, and the only reason this can be a second page rather than a
+rewrite of a route that is already tested. `/auth/complete` re-applies `safeNext` rather than
+trusting the value our own route wrote, because by the time it comes back it has been through a URL
+a person can edit. A bare visit to `/auth/callback` with neither still ends at `/login?error=link`,
+one redirect later, and `the callback never redirects off this site` still passes unchanged.
+
+**Rejected: `createBrowserClient().setSession()` in a client component.** The obvious fix, and this
+application has **no** `createBrowserClient` anywhere on purpose — `lib/supabase/env.ts` explains
+that even zod is too heavy to ship for this. It would put `@supabase/ssr` and `supabase-js` into a
+route's bundle to run four lines once. The tokens go to a Server Action instead, which already has a
+client and writes the session cookies where every other one in this app is written. Next verifies an
+action's origin for us, and invariant 3 asks for an action anyway.
+
+**Rejected: changing the GoTrue email template to a `{{ .TokenHash }}` link and calling
+`verifyOtp`.** It is arguably the more modern shape and it is configuration, not code — it needs a
+change in the hosted project that this branch cannot make or verify.
+
+## 2026-08-28 · A spec's teardown deletes only the rows it created
+
+Three files have now been fixed for one bug with one shape, and it is worth writing down as a rule
+rather than as three fixes. `inline-edit.spec.ts` deleted every time entry on its item and took
+**12.0 h** of the sprint with it. `reliable-writes.spec.ts` deleted every comment and every time
+entry on `COD-239` and took **60 minutes and one imported picture**. `composer.spec.ts` deleted
+every comment on `COD-240` and took another picture. `history.spec.ts` deleted all **seven** of
+`COD-235`'s imported revisions and never put them back.
+
+Each looked correct in isolation. Each is destructive in company, and the damage is **permanent for
+the rest of the run** — a later spec reads a database that no longer matches the seed, fails for a
+reason that has nothing to do with what it is testing, and passes when run alone. That is exactly
+the signature the ninth pass called "a second writer somewhere" and could not find.
+
+**Decided.** A spec that deletes rows it did not create is a bug, in the same way a leaked file
+handle is. The pattern, and all four now use it:
+
+```ts
+let seeded: string[] = [];
+test.beforeAll(async () => { seeded = (await query(`select id::text …`)).map(r => r.id); });
+// then
+`delete from … where <the spec's scope> and not (id::text = any($1::text[]))`
+```
+
+**The counts move with the delete.** `reliable-writes` asserts "one comment, not two" and
+`composer` asserts "one comment"; both now count the same bounded set. The claim is unchanged — *this
+file wrote one row* — rather than relaxed to accommodate the seed, which would have been the easy
+fix and a weaker test.
+
+**The exception, and it is named:** `version-history.spec.ts` clears its own item's revisions
+deliberately, because it is the one file that asserts absolute `revision_no` values and cannot
+inherit a numbering. It says so where it does it. `history.spec.ts` does not assert version numbers
+and therefore does not need the privilege.
+
+**Rejected: resetting the database between spec files.** It is the obvious fix and it turns a
+twenty-five minute suite into an hour of `supabase db reset`. The seed is a shared, read-mostly
+fixture and the rule above is what makes that work.
+
+## 2026-08-28 · PF-2's deliberate red leaves `npm run test` and becomes a check of its own
+
+`tests/notion-roundtrip.test.ts` is PF-2's specification made executable and it is red on purpose.
+For a day that was a good idea. Then `npm run test` reported **480 passed, 1 failed** every time it
+ran, and a command that is always red cannot answer the one question it is asked — *did I just break
+something?* This repository has already paid for that lesson once: `scripts/gate.sh`'s own header
+records a production-only bundle assertion that failed quietly for weeks because nothing ran it, and
+everybody had learned to read past the noise.
+
+**Decided.** `vitest.config.mts` excludes the file by name; `npm run test` is **480 passed, 0
+failed**. The red moves to `npm run roundtrip` (`scripts/roundtrip.sh`), which runs the same test
+through `vitest.roundtrip.config.mts`, still fails, and still prints the four-line drift — every
+field that did not survive the round trip, each named with the section of
+`docs/11-NOTION-ROUNDTRIP.md` that explains it. That output is PF-2's build checklist and it has not
+been weakened by a character.
+
+**The check is inverted, which is what makes it a check.** The script exits **0** while the test
+fails, and **1** the day it passes — with instructions to take the exclusion out and close PF-2. It
+is a step on `npm run gate`. Both branches were proven by pointing the config at a passing file and
+watching it exit 1.
+
+**A guard, because the first version was wrong.** `--exclude` on the vitest CLI is *appended* to the
+config's list rather than replacing it, so naming the file on the command line matched nothing,
+printed "No test files found" and exited 1 — indistinguishable from the test failing, and it
+reported a green PF-2. The script now refuses that output explicitly, and the second config is why
+it never has to.
+
+**Rejected: `it.fails()`.** It would keep the file in the suite and go green, and it would swallow
+the drift message, which is the only part of this test anybody will ever read.
+
+**Rejected: `it.skip()` with the ticket in its name.** A skipped test does not run, so the day the
+spec and the schema disagree nobody finds out.
+
+## 2026-08-28 · Home gets a heading hierarchy, and the section labels are the headings
+
+Home rendered **one heading** — the `h1` greeting — and no `h2`–`h6` at all. Its seventeen section
+labels are `Mono size="meta"` elements: styled text, correct to the pixel, and structurally
+invisible. A screen-reader user landing on `/app` could not list the page's sections, jump between
+them, or tell "my work" from a caption.
+
+**Decided.** The labels *are* the headings, so they carry the level rather than being replaced.
+`Mono` already takes `as`, so `<Mono as="h2">` changes the tag and nothing else — Tailwind's preflight
+already resets a heading's size and margin to inherit, so not one pixel moves. `my work`, `mentions
+& discussion`, `Online now`, `recently opened` and `Activity · {project}` are `h2`; `Goal`, `Status`
+and `Hours` are `h3` inside the sprint card.
+
+**The sprint card's heading is the sprint's NAME, not its eyebrow.** `active sprint · MEINEvim`
+names the *kind* of card; `Sprint — Week 17` names this one. The name is wrapped in an `h2` around
+the link it already was, which is what `e2e/home.spec.ts` has always asked for and never got.
+
+**Rejected: `aria-label` on the sections.** It would announce a region without giving the page an
+outline, and an outline is what a reader uses to move.
+
+## 2026-08-28 · Two strings on Home change, and one of them diverges from the design bundle
+
+`e2e/home.spec.ts` has asked for both since before Home was redesigned, and the redesign quietly
+dropped them. Rather than rewrite the assertions to match whatever the page happens to do now — which
+would lock in the loss — the page says them again.
+
+**`· ended`.** The sprint header used to read *Sprint — Week 17 · ended*. The redesign put the state
+in an amber chip with nothing joining it to the name, so it read as a badge about something else.
+The separator is back, as its own faint element before the chip, and it is the same `·` the eyebrow
+above and the date line below already use. `getByText("· ended")` matches the wrapper, which was
+measured rather than assumed: Playwright's text engine matches the smallest element whose combined
+text contains the string, so the wrapper matches and the whole header row does not.
+
+**`Assigned to me`, and this one diverges from the bundle.** `Coditu Workspace.dc.html` labels the
+tab `Assigned`. `/app/my-work` — the screen that tab links to, listing the same rows — has always
+called the same column `Assigned to me`. Two screens naming one list two ways is the kind of small
+inconsistency that makes somebody stop and check whether they are the same list. `CLAUDE.md` gives
+the bundle the casting vote on **numbers**; this is a label, and the tie-break it asks for is
+correctness. A tab also has to stand up out of context — a screen reader announces it without the
+`my work` heading above it — and `Assigned` alone does not.
+
+The count moved into the same element with its separator (`· 3`), because the control's own text has
+to read as one phrase for either the reader or the test to find it.
+
+## 2026-08-28 · PF-5 averages over working weeks, not calendar weeks
+
+"Average load from hours logged" needs a denominator, and the obvious one is wrong on this project's
+own data. MEINEvim's time entries span **39 calendar weeks** and fall in **6** of them: the import
+dates its first batch to the day it ran and the rest to the sprints they belong to, so the 33-week
+hole in between is an artifact of when rows were written, not of anybody's week. Dividing by 39
+makes every number six times too small and describes a team that barely works.
+
+**Decided.** The denominator is **working weeks** — weeks in which somebody, anybody, logged time —
+counted from each person's own first working week to the last one in the window. Both of the awkward
+cases fall out of that instead of being special-cased: a **zero-hour week** (the team worked, this
+person did not) is in the denominator and contributes nothing, which is what average load should
+say; and somebody who **joined mid-sprint** starts counting at their own first week and is not
+charged for the ones before they arrived. `tests/home.test.ts` holds both, plus the empty case.
+
+**The running week is excluded from the average and included in the total.** A week that has not
+finished is not a week's work, and counting it would make every average fall on Monday and recover
+by Friday — a figure that moves with the day of the week is not one anybody can act on. It is
+reported separately as `partialWeekMinutes`. `cumulativeMinutes` includes it, because a total that
+leaves rows out is not a total.
+
+**No complete week means `null`, not `0`.** Somebody in their first partial week has no average, and
+`0.0 h/week` would be a claim about their pace that the data cannot support. Home renders `no full
+week yet`.
+
+**Rejected: weeks in which THIS person logged.** It flatters absence — one full week in six would
+report a full week's average.
+
+## 2026-08-28 · PF-3 orders projects by the work, not by the client's name
+
+"EVIM is the main work: most prominent, easiest to reach." The literal implementation — sort
+`meinevim` to the top — compiles a client's name into the ordering of a product meant to run any
+client's work, and it is wrong the first week EVIM finishes and something else starts.
+
+**Decided.** `byProminence` in `lib/projects.ts`, applied in `listProjects()` — which every screen
+in the application reads from — and to the command palette's own list, so the first project under
+Cmd-K is the first project in the sidebar. The rule is: **a running sprint wins; then the most
+sprints behind it; then the alphabet.** Today that puts MEINEvim first because MEINEvim is where the
+work is, and `tests/project-prominence.test.ts` proves the rule names no project by moving the
+active sprint to another one and watching the order follow.
+
+**The archived leak, which was the real finding.** The ledger's triage said nothing reads
+`is_archived`. That was wrong — `listProjects()` has filtered it since the column existed, and
+`/app/projects` puts archived projects behind a deliberate filter. The one surface that did **not**
+was `lib/data/palette.ts`, which builds its own query: an archived project still turned up under
+Cmd-K, with its sprints, and with every story in them. All three of its queries carry the filter
+now, and the items one reaches it two joins up (`sprints.projects.is_archived`) so the rows never
+leave the database. A project that is out of the sidebar and out of Home and still first in search
+has not been archived.
+
+**Not decided here: which projects should be archived.** That is a statement about engagements and
+it is Mohamed's to make. `/app/projects` → project admin has the control.
+
+## 2026-08-28 · `setWorkItemComponents` accepts 200 components, not 24
+
+PF-7 asks for "select all components at once in a story (global changes)". MEINEvim's registry has
+**40** live components and the input schema capped `componentIds` at **24**, so the feature's whole
+purpose — a change that touches every component — was refused by validation before it reached the
+database.
+
+**Decided.** 200. The cap exists to refuse an absurd payload, not to express a product limit, and a
+cap a feature cannot satisfy is a bug with a good excuse. The registry is synced from the delivery
+repository and only ever grows, so the new number leaves room rather than tracking it.
+
+**The write was already one write.** `setWorkItemComponents` takes the complete set and computes the
+difference itself, and the multi-picker accumulates a draft and commits once on close — so forty
+ticks and one tick cost the same single Server Action. `e2e/component-select-all.spec.ts` counts the
+POSTs rather than the rows, because a row count cannot tell one call from forty.
+
+## 2026-08-28 · The peek's scroll jump is the App Router, and `scroll={false}` is the fix
+
+PF-9 carried "clicking a story scrolls down oddly" for three passes. The first pass proved the
+movement it measured was **Playwright** scrolling the link into view through CDP, tried
+`scroll={false}` on the item links, measured no change, and reverted it — a correct process run
+against a number that was the instrument. With `dispatchEvent` the harness stops moving the page,
+and what is left is real:
+
+| project | moved on five opens |
+|---|---|
+| chromium 1280×720 | `[68, 0, 0, 0, 0]` |
+| mobile-safari 393×659 | `[0, 0, 0, 0, −1]` |
+| mobile-chrome 412×839 | **`[1970, 0, 0, 0, 0]`** |
+
+**First open only. Downward. To the document's maximum scroll** — 768 of 768 at 1280×720, 2670 on
+the phone. Never on WebKit. That is Mohamed's report, on a phone, at last reproduced.
+
+**Two hypotheses were measured and thrown away before the right one.** Chrome's scroll anchoring:
+`overflow-anchor: none` on `html, body` changed the number by nothing, `[68,0,0,0,0]` either way.
+The dialog's `focus()`: forcing every `HTMLElement.prototype.focus` to `{ preventScroll: true }`
+changed it by nothing either.
+
+**Decided,** on a stack trace rather than on a theory. Every scroll API hooked, the first open
+recorded:
+
+```
+at HTMLHtmlElement.set [as scrollTop]  ← 0
+at dontForceLayout
+at O.handlePotentialScroll
+at O.componentDidMount
+```
+
+and then `scrollIntoView` from the same frame. It is Next's own `ScrollAndFocusHandler`, bringing
+the newly-rendered `@modal` segment into view on a soft navigation, animated by
+`html { scroll-behavior: smooth }` over ~165 ms. `scroll={false}` on the three links that open a
+peek — the table row, the card and the board tile — is exactly the prop that turns it off. Measured
+after: `[0,0,0,0,0]` on all three projects, document and visual viewport both.
+
+It is the first open only because every later one comes out of the router cache with its segment
+already mounted, and never on WebKit because Safari does not animate that scroll.
+
+**`e2e/peek-scroll.spec.ts` is a real spec, not a `.local` measurement**, and it is named in
+`ON_A_PHONE`: the claim is now an acceptance PF-9 states, it holds on three engines, and the phone
+is the configuration where it was broken.
+
+## 2026-08-28 · Smooth scrolling is turned off while somebody is writing
+
+PF-6 said "writing must be instant like Notion". The keystroke was measured at **12.3 ms** median
+for Enter in a to-do, which is inside a frame, and the report did not reproduce. What does
+reproduce is that **you cannot see what you are typing**.
+
+Thirty to-do items into the sprint notes, production build, 1440×900:
+
+| | after 10 items | after 20 items | 0.7 s after typing stops |
+|---|---|---|---|
+| as shipped | caret **419 px below the fold** | **856 px below** | back in view |
+| `scroll-behavior: auto` | on screen, 878 px | on screen, 878 px | on screen, 878 px |
+
+Chrome only — desktop and mobile. WebKit keeps the caret in view either way, which is why this
+survived a WebKit-shaped inspection.
+
+**The mechanism.** A browser scrolls the caret back into view on every keystroke. With
+`scroll-behavior: smooth` on the scrolling element it has to *animate* that, and at typing speed
+each keystroke restarts an animation that never arrives. The same declaration made PF-9's jump look
+like an application bug; here it is one.
+
+**Decided.** `html:has(.ProseMirror:focus) { scroll-behavior: auto; }`. Smooth stays everywhere
+else, including the anchor links it was added for. Measured after, on all three engines: caret on
+screen before Enter and after it, `caretMoved: 0`, and the document moves 46–49 px — one line, which
+is what following a caret is supposed to look like.
+
+**`:has()` rather than a class toggled from a focus listener.** This is a statement about a state
+the document already knows, and the app shell has no bytes to spend on JavaScript that reads it.
+
+**Also found, and fixed with it:** `sprint-notes.client.tsx` had PF-4's `control()` spread on
+**Cancel** and left **Publish** — the button that actually does the work — reporting ad-hoc with
+`disabled` + `aria-busy`, which is the spelling that sweep existed to remove. The spread is on
+Publish now; Cancel keeps native `disabled`, which is the contract's own answer for a control that
+triggers nothing.
+
+**The save indicator was measured and is fine.** Click → `Sending…` at 9–15 ms, → `Saved` at
+102–202 ms, gone at ~2.7 s, on all three engines. Both states really paint; nothing is silent.
+
+## 2026-08-28 · The backup writer may read everything and write nothing
+
+Mohamed answered all six infrastructure questions: no Pro/PITR, 24-hour RPO, Cloudflare R2
+Standard plus a local copy, GitHub Actions cron, email plus a freshness canary, 30 nightly +
+12 monthly sets, and an automated monthly integrity drill. The bin remains unbounded; an
+infrastructure retention decision does not silently become a product deletion policy.
+
+**The off-site choice is accepted but not active.** R2's current Standard allowance is free
+at this size, but activation is a subscription checkout and Cloudflare's billing profile
+requires a primary payment method. There are also zero GitHub repository secrets. Mohamed's
+no-card rule wins: the code and local proof proceed, the provider activation stops, and no
+screen claims a 24-hour RPO that does not yet exist.
+
+**The writer cannot become the incident.** `coditu_backup` has LOGIN, `pg_read_all_data` and
+BYPASSRLS, with no password in the migration and no write privilege. BYPASSRLS is necessary:
+RLS can otherwise turn a successful dump into an empty one. It grants no write. The migration
+asserts both directions against `public.work_items` and every public/auth/storage table.
+
+**Supabase CLI is kept, and its escalation is not.** CLI 2.109.1 generates the correct
+platform exclusions and filters for separate role, schema and data dumps, but it always adds
+`--role "postgres"`; a real run as `coditu_backup` fails at `SET ROLE postgres`. The backup
+script generates the CLI pipeline with a placeholder credential, requires exactly one such
+line, removes only that line, and executes the rest under the dedicated URL. A future CLI
+shape change fails closed.
+
+**Public-key encryption is deliberately asymmetric.** GitHub holds only
+`ops/backup-recipient.txt`; the corresponding private key is mode 0600 at
+`/Users/motamer/.config/coditu/backup.agekey` and needs one offline copy. GitHub can create a
+backup it cannot decrypt. The monthly automated drill therefore verifies encrypted SHA-256,
+size and counts; full decryption remains Mohamed's quarterly operation.
+
+**Storage is a first-class half of the set.** The proved local archive contains 115 objects
+from three buckets, not only the 5,245 database rows. During restore, recursive `cp` is
+required: once `storage.objects` has been restored, `sync` sees the metadata and skips the
+missing bytes. That exact false success was reproduced before the verifier was corrected.
+
+**Evidence.** Archive `2026-08-28T204500Z` is 16,603,288 encrypted bytes, SHA-256
+`9b2c78c319da218e8b1b89d255852f58e3ea071a66c4b5051fd36d7f4e87bb16`. A clean isolated
+Supabase stack restored **130/130 table counts, 5,245/5,245 rows and 115/115 Storage
+objects**, then re-downloaded byte-identical objects. A local S3-compatible target accepted
+the encrypted artifact and metadata; retention was seeded above its limits and finished at
+exactly **30 nightly + 12 monthly**. No hosted database, R2 account or GitHub secret changed.
+
+## 2026-08-28 · The backup alarm must survive the scheduler it watches
+
+The freshness canary runs independently from the nightly writer and reads the newest R2
+object rather than trusting a workflow conclusion. It fails closed after **26 hours**, for
+no object, a malformed key, an empty archive or sidecar, missing SHA-256 metadata, or an
+implausibly future timestamp.
+
+An hourly successful canary pings a UptimeRobot heartbeat. The heartbeat is the external
+watcher: if every GitHub schedule stops, check-ins stop and Mohamed receives the email
+outside GitHub. The unique heartbeat URL is a GitHub secret because a third party could use
+it to forge health. The free monitor is not activated before the first R2 upload and pushed
+workflow exist; activating it now would knowingly create a false incident.
+
+## 2026-08-28 · Scheduled integrity and human restore are different controls
+
+The monthly job gets read-only R2 credentials and no decryption key. On day 02 it downloads
+the newest day-01 ciphertext, recomputes its SHA-256 and size, compares the monthly tier with
+the matching nightly tier, and validates the sidecar's database/Storage counts. This catches
+truncation, corruption, partial sets and retention-tier divergence without making the
+recovery plaintext available to GitHub.
+
+That is an **integrity drill, not a restore**. Mohamed performs the decrypt-and-restore
+quarterly, on the first Saturday of January, April, July and October, in an isolated local
+Supabase stack. The private key remains on his Mac/offline copy. Only that drill proves the
+SQL and Storage payload can be rebuilt; its measured duration still does not include a
+hosted provider replacement or DNS cutover and therefore is not an RTO.
+
+## 2026-08-28 · Production deploys belong to the release gate, not the Git hook
+
+Vercel Git auto-deployment is disabled in `vercel.json`. A `main` push can reach production
+only from the CI `deploy` job after the blocking checks succeed. The job uses a pinned Vercel
+CLI, builds with the project's Production environment and fails when any of the token/team/
+project secrets is absent; absence is not a green skip.
+
+Browser E2E remains visible but report-only for a measured window. The last 20 existing
+`main` CI runs were not green, the newest stopped at database tests, and this workflow shape
+has run remotely zero times. After **10 consecutive green `main` runs of the same browser
+job**, it becomes a deployment dependency; a failure resets the count. The earliest review
+is 2026-09-07, but elapsed dates never substitute for ten results.
+
+This is implemented locally, not activated. GitHub's `Production` environment currently has
+no `VERCEL_TOKEN`, `VERCEL_ORG_ID` or `VERCEL_PROJECT_ID`, and this branch is neither pushed
+nor merged. The existing Vercel Git integration therefore still auto-deploys `main` until
+this configuration reaches it; no production setting or deployment is claimed changed.
+
+## 2026-08-28 · Code does not deploy on the promise that migrations probably ran
+
+The deploy job now performs a read-only hosted schema preflight before the Vercel build. Its
+contract is generated from the committed Supabase types and migration filenames, not a
+hand-maintained list. It checks every public table/view column, function input and table
+return field, enum label, required Storage bucket, and all local migration versions.
+
+The check also proves it reached the intended project over SSL as the BYPASSRLS but
+non-writing `coditu_backup` role. A service-role or owner URL would make the check itself an
+unnecessary production writer; an anonymous URL cannot inspect the catalog. The dedicated
+role is the narrow middle.
+
+Current remote evidence says the fail-closed path matters: hosted ends at migration
+`20260827130000`, while local also has `20260828120000` and `20260828140000`. Those two are
+not silently tolerated. Migrations must run before code, and no hosted migration was applied
+in this block.
+
+## 2026-08-28 · Production moves only after the candidate answers as the checked commit
+
+The deploy is a two-phase state change. Vercel first receives a Production-targeted prebuilt
+deployment with `--skip-domain`; its protected immutable URL is tested through `vercel curl`,
+which can cross deployment protection without making that URL public. Only the passing
+candidate is promoted. A post-promotion check then comes through the same public origin users
+reach and requires both a non-error response and an exact `GITHUB_SHA` in
+`/build-health.json`.
+
+The health marker is written into `.vercel/output/static` **after** `vercel build`. It is not
+a mutable application answer and it does not depend on Supabase: it identifies exactly which
+checked artifact reached the edge. The route smokes still cover `/login` and the authenticated
+Recovery Centre redirect, so the marker is not mistaken for a whole-application health test.
+
+Before staging, the job resolves and records the deployment currently serving Production.
+After promotion begins, any non-zero command, 4xx/5xx, timeout, wrong commit or redirect away
+from the configured origin rolls back to that exact id and checks the public routes again.
+`release_promoted` is set before the promote call: a provider command can move domains and
+then time out, so a non-zero response is ambiguous and must take the recovery path. Deploy
+jobs are serialized because two independently correct rollbacks can be wrong when they race.
+
+The external watcher is independent again: UptimeRobot Free will check the public `/login`
+page every five minutes for Coditu-specific text and email Mohamed. A plain HTTP 200 monitor
+was rejected because Vercel's own login can return 200. It is not created until a real public
+production origin exists and passes; activating it against today's protected/unknown URL would
+manufacture an incident rather than monitor one.
+
+## 2026-08-28 · The Recovery Centre believes one canary row, and time can revoke it
+
+The page does not receive R2 credentials and GitHub does not receive a service-role key. After
+reading R2, the canary sends its validated sidecar through `/api/backup-health` with one
+high-entropy bearer capability shared only by GitHub and Vercel. The server maps that request
+to `record_backup_health`, a service-role-only RPC that can upsert one singleton and refuses
+to replace newer evidence with an older object. An endpoint credential can therefore report
+this one fact and cannot become a general database writer.
+
+The sidecar is downloaded, not merely `HEAD`ed. Its backup id, archive name, encrypted bytes
+and SHA-256 must match the R2 object; database table/row and Storage bucket/object counts must
+be non-negative integers. The canary's 26-hour threshold includes scheduler/alerting grace.
+The product objective remains 24 hours: a 25-hour object may still let the canary produce a
+specific alert, but the screen calls the objective missed.
+
+Absence is the initial state and renders no infrastructure number. A present row earns only
+dated evidence. The page recomputes two clocks on every request: a canary report older than two
+hours is stale, and an object older than 24 hours misses the RPO. Either turns the card amber
+without waiting for another job to write. Counts and size are described as sidecar evidence,
+never as a restore; retention, monthly integrity, decryption and RTO remain explicitly separate.
+The sentence **“Version history is not a backup”** is unchanged.
+
+## 2026-08-28 · A red browser assertion does not earn a product rollback
+
+The nine stable browser failures were inspected from the page inward. None is a current product
+defect: each asks the current app to expose a retired location, a hidden disclosure without opening
+it, a status absent from the real seed, an obsolete payout total, or one document surface while its
+selector chose another. The rendered behaviors behind the four page mismatches pass when exercised
+through their current routes and controls.
+
+**Decision.** Do not reintroduce inline sprint notes, unfold the burn-up, remove `PageShell`, show
+filters with no matching work, flatten a mixed-surface history, or change a correct earnings delta to
+make those assertions green. Do not quietly loosen or commit rewrites of the E2E specs either. They
+remain visible in the report-only browser job until their contracts are deliberately rewritten as a
+separate test-maintenance change.
+
+**Why.** A test is evidence only while its preconditions still describe the product. Preserving an
+obsolete assertion by regressing a measured page would turn the gate into an incentive to make the
+application wrong. The local-only probes record the current behavior without promoting diagnostic
+code into the repository.
+
+## 2026-08-28 · Do not turn backup evidence into a free-plan keepalive
+
+Supabase may pause a low-activity Free Plan project over a seven-day window. The selected keepalive
+proposal is a dedicated fixed-output database health read monitored outside Supabase. It is not the
+backup canary report.
+
+**Why.** `/api/backup-health` means one exact R2 recovery set was independently read and validated.
+Calling it without that evidence to manufacture database activity would keep the project awake by
+making the Recovery Centre lie. Availability and recoverability are separate controls even when one
+scheduled request could technically serve both.
+
+## 2026-08-29 · The Storage leg copies over REST with the service-role key, not S3
+
+`scripts/backup.sh` gains `SOURCE_STORAGE_MODE`. `s3` is unchanged and remains the default.
+`rest` lists objects from `storage.objects` — which the read-only role can already see — and
+downloads each one from `/storage/v1/object/<bucket>/<name>` with the project's service-role key.
+
+**Why.** Supabase Storage S3 access keys can only be created by a human in the dashboard; the
+Management API has no endpoint that mints them, probed on 2026-08-29 (`storage/credentials` and
+`storage/s3-credentials` both 404, `config/storage` confirms the S3 protocol is enabled). Under
+an autonomy contract where no answer is coming, that made the S3 path unreachable and the whole
+Storage half of the first hosted backup unreachable with it.
+
+**What it costs, stated rather than buried.** The service-role key can WRITE, where
+`coditu_backup` deliberately cannot. The database leg's least privilege is intact; the Storage
+leg's is not. That is a real weakening and the comment in the script says so. It is accepted
+because the alternative on 2026-08-29 was **no Storage copy at all**, and 135 objects — every
+attachment and comment image in the workspace — are in no database dump by design. Revisit the
+moment somebody with dashboard access can mint an S3 key pair; the `s3` mode is still there and
+still the default.
+
+**Rejected: skipping Storage for the first backup.** The proposal has said since it was written
+that database backups exclude Storage files. A first restore point that silently omits every
+image would be exactly the "failure that completed successfully" the read-only role migration's
+own header warns about.
+
+## 2026-08-29 · One curl per bucket, bounded, with the key off the process list
+
+The first hosted Storage run spawned one `curl` per object. It sat on a single 62 KB PNG for six
+minutes with nothing on stdout, and the service-role key was an argument of all 135 invocations,
+visible to anything that can run `ps`.
+
+**Decision.** One `curl --config` per bucket. The auth header is written once into a mode-0600
+file inside the mode-0700 temp tree the exit trap already removes, so it is never an argument.
+Every request carries `connect-timeout 15`, `max-time 300`, `retry 3` and `fail-early`; each
+bucket prints its object count before it starts.
+
+**Why it matters beyond tidiness.** An unbounded request in a scheduled job does not fail — it
+hangs, and a hung nightly is indistinguishable from a nightly that has not run yet until the
+freshness canary fires a day later. Bounding it converts a silent stall into a loud failure. The
+TLS handshake to Storage costs several seconds on this connection and is now paid three times
+instead of 135: the same 135 objects that had not finished in six minutes completed inside a
+225-second end-to-end run.
+
+## 2026-08-29 · The hosted database is reached through the session pooler, not the direct host
+
+Every runbook in this repository gives the connection string as
+`db.hayfsvsepgfescojesbd.supabase.co:5432`. That host publishes **only an AAAA record**, and the
+machine this work runs on has no IPv6 route — `getaddrinfo` fails outright.
+
+**Decision.** Use `aws-0-eu-central-1.pooler.supabase.com:5432` (the **session** pooler; the
+6543 port the Management API advertises is transaction mode and will not carry migration DDL),
+with the username `<role>.<project-ref>`. The runbooks now say so.
+
+**Why this is worth an ADR.** The failure is a connection timeout with no explanation, and the
+obvious first suspicion is the password or the role, both of which were newly created here. An
+hour can go into that. It is a property of the network path, not of the project.
+
+## 2026-08-29 · Backups are GitHub releases in a dedicated private repository, not R2
+
+R2 was chosen in `09-BACKUP-PROPOSAL.md` §4 and is abandoned. Its allowance is free; its account
+requires a billing profile with a payment method, which Mohamed refused. Nothing about that is
+going to change by waiting.
+
+**Decision.** `MooTamer/coditu-recovery`, private. One release per recovery set, tagged
+`nightly-<id>` or `monthly-<id>`, with the encrypted archive and its sidecar as assets. Retention
+deletes the release and its tag.
+
+**Why releases and not committed files.** The obvious shape is to commit
+`nightly/<id>/<id>.tar.gz.age` and `git rm` past retention. Git objects are permanent: deleting a
+19 MB blob from the tip reclaims nothing, so "keep 30 nightly and 12 monthly" expressed as
+deletions grows the repository without bound and takes clone time with it. Release assets are
+stored outside the object database and delete for real.
+
+**Rejected: keeping the workflows in `MooTamer/coditu`.** A workflow there cannot write to
+another private repository with its own `GITHUB_TOKEN`; it would need a personal access token
+stored as a secret, readable by every workflow in the application repository. That is a much
+larger blast radius than a backup writer should have, and a fine-grained token cannot be minted
+without a browser anyway. The workflows live in the recovery repository, where the token they
+already have is exactly the permission they need. **No personal access token exists in this path.**
+
+**And the reason that matters more.** The application repository may be the thing that was lost.
+A restore path whose first step is "check out the repository you are recovering" is not a restore
+path. The recovery repository therefore carries its own copy of the tooling, pushed by
+`scripts/sync-recovery-repo.sh`. The cost is a copy that can drift, and `--check` reports it
+against the digest in `ops/recovery-repo.json`.
+
+## 2026-08-29 · The row-count manifest counted every table twice
+
+`row-counts.tsv` was built with a `\gexec` loop. psql writes the generated `select …` statements
+and their results to the same stream, so every table produced two lines and `wc -l` reported
+double. The first two hosted recovery sets both record **126 tables; there are 63**.
+
+The row total was never affected — the statement lines have no tab-separated second field for
+`awk` to sum — which is exactly why it survived: the number that looked most likely to be wrong
+was right, and the one nobody checked was doubled.
+
+**Decision.** `scripts/sql/row-counts.sql`, one statement, one line per table, counting through
+`query_to_xml` so nothing but the answer reaches stdout. Both `backup.sh` and
+`verify-backup-restore.sh` use the same file, so the two sides of the comparison cannot drift.
+
+**What this says about the evidence discipline here.** A count printed beside a real archive is
+not evidence unless something compares it to an independent measurement. This one was printed,
+put in a sidecar, published, and read back by a canary that compared it only to itself.
+
+## 2026-08-29 · A restore target must be at least as new as its source, and the check comes first
+
+Supabase ships schema changes to hosted projects ahead of the CLI's pinned local images. Hosted
+`storage.buckets` has `versioning_status`; hosted `storage.objects` has `archived_at`,
+`is_delete_marker` and `is_versioned`; `storage-api:v1.62.5` has none of the four. Restoring a
+hosted backup into that stack died 1,729 lines into `data.sql` with a bare
+`column "versioning_status" of relation "buckets" does not exist` — after `roles.sql` and
+`schema.sql` had already been applied.
+
+**Decision.** `verify-backup-restore.sh` parses the `COPY` column lists out of `data.sql`,
+compares them against the target, and fails **before roles.sql** naming every missing column and
+what it means. Three consequences, all deliberate:
+
+- a failed drill leaves the target untouched, so the next attempt starts clean;
+- the message says "restore into a project at least as new as the one backed up" rather than
+  making the reader infer it from a Postgres error;
+- it is general. It catches any managed-schema drift, not the four columns that happened to
+  surface today.
+
+**Also decided: the row-count comparison stops requiring identical table lists.** The local
+Storage image has `storage.iceberg_namespaces` and `storage.iceberg_tables` and the hosted
+project does not; both are empty, and a `diff -u` of the two manifests failed on them. A restore
+target will always carry some platform scaffolding the source did not. Every table the backup
+describes must now match exactly, and any table only the target has must be **empty** — which
+catches a missing table, a short table and an unclean target, and drops the false alarm. The
+target-only tables are printed rather than hidden.
+
+## 2026-08-29 · The Storage service-role key is a GitHub Actions secret, and that is a weakening
+
+`SUPABASE_SERVICE_ROLE_KEY` is now a repository secret in `MooTamer/coditu-recovery` because the
+`rest` storage mode needs it and S3 access keys cannot be minted without a browser.
+
+**What it costs.** The database leg connects as `coditu_backup`, which cannot write anything. The
+Storage leg holds a credential that bypasses RLS and can write. The backup job is no longer
+uniformly least-privilege, and saying "least privilege" about it without this sentence would be
+false.
+
+**Why it is accepted.** The repository is private and its only three workflows are the backup,
+the canary and the monthly integrity check. The alternative was no Storage copy at all, and 135
+objects — every attachment and comment image in the workspace — are in no database dump on any
+Supabase plan. Revisit the moment somebody with dashboard access can mint an S3 key pair; the
+`s3` mode is still there and still the default.
+
+## 2026-08-29 · The keepalive probe is `security definer`, and the canary drops to three-hourly
+
+**The probe.** `public.database_heartbeat()` performs one bounded read of
+`public.app_settings` and returns the fixed string `coditu-database-awake`.
+`/api/health/database` calls it with the anon key, no session, `no-store`, and a 5-second
+deadline, and answers with that one word or 503.
+
+**Why `security definer`, which is normally the thing to argue against.** The first version was
+`security invoker`, on the reasoning that RLS would hide every row from `anon`. It never gets to
+a policy: `anon` has no `SELECT` **grant** on `public.app_settings`, so the call fails with
+`42501 permission denied` outright. The two ways forward were to grant `anon` select on a real
+settings table — a standing, quiet read on production data so that a liveness probe can run — or
+to let this one function read on the owner's behalf.
+
+It is safe *here* for a structural reason rather than a careful one: the function takes **no
+arguments** and its only `return` is a string literal. There is nothing to inject through and no
+path by which a row can leave. The migration asserts all three — zero arguments, exactly one
+`return`, and that the literal is the keyword — so a later edit that gives it a parameter fails
+the migration instead of shipping a steerable definer function. It also asserts that `anon` has
+**not** been granted select on `app_settings`, because that grant is the thing this exists to
+avoid needing.
+
+**Why the endpoint and not `/login`.** A signed-out `/login` render reaches Supabase **Auth**, a
+separate service in front of the same database. Whether the provider counts that as user database
+activity is not a fact this repository can assert. And `/api/backup-health` must never be used:
+it means a real off-site archive was read, so pinging it to keep a database awake would make the
+Recovery Centre lie.
+
+**The canary drops from hourly to three-hourly, and this is a recoverability decision.** GitHub
+Free gives a private repository 2,000 Actions minutes a month, billed per job rounded up to the
+minute. Hourly is 720 runs — **a third of the whole allowance** — to re-read a file that changes
+once a day. Add the nightly (~150), CI, and the keepalive, and the month gets tight; the failure
+mode of running out is that **the nightly backup silently stops**, which is precisely the
+condition Tier 0 exists to prevent. Three-hourly costs 240 and still detects a stale copy nine
+times over inside the 26-hour threshold it is measuring against. The keepalive runs every six
+hours — four a day clears the provider's stated "a few requests per day" with room.
+
+Consequence for setup: the UptimeRobot heartbeat must expect a check-in every **three** hours,
+not every hour. The runbook says so.
+
+## 2026-08-29 · The backup heartbeat moves to healthchecks.io; UptimeRobot's is a paid feature
+
+**The error.** Two earlier entries in this log and the runbooks that follow them say the backup
+canary pings *"an UptimeRobot heartbeat"* and that *"the Free plan includes heartbeat monitoring"*.
+The second half is false. UptimeRobot's own monitor-type picker says **"Cron job / Heartbeat
+monitoring — Available only in Solo, Team and Scale."** Its free plan is HTTP, Keyword, Ping and
+Port only. Under Mohamed's standing no-paid-service, no-card constraint, the alerting leg of the
+entire Tier 0 backup design was specified against a product nobody here can buy.
+
+**How it got in, which matters more than the fact.** The 2026-08-28 research pass read *"50
+monitors free"* off the pricing page and generalised it from a **count** to a **capability**. The
+help article it also cited enumerates check frequency, not which monitor types the free plan
+carries — it declined to confirm the point, and that silence was recorded as confirmation.
+Reference 7 in `09-BACKUP-PROPOSAL.md` is struck through rather than deleted so the shape of the
+mistake stays visible. **The rule this produces: a plan page that says _how many_ is never a
+source for _which kinds_. Cite the sentence that answers the question actually being asked, or
+record that no such sentence was found.** It was caught by Mohamed using the product, not by the
+research that was supposed to catch it.
+
+**The replacement: healthchecks.io.** Verified on their homepage 2026-08-29 — *"Monitor 20 cron
+jobs for free. No credit card required."* It is purpose-built for exactly this shape; their own
+worked example is a production backup check. Email alerts, and a first-class notion of "expected
+every N, alert after a grace period", which is the whole semantic a dead-man's switch needs.
+Open-source under BSD-3, so if third-party alerting ever stops being acceptable it can be
+self-hosted without redesigning the canary. One check is needed out of the twenty.
+
+**Rejected alternatives.** *A GitHub Actions workflow watching the canary* — rejected because it
+shares the failure it is meant to detect: R5 already names Actions minutes as one pool, and a
+watcher that dies when the schedule dies is decoration. *cron-job.org and similar* — no reason to
+prefer them over the purpose-built, open-source option. *Nothing, and read the Actions tab* — that
+is the status quo the canary exists to replace; a schedule that stops being dispatched produces no
+red run to notice.
+
+**The split, so no future pass re-derives the wrong answer.** healthchecks.io does the **backup
+heartbeat** — the one job that is a cron dead-man's switch. UptimeRobot keeps both **HTTPS**
+jobs — public site uptime, and the Supabase keepalive Keyword check on `/api/health/database` —
+because HTTP and Keyword *are* on its free plan and nothing about that half was wrong.
+
+**Two mechanical consequences.**
+
+1. The secret is renamed `BACKUP_CANARY_HEARTBEAT_URL` → **`HEARTBEAT_URL`**, in
+   `MooTamer/coditu-recovery`. Renaming is free precisely because it had never been set; doing it
+   now avoids a secret whose name asserts the wrong vendor forever. Its value will be
+   `https://hc-ping.com/<uuid>`. The path is a credential — possessing it forges a check-in — so
+   it lives only in the repository's secrets.
+2. The ping moves to the **last** step of the canary job, explicitly `if: success()`. It was
+   third of four, ahead of the report-publishing step. A heartbeat that fires before the job
+   finishes proves the runner booted, not that the backup was verified — and a dead-man's switch
+   that says "alive" while the thing it watches is broken is worse than no switch at all, because
+   it is believed. The step is a no-op with a visible `::notice::` when the secret is absent, so
+   the canary never goes red for a reason unrelated to backups.
+
+**Status.** The workflow is one secret away from working. Creating the check and adding
+`HEARTBEAT_URL` is Mohamed's; it is the only remaining step. The correction to the three-hourly
+cadence in the entry above stands — the check's period is three hours, plus grace for GitHub
+queue delay — only the vendor changed.
+
+## 2026-08-29 · The hosted schema preflight was asserting encryption on somebody else's connection
+
+**What was wrong.** `scripts/check-hosted-schema.mjs` proved the connection was encrypted with one
+line — `exists (select 1 from pg_stat_ssl where pid = pg_backend_pid() and ssl)`. Against the real
+project that returns **false on a session that is TLSv1.3 end to end**, and the check fails closed
+for a reason that has nothing to do with the schema.
+
+**Why.** Supabase's only reachable endpoint from here is **Supavisor**, the session pooler.
+Supavisor terminates TLS at the pooler and opens its own cleartext connection to Postgres inside
+the VPC. `pg_stat_ssl` describes *that* hop. It is a true statement about a connection this
+process does not own. The one route where the old assertion would have answered about us is the
+direct host `db.hayfsvsepgfescojesbd.supabase.co` — which has an **AAAA record and no A record**
+(measured 2026-08-29), so any machine or runner without an IPv6 route cannot use it at all. This
+Mac has none.
+
+**Measured, not assumed.** `openssl s_client -starttls postgres` against the pooler: `CONNECTION
+ESTABLISHED, Protocol version: TLSv1.3, Peer certificate: CN=*.pooler.supabase.com, O=Supabase
+Inc`, chain ending at `Supabase Root 2021 CA` with `verify error:num=19 self-signed certificate in
+certificate chain`. From node-postgres on the same connection: socket is a `TLSSocket`,
+`encrypted: true`, `protocol: TLSv1.3`, `authorized: false`, `authorizationError:
+SELF_SIGNED_CERT_IN_CHAIN`. And on the same session `pg_stat_ssl.ssl = false`. The pooler also
+**accepts `sslmode=disable`**, so requesting TLS is the client's job and nothing server-side
+enforces it — which is precisely why the check must be right.
+
+**The fix.** Read the client socket, because it is the only thing that knows about the leg this
+process is responsible for. `pg_stat_ssl` is kept as corroboration when it is true and *explained*
+rather than believed when it is false. Because the chain ends at a root that is in no public trust
+store, the certificate is additionally pinned by name — issuer organisation `Supabase Inc` — so a
+downgrade to cleartext fails and so does a certificate that is not Supabase's.
+
+**Why not just ship the CA and use `verify-full`.** That is the stronger form and it is available
+behind `HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1`, which requires `socket.authorized`. It is not the
+default because the root has to come from somewhere: `https://supabase.com/downloads/prod-ca-2021.crt`
+now **404s**, and the certificate is served per project from the dashboard, so obtaining it is a
+human step. Making the default depend on a file nobody has yet would reproduce the original
+failure — a check that is red for a reason unrelated to what it checks. The strict mode is there,
+named, and one environment variable away for whenever the CA is in place.
+
+**Rejected: relaxing the assertion to nothing.** "The pooler is inside Supabase, assume TLS" would
+have made the check pass and meant nothing — the pooler demonstrably accepts cleartext.
+
+**Verified.** Against hosted: pass → exit 0 with `hosted_schema_verified=true migrations=39`.
+`sslmode=disable` → exit **1**, `database connection is not encrypted`.
+`HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1` with no CA → exit **1**, naming
+`SELF_SIGNED_CERT_IN_CHAIN`. It still fails closed, on the thing it is actually about.

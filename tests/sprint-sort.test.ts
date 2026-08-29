@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  MAX_SORT_KEYS,
+  SORTABLE_COLUMNS,
+  SORT_COLUMN_META,
+  addSort,
+  directionLabel,
   parseSort,
+  reorderSort,
   serializeSort,
+  setSortColumn,
+  setSortDirection,
   sortRows,
   toggleSort,
   type SortKey,
@@ -309,5 +317,74 @@ describe("sortRows", () => {
       row({ key: "a", assignee: { fullName: "Abdelrahman Elkhateeb" } }),
     ];
     expect(keys(sortRows(rows, [{ column: "assignee", direction: "asc" }]))).toEqual(["a", "z"]);
+  });
+});
+
+describe("the panel's vocabulary", () => {
+  it("never says asc or desc", () => {
+    for (const column of SORTABLE_COLUMNS) {
+      for (const direction of ["asc", "desc"] as const) {
+        const said = directionLabel(column, direction).toLowerCase();
+        expect(said).not.toContain("asc");
+        expect(said).not.toContain("desc");
+      }
+    }
+  });
+
+  it("words each column by its own type", () => {
+    expect(directionLabel("hours", "desc")).toBe("Sort high → low");
+    expect(directionLabel("component", "asc")).toBe("A → Z");
+    expect(directionLabel("deadline", "desc")).toBe("Latest → earliest");
+    expect(directionLabel("assignee", "asc")).toBe("A → Z");
+    expect(directionLabel("status", "asc")).toBe("In display order");
+  });
+
+  it("gives every sortable column a label and a kind", () => {
+    for (const column of SORTABLE_COLUMNS) {
+      expect(SORT_COLUMN_META[column].label.length).toBeGreaterThan(0);
+      expect(directionLabel(column, "asc")).not.toBe(directionLabel(column, "desc"));
+    }
+  });
+});
+
+describe("editing the stack", () => {
+  const stack = parseSort("deadline:asc,status:desc,hours:asc");
+
+  it("reorders, because the stack is the priority", () => {
+    expect(reorderSort(stack, 2, 0).map((k) => k.column)).toEqual(["hours", "deadline", "status"]);
+    expect(reorderSort(stack, 0, 2).map((k) => k.column)).toEqual(["status", "hours", "deadline"]);
+  });
+
+  it("clamps a drop rather than rejecting it", () => {
+    expect(reorderSort(stack, 0, 99).map((k) => k.column)).toEqual(["status", "hours", "deadline"]);
+    expect(reorderSort(stack, 9, 0)).toEqual(stack);
+    expect(reorderSort(stack, 1, 1)).toEqual(stack);
+  });
+
+  it("refuses a column that is already in the stack", () => {
+    expect(setSortColumn(stack, 1, "deadline")).toEqual(stack);
+    expect(setSortColumn(stack, 1, "type").map((k) => k.column)).toEqual([
+      "deadline",
+      "type",
+      "hours",
+    ]);
+  });
+
+  it("keeps a rule's place when only its direction changes", () => {
+    const flipped = setSortDirection(stack, 0, "desc");
+    expect(flipped[0]).toEqual({ column: "deadline", direction: "desc" });
+    expect(flipped.map((k) => k.column)).toEqual(stack.map((k) => k.column));
+  });
+
+  it("adds the first unused column, and stops at the limit", () => {
+    expect(addSort(stack)[3]).toEqual({ column: "key", direction: "asc" });
+    const full = parseSort("key:asc,component:asc,status:asc,hours:asc");
+    expect(full).toHaveLength(MAX_SORT_KEYS);
+    expect(addSort(full)).toEqual(full);
+  });
+
+  it("round-trips whatever it builds through the URL", () => {
+    const edited = setSortDirection(reorderSort(addSort(stack), 3, 0), 0, "desc");
+    expect(parseSort(serializeSort(edited))).toEqual(edited);
   });
 });

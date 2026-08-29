@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import {
   DndContext,
@@ -37,6 +37,8 @@ import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { ProgressRing } from "@/components/coditu/progress-ring";
 import { settle } from "@/lib/action-result";
+import { useUrlWrite } from "@/lib/hooks/use-url-write";
+import { control, type ControlState } from "@/lib/interactive";
 import { reorderWorkItems } from "@/lib/actions/work-items";
 import type { ComponentRef } from "@/lib/data/components";
 import type { PersonRef, WorkItemRow } from "@/lib/data/sprint";
@@ -128,8 +130,11 @@ export function SprintTable({
 }) {
   const toast = useToast();
   const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  // PF-4. Sorting is the control Mohamed reported by name: a `router.replace`
+  // on a dynamic route, so ~2s of nothing and then a sorted table. The
+  // navigation is in a transition now, and `state()` says which header is
+  // waiting on it rather than lighting all nine at once.
+  const { params, write: writeUrl, state } = useUrlWrite();
   const [, startTransition] = useTransition();
   const [order, setOrder] = useState<string[] | null>(null);
 
@@ -148,15 +153,14 @@ export function SprintTable({
    * throw a reader back to the top of a table they are part way down.
    */
   const writeSort = useCallback(
-    (stack: SortKey[]) => {
+    (stack: SortKey[], key: string) => {
       const next = new URLSearchParams(params);
       const value = serializeSort(stack);
       if (value) next.set("sort", value);
       else next.delete("sort");
-      const query = next.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+      writeUrl(next, key);
     },
-    [params, pathname, router]
+    [params, writeUrl]
   );
 
   /**
@@ -190,15 +194,14 @@ export function SprintTable({
   const clearFilters = useCallback(() => {
     const next = new URLSearchParams(params);
     for (const key of FILTER_PARAMS) next.delete(key);
-    const query = next.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }, [params, pathname, router]);
+    writeUrl(next, "clear-filters");
+  }, [params, writeUrl]);
 
   const onSort = useCallback(
     (column: SortColumn, shift: boolean) => {
       const next = toggleSort(asked ?? sort, column, shift);
       setAsked(next);
-      writeSort(next);
+      writeSort(next, `sort:${column}`);
     },
     [asked, sort, writeSort]
   );
@@ -286,7 +289,7 @@ export function SprintTable({
   const estimate = summed.reduce((total, row) => total + row.estimateMinutes, 0);
 
   const table = (
-    <section className="overflow-auto rounded-section border border-[var(--hairline)] bg-[var(--raised)] @max-[900px]:hidden">
+    <section className="overflow-auto rounded-section border border-[var(--hairline)] bg-[var(--raised)] max-md:hidden">
       <table className="w-full border-collapse">
         <caption className="sr-only">
           {`Sprint work items. ${rows.length} of ${allRows.length} shown.` +
@@ -304,19 +307,28 @@ export function SprintTable({
               sortsBy="story key"
               sort={sort}
               onSort={onSort}
+              state={state}
               className={`sticky left-0 z-[2] min-w-[340px] bg-[var(--raised)] text-left`}
             />
             {/* A floor, not a fixed width: "EVIM Rollover Contact Cards" needs
                 room, and the cell truncates rather than wrapping a row to two
                 lines. */}
-            <SortHeader column="component" label="Component" sort={sort} onSort={onSort} className="min-w-[180px] text-left" />
-            <SortHeader column="status" label="Status" sort={sort} onSort={onSort} className="text-left" />
-            <SortHeader column="hours" label="Hours" sort={sort} onSort={onSort} align="right" className="text-right" />
-            <SortHeader column="assignee" label="Assignee" sort={sort} onSort={onSort} className="text-left" />
-            <SortHeader column="reviewer" label="Reviewer" sort={sort} onSort={onSort} className="text-left" />
-            <SortHeader column="deadline" label="Deadline" sort={sort} onSort={onSort} className="text-left" />
-            <SortHeader column="type" label="Type" sort={sort} onSort={onSort} className="text-left" />
-            <SortHeader column="grouping" label="Grouping" sort={sort} onSort={onSort} align="right" className="text-right" />
+            <SortHeader column="component" label="Component" sort={sort} onSort={onSort}
+              state={state} className="min-w-[180px] text-left" />
+            <SortHeader column="status" label="Status" sort={sort} onSort={onSort}
+              state={state} className="text-left" />
+            <SortHeader column="hours" label="Hours" sort={sort} onSort={onSort}
+              state={state} align="right" className="text-right" />
+            <SortHeader column="assignee" label="Assignee" sort={sort} onSort={onSort}
+              state={state} className="text-left" />
+            <SortHeader column="reviewer" label="Reviewer" sort={sort} onSort={onSort}
+              state={state} className="text-left" />
+            <SortHeader column="deadline" label="Deadline" sort={sort} onSort={onSort}
+              state={state} className="text-left" />
+            <SortHeader column="type" label="Type" sort={sort} onSort={onSort}
+              state={state} className="text-left" />
+            <SortHeader column="grouping" label="Grouping" sort={sort} onSort={onSort}
+              state={state} align="right" className="text-right" />
           </tr>
         </thead>
 
@@ -341,6 +353,7 @@ export function SprintTable({
                     <button
                       type="button"
                       onClick={clearFilters}
+                      {...control(state("clear-filters"))}
                       className="cursor-pointer font-mono text-[10.5px] text-[var(--accent)] underline-offset-2 hover:underline"
                     >
                       clear the filters
@@ -409,13 +422,14 @@ export function SprintTable({
       <p
         role="status"
         data-drag-paused
-        className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-[var(--hairline)] bg-[var(--raised)] px-4 py-[10px] text-[12.5px] leading-[1.5] text-[var(--ink-muted)] @max-[900px]:hidden"
+        className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-[var(--hairline)] bg-[var(--raised)] px-4 py-[10px] text-[12.5px] leading-[1.5] text-[var(--ink-muted)] max-md:hidden"
       >
         Manual drag order is paused while a sort is active — the order you see comes from the
         sort, not from the stored positions.
         <button
           type="button"
-          onClick={() => writeSort([])}
+          onClick={() => writeSort([], "sort:clear")}
+          {...control(state("sort:clear"))}
           className="cursor-pointer font-mono text-[11px] text-[var(--accent)] underline-offset-2 hover:underline"
         >
           back to manual order
@@ -472,6 +486,7 @@ function SortHeader({
   sortsBy = label,
   sort,
   onSort,
+  state,
   align = "left",
   className,
 }: {
@@ -483,6 +498,10 @@ function SortHeader({
   sortsBy?: string;
   sort: SortKey[];
   onSort: (column: SortColumn, shift: boolean) => void;
+  /** `useUrlWrite`'s keyed reader, so a header reports its OWN wait and not
+   *  the table's — nine headers sharing one boolean is nine pending lines for
+   *  one click, which says less than none. */
+  state: (key: string) => ControlState;
   align?: "left" | "right";
   className?: string;
 }) {
@@ -496,6 +515,7 @@ function SortHeader({
       <button
         type="button"
         onClick={(event) => onSort(column, event.shiftKey)}
+        {...control(state(`sort:${column}`))}
         title={
           active
             ? `${sortsBy} — ${spoken}. Click to change, shift-click to keep the rest of the sort.`
@@ -587,12 +607,24 @@ function Row({
     // role and the handle carries the keyboard drag path.
     <tr
       ref={setNodeRef}
+      // PF-13 needs to ask "is this row in the layout?" once per frame, across
+      // a drop that makes React replace the element. A node reference cannot
+      // answer that — the old node really is gone — so the row carries its key
+      // and the sampler re-queries every frame.
+      data-row-key={row.key}
       style={{
         height: rowHeight,
         background: groupingTint(row.grouping),
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : 1,
+        // PF-13. Frame-sampled: the dragged row is never absent from the
+        // layout — 340 frames through a drag and a drop, 0 of them without a
+        // box, and no snap-back after the drop. What the report describes as
+        // "hides it for a second" is THIS: 38 frames, about two thirds of a
+        // second, at half opacity over a tinted row, which reads as gone
+        // rather than as lifted. 0.9 still says "this one is moving" and
+        // still lets you read it while it moves.
+        opacity: isDragging ? 0.9 : 1,
       }}
       className="group/row border-b border-[var(--hairline)] hover:bg-[var(--canvas)] transition-[background-color,border-color,color] duration-[var(--dur-micro)] ease-[var(--ease-entrance)]"
     >
@@ -630,6 +662,23 @@ function Row({
               a 14.5px line box on its own is 20px and fails. */}
           <Link
             href={`${basePath}/items/${row.key}`}
+            /**
+             * PF-9. The App Router brings a newly-rendered segment into
+             * view on a soft navigation, and the peek IS a new segment —
+             * `ScrollAndFocusHandler.handlePotentialScroll` sets
+             * `html.scrollTop = 0` and then calls `scrollIntoView()` on the
+             * modal, which `html { scroll-behavior: smooth }` animates. The
+             * page ends up at its MAXIMUM scroll: 768 of 768 at 1280x720,
+             * 2670 on a 412x839 phone. First open only, because every later
+             * one comes out of the router cache; never on WebKit.
+             *
+             * Proved by stack trace with every scroll API hooked, after
+             * `dispatchEvent` removed the harness's own CDP scroll from the
+             * measurement. An earlier pass tried this exact prop and reverted
+             * it, because it measured no change — against a number that was
+             * Playwright scrolling the link into view, not the app.
+             */
+            scroll={false}
             // No viewport prefetch — see the note in `rail.client.tsx`. Twelve
             // rows cost twelve full item renders per page view and bought
             // nothing: opening a row measures 209ms with this off, 210ms on.

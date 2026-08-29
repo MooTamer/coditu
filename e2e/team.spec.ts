@@ -1,4 +1,14 @@
-import { SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixtures";
+import {
+  SEED_ENGINEER,
+  SUPABASE_URL,
+  auditA11y,
+  expect,
+  instrumentPage,
+  query,
+  shell,
+  signIn,
+  test,
+} from "./fixtures";
 
 /**
  * Role and access, on the People page.
@@ -61,10 +71,10 @@ test.describe("the team", () => {
 
     expect((await readSubject()).role).toBe("engineer");
 
-    await page.getByLabel(`Role for ${NAME}`).selectOption("lead");
+    await shell(page).getByLabel(`Role for ${NAME}`).selectOption("lead");
     await expect.poll(async () => (await readSubject()).role, { timeout: 8000 }).toBe("lead");
 
-    await page.getByLabel(`Role for ${NAME}`).selectOption("admin");
+    await shell(page).getByLabel(`Role for ${NAME}`).selectOption("admin");
     await expect.poll(async () => (await readSubject()).role, { timeout: 8000 }).toBe("admin");
   });
 
@@ -73,7 +83,7 @@ test.describe("the team", () => {
     await page.goto("/app/people");
 
     // Two steps on purpose. Losing access is not a thing to do by misclick.
-    const button = page.getByRole("button", { name: `Deactivate ${NAME}` });
+    const button = shell(page).getByRole("button", { name: `Deactivate ${NAME}` });
     await button.click();
     await expect(button).toContainText("Confirm?");
     expect((await readSubject()).active, "one click must not be enough").toBe(true);
@@ -85,7 +95,7 @@ test.describe("the team", () => {
     // resolves to three elements and fails on strict mode rather than on
     // anything being wrong.
     await expect(
-      page.locator("[data-team-member]").filter({ hasText: NAME }).getByText("deactivated")
+      shell(page).locator("[data-team-member]").filter({ hasText: NAME }).getByText("deactivated")
     ).toBeVisible();
 
     // They are gone from the places that decide who can be given work.
@@ -98,7 +108,7 @@ test.describe("the team", () => {
     expect(assignable.n).toBe("0");
 
     // And back again — this is the whole reason it is a deactivation.
-    await page.getByRole("button", { name: `Give ${NAME} access again` }).click();
+    await shell(page).getByRole("button", { name: `Give ${NAME} access again` }).click();
     await expect.poll(async () => (await readSubject()).active, { timeout: 8000 }).toBe(true);
 
     expect(browser).toBeTruthy();
@@ -117,7 +127,7 @@ test.describe("the team", () => {
     // Located by row, not by name: the seed has two profiles called "Mohamed
     // Tamer", and the other one is a perfectly ordinary person with perfectly
     // ordinary controls.
-    const self = page.locator("[data-team-member][data-self]");
+    const self = shell(page).locator("[data-team-member][data-self]");
     await expect(self).toHaveCount(1);
     await expect(self).toContainText("another admin has to change this");
 
@@ -158,10 +168,10 @@ test.describe("the team", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/app/people");
 
-    await expect(page.getByText(NAME)).toBeVisible();
-    await expect(page.getByLabel(`Role for ${NAME}`)).toHaveCount(0);
-    await expect(page.getByRole("button", { name: `Deactivate ${NAME}` })).toHaveCount(0);
-    await expect(page.getByText("roles are set by an admin")).toBeVisible();
+    await expect(shell(page).getByText(NAME)).toBeVisible();
+    await expect(shell(page).getByLabel(`Role for ${NAME}`)).toHaveCount(0);
+    await expect(shell(page).getByRole("button", { name: `Deactivate ${NAME}` })).toHaveCount(0);
+    await expect(shell(page).getByText("roles are set by an admin")).toBeVisible();
   });
 
   test("the database refuses a lead's role change even when the app is bypassed", async ({
@@ -171,6 +181,8 @@ test.describe("the team", () => {
     // update their own row, and the trigger is what stops them writing `role`.
     const context = await browser.newContext();
     const page = await context.newPage();
+    // Not the `page` fixture, so it carries none of its readiness wait.
+    instrumentPage(page);
     await signIn(page, SEED_ENGINEER);
     await page.goto("/app/people");
 
@@ -179,24 +191,27 @@ test.describe("the team", () => {
       [SUBJECT]
     );
 
-    await page.evaluate(async (profileId) => {
-      const raw = document.cookie
-        .split("; ")
-        .find((c) => c.startsWith("sb-127-auth-token="))
-        ?.split("=")
-        .slice(1)
-        .join("=");
-      const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
-      await fetch(`http://127.0.0.1:54421/rest/v1/profiles?id=eq.${profileId}`, {
-        method: "PATCH",
-        headers: {
-          apikey: json.access_token,
-          Authorization: `Bearer ${json.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ role: "admin" }),
-      });
-    }, subject.id);
+    await page.evaluate(
+      async ({ profileId, supabaseUrl }) => {
+        const raw = document.cookie
+          .split("; ")
+          .find((c) => c.startsWith("sb-127-auth-token="))
+          ?.split("=")
+          .slice(1)
+          .join("=");
+        const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
+        await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${profileId}`, {
+          method: "PATCH",
+          headers: {
+            apikey: json.access_token,
+            Authorization: `Bearer ${json.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ role: "admin" }),
+        });
+      },
+      { profileId: subject.id, supabaseUrl: SUPABASE_URL }
+    );
 
     expect((await readSubject()).role, "an engineer promoted somebody").toBe("engineer");
     await context.close();

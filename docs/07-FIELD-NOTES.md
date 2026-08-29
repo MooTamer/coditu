@@ -2113,3 +2113,182 @@ Two consequences, one convenient and one not:
 
 Keys are still not shared: the same item is COD-229 locally and COD-241 on production. See
 [[local-and-production-item-keys-diverged]].
+
+---
+
+## `supabase stop` leaves its volumes behind
+
+Tearing down an isolated project with `supabase stop` removes the containers and keeps
+`supabase_db_<project>`, `supabase_storage_<project>` and `supabase_edge_runtime_<project>`.
+Three of them survived a teardown that reported itself clean, and the next `supabase start`
+adopted them — so a "fresh" stack came up holding the previous pass's rows.
+
+The flag is `--no-backup`, and the check is not the flag:
+
+```bash
+supabase stop --no-backup
+docker volume rm supabase_db_<p> supabase_edge_runtime_<p> supabase_storage_<p> 2>/dev/null
+docker ps -a --format '{{.Names}}' | grep -c '<p>'      # want 0
+docker volume ls --format '{{.Name}}' | grep -c '<p>'   # want 0
+```
+
+Count both. A teardown that only counts containers reports success while the state that matters
+is still on disk.
+
+## Turbopack refuses a symlinked `node_modules`
+
+Standing up a second worktree to run the same suite at another commit, the obvious economy is to
+symlink `node_modules` at the new worktree rather than reinstall 803 MB. `next dev` will not start:
+
+```
+Error [TurbopackInternalError]: Symlink node_modules is invalid, it points out of the filesystem root
+```
+
+It is not a permissions or a resolution problem and no flag turns it off — Turbopack's filesystem
+root is the project directory and the symlink leaves it. On APFS the answer is a clone, which is
+copy-on-write and costs no real disk:
+
+```bash
+cp -Rc /path/to/main/node_modules "$WT/node_modules"   # 803 MB in 9.7s
+```
+
+`npm ci` also works and takes minutes. See [[worktree-must-live-outside-the-checkout]] for the
+other half of this — a worktree nested inside the checkout cannot run its own dev server at all.
+
+---
+
+## `locator.click()` scrolls the page, and `scroll-behavior: smooth` makes it look like your bug
+
+PF-9 carried "the peek scrolls the page ~490px UP on 4 of 5 opens" for two passes. It reproduced
+every run, the numbers were stable to the pixel, and it was the **instrument**.
+
+Playwright scrolls an element into view before clicking it. It does that through CDP, *below*
+JavaScript, so it is invisible to every hook you can write — patching `window.scrollTo`,
+`window.scroll`, `window.scrollBy`, `Element.prototype.scrollTop` and
+`Element.prototype.scrollIntoView` catches **nothing**. And because this app sets
+`html { scroll-behavior: smooth }`, that scroll *animates* over ~370 ms, which reads exactly like an
+application easing the page somewhere on purpose.
+
+The one-line test:
+
+```ts
+await link.click();                  // moved: [0, -566, 0, -472, -566]
+await link.dispatchEvent("click");   // moved: [0,    0,  0,    0,    0]
+```
+
+`dispatchEvent` does not scroll into view. Same build, same page, same five opens.
+
+Two things follow. **Any measurement of scroll position around a `locator.click()` is measuring
+Playwright** unless the target is already in the viewport — and it is always *upward* when the page
+is scrolled down and the target is above the fold, which is what made it look like "the app jumps to
+the top". **And a stack trace proving nothing called a scroll API is not evidence the scroll was not
+scripted** — it is evidence it did not go through JavaScript at all.
+
+What did survive the elimination: the document height never changed (1466 px throughout, sampled
+every frame), so it was never a clamp; focus never left the clicked link; and the dialog's own scroll
+lock, its `panelRef.focus()`, and every `Reveal` animation were each disabled in turn with the result
+bit-for-bit identical.
+
+---
+
+## `scroll-behavior: smooth` will be blamed for two different bugs before you find it
+
+One line in `app/globals.css` produced both of PF-9's and PF-6's most stubborn symptoms, and in
+neither case did it look like CSS.
+
+**It made a router scroll look like an application bug.** Opening a story moved the document to its
+maximum scroll — 68 px at 1280×720, **1970 px on a phone** — on the first open only and never on
+WebKit. Because smooth animates it over ~165 ms, it reads exactly like something easing the page
+somewhere on purpose. The actual caller is Next's own `ScrollAndFocusHandler.handlePotentialScroll`,
+bringing the newly-rendered `@modal` segment into view; `scroll={false}` on the link turns it off.
+Two plausible hypotheses were measured and thrown away first — Chrome's scroll anchoring
+(`overflow-anchor: none` changed nothing) and the dialog's `focus()` (forcing `preventScroll: true`
+changed nothing) — and the answer came from hooking every scroll API and reading the stack.
+
+**It made the editor lose the caret.** A browser scrolls the caret back into view on every keystroke.
+With smooth on the scrolling element it has to *animate* that, so at typing speed each keystroke
+restarts an animation that never arrives: thirty to-do items typed into the sprint notes left the
+caret **856 px below the fold**, coming back about 0.7 s after typing stopped. Chrome only. It reads
+as "the editor is slow" when the keystroke itself is 12.3 ms.
+
+```css
+html:has(.ProseMirror:focus) { scroll-behavior: auto; }
+```
+
+**What to remember.** If a scroll moves over more than one frame, the property is involved. And it is
+per-*scrolling-element*, so `:has()` on `html` is enough to switch it off for a state without
+touching anything else.
+
+---
+
+## A spec's teardown must delete only the rows it created
+
+Four files have now been fixed for one bug with one shape, and it costs a day every time because the
+failure surfaces somewhere else entirely.
+
+| spec | what it deleted that it did not create |
+|---|---|
+| `inline-edit.spec.ts` | every time entry on its item — **12.0 h** off the sprint |
+| `reliable-writes.spec.ts` | every comment and time entry on `COD-239` — **60 min**, one picture |
+| `composer.spec.ts` | `COD-240`'s imported picture |
+| `history.spec.ts` | all **seven** of `COD-235`'s imported revisions, never restored |
+
+Each is destructive for **the rest of the run**, and the spec that fails is a later one asserting a
+seeded total. `sprint-table.spec.ts:17` and `:92` are the two assertions in the suite that read the
+`SEED.totals` literal, and they were the two that failed in company and passed alone for weeks.
+
+```ts
+let seeded: string[] = [];
+test.beforeAll(async () => { seeded = (await query(`select id::text as id …`)).map(r => r.id); });
+// then, in the teardown:
+`delete from … where <the spec's scope> and not (id::text = any($1::text[]))`
+```
+
+**Move the counts with the delete.** If the spec asserts "one comment", count the same bounded set —
+relaxing the assertion to `2` to accommodate the seed is the easy fix and a weaker test.
+
+**Prove it by ordering, not by reading.** `A` alone, then `A` then `B`, then `B` alone. That is what
+identified `inline-edit` and it is faster than any amount of staring.
+
+---
+
+## The suite's failure count tracks the machine
+
+Five serial runs of the full suite from five fresh resets, same tree, same stack, gave **16, 15, 19,
+22 and 15** failures. The count rose with memory pressure — swap went from comfortable to 25.5 GB of
+26.6 across the sweep, runs 3 and 4 took 32 and 34 minutes against run 1's 24 — and run 4 contains
+`page.goto: Could not connect to the server`.
+
+Before diagnosing a flaky spec, check `sysctl vm.swapusage` and the wall time of the run it failed
+in. Twelve of the fifteen flips were five-second `expect` waits that a swapping machine could not
+meet; the default is 10 s now. Only three were real, and all three were found by *reading* the
+failure rather than by running it again:
+
+- an unscoped `getByText` matching the streaming tree's copy (strict-mode violation);
+- an interaction on a control behind `next/dynamic`, done once, before it was live;
+- `waitForTimeout` then a single read of an asynchronous scroll restoration.
+
+Two of those three are "read once at a fixed moment". If a spec sleeps and then reads, it is not
+asserting — it is guessing.
+
+---
+
+## A Supabase dump and restore have two asymmetric privilege traps
+
+**Backup:** `supabase db dump --db-url <coditu_backup>` still generates
+`--role "postgres"`. The login succeeds and then `pg_dump` fails at `SET ROLE postgres`; the
+CLI does not derive that flag from the connection user. Do not grant `postgres` membership to
+the backup role. Generate the CLI pipeline with a placeholder URL, assert the one forced-role
+line, remove only it, and run the platform-aware remainder as `coditu_backup`. That preserves
+the CLI's schema exclusions without turning a scheduled reader into the database owner.
+
+**Restore:** the normal local `postgres` login is not privileged enough to write every
+platform-owned Storage table (`storage.buckets_vectors` was the first refusal). A full restore
+is the opposite trust boundary: use the throwaway project's `supabase_admin` restore owner.
+The backup must be least-privilege; the rebuild necessarily owns the empty target.
+
+**Storage bytes after metadata:** once `data.sql` restores `storage.objects`, `aws s3 sync`
+lists those rows, believes objects of the same size already exist, skips every PUT, and exits
+green. GET then returns Storage `InternalError` because the bytes are absent. Force a recursive
+`aws s3 cp` from the archive, download again, and compare bytes. A restored metadata row is not
+a restored object.

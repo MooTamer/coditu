@@ -7,10 +7,12 @@ import { ComponentPicker } from "@/components/app/component-picker.client";
 import { DialogShell } from "@/components/app/dialog-shell.client";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { settle } from "@/lib/action-result";
 import { createWorkItem } from "@/lib/actions/work-items";
 import type { ComponentRef } from "@/lib/data/components";
 import type { ProfileRef } from "@/lib/data/profiles";
 import type { ProjectSummary } from "@/lib/data/projects";
+import { control } from "@/lib/interactive";
 import {
   STATUS_DISPLAY_ORDER,
   STATUS_LABEL,
@@ -126,7 +128,7 @@ export function NewItemDialog({
     }
 
     startTransition(async () => {
-      const result = await createWorkItem({
+      const result = await settle(() => createWorkItem({
         sprintId,
         title: title.trim(),
         type,
@@ -144,7 +146,7 @@ export function NewItemDialog({
           .split("\n")
           .map((line) => line.replace(/^\s*[-*]\s*/, "").trim())
           .filter(Boolean),
-      });
+      }), "That item did not save.");
 
       if (result.ok && result.path) {
         toast(`${result.key} created.`);
@@ -200,10 +202,10 @@ export function NewItemDialog({
             Cancel
           </button>
           <button
+        {...control(pending ? "pending" : "idle")}
             type="submit"
             form="new-item"
             disabled={!canSubmit}
-            aria-busy={pending}
             className="signal-gradient h-[38px] rounded-control px-5 text-[13.5px] font-semibold text-[#07090E] disabled:opacity-50"
           >
             {pending ? "Creating…" : "Create item"}

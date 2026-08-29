@@ -7,6 +7,7 @@ import { Search } from "lucide-react";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { settle } from "@/lib/action-result";
 import { signOut } from "@/lib/actions/auth";
 import { loadPaletteTargets } from "@/lib/actions/palette";
 import { logTime, setWorkItemPerson, setWorkItemStatus } from "@/lib/actions/work-items";
@@ -112,7 +113,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           hint: scoped.key,
           run: () =>
             mutate(`${scoped.key} → ${STATUS_LABEL[status]}`, () =>
-              setWorkItemStatus({ itemId: scoped.id, status })
+              settle(() => setWorkItemStatus({ itemId: scoped.id, status }), "That status did not save.")
             ),
         });
       }
@@ -126,7 +127,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           hint: scoped.key,
           run: () =>
             mutate(`Logged ${hours} h on ${scoped.key}`, () =>
-              logTime({ itemId: scoped.id, minutes, workedOn: todayInCairo() })
+              settle(() => logTime({ itemId: scoped.id, minutes, workedOn: todayInCairo() }), "That time was not logged.")
             ),
         });
       }
@@ -140,7 +141,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             hint: person.initials,
             run: () =>
               mutate(`${scoped.key} assigned to ${person.fullName}`, () =>
-                setWorkItemPerson({ itemId: scoped.id, field: "assignee_id", profileId: person.id })
+                settle(() => setWorkItemPerson({ itemId: scoped.id, field: "assignee_id", profileId: person.id }), "That did not save.")
               ),
           });
         }

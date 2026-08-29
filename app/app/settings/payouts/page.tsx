@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { ArrowLeft } from "lucide-react";
 
+import { PageShell } from "@/components/app/page-shell";
 import { EarningsBoard } from "@/components/app/earnings-board.client";
 import { Mono } from "@/components/coditu/mono";
 import { Reveal } from "@/components/motion/reveal";
@@ -53,7 +54,7 @@ export default async function TeamPayoutsPage() {
   after(() => refreshStoredRate(supabase, settings));
 
   return (
-    <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+    <PageShell measure="payouts">
       <Reveal tier="section" as="header">
         <Mono size="eyebrow" className="text-[var(--ink-faint)]">
           everyone on the team reads this · only an admin confirms one
@@ -88,6 +89,6 @@ export default async function TeamPayoutsPage() {
           My earnings
         </Link>
       </Reveal>
-    </main>
+    </PageShell>
   );
 }

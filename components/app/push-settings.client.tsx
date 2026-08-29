@@ -1,5 +1,6 @@
 "use client";
 
+import { unstable_rethrow } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { BellRing, BellOff, Check, Share } from "lucide-react";
 
@@ -12,6 +13,7 @@ import {
   sendTestNotification,
 } from "@/lib/actions/push";
 import { isIOS, isStandalone } from "@/lib/pwa";
+import { control } from "@/lib/interactive";
 
 /**
  * Turning notifications on, and being honest about every reason they might not
@@ -50,6 +52,17 @@ type Support =
 export function PushSettings() {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
 
   const [support, setSupport] = useState<Support>("checking");
   const [permission, setPermission] = useState<NotificationPermission>("default");
@@ -97,7 +110,14 @@ export function PushSettings() {
       if (existing && !state.subscribed) setEndpoint(null);
 
       setSupport("ready");
-    } catch {
+    } catch (error) {
+      // `unstable_rethrow` first, and it is not a formality. Next implements
+      // `redirect()` and `notFound()` by THROWING, so a bare catch around a
+      // Server Action swallows a working navigation and leaves a control that
+      // appears to do nothing. This block guards more than the action call —
+      // which is why it stays a block rather than becoming `settle()` — so the
+      // rethrow has to be written here.
+      unstable_rethrow(error);
       setSupport("unsupported");
     }
   }, []);
@@ -157,7 +177,14 @@ export function PushSettings() {
 
         setEndpoint(subscription.endpoint);
         await refresh();
-      } catch {
+      } catch (error) {
+        // `unstable_rethrow` first, and it is not a formality. Next implements
+        // `redirect()` and `notFound()` by THROWING, so a bare catch around a
+        // Server Action swallows a working navigation and leaves a control that
+        // appears to do nothing. This block guards more than the action call —
+        // which is why it stays a block rather than becoming `settle()` — so the
+        // rethrow has to be written here.
+        unstable_rethrow(error);
         // A Server Action that THROWS never returns a result, and a rejected
         // `subscribe()` looks the same from here.
         toast("Notifications could not be turned on. Nothing has changed.");
@@ -180,7 +207,14 @@ export function PushSettings() {
 
         setEndpoint(null);
         await refresh();
-      } catch {
+      } catch (error) {
+        // `unstable_rethrow` first, and it is not a formality. Next implements
+        // `redirect()` and `notFound()` by THROWING, so a bare catch around a
+        // Server Action swallows a working navigation and leaves a control that
+        // appears to do nothing. This block guards more than the action call —
+        // which is why it stays a block rather than becoming `settle()` — so the
+        // rethrow has to be written here.
+        unstable_rethrow(error);
         toast("That did not save. Try again.");
       }
     });
@@ -195,7 +229,14 @@ export function PushSettings() {
             ? `Sent to ${result.sent} device${result.sent === 1 ? "" : "s"}. It should appear now.`
             : result.error ?? "That did not send."
         );
-      } catch {
+      } catch (error) {
+        // `unstable_rethrow` first, and it is not a formality. Next implements
+        // `redirect()` and `notFound()` by THROWING, so a bare catch around a
+        // Server Action swallows a working navigation and leaves a control that
+        // appears to do nothing. This block guards more than the action call —
+        // which is why it stays a block rather than becoming `settle()` — so the
+        // rethrow has to be written here.
+        unstable_rethrow(error);
         toast("That did not send.");
       }
     });
@@ -280,6 +321,8 @@ export function PushSettings() {
       <>
         <div className="flex flex-wrap items-center gap-2">
           <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
             type="button"
             disabled={pending}
             onClick={subscribed ? disable : enable}
@@ -295,6 +338,8 @@ export function PushSettings() {
 
           {subscribed ? (
             <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
               type="button"
               disabled={pending}
               onClick={test}

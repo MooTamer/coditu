@@ -1,8 +1,9 @@
+import { ChevronRight, FileText } from "lucide-react";
+import Link from "next/link";
+
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { ClientMark } from "@/components/app/client-mark";
-import { CommentBody } from "@/components/app/comment-body";
-import { SprintNotes } from "@/components/app/sprint-notes.client";
-import { documentFromText } from "@/lib/blocks/schema";
+import { SprintExport } from "@/components/app/sprint-export.client";
 import { Presence } from "@/components/app/presence.client";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { Mono } from "@/components/coditu/mono";
@@ -10,7 +11,7 @@ import { ToneChip } from "@/components/coditu/status-chip";
 import { statusDistribution, type BurnPoint, type SprintDetail } from "@/lib/data/sprint";
 import type { ProjectSummary } from "@/lib/data/projects";
 import { dateRange, hours, hoursLabel } from "@/lib/format";
-import { STATUS_LABEL, type WorkItemStatus } from "@/lib/work-items";
+import { STATUS_BAR_COLOR, STATUS_LABEL } from "@/lib/work-items";
 
 /**
  * The three-column sprint header. `minmax(280px, 1fr)` with auto-fit, so the
@@ -21,16 +22,6 @@ import { STATUS_LABEL, type WorkItemStatus } from "@/lib/work-items";
 /** Bar and legend colours. Deliberately the raw functional hues, not chip
  *  foregrounds: a 10px bar is a shape, not text, so it takes the saturated
  *  value rather than the AA-tuned one. */
-const BAR_COLOR: Record<WorkItemStatus, string> = {
-  in_progress: "#2B57FF",
-  in_peer_review: "#FFB020",
-  in_qa: "#21E2C6",
-  changes_requested: "#FF5F6D",
-  ready: "#6B7A90",
-  draft: "rgba(107,122,144,0.35)",
-  blocked: "#FF5F6D",
-  done: "#23C97F",
-};
 
 export function SprintHeader({
   project,
@@ -38,9 +29,7 @@ export function SprintHeader({
   burn,
   daysLeft,
   members,
-  canEdit,
   people,
-  maxImageBatch,
   me,
 }: {
   project: ProjectSummary;
@@ -49,11 +38,14 @@ export function SprintHeader({
   daysLeft: number | null;
   members: Array<{ initials: string; fullName: string; avatarUrl: string | null; minutes: number }>;
   /** Admin or lead. Sprints are theirs to change. */
-  canEdit: boolean;
+  /** Unused since the notes panel moved to its own route; the page still
+   *  passes it and the notes route is the thing that reads it. */
+  canEdit?: boolean;
   /** Active profiles, for the notes editor's `@` list. */
   people: ProfileRef[];
   /** From `app_settings` — never a constant. */
-  maxImageBatch: number;
+  /** As `canEdit` — the notes route owns image uploads now. */
+  maxImageBatch?: number;
   /** The signed-in reader, so presence can leave them out of their own stack. */
   me: ProfileRef;
 }) {
@@ -142,6 +134,30 @@ export function SprintHeader({
             ) : null}
           </div>
 
+          {/* The handoff's action cluster. Sprint notes are a route, not a
+              panel folded into this header: they were rendered in both places,
+              so the same document had two editors and two version-history
+              links on one screen. The badge says whether there is anything to
+              read, which is what the panel was really being kept for. */}
+          <div className="mt-[14px] flex flex-wrap items-center gap-2">
+            <Link
+              href={`/app/projects/${project.slug}/sprints/${sprint.number}/notes`}
+              className="inline-flex h-11 items-center gap-[7px] rounded-control border border-[var(--hairline)] px-[11px] text-[12.5px] text-[var(--ink-muted)] hover:bg-[var(--tint)] hover:text-[var(--ink)] md:h-[34px]"
+            >
+              <FileText size={13} strokeWidth={1.8} aria-hidden />
+              Sprint notes
+              <Mono size="meta" className="text-[var(--ink-faint)]">
+                {sprint.notes?.trim() || sprint.notesDoc ? "written" : "none yet"}
+              </Mono>
+            </Link>
+            <SprintExport
+              slug={project.slug}
+              sprintNumber={sprint.number}
+              sprintName={sprint.name}
+              clientName={project.clientName}
+            />
+          </div>
+
           {members.length > 0 ? (
             /**
              * The bundle draws these as bare faces with the per-person load in
@@ -202,7 +218,7 @@ export function SprintHeader({
               <span
                 key={slice.status}
                 title={`${STATUS_LABEL[slice.status]} — ${slice.count}`}
-                style={{ width: `${slice.share}%`, background: BAR_COLOR[slice.status] }}
+                style={{ width: `${slice.share}%`, background: STATUS_BAR_COLOR[slice.status] }}
               />
             ))}
           </div>
@@ -213,7 +229,7 @@ export function SprintHeader({
                 <span
                   aria-hidden
                   className="size-2 rounded-[2px]"
-                  style={{ background: BAR_COLOR[slice.status] }}
+                  style={{ background: STATUS_BAR_COLOR[slice.status] }}
                 />
                 {STATUS_LABEL[slice.status]} {slice.count}
               </Mono>
@@ -228,48 +244,38 @@ export function SprintHeader({
           </div>
         </div>
 
-        {/* ---- burn-up ---- */}
-        <div data-reveal="section" style={{ animationDelay: "150ms" }} className="min-w-0">
-          <div className="flex items-baseline justify-between gap-3">
-            <Mono size="meta" className="uppercase tracking-[0.06em] text-[var(--ink-faint)]">
-              Burn-up · hours logged
-            </Mono>
-            <Mono size="meta" className="text-[var(--ink-faint)]">
-              {estimate > 0 ? Math.round((logged / estimate) * 100) : 0}%
-            </Mono>
-          </div>
-          <BurnUp points={burn} estimateMinutes={estimate} />
-        </div>
       </div>
 
-      {/* Rendered for a lead even when the sprint has no notes: the panel is
-          where notes are written, so hiding it until notes exist means there is
-          nowhere to write the first ones. An engineer looking at a sprint with
-          no notes still sees nothing, because for them there is nothing. */}
-      {sprint.notes || canEdit ? (
-        <SprintNotes
-          sprintId={sprint.id}
-          notes={sprint.notes ?? ""}
-          notesDoc={sprint.notesDoc}
-          // Server-rendered, for the same reason the item detail's is.
-          body={
-            <CommentBody
-              doc={
-                sprint.notesDoc ??
-                (sprint.notes?.trim()
-                  ? documentFromText(sprint.notes, { starsAreCallouts: true })
-                  : null)
-              }
-            />
-          }
-          author={sprint.notesAuthor?.fullName.split(" ")[0] ?? null}
-          writtenOn={sprint.notesWrittenOn}
-          canEdit={canEdit}
-          people={people}
-          maxImageBatch={maxImageBatch}
-          historyHref={`/app/projects/${project.slug}/sprints/${sprint.number}/notes`}
-        />
-      ) : null}
+      {/* ---- burn-up, secondary and folded ----------------------------------
+          The prototype's sprint header has three columns — goal, status, hours
+          and criteria — and no chart. This one is ours and it is worth keeping,
+          but it was a fourth column of equal weight and on a phone it took most
+          of the first screen before a single story was visible.
+
+          So it stays, below the designed header, closed. `<details>` rather
+          than state: it works before hydration, it is one element, and the
+          disclosure triangle is a control every assistive technology already
+          knows. Open it once and the browser keeps it open for that page. */}
+      <details className="group border-t border-[var(--hairline)] px-6 py-3">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-[var(--ink-muted)] marker:content-none hover:text-[var(--ink)]">
+          <ChevronRight
+            size={13}
+            strokeWidth={2.2}
+            aria-hidden
+            className="shrink-0 transition-transform group-open:rotate-90"
+          />
+          <Mono size="meta" className="uppercase tracking-[0.06em]">
+            Burn-up · hours logged
+          </Mono>
+          <Mono size="meta" className="ml-auto text-[var(--ink-faint)]">
+            {estimate > 0 ? Math.round((logged / estimate) * 100) : 0}%
+          </Mono>
+        </summary>
+        <div className="mt-2 max-w-[520px]">
+          <BurnUp points={burn} estimateMinutes={estimate} />
+        </div>
+      </details>
+
     </section>
   );
 }

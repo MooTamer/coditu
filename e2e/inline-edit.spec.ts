@@ -36,9 +36,27 @@ test.describe("editing from the table", () => {
   test.use({ sprintTotals: "write" });
 
   let before: Awaited<ReturnType<typeof readItem>>;
+  /**
+   * The time entries this item had BEFORE this file ran.
+   *
+   * The teardown below used to delete every entry on the item, seeded ones
+   * included — `or work_item_id = (…)` with no bound on which rows were ours.
+   * That is 12.0 h of the sprint's total gone for the rest of the run, and it
+   * is why `sprint-table.spec.ts` read `46.0` where the database said `58.0`:
+   * proven by running the two files in that order, and then not.
+   */
+  let seededEntries: string[] = [];
 
   test.beforeAll(async () => {
     before = await readItem();
+    const rows = await query<{ id: string }>(
+      `select t.id::text as id
+         from time_entries t
+         join work_items w on w.id = t.work_item_id
+        where w.key = $1`,
+      [KEY]
+    );
+    seededEntries = rows.map((row) => row.id);
   });
 
   test.afterEach(async () => {
@@ -58,10 +76,13 @@ test.describe("editing from the table", () => {
         before.reviewer,
       ]
     );
+    // Only what this file created: everything on the item that was not already
+    // there when it started. Anything wider takes the seed with it.
     await query(
-      `delete from time_entries where note = 'e2e inline edit'
-         or work_item_id = (select id from work_items where key = $1)`,
-      [KEY]
+      `delete from time_entries
+        where work_item_id = (select id from work_items where key = $1)
+          and not (id::text = any($2::text[]))`,
+      [KEY, seededEntries]
     );
   });
 

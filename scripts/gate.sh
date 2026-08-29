@@ -31,6 +31,13 @@ step "git diff --check"; git diff --check
 step "lint";             npm run lint
 step "typecheck";        npm run typecheck
 step "test";             npm run test
+
+# PF-2's spec is executable and red on purpose, so it is NOT in `npm run test`
+# any more — a permanently-red suite cannot say whether anything new broke. It
+# runs here instead, and the check is inverted: this step fails the gate the day
+# the round trip starts working, which is the day the exclusion comes out.
+step "roundtrip (PF-2, expected red)"; npm run roundtrip
+
 step "db:test";          npm run db:test
 
 step "db:types (no diff)"
@@ -41,6 +48,14 @@ if ! git diff --quiet -- lib/supabase/database.types.ts; then
 fi
 
 step "components:check"; npm run components:check
+
+# PF-4's second half, and it is on the list for the reason the header gives.
+# 54 Server Action call sites were awaited, had their result inspected, and had
+# nothing catching a rejected fetch — so a lost connection skipped the `!ok`
+# branch, skipped the rollback beside it, and let `useOptimistic` revert in
+# silence. That is invariant 4's failure exactly, it had been true for months,
+# and no command in this repository would have said so.
+step "resilience";       npm run resilience
 step "degraded";         npm run degraded
 
 # One build, three consumers. `SKIP_BUILD=1` on the second and third so the

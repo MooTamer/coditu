@@ -15,7 +15,14 @@ export interface AllowedEmail {
   note: string | null;
   invitedBy: string | null;
   createdAt: string;
-  /** Whether somebody has actually signed up with this address yet. */
+  /**
+   * Whether somebody has actually SIGNED IN with this address yet.
+   *
+   * Not "does an account exist". Since `sendInvitation` an account exists from
+   * the moment the invitation is sent, so the two questions came apart and this
+   * is the one worth showing: an invitation nobody has opened is still
+   * outstanding. `allowlist_claimed()` answers it from `last_sign_in_at`.
+   */
   claimed: boolean;
 }
 
@@ -41,7 +48,9 @@ export async function getAllowlist(): Promise<AllowedEmail[]> {
   // `auth.users` directly, but reaching for service-role to render a list is
   // exactly the habit that turns one bypass into five.
   const { data: claimedRows } = await supabase.rpc("allowlist_claimed");
-  const claimed = new Set((claimedRows ?? []).map((row) => row.email.toLowerCase()));
+  const claimed = new Set(
+    (claimedRows ?? []).filter((row) => row.accepted).map((row) => row.email.toLowerCase())
+  );
 
   return (rows ?? []).map((row) => ({
     email: row.email,

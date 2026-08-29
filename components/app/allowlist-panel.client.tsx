@@ -1,13 +1,15 @@
 "use client";
 
 import { useOptimistic, useRef, useState, useTransition } from "react";
-import { Trash2, UserPlus } from "lucide-react";
+import { Mail, Trash2, UserPlus } from "lucide-react";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
-import { addAllowedEmail, removeAllowedEmail } from "@/lib/actions/allowlist";
+import { settle } from "@/lib/action-result";
+import { addAllowedEmail, removeAllowedEmail, sendInvitation } from "@/lib/actions/allowlist";
 import type { AllowedEmail } from "@/lib/data/allowlist";
 import { calendarDate } from "@/lib/format";
+import { control } from "@/lib/interactive";
 
 const FIELD =
   "h-[38px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-3 text-[14px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]";
@@ -24,6 +26,17 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Which row is waiting, by address — not a boolean.
+   *
+   * `useTransition`'s `pending` is shared by every control in this component,
+   * so lighting them all from it says "everything is working" when one thing
+   * is. `e2e/interactive-states.spec.ts` asserts exactly one control reports a
+   * click, and it caught that first draft elsewhere in the app.
+   */
+  const [sending, setSending] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const form = useRef<HTMLFormElement>(null);
 
   const [optimistic, applyOptimistic] = useOptimistic(
@@ -38,6 +51,7 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const note = String(formData.get("note") ?? "").trim();
     setError(null);
+    setAdding(true);
 
     startTransition(async () => {
       applyOptimistic({
@@ -45,7 +59,8 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
         row: { email, note: note || null, invitedBy: null, createdAt: new Date().toISOString(), claimed: false },
       });
 
-      const result = await addAllowedEmail({ email, note: note || undefined });
+      const result = await settle(() => addAllowedEmail({ email, note: note || undefined }), "That did not save.");
+      setAdding(false);
       if (result.ok) {
         form.current?.reset();
         toast(`${email} can now sign up.`);
@@ -56,11 +71,28 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
     });
   }
 
+  function invite(email: string) {
+    setError(null);
+    setSending(email);
+    startTransition(async () => {
+      const result = await settle(() => sendInvitation({ email }), "That invitation did not send.");
+      setSending(null);
+      if (result.ok) {
+        toast(`Invitation sent to ${email}.`);
+      } else {
+        setError(result.error ?? "That invitation did not send.");
+        toast(result.error ?? "That invitation did not send.");
+      }
+    });
+  }
+
   function remove(email: string) {
     setError(null);
+    setRemoving(email);
     startTransition(async () => {
       applyOptimistic({ type: "remove", email });
-      const result = await removeAllowedEmail({ email });
+      const result = await settle(() => removeAllowedEmail({ email }), "That did not save.");
+      setRemoving(null);
       if (result.ok) {
         toast(`${email} can no longer sign up.`);
       } else {
@@ -102,9 +134,9 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
         </label>
 
         <button
+          {...control(adding ? "pending" : "idle")}
           type="submit"
           disabled={pending}
-          aria-busy={pending}
           className="signal-gradient flex h-[38px] shrink-0 items-center gap-2 rounded-control px-4 text-[13.5px] font-semibold text-[#07090E] disabled:opacity-70"
         >
           <UserPlus size={15} strokeWidth={2} aria-hidden />
@@ -124,7 +156,15 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
           account with it.
         </p>
       ) : (
-        <ul className="flex flex-col rounded-list border border-[var(--hairline)]">
+        // `data-allowlist` so a spec can ask for THIS list. `/app/people` also
+        // renders the access history, whose entries quote the same address
+        // ("… invited allowlist-probe@example.com"), so a page-level `li`
+        // filtered by an email matches three things once the history has
+        // anything in it — and passes only against a database nobody has used.
+        <ul
+          data-allowlist
+          className="flex flex-col rounded-list border border-[var(--hairline)]"
+        >
           {optimistic.map((row) => (
             <li
               key={row.email}
@@ -155,9 +195,23 @@ export function AllowlistPanel({ rows }: { rows: AllowedEmail[] }) {
                 {row.invitedBy ? ` · by ${row.invitedBy}` : ""}
               </Mono>
 
+              {row.claimed ? null : (
+                <button
+                  type="button"
+                  onClick={() => invite(row.email)}
+                  disabled={pending}
+                  {...control(sending === row.email ? "pending" : "idle")}
+                  className="flex h-9 shrink-0 items-center gap-[6px] rounded-control border border-[var(--hairline-strong)] px-3 text-[13px] text-[var(--ink-muted)] transition-colors duration-[var(--dur-micro)] hover:border-[var(--signal)] hover:text-[var(--ink)] disabled:opacity-50"
+                >
+                  <Mail size={14} strokeWidth={1.8} aria-hidden />
+                  {sending === row.email ? "Sending" : "Send invitation"}
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => remove(row.email)}
+                {...control(removing === row.email ? "pending" : "idle")}
                 disabled={pending}
                 aria-label={`Withdraw the invite for ${row.email}`}
                 className="flex size-9 shrink-0 items-center justify-center rounded-control border border-[var(--hairline)] text-[var(--ink-muted)] transition-colors duration-[var(--dur-micro)] hover:border-[var(--rose)] hover:text-[var(--rose)] disabled:opacity-50"

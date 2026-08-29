@@ -234,9 +234,9 @@ there so that neither of the other two columns can be mistaken for the status qu
 
 Two notes on these figures.
 
-**The RTO is a guess until a drill has been run.** Four hours is what a restore of a
-database this size *should* take, including the time to notice and the time to decide. The
-first drill replaces it with a measurement, and the measurement is what goes on the screen.
+**The RTO is a guess until a hosted drill has been run.** A local data restore measures
+neither incident decision time, provider creation nor DNS/environment cutover. Only a full
+hosted drill can replace the guess, and until then the Recovery Centre leaves RTO unset.
 
 **The bin's 90 days is a product decision, not an infrastructure one.** The handoff's own
 unresolved-decisions list flags it: *"Trash retention — described as workspace policy with
@@ -246,32 +246,31 @@ purges automatically today, which is safe and unbounded. If 90 days is agreed it
 
 ---
 
-## 4. Decide
+## 4. Decided by Mohamed, 2026-08-28
 
-**These need Mohamed's decision. Nothing will be configured until they have one.**
+1. **No Pro and no PITR.** The infrastructure objective is a **24-hour RPO**. This accepts
+   that work after the newest successful nightly copy can be lost; it does not pretend the
+   Free plan has a provider restore point.
+2. **Cloudflare R2 Standard plus an encrypted local copy, never Git.** R2's current
+   allowance is 10 GB-month, 1 million Class A operations and 10 million Class B operations
+   per month, with direct egress free. The allowance is not the same as an activated account:
+   Cloudflare currently requires an R2 subscription checkout and a primary payment method.
+   Mohamed's no-card rule therefore blocks activation; §8 names the exact boundary.
+3. **GitHub Actions cron.** `.github/workflows/nightly-backup.yml` is the scheduled writer.
+   Its database credential belongs to a dedicated `coditu_backup` role, not `postgres`.
+4. **Email to Mohamed and a freshness canary.** A second schedule checks the newest R2
+   object, and an external heartbeat catches the case where GitHub schedules stop running
+   altogether. Neither is described as active before its endpoint and secrets exist.
+5. **Thirty nightly and twelve monthly recovery sets.** Each set contains roles, schema,
+   data and every Storage object. `scripts/prune-backups.sh` retains an exact count, not an
+   approximate number of days. The application bin remains unbounded; infrastructure
+   retention does not silently create a product deletion policy.
+6. **The integrity drill is automated monthly.** It checks the encrypted object's recorded
+   SHA-256, byte size and object count without holding the private key. Mohamed performs a
+   full decrypt-and-restore quarterly with his own key; GitHub never receives that key.
 
-1. **Pay for Pro + PITR?** An estimated **~$130/month** at today's list prices — Pro, the
-   PITR add-on and the compute size PITR requires, itemised in §2 layer 1 — for a two-minute
-   RPO instead of no restore point at all. Treat the figure as an estimate and confirm it in
-   the billing dashboard. If the answer is no, layers 2–4 still go ahead, the RPO becomes 24
-   hours, and that number should then be said on the Recovery Centre screen in those words.
-   **Note that layers 2–4 are what move this project from "nothing" to "yesterday"; layer 1
-   is what moves it from "yesterday" to "two minutes".** Doing nothing leaves it at nothing.
-2. **Where do the off-site copies live?** Backblaze B2, Cloudflare R2, Hetzner, or an
-   existing account. This decides who else holds a copy of every profile and comment in the
-   workspace, so it is a data-protection decision as much as a cost one.
-3. **Where does the nightly job run?** A GitHub Actions schedule is free and needs the
-   database password in a repository secret. A small always-on host keeps the credential
-   off GitHub. The credential's home is the real question.
-4. **Who is alerted, and how?** Email is enough for four people, but somebody has to be
-   the name on it.
-5. **Retention: 30 nightly dumps, 90 days of Storage history, 90 days in the bin?** Or
-   different numbers.
-6. **Who runs the quarterly drill, and when is the first one?**
-
-Once 1–6 are answered, the Recovery Centre's `Retention, RPO and RTO — not set` card can
-state real figures, and it will be the first time anything on that screen is a number
-somebody chose.
+These are objectives until the provider copy exists. §5 still wins: the Recovery Centre
+does not state the 24-hour RPO or 30 + 12 retention while activation is card-blocked.
 
 ---
 
@@ -312,11 +311,242 @@ dashboard rather than here.
    `supabase backups list --project-ref hayfsvsepgfescojesbd`, read-only, returning
    `pitr_enabled: false` and `backups: []`. When source 1 and this disagree, **this wins** —
    it is the only one that knows what exists for `Coditu's Project`.
+5. **Cloudflare — R2 pricing.** <https://developers.cloudflare.com/r2/pricing/>
+   Re-read 2026-08-28: Standard includes 10 GB-month, 1 million Class A operations,
+   10 million Class B operations and direct egress without charge. The free allowance does
+   not apply to Infrequent Access.
+6. **Cloudflare — Get started and billing profile.**
+   <https://developers.cloudflare.com/r2/get-started/> and
+   <https://developers.cloudflare.com/billing/get-started/create-billing-profile/>.
+   R2 requires an activated subscription checkout, and Cloudflare says a primary payment
+   method is required to purchase products and services. This is why a technically free
+   allowance still crosses Mohamed's no-card boundary.
+7. **~~UptimeRobot — Cron job monitoring and Free plan.~~ WRONG, corrected 2026-08-29.**
+   <https://uptimerobot.com/cron-job-monitoring/> and
+   <https://help.uptimerobot.com/en/articles/11604710-who-should-use-uptimerobot-s-free-plan>.
+   The 2026-08-28 reading — *"the Free plan includes heartbeat monitoring"* — **was not true and
+   was not sourced**. UptimeRobot's own monitor-type picker says *"Cron job / Heartbeat
+   monitoring — Available only in Solo, Team and Scale."* The free plan is HTTP, Keyword, Ping
+   and Port only. The claim came from "50 monitors free" on the marketing page; the help article
+   fetched at the time declined to enumerate free-tier monitor **types**, and that silence was
+   read as confirmation. Caught by the product, not by the research. **The lesson is the
+   citation discipline, not the vendor:** a plan page that says *how many* is not a source for
+   *which kinds*.
+7a. **healthchecks.io — the replacement for the heartbeat.**
+   <https://healthchecks.io/>. Read 2026-08-29 on their own homepage: *"Monitor 20 cron jobs for
+   free. No credit card required."* Purpose-built for this shape — their worked example is a
+   *prod backup* check — with email alerts and a first-class "expected every N, alert after a
+   grace period". Open-source (BSD-3), so it can be self-hosted if third-party alerting stops
+   being acceptable. A check gets a unique ping URL, `https://hc-ping.com/<uuid>`; possessing
+   that path is enough to forge a check-in, so it is stored as a secret, never in a document.
+7b. **UptimeRobot keeps the HTTPS work.** The free plan's HTTP/Keyword checks are exactly right
+   for the two jobs that are HTTPS requests: public site uptime (one already exists on
+   `coditu-phi.vercel.app`) and the Supabase keepalive Keyword check on `/api/health/database`.
+   Nothing about that half was wrong. Only the heartbeat moved.
+8. **Supabase — Free project pausing.**
+   <https://supabase.com/docs/guides/platform/free-project-pausing>.
+   Re-read 2026-08-28: a Free Plan project may pause after low user database activity over
+   seven days; Supabase sends an owner warning roughly one week before the pause and says a few
+   user database requests per day are typically enough to avoid it. The database-backed health
+   route proposed in `12-RECOVERY-RUNBOOK.md` §7 is not implemented in this branch.
 
 ---
 
 ## 7. Status
 
-**Unresolved and unapplied.** No plan has been upgraded, no add-on enabled, no job
-scheduled, no bucket created, no credential issued. The six questions in §4 have not been
-answered, and this document does not answer them — it exists so that they can be.
+### 2026-08-29 — the hosted project has a restore point for the first time
+
+`2026-08-29T165142Z.tar.gz.age`, 19,450,696 bytes, at
+`/Users/motamer/Library/Application Support/Coditu/Backups/` on Mohamed's Mac, encrypted to
+the public recipient in `ops/backup-recipient.txt`. It holds **126 tables, 1,391 rows and 135
+Storage objects across 3 buckets** — read from the **hosted** project, not from a local stack.
+Everything before this line was a local rehearsal of a hosted capability that did not exist.
+
+Verified rather than assumed, immediately after the run: the ciphertext's SHA-256 and byte
+count match the sidecar; it decrypts with the private key at
+`/Users/motamer/.config/coditu/backup.agekey`; all **140** payload files pass
+`shasum -a 256 -c checksums.sha256`; the extracted tree really holds 135 Storage files; and the
+row-count manifest agrees with the hosted database table by table — 107 work items, 79 time
+entries, 4 profiles, 4 `auth.users`, 5 projects, 17 sprints, 14 comments. `schema.sql` carries
+34 tables, 98 policies and 64 functions; `roles.sql` carries the custom roles and their grants.
+
+**This is one copy, on one laptop.** It is not the nightly, not off-site, and not pruned. It is
+the thing that had to exist before anything else in this pass was allowed to touch production.
+
+### What the credentials actually are
+
+Two hosted credentials were established for it, and neither is the `postgres` password — which
+is not in this repository, not on this machine, and was never needed:
+
+- **`coditu_backup`** was created on the hosted project with the body of
+  `20260828140000_a_role_that_can_only_read.sql` — the migration is idempotent, so applying it
+  later re-runs as an `alter` rather than a conflict — and given a 48-character alphanumeric
+  password generated locally and held only in
+  `/Users/motamer/.config/coditu/backup-db.env` (mode 0600, outside git). The role contract the
+  script asserts holds against hosted: `coditu_backup|true|true|false` — it is the backup role,
+  it has BYPASSRLS, it can SELECT `work_items`, it cannot INSERT.
+- **The Storage leg used the service-role key**, not an S3 key pair, over a new `rest` mode in
+  `scripts/backup.sh`. See the ADR: S3 access keys can only be minted by a human in the
+  dashboard, and the Management API has no endpoint for them.
+
+The connection is the **session pooler on port 5432**, not `db.<ref>.supabase.co`. The direct
+host publishes only an AAAA record and this machine has no IPv6 route, so the direct connection
+string in every runbook here is unusable from it. That is a property of the network, not of the
+project, and any future reader hitting a silent connection failure should check it first.
+
+### 2026-08-29 — the nightly is real, off R2, and proved end to end
+
+The store is **GitHub releases in a dedicated private repository**,
+`MooTamer/coditu-recovery`. R2 is gone: its allowance is free and its account is not, and
+Mohamed refused a card.
+
+| | |
+|---|---|
+| Where | `nightly-<id>` and `monthly-<id>` releases; assets are `<id>.tar.gz.age` and `<id>.metadata.json` |
+| Written by | `Nightly recovery copy`, **in the recovery repository**, with that run's own `GITHUB_TOKEN` |
+| Credentials in the path | **No personal access token anywhere.** Three repository secrets: `BACKUP_DB_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
+| Retention | 30 nightly, 12 monthly, by deleting the release and its tag |
+| Off-provider leg | Mohamed's Mac (working). Google Drive via rclone (written, **not activated** — OAuth needs him) |
+
+**Why releases and not committed files.** Git objects are permanent. A `git rm` of a 19 MB
+archive reclaims nothing, so "keep 30" expressed as deletions would grow the repository
+forever and take clone time with it. Release assets delete for real.
+
+**Why the workflows live in the recovery repository.** Keeping them in `MooTamer/coditu` would
+need a personal access token with write access to a second repository, stored as a secret and
+readable by every workflow in the application repository — a much larger blast radius than a
+backup writer should have. And the application repository may be **the thing that was lost**: a
+restore path that begins by checking it out is not a restore path. The recovery repository
+therefore carries its own copy of the tooling, pushed by `scripts/sync-recovery-repo.sh`, whose
+`--check` mode reports drift against `ops/recovery-repo.json`.
+
+### The end-to-end proof, command by command
+
+| Step | Evidence |
+|---|---|
+| Nightly, in Actions | run `33267669539`, **success**. `backup_id=2026-08-29T181341Z`, `database_tables=63`, `database_rows=1391`, `storage_buckets=3`, `storage_objects=135`, `nightly_retained=2` |
+| Freshness canary, in Actions | run `33264940366`, **success**. `age_seconds=69`, and the asset size, the release notes and the downloaded sidecar all agreed |
+| Pull to the Mac | `sync-backup-local.sh` → `downloaded=1 already_present=1 sets_on_disk=3`, each archive checksummed against its own sidecar after download |
+| **Restore into a throwaway stack** | `verify-backup-restore.sh` → **exit 0 in 6 s**: `database_tables=63`, `database_rows=1391`, `storage_objects=135`, every one of the 63 tables matched count for count, and all 135 objects were pushed into the throwaway Storage service and byte-compared with `diff -qr` |
+
+### Three things running it found
+
+1. **`databaseTables` was double.** The row-count manifest was built with a `\gexec` loop, and
+   psql prints the generated `select …` statements to the same stream as their results — two
+   lines per table. Both of the first hosted sets claim **126 tables; there are 63**. The row
+   total was never wrong, because the noise lines have no second field to sum, which is why
+   nothing caught it. `scripts/sql/row-counts.sql` is one statement now.
+2. **A restore target older than the source fails halfway through the data.** Hosted
+   `storage.buckets` has `versioning_status` and `storage.objects` has `archived_at`,
+   `is_delete_marker` and `is_versioned`; the local `storage-api:v1.62.5` image has none of
+   them. The first drill died 1,729 lines into `data.sql` with a bare `column … does not exist`.
+   `verify-backup-restore.sh` now compares the `COPY` column lists against the target **before
+   writing anything** and says exactly which columns are missing and what it means.
+3. **Requiring identical table lists was the wrong assertion.** The local Storage image has
+   `storage.iceberg_namespaces` and `storage.iceberg_tables`; hosted does not. Both empty. The
+   check now requires every table the backup describes to match exactly, and any table only the
+   target has to be empty — and it prints those tables rather than hiding them.
+
+### What is still not true
+
+
+- **Nothing alerts anybody.** `HEARTBEAT_URL` is unset, so the canary skips its heartbeat with a
+  notice. Creating the **healthchecks.io** check and adding that one secret to
+  `MooTamer/coditu-recovery` is Mohamed's — it is the only thing standing between the canary and
+  working alerting. Until it exists, a canary that stops being dispatched is silent.
+- **The Recovery Centre still says `not verified by this app`.** `PRODUCTION_BASE_URL` and
+  `BACKUP_CANARY_REPORT_SECRET` are unset, so the canary skips the report step with a notice.
+  The endpoint is also not deployed yet — that is T1.5.
+- **The Google Drive leg is written and inert.** `scripts/sync-backup-drive.sh` is finished;
+  rclone's Drive backend is OAuth and the consent screen is Mohamed's to click. One
+  `rclone config` and it runs.
+- **The 24-hour RPO is not yet achieved.** Two dispatched runs are not a schedule that has been
+  observed to fire. Say it after the cron has run unattended.
+- **The quarterly private-key drill against a fresh HOSTED project has still never happened.**
+  The drill above restores into a local stack whose Supabase service versions had to be brought
+  forward by hand. RTO remains unset.
+
+## 8. The implemented nightly set and its activation boundary
+
+### What the job writes
+
+`scripts/backup.sh` produces one age-encrypted `tar.gz.age` and one non-sensitive metadata
+sidecar. Inside the ciphertext are three separate Supabase-CLI-generated SQL files —
+`roles.sql`, `schema.sql`, `data.sql` — plus `row-counts.tsv`, an internal checksum manifest,
+and every object from all Supabase Storage buckets. Plaintext exists only in a mode-0700
+temporary directory and is removed on exit.
+
+Supabase CLI 2.109.1 unconditionally generates `--role "postgres"`, even when the URL logs
+in as `coditu_backup`; the result is `permission denied to set role "postgres"`. The script
+uses the CLI as the source of its platform exclusions and normalisation, asserts exactly one
+forced-role line exists, removes only that escalation, and executes the generated pipeline
+as the dedicated role. A CLI shape change fails the job instead of quietly broadening access.
+
+`20260828140000_a_role_that_can_only_read.sql` creates `coditu_backup` with LOGIN,
+`pg_read_all_data` and BYPASSRLS, but no password and no write privilege. BYPASSRLS is needed
+because an RLS-filtered dump can succeed while containing no rows; it does not grant a
+write. The migration itself refuses to apply if the role can write or cannot read the
+workspace.
+
+### The encryption key
+
+The one command used on Mohamed's Mac was:
+
+```bash
+install -d -m 700 /Users/motamer/.config/coditu && umask 077 && age-keygen -o /Users/motamer/.config/coditu/backup.agekey
+```
+
+The private half lives at `/Users/motamer/.config/coditu/backup.agekey`, mode `0600`. Only
+its recipient, `ops/backup-recipient.txt`, is in Git. The private file must also get one
+offline copy before activation; losing both the Mac and that key would turn every intact R2
+object into unrecoverable ciphertext.
+
+### What still needs an account, never a code change
+
+After an R2 Standard bucket and narrowly scoped keys exist, add these GitHub repository
+secrets without printing their values:
+
+- `BACKUP_DB_URL` — the session/direct URL for `coditu_backup`, after setting that role's
+  password out of band;
+- `SUPABASE_STORAGE_S3_URL`, `SUPABASE_STORAGE_ACCESS_KEY_ID`,
+  `SUPABASE_STORAGE_SECRET_ACCESS_KEY`, `SUPABASE_STORAGE_REGION`;
+- `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
+- `HEARTBEAT_URL` — the unique **healthchecks.io** ping URL, `https://hc-ping.com/<uuid>`; treat
+  the path as a credential because possessing it can forge successful check-ins. (Named
+  `BACKUP_CANARY_HEARTBEAT_URL` until 2026-08-29; renamed with the vendor correction, and safe to
+  rename because it had never been set.)
+- `BACKUP_CANARY_REPORT_SECRET` — one randomly generated 32+-character capability stored in
+  both GitHub's and Vercel's Production environments. It can report one validated canary
+  result through `/api/backup-health`; it is not a database or R2 credential.
+
+Then dispatch `Nightly recovery copy` once, verify the encrypted object and sidecar by
+`HEAD`, and only then let the schedule establish the first real recovery point. The local
+copy is pulled with `scripts/sync-backup-local.sh` using a `coditu-r2` AWS profile stored
+outside the repository. `docs/12-RECOVERY-RUNBOOK.md` carries the exact activation and
+restore sequence.
+
+The independent freshness control is also implemented locally. `Recovery copy freshness`
+reads the newest off-site set every three hours and accepts only a complete nightly set no older
+than 26 hours, then — as its **last** step, on success only — pings an external heartbeat.
+That receiver is **healthchecks.io**: 20 cron checks free, email alerts, no card. (It was
+specified as UptimeRobot until 2026-08-29; UptimeRobot's heartbeat type is paid. See reference 7.)
+The check is deliberately **not created yet**: without a pushed workflow it would report a
+manufactured outage. Activation follows the
+ordered steps in `docs/12-RECOVERY-RUNBOOK.md` after the first upload succeeds.
+
+`Monthly recovery-copy integrity` is implemented on the same boundary. On day 02 it reads
+back the newest monthly ciphertext and sidecar, recomputes SHA-256 and byte size, compares
+the day-01 monthly object with its nightly twin, and validates the recorded database and
+Storage counts. It deliberately receives no age private key. That makes compromise of the
+scheduled reader unable to expose the backup, but it also means this is an integrity drill,
+not a restore. The first Saturday of January, April, July and October is the manual full
+decrypt-and-restore drill in `docs/12-RECOVERY-RUNBOOK.md` §6.
+
+The Recovery Centre hand-off is implemented on the same fail-closed rule. The freshness
+check downloads the sidecar and requires its id, encrypted bytes, SHA-256 and four counts to
+match the R2 object it just read. A scoped report endpoint writes those facts to a singleton
+row, refuses stale/replayed payloads, and cannot move the row backwards to an older object.
+The page renders no backup id, age, size, count or 24-hour claim while that row is absent;
+after two hours without a new report, or once the newest object crosses 24 hours, the card
+turns amber by elapsed time alone. There is currently no hosted row because R2 is still
+card-blocked and the migration has not been applied.

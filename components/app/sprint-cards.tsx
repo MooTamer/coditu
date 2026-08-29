@@ -10,7 +10,7 @@ import { calendarDate, hours } from "@/lib/format";
 import { groupingHue, groupingTint } from "@/lib/work-items";
 
 /**
- * The stacked card layout, shown below 900px.
+ * The stacked card layout, shown below 768px.
  *
  * ── Why nothing in here is `--ink-faint` ──────────────────────────────────
  * A grouped card carries a 5% hue tint, and `--ink-faint` measures **4.46:1**
@@ -19,11 +19,17 @@ import { groupingHue, groupingTint } from "@/lib/work-items";
  * does not exist. `--ink-muted` is 5.25:1 on the same tint. Exactly the shape of
  * the bug `cell-popover.client.tsx` already documents for the sticky column.
  *
- * Driven by a CONTAINER query, not a viewport breakpoint. The table's own
- * width is what decides whether it fits, and that width changes when the rail
- * pins open — a viewport breakpoint would keep showing a squeezed table on a
- * wide screen with an expanded rail, and switch to cards on a narrow screen
- * where the table would actually have fitted.
+ * Driven by the VIEWPORT at `md`, which is 768px, because that is where
+ * `Coditu Workspace.dc.html` switches: its 768-1023 row is *"Full table, sticky
+ * Task column"* and only below 768 does it say *"Story cards"*.
+ *
+ * This was a 900px container query, on the reasoning that the table's own width
+ * is what decides whether it fits and that width changes when the rail pins
+ * open. Reasonable, and wrong in practice: with the rail expanded the container
+ * at an 834px viewport measures ~727px, so the whole 768-1023 band showed cards
+ * — and the sticky Task column, which is implemented correctly, was never once
+ * on screen. The table scrolls inside its own card, so a squeezed table is not
+ * the failure the container query was protecting against.
  */
 export function SprintCards({
   rows,
@@ -40,7 +46,7 @@ export function SprintCards({
   const estimate = summed.reduce((total, row) => total + row.estimateMinutes, 0);
 
   return (
-    <section className="hidden flex-col gap-[10px] @max-[900px]:flex">
+    <section className="hidden flex-col gap-[10px] max-md:flex">
       {/* The same answer the table gives, because a phone can reach the same
           empty state and a screen with nothing on it explains nothing. No
           "clear the filters" here: the control that set them is a sheet the
@@ -60,6 +66,23 @@ export function SprintCards({
             key={row.id}
             data-sprint-card
             href={`${basePath}/items/${row.key}`}
+            /**
+             * PF-9. The App Router brings a newly-rendered segment into
+             * view on a soft navigation, and the peek IS a new segment —
+             * `ScrollAndFocusHandler.handlePotentialScroll` sets
+             * `html.scrollTop = 0` and then calls `scrollIntoView()` on the
+             * modal, which `html { scroll-behavior: smooth }` animates. The
+             * page ends up at its MAXIMUM scroll: 768 of 768 at 1280x720,
+             * 2670 on a 412x839 phone. First open only, because every later
+             * one comes out of the router cache; never on WebKit.
+             *
+             * Proved by stack trace with every scroll API hooked, after
+             * `dispatchEvent` removed the harness's own CDP scroll from the
+             * measurement. An earlier pass tried this exact prop and reverted
+             * it, because it measured no change — against a number that was
+             * Playwright scrolling the link into view, not the app.
+             */
+            scroll={false}
             // See `rail.client.tsx` — a prefetch that is discarded before it
             // can be used is a server render nobody asked for.
             prefetch={false}

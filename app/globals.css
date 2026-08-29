@@ -106,6 +106,14 @@
   --group-2-sticky: #f2f9f8;
   --group-chip-bg: rgba(11, 14, 20, 0.04);
 
+  /* --- the hover wash --------------------------------------------------
+     `--tint` in `Coditu Workspace.dc.html`, and every hover in that prototype
+     is `background: var(--tint)`. The build had no such token and reached for
+     `--canvas` instead: on a `--raised` card that reads as a *darker* panel
+     rather than a wash, and on the canvas itself it reads as nothing at all.
+     It is ink at 3.5% and white at 5%, which is what the design uses. --- */
+  --tint: rgba(11, 14, 20, 0.035);
+
   /* --- elevation ------------------------------------------------------- */
   --shadow-overlay: 0 24px 64px -24px rgba(0, 0, 0, 0.35);
 
@@ -126,7 +134,9 @@
   /* Where the sidebar earns its labels. Below this it is icons only, and below
      768 it is not there at all — the bottom bar takes over. */
   --rail-wide: 1180px;
-  --topbar-h: 60px;
+  /* A minimum, not a fixed height — the design's topbar is
+     `min-height: 56px` and grows when the breadcrumb trail wraps. */
+  --topbar-h: 56px;
   /* The phone's bottom navigation. The safe-area inset is added on top of it
      wherever it is used, rather than baked in here — `env()` is 0 on a desk. */
   --tabbar-h: 60px;
@@ -187,6 +197,7 @@
   --overlay: #111826;
   --hairline: rgba(255, 255, 255, 0.07);
   --hairline-strong: rgba(255, 255, 255, 0.13);
+  --tint: rgba(255, 255, 255, 0.05);
 
   /* 34% white measures 3.01:1 at the worst of the four tint layers on the
      darkest surface. See the note beside its light-theme counterpart. */
@@ -351,6 +362,29 @@
     scroll-behavior: smooth;
     /* every number that sits in a column or updates in place must not jitter */
     font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * ...except while somebody is writing. PF-6.
+   *
+   * The browser scrolls the caret back into view on every keystroke, and with
+   * `scroll-behavior: smooth` it has to ANIMATE that — so at typing speed each
+   * keystroke restarts an animation that never arrives. Measured on a
+   * production build, thirty to-do items typed into the sprint notes at
+   * 1440x900: the caret sat 419 px below the fold after ten items and 856 px
+   * below it after twenty, and only came back about 0.7 s after typing stopped.
+   * With `auto` it never left the viewport once — 878 px, the same line, all
+   * the way through. Chrome only; WebKit keeps the caret either way.
+   *
+   * That is what "writing is not instant" means here. The keystroke itself was
+   * already measured at 12.3 ms; what was wrong is that you could not see it.
+   *
+   * `:has()` rather than a class toggled from JavaScript: this is a statement
+   * about a state the document already knows, and the app shell has no bytes
+   * to spend on a focus listener that CSS can read directly.
+   */
+  html:has(.ProseMirror:focus) {
+    scroll-behavior: auto;
   }
 
   body {
@@ -861,6 +895,12 @@
      deliberately part of a denser arrangement. */
   button:not([data-dense]),
   [role="button"]:not([data-dense]),
+  /* `summary` is a control the browser gives you for free, which is exactly
+     why this list had never named it: nothing declares it, so nothing thought
+     to size it. The sprint's burn-up disclosure measured 308x17 on a phone —
+     found by the aggregate coarse-pointer sweep, on the first run after the
+     sweep itself was repaired to use a real touch context. */
+  summary:not([data-dense]),
   a[href]:not([data-dense]):not(p a) {
     min-height: 44px;
     min-width: 44px;
@@ -1220,7 +1260,41 @@
    named group, nothing to compile wrongly.
    --------------------------------------------------------------------------- */
 
+/* ---------------------------------------------------------------------------
+   The tablet drawer's trigger: 768–1179 and nowhere else.
+
+   Written here rather than as `md:flex min-[1180px]:hidden`, and measured
+   rather than assumed — that pair put the hamburger on a 1920px screen beside
+   a fully labelled sidebar. Two utilities from different breakpoint families
+   do not order the way reading them suggests, which is the same class of
+   failure this file already records for the sidebar's own two states.
+
+   One rule, one range, nothing to sort wrongly.
+   --------------------------------------------------------------------------- */
+[data-nav-drawer-trigger] {
+  display: none;
+}
+
+@media (min-width: 768px) and (max-width: 1179.98px) {
+  [data-nav-drawer-trigger] {
+    display: flex;
+  }
+}
+
 @media (min-width: 1180px) {
+  /* Workspace Home's two columns. `homeCols` in the prototype is
+     `minmax(0, 1fr) 320px` at this same width and one column below it.
+
+     Written here for the reason the sidebar rules above are: an arbitrary
+     Tailwind variant at a non-ladder width has already compiled to nothing once
+     in this file, silently, with the base class making one state look right.
+     One plain rule on an attribute React sets. */
+  [data-home-grid] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+  }
+
   aside[data-app-chrome]:not([data-collapsed]) {
     width: var(--rail-expanded);
   }
@@ -1261,5 +1335,151 @@ aside[data-app-chrome] [data-rail-toggle] {
 @media (min-width: 1180px) {
   aside[data-app-chrome] [data-rail-toggle] {
     display: flex;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The interactive-state contract.
+
+   PF-4. Six states — idle, hover, active, pending, disabled, error — written
+   once, here, for every control that opts in with `data-control`. The
+   attributes come from `lib/interactive.ts`; what they LOOK like is this block
+   and nothing else.
+
+   The split is deliberate and it is most of the value. Hover, active and
+   disabled already have correct native spellings — `:hover`, `aria-pressed` /
+   `aria-current`, `disabled` — so they are read here rather than reimplemented
+   in React, which is how they drift apart button by button. Only `pending` and
+   `error` have no native spelling, and only those two carry a `data-state`.
+
+   It also costs nothing to ship. The app shell had 0.6 KB of JavaScript budget
+   left when this was written; a styling helper that ships class strings would
+   have spent it, and a stylesheet is not measured by `npm run budgets` at all.
+   --------------------------------------------------------------------------- */
+
+[data-control] {
+  /* The pending line is an `::after` pinned to the bottom edge. Anything with
+     `position: static` would pin it to the nearest positioned ancestor
+     instead, which is usually the whole panel. */
+  position: relative;
+  transition:
+    background-color var(--dur-micro) var(--ease-drift),
+    border-color var(--dur-micro) var(--ease-drift),
+    color var(--dur-micro) var(--ease-drift),
+    opacity var(--dur-micro) var(--ease-drift);
+}
+
+/* --- pending ---------------------------------------------------------------
+   An indeterminate line that grows along the bottom edge. Not a spinner: a
+   spinner needs a box of its own, and these controls range from a 34px chip to
+   a full-width row — the one thing they all have is a bottom edge.
+
+   `scaleX` from a left origin, so it never paints outside the control and no
+   `overflow: hidden` is needed on a button that may have a focus ring. */
+[data-control][data-state="pending"] {
+  cursor: progress;
+}
+
+[data-control][data-state="pending"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: cd-pending 900ms var(--ease-drift) infinite;
+  /* A decoration. It must never eat the click it is reporting on. */
+  pointer-events: none;
+}
+
+@keyframes cd-pending {
+  0% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  65% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+/* --- error -----------------------------------------------------------------
+   The state invariant 4 exists for: "a failed write that silently reverts is
+   worse than no optimism". The control itself says so, next to the toast that
+   says why — a toast is easy to miss and impossible to point at. */
+[data-control][data-state="error"] {
+  border-color: var(--rose);
+}
+
+[data-control][data-state="error"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--rose);
+  pointer-events: none;
+}
+
+/* --- disabled --------------------------------------------------------------
+   Both spellings. `disabled` removes the control from the tab order, which is
+   right for a submit and wrong for a control that must keep focus through its
+   own pending state — `aria-disabled` is that case, and it looks identical. */
+[data-control]:disabled,
+[data-control][aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* A disabled control reports nothing. Without this, a control disabled WHILE
+   pending draws both, and the pending line under a greyed-out button reads as
+   a control that is stuck rather than one that is working. */
+[data-control]:disabled::after,
+[data-control][aria-disabled="true"]::after {
+  content: none;
+}
+
+/* --- hover -----------------------------------------------------------------
+   `:hover` on a touch screen is a lie the browser tells after a tap and keeps
+   telling until something else is tapped. `@media (hover: hover)` is what
+   makes this a mouse-only rule.
+
+   Deliberately not a background: these controls set their own, and a blanket
+   one here would fight every chip in the app. The border is the shared part. */
+@media (hover: hover) {
+  [data-control]:not(:disabled):not([aria-disabled="true"]):not([data-state="pending"]):hover {
+    border-color: var(--hairline-strong);
+  }
+}
+
+/* --- active ----------------------------------------------------------------
+   Announced as well as drawn. A filter chip that is on is `aria-pressed`; a nav
+   item for the page you are on is `aria-current`. Both are read out; a class
+   name is not. */
+[data-control][aria-pressed="true"],
+[data-control][aria-current="page"],
+[data-control][aria-current="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The global block above collapses every animation to 120ms and one
+     iteration, which for `cd-pending` means it flashes once and lands on its
+     last keyframe — `opacity: 0`. The pending state would be invisible exactly
+     for the readers most likely to need a slow, legible one. So: no animation,
+     and the line simply sits there for as long as the work does. */
+  [data-control][data-state="pending"]::after {
+    animation: none !important;
+    transform: scaleX(1);
+    opacity: 1;
   }
 }

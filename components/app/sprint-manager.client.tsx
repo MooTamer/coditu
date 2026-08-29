@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { CalendarPlus, Check, Pencil, Play, RotateCcw, Square, Trash2, X } from "lucide-react";
 
+import { settle } from "@/lib/action-result";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { ToneChip } from "@/components/coditu/status-chip";
@@ -18,6 +19,7 @@ import type { SprintSummary } from "@/lib/data/projects";
 import { dateRange, hours } from "@/lib/format";
 import type { SprintStatus } from "@/lib/work-items";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 const FIELD =
   "h-[34px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-[10px] text-[13.5px] text-[var(--ink)]";
@@ -124,14 +126,14 @@ function NewSprintForm({
   function submit() {
     setError(null);
     startTransition(async () => {
-      const result = await createSprint({
+      const result = await settle(() => createSprint({
         projectId,
         number: Number(number),
         name: name.trim(),
         startsOn: startsOn || null,
         endsOn: endsOn || null,
         goal: goal.trim() || null,
-      });
+      }), "That sprint did not save.");
       if (result.ok) {
         toast(`${name.trim()} is open. It is planned until you start it.`);
         onDone();
@@ -225,9 +227,9 @@ function NewSprintForm({
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
+          {...control(pending ? "pending" : "idle")}
           type="submit"
           disabled={pending}
-          aria-busy={pending}
           className="signal-gradient h-[34px] rounded-control px-4 text-[13px] font-semibold text-[#07090E] disabled:opacity-60"
         >
           {pending ? "Opening…" : "Open sprint"}
@@ -260,6 +262,17 @@ function SprintRow({
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(sprint.name);
   const [startsOn, setStartsOn] = useState(sprint.startsOn ?? "");
@@ -275,7 +288,7 @@ function SprintRow({
 
   function move(status: SprintStatus, said: string) {
     startTransition(async () => {
-      const result = await setSprintStatus({ sprintId: sprint.id, status });
+      const result = await settle(() => setSprintStatus({ sprintId: sprint.id, status }), "That change did not save.");
       if (result.ok) {
         toast(said);
         router.refresh();
@@ -287,13 +300,13 @@ function SprintRow({
 
   function save() {
     startTransition(async () => {
-      const result = await updateSprint({
+      const result = await settle(() => updateSprint({
         sprintId: sprint.id,
         name: name.trim(),
         startsOn: startsOn || null,
         endsOn: endsOn || null,
         goal: goal.trim() || null,
-      });
+      }), "That change did not save.");
       if (result.ok) {
         setEditing(false);
         router.refresh();
@@ -310,7 +323,7 @@ function SprintRow({
     }
     setConfirmingDelete(false);
     startTransition(async () => {
-      const result = await deleteSprint({ sprintId: sprint.id });
+      const result = await settle(() => deleteSprint({ sprintId: sprint.id }), "That sprint could not be deleted.");
       if (result.ok) {
         toast(`${sprint.name} is gone.`);
         router.refresh();
@@ -375,6 +388,8 @@ function SprintRow({
             />
           </label>
           <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
             type="button"
             onClick={save}
             disabled={pending}
@@ -483,6 +498,8 @@ function SprintRow({
           </button>
 
           <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
             type="button"
             onClick={remove}
             disabled={pending || !empty}

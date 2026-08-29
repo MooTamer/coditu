@@ -1,4 +1,14 @@
-import { SEED_ENGINEER, SEED_LEAD, auditA11y, expect, query, signIn, test } from "./fixtures";
+import {
+  SEED_ENGINEER,
+  SEED_LEAD,
+  auditA11y,
+  expect,
+  instrumentPage,
+  query,
+  shell,
+  signIn,
+  test,
+} from "./fixtures";
 
 /**
  * People & Access: what each role may do, what nobody may do to themselves, and
@@ -48,9 +58,9 @@ test.describe("roles and what they may do", () => {
     await page.goto(PEOPLE);
 
     for (const label of ["Self-protection", "Last admin", "Nothing disappears"]) {
-      await expect(page.getByText(label, { exact: true })).toBeVisible();
+      await expect(shell(page).getByText(label, { exact: true })).toBeVisible();
     }
-    await expect(page.getByText(/final active admin cannot be demoted/)).toBeVisible();
+    await expect(shell(page).getByText(/final active admin cannot be demoted/)).toBeVisible();
   });
 });
 
@@ -121,13 +131,13 @@ test.describe("the access history", () => {
     // them, and they show as `system` — which is true, and is the seed being
     // honest about how the workspace came to exist. So this counts the
     // difference the click makes rather than assuming a blank slate.
-    const history = page.locator("[data-access-history]");
+    const history = shell(page).locator("[data-access-history]");
     const before = await history.locator("li").count();
 
-    await page.getByPlaceholder("person@example.com").fill(probe);
+    await shell(page).getByPlaceholder("person@example.com").fill(probe);
     // `exact`, because every existing row carries a `Withdraw the invite for …`
     // button and the substring match resolves to five elements.
-    await page.getByRole("button", { name: "Invite", exact: true }).click();
+    await shell(page).getByRole("button", { name: "Invite", exact: true }).click();
 
     await expect(history).toBeVisible();
     await expect(history).toContainText(`Mohamed Tamer invited ${probe} to sign up`);
@@ -135,7 +145,7 @@ test.describe("the access history", () => {
 
     // Withdrawing writes a second row rather than removing the first — the
     // whole property that makes an audit trail worth reading.
-    await page.getByRole("button", { name: `Withdraw the invite for ${probe}` }).click();
+    await shell(page).getByRole("button", { name: `Withdraw the invite for ${probe}` }).click();
     await expect(history).toContainText(`withdrew the invitation for ${probe}`);
     await expect(history.locator("li")).toHaveCount(before + 2);
   });
@@ -150,17 +160,21 @@ test.describe("the access history", () => {
       const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 900 } });
       try {
         const page = await context.newPage();
+        // A page from a hand-rolled context is not wrapped by the `page`
+        // fixture, so it does not get the readiness wait. `fixtures.ts` says to
+        // hand it over; this is the file that proved why.
+        instrumentPage(page);
         await signIn(page, who);
         await page.goto(PEOPLE);
 
         if (sees) {
-          await expect(page.locator("[data-access-history]")).toContainText(probe);
+          await expect(shell(page).locator("[data-access-history]")).toContainText(probe);
         } else {
           // Refused in words, and the team list stays — that is what the
           // workspace is for.
-          await expect(page.locator("[data-access-history]")).toHaveCount(0);
-          await expect(page.getByText(/names capabilities that are an admin/)).toBeVisible();
-          await expect(page.getByText("Adam Nafie").first()).toBeVisible();
+          await expect(shell(page).locator("[data-access-history]")).toHaveCount(0);
+          await expect(shell(page).getByText(/names capabilities that are an admin/)).toBeVisible();
+          await expect(shell(page).getByText("Adam Nafie").first()).toBeVisible();
         }
       } finally {
         await context.close();
@@ -190,7 +204,7 @@ test.describe("the access history", () => {
     await query(`insert into public.allowed_emails (email, note) values ($1, 'access spec')`, [probe]);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(PEOPLE);
-    await expect(page.locator("[data-access-history]")).toBeVisible();
+    await expect(shell(page).locator("[data-access-history]")).toBeVisible();
     expect(await auditA11y(page), "people, with the matrix and the history").toEqual([]);
   });
 });

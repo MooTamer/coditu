@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { auditA11y, expect, query, signIn, test } from "./fixtures";
+import { SUPABASE_URL, auditA11y, expect, query, shell, signIn, test } from "./fixtures";
 
 /**
  * Profile pictures: setting one, seeing it everywhere, and taking it away.
@@ -13,7 +13,6 @@ import { auditA11y, expect, query, signIn, test } from "./fixtures";
 const SUBJECT = { email: "avatar-subject@example.com", password: "avatar-subject-password" };
 const NAME = "Ava Tarr";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54421";
 const PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/avatars/`;
 
 /** 1200×630, 53KB. Non-square on purpose: it exercises the centre crop. */
@@ -162,7 +161,10 @@ test.describe("profile pictures", () => {
 
     // And to everybody else, on the screen that lists the team.
     await page.goto("/app/people");
-    const row = page.locator("[data-team-member]", { hasText: NAME });
+    // Through `shell()`: `/app/people` resolves its subtree inside
+    // `<div hidden id="S:1">` and moves it, so for ~100ms both copies match and
+    // a page-level locator is a coin flip. See the note on `shell` in fixtures.
+    const row = shell(page).locator("[data-team-member]", { hasText: NAME });
     await expect(row.locator("[data-avatar='picture'] img")).toHaveAttribute("src", storedUrl);
 
     expect(await auditA11y(page)).toEqual([]);

@@ -1,0 +1,41 @@
+name: Database keepalive
+
+on:
+  schedule:
+    # Every six hours. The provider's bar is "a few database requests per day"
+    # over a seven-day window; four a day clears it with room, and a tighter
+    # cadence would spend Actions minutes that the nightly backup needs more.
+    # See the ADR of 2026-08-29 for the arithmetic.
+    - cron: "31 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: the database answers, so the project stays awake
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ask the database to prove it is awake
+        env:
+          PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PRODUCTION_BASE_URL:-}" ]; then
+            echo "::notice::PRODUCTION_BASE_URL is unset; the keepalive is NOT active"
+            exit 0
+          fi
+          answer=$(curl --fail --silent --show-error \
+            --max-time 20 --retry 2 --retry-all-errors \
+            "$PRODUCTION_BASE_URL/api/health/database")
+          # The keyword, not the status code. A 200 from a CDN error page or a
+          # cached body would keep this green while the database slept.
+          test "$answer" = "coditu-database-awake"
+          echo "database_awake=true"

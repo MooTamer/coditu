@@ -4707,3 +4707,571 @@ Verified independently afterwards, not from the script's own output: **17 items 
   a row that is not quiet. Every spec there deletes the row's comments before seeding its own, so the
   test is unaffected — a `mobile-chrome` run drops COD-238's imported screenshot until the next
   `db:reset`, and that is the whole cost.
+
+## 2026-08-28 · Infrastructure Block 1 — a recovery set proved locally, R2 activation stopped at the card boundary
+
+Mohamed answered `09-BACKUP-PROPOSAL.md` §4. The repository now has the first runnable
+nightly recovery block:
+
+- `20260828140000_a_role_that_can_only_read.sql` creates `coditu_backup`, readable through
+  RLS and unable to write;
+- `scripts/backup.sh` writes CLI-generated role, schema and data dumps plus every Storage
+  object, then age-encrypts before the durable file exists;
+- `upload-backup.sh` verifies byte size and SHA metadata after S3 upload;
+- `prune-backups.sh` keeps exactly 30 nightly and 12 monthly timestamped sets;
+- `sync-backup-local.sh` pulls ciphertext onto Mohamed's Mac without propagating remote
+  deletions;
+- `verify-backup-restore.sh` performs the private-key full restore and table-count diff;
+- `.github/workflows/nightly-backup.yml` is the 01:17 UTC writer, pinned to the CLI shape
+  the script validates.
+
+### Evidence, from the real shared local source
+
+`BACKUP_ID=2026-08-28T204500Z ./scripts/backup.sh` through the dedicated role produced a
+**16,603,288-byte** encrypted archive: **130 tables, 5,245 rows, three Storage buckets,
+115 objects**. The private key stayed at
+`/Users/motamer/.config/coditu/backup.agekey`; only its public recipient is in the tree.
+
+A clean throwaway Supabase project on isolated 545xx ports then ran
+`verify-backup-restore.sh`: **130 table counts matched, 5,245 rows matched, 115 objects were
+force-uploaded and downloaded byte-for-byte**. The throwaway project was stopped with
+`supabase stop --no-backup`; `docker ps` again listed only the shared `_coditu` containers.
+
+The local S3-compatible upload proof wrote the archive and metadata, independently read its
+size and checksum metadata, then seeded retention past both limits. The pruning result was
+**30 nightly, 12 monthly**; it removed two oldest nightly ids and one oldest monthly id.
+
+`bash -n` passed all five shell scripts, Ruby parsed the workflow YAML, lint and typecheck
+passed, unit tests were **495/495**, resilience reported **0 bare** Server Action calls,
+degraded-dependency behaviour passed, the production build passed, and budgets remained
+**78.0 / 110 KB own, 217.9 / 220 KB total**. A clean isolated 546xx reset applied every
+migration including the backup role and passed **441/441** database tests. `git diff
+--check` passed before the block commit.
+
+The routine fast gate is not wholly green for standing reasons outside this infrastructure
+diff. The shared mutable database had one extra criterion and one extra attachment, so its
+seed suite read 133/115 instead of 132/114; it was not reset, and the clean isolated run
+above is the migration evidence. `components:check` still sees the external EVIM React
+registry missing and two upstream components gone. The production-only TipTap assertion
+also failed **1 of 2** at this unchanged app tree. None is called green or fixed here. The
+local database has the migration and the test-only password; the hosted database does not.
+
+### The boundary is part of the result
+
+`gh secret list -R MooTamer/coditu` returned **zero secrets**. No R2 profile, target or
+credential is configured in this checkout or shell. Current Cloudflare documentation says R2 activation is a subscription
+checkout and a primary payment method is required; Mohamed explicitly prohibited a card.
+So this block is **implemented and locally restored, not scheduled, not off-site, not
+hosted-migrated, not a 24-hour RPO**. The Recovery Centre remains unchanged and truthful.
+
+## 2026-08-28 · Infrastructure Block 2 — the canary is independent, activation still waits at the same boundary
+
+`scripts/check-backup-freshness.sh` reads R2 rather than the backup writer's state. It
+requires a correctly named nightly ciphertext, a non-empty adjacent metadata sidecar,
+SHA-256 object metadata and a `LastModified` age no greater than **93,600 seconds**. It also
+rejects a timestamp more than five minutes in the future. `.github/workflows/backup-canary.yml`
+runs that check hourly at minute 47 and pings the external heartbeat only after it passes.
+
+The external monitor is UptimeRobot Free: its current published plan includes heartbeat
+monitoring and email without a credit card. It has not been created. R2 has no first object,
+the workflows are not pushed and the repository still has no secrets, so activation now
+would cause a false alarm. The runbook orders activation as first upload → direct canary
+read → monitor creation → recorded check-in → notifications. Until those steps happen, this
+block is **implemented locally, not alerting and not evidence of a 24-hour RPO**.
+
+## 2026-08-28 · Infrastructure Block 3 — monthly ciphertext integrity, quarterly plaintext restore
+
+`.github/workflows/monthly-backup-integrity.yml` schedules a day-02 readback.
+`scripts/check-backup-integrity.sh` requires the monthly set to contain exactly a ciphertext
+and sidecar, downloads both, recomputes SHA-256 and byte size, compares R2 metadata, and
+requires the matching day-01 nightly copy to have the same checksum and sizes. It validates
+and reports all four recorded counts: database tables/rows and Storage buckets/objects.
+
+The deterministic proof used the actual 16,603,288-byte Block 1 ciphertext and its recorded
+**130 tables, 5,245 rows, three buckets and 115 objects**. The intact fixture passed. An
+extra R2 object failed, a missing nightly twin failed, an appended byte failed the size
+check, and a same-size byte mutation failed SHA-256. `bash -n`, workflow YAML parsing and
+`git diff --check` passed.
+
+The workflow never receives `/Users/motamer/.config/coditu/backup.agekey`; the runbook now
+schedules the real isolated decrypt-and-restore for the first Saturday of January, April,
+July and October. The workflow is committed code only until this branch is pushed and R2
+exists, so no monthly provider readback has run and no hosted recovery claim changed.
+
+## 2026-08-28 · Infrastructure Block 4 — the release gate is coded, not yet in control
+
+`.github/workflows/ci.yml` now separates blocking release checks from a report-only browser
+observer. The blocking job pins Supabase CLI 2.109.1—the same toolchain that passed the clean
+441/441 rehearsal—and adds the resilience check that existed locally but not in CI. The
+browser job installs Chromium and WebKit, runs both dev and production passes, preserves a
+visible red outcome, and cannot block the deploy during its ten-run evidence window.
+
+The `deploy` job depends only on the blocking job, runs only for `main`, refuses missing
+configuration, and uses Vercel CLI 59.9.1 to pull Production settings, build and deploy the
+checked commit. `vercel.json` disables automatic Git deployments. The promotion ledger is
+**0/10 qualifying browser runs** with an earliest review on 2026-09-07; the prior 20 runs are
+ineligible because they used the old workflow and none succeeded.
+
+Provider evidence keeps the boundary explicit: production deployments are currently still
+created by `vercel[bot]`; the newest recorded one is for `b63f4c7`. Both repository and
+`Production` environment secret lists are empty, no checkout is linked through `.vercel/`,
+and no Vercel token is present. Therefore this block is **committed-code-ready only**: Git
+auto-deploy is not yet disabled on the live project, Actions has not deployed, this branch
+is not pushed, and production has not changed.
+
+## 2026-08-28 · Infrastructure Block 5 — hosted schema becomes a release precondition
+
+`scripts/check-hosted-schema.mjs` parses the generated Database type and checks the real
+Postgres catalogs in a read-only transaction. Against the migrated shared local stack it
+passed **37 migrations, 37 relations, 323 columns, 30 function signatures, 12 enums and
+three Storage buckets**. It refuses local URLs without an explicit rehearsal flag, requires
+the production project ref and SSL, and rejects a login that is not the non-writing
+`coditu_backup` contract.
+
+The CI blocking job now regenerates `database.types.ts` and fails on drift; that exposed and
+corrected one real generated-order diff in `allowlist_claimed` (`accepted`, then `email`).
+The deploy job requires `HOSTED_SCHEMA_DB_URL`, installs the checked dependencies, and runs
+the catalog preflight before any Vercel environment pull, build or deploy.
+
+The linked provider read returned **35 hosted vs 37 local migrations**. Hosted stops at
+`20260827130000`; `20260828120000_invited_is_not_accepted.sql` and
+`20260828140000_a_role_that_can_only_read.sql` remain unapplied. No password is available in
+this checkout, so a live catalog read was neither possible nor fabricated. The preflight is
+locally proved and expected to block the current hosted state; no database or deployment was
+changed.
+
+## 2026-08-28 · Infrastructure Block 6 — staged smoke and exact rollback are locally proved
+
+The deploy now writes the checked SHA into the Vercel prebuilt output, deploys it with
+`--skip-domain`, and smokes the protected immutable candidate before promotion. Once domains
+move, unauthenticated public requests require the same SHA, reject 4xx/5xx, and refuse a
+redirect outside the configured production origin. Any failure after promotion rolls back
+to the exact deployment id captured before the release; production deploy jobs are serialized
+so one run cannot roll back another.
+
+A deterministic fake-provider harness exercised four paths against the real shell script:
+clean promotion passed; a wrong staged SHA failed before promotion; a public 5xx failed after
+promotion and restored `dpl_previous`; and a redirect to Vercel login did the same. Both
+recovery cases printed `rollback_verified=true`. Invalid build SHAs failed closed, shell
+syntax passed, and the pinned Vercel 59.9.1 help confirmed the used `deploy --skip-domain`,
+`curl --deployment`, `promote` and `rollback` signatures. The production build also exposed
+four stale token assertions that still named the pre-migration statuses `dev_started` and
+`ready_for_peer_review`; the verifier now checks the shipped `in_progress` and
+`in_peer_review` variables instead of keeping the new release gate permanently red.
+
+UptimeRobot Free is the selected independent monitor: five-minute Keyword checks on the
+public `/login` page, requiring Coditu-specific text and emailing Mohamed. It was not created.
+There is no configured public production origin, generated deployment URLs currently lead to
+Vercel protection, `coditu.vercel.app` returns 404, and GitHub's Production environment has no
+secret or `PRODUCTION_BASE_URL` variable. The repository is ready for activation; no workflow,
+monitor, deployment, domain or provider setting changed in this block.
+
+## 2026-08-28 · Infrastructure Block 7 — backup figures now require canary evidence
+
+`check-backup-freshness.sh` now downloads the metadata sidecar and matches its id, archive,
+byte size and SHA-256 to the R2 object before emitting database/Storage counts. A successful
+workflow pings the independent heartbeat, then reports the same JSON through a scoped bearer
+endpoint. `backup_health` is one RLS-protected row; active internal members may read it, only
+the server capability may report it, and its RPC atomically ignores an older recovery set.
+
+The Recovery Centre has three states. With no row it preserves `not verified by this app`,
+shows no id, timestamp, size, count or objective, and still says **“Version history is not a
+backup.”** A recent report whose object is within 24 hours shows the measured sidecar values.
+A report older than two hours or object older than 24 hours turns amber by render-time clock;
+the 26-hour canary alert grace never becomes a 26-hour product claim. Retention, checksum
+integrity, decryption, a restore and RTO are still named as controls freshness does not prove.
+
+Evidence came from an isolated 546xx Supabase stack, never the shared `_coditu` database:
+**459/459** pgTAP assertions passed. The real HTTP route returned **401** for a wrong bearer,
+**422** for stale evidence and **204** for a valid report; a later out-of-order HTTP report
+also returned 204 while preserving the newer id. Unit tests are **506/506**. A gitignored
+Chromium check at 390px rendered the current and stale states, found no axe violations or
+horizontal overflow, and confirmed stale evidence removes the `24-hour objective met` claim.
+The existing number-free fallback assertion also passed with the singleton absent.
+The production build, token verifier and budgets passed; app shell remains **78.0 / 110 KB own,
+217.9 / 220 KB total**.
+
+Activation is still deliberately absent. Hosted has 35 migrations while local now has 38;
+the new canary-health migration is not hosted, R2 has no object, GitHub's Production secret
+list has no report capability, and no Vercel environment was changed or inspected. This local
+screen would stay in its number-free unverified state against the current hosted schema. No
+database, workflow, secret, monitor or deployment was changed outside the isolated local proof.
+
+## 2026-08-28 · Infrastructure Block 8 — nine browser reds, zero current app defects
+
+From a fresh reset on the isolated 546xx stack, the exact baseline selection reproduced **9/9
+failures**: `motion:135` on three engines and one each in earnings, version history, presence,
+project home, sprint notes and sprint table. Each failure was then traced through the rendered page,
+current Notion seed and owning component instead of changing an assertion or restoring retired UI.
+
+All nine are stale or mis-scoped test preconditions. Motion asks for an `in progress` filter when the
+seed contains only `draft` and `done`; earnings compares a real 3,540-minute live total with a
+hard-coded 1,050-minute confirmation; version history chooses the last row of a mixed-surface story
+timeline and then watches only description revisions. Presence reaches its first socket assertion
+and spends the remaining budget looking for the removed inline-notes button. Project home uses a
+direct-child CSS path invalidated by `PageShell`; sprint notes still contain the expected words on
+their dedicated route; and the burn-up retains the expected label inside its intentionally closed
+disclosure.
+
+The page-first countercheck is local-only and gitignored. It passed **4/4** in Chromium: two columns
+at 1440 and one at 1360 with zero clipping, current notes visible and editable, the folded burn-up's
+real accessible label after opening, and presence frames carrying surface names but none of a typed
+draft. The separately scoped current-description restore test passed **1/1**. There is no genuine app
+issue to patch in this block, so the committed result is the corrected evidence ledger only; the old
+browser assertions remain report-only and visibly red rather than being weakened or hidden.
+
+## 2026-08-28 · Free Supabase pause risk checked, keepalive proposed
+
+Supabase's current official policy confirms the Free Plan can pause a project after low user
+database activity over seven days. The provider sends an owner warning roughly one week before the
+pause and says a few database requests per day are typically enough to avoid it. That pause is an
+availability incident outside Git and Vercel rollback.
+
+The five-minute `/login` monitor is not counted as database keepalive evidence: a signed-out request
+reaches Supabase Auth but does not make an explicit public-table query. The runbooks propose a
+dynamic, no-store database health route backed by a fixed-output, anon-executable read-only RPC, with
+UptimeRobot Keyword monitoring and a seven-day dashboard check. It is deliberately **not implemented
+or activated** in this branch. The backup-report endpoint will never be pinged synthetically for this
+purpose, because a fake freshness report would make recovery evidence untrustworthy.
+
+## 2026-08-29 · T0.1 — the hosted project has a restore point
+
+`2026-08-29T165142Z.tar.gz.age`, 19,450,696 bytes, at
+`/Users/motamer/Library/Application Support/Coditu/Backups/`, encrypted to the public recipient in
+`ops/backup-recipient.txt`. **126 tables, 1,391 rows, 135 Storage objects across 3 buckets**, taken
+from the **hosted** project. Every recovery run before this one was against a local stack.
+
+**Verification command, and its output.** `shasum -a 256` on the ciphertext matches the sidecar's
+`sha256` and byte count; `age --decrypt -i /Users/motamer/.config/coditu/backup.agekey` then
+`shasum -a 256 -c checksums.sha256` → **140 files OK, 0 failed**; `find storage -type f | wc -l` →
+**135**, equal to the manifest and to `storage.objects`; `row-counts.tsv` against the hosted
+database → `work_items 107`, `time_entries 79`, `profiles 4`, `auth.users 4`, `projects 5`,
+`sprints 17`, `comments 14`, all equal. `schema.sql` carries 34 `CREATE TABLE`, 98 `CREATE POLICY`
+and 64 functions; `roles.sql` carries `coditu_backup` and the `statement_timeout` settings for
+`anon`, `authenticated` and `authenticator`. End to end: **225 seconds**.
+
+**What had to be true first, and was not.** The `postgres` password is not in this repository and
+not on this machine, so the hosted database was unreachable by any documented path. Two things
+closed that:
+
+1. The Supabase CLI's stored access token gives the **Management API** SQL endpoint, which runs as
+   the `postgres` owner. `coditu_backup` was created through it with the body of
+   `20260828140000_a_role_that_can_only_read.sql` — the migration is idempotent, so T1.2 applying
+   it later re-runs as an `alter`, not a conflict — and given a locally generated 48-character
+   password held only in `/Users/motamer/.config/coditu/backup-db.env`, mode 0600, outside git.
+   `backup.sh`'s own role assertion then passed against hosted: `coditu_backup|true|true|false`.
+2. `db.hayfsvsepgfescojesbd.supabase.co` publishes **only an AAAA record** and this machine has no
+   IPv6 route, so every connection string in these runbooks was unusable. The **session pooler** at
+   `aws-0-eu-central-1.pooler.supabase.com:5432` works. Port 6543, which the Management API
+   advertises, is transaction mode and will not carry migration DDL.
+
+**One change to `scripts/backup.sh`, and one bug found by running it.** Storage bytes are in no
+database dump, and Supabase S3 access keys can only be minted by a human in the dashboard — probed
+2026-08-29: `storage/credentials` and `storage/s3-credentials` both 404. A `rest` storage mode
+lists objects from `storage.objects` and downloads them with the service-role key; `s3` is
+unchanged and still the default. The privilege cost is real and recorded as an ADR: the
+service-role key can write, where `coditu_backup` deliberately cannot. The first run of that mode
+spawned one `curl` per object, **sat on a single 62 KB PNG for six minutes with nothing on
+stdout**, and put the service-role key in this machine's process list 135 times. It is now one
+bounded `curl --config` per bucket with the header in a mode-0600 file, and the same 135 objects
+complete in seconds.
+
+**What is still not true.** One copy, on one laptop. Not off-site, not scheduled, not pruned, no
+GitHub secrets, no remote run. That is T0.2.
+
+## 2026-08-29 · T0.2 — the nightly is off R2, running in Actions, and restores
+
+**The store.** GitHub releases in the private repository `MooTamer/coditu-recovery`, one release
+per recovery set, tagged `nightly-<id>` / `monthly-<id>`, assets `<id>.tar.gz.age` and
+`<id>.metadata.json`. R2 is abandoned — its allowance is free and its account is not. Two ADRs in
+`05-DECISIONS.md` cover why releases rather than commits, and why the workflows live in the
+recovery repository rather than in `MooTamer/coditu`.
+
+**Proved end to end, in this order:**
+
+| Step | Command | Result |
+|---|---|---|
+| Publish the tooling | `scripts/sync-recovery-repo.sh` | `head=52778ed`, digest recorded in `ops/recovery-repo.json`; `--check` → `in_sync` |
+| Nightly, in Actions | `gh workflow run "Nightly recovery copy"` | run `33267669539` **success**: `backup_id=2026-08-29T181341Z`, `database_tables=63`, `database_rows=1391`, `storage_buckets=3`, `storage_objects=135`, `nightly_retained=2` |
+| Freshness canary | `gh workflow run "Recovery copy freshness"` | run `33264940366` **success**: `age_seconds=69`; asset size, release notes and downloaded sidecar all agreed |
+| Pull to the Mac | `sync-backup-local.sh` | `downloaded=1 already_present=1 sets_on_disk=3`, each archive checksummed against its own sidecar after download |
+| **Restore** | `verify-backup-restore.sh <archive> <agekey>` | **exit 0 in 6 s**: `database_tables=63`, `database_rows=1391`, `storage_objects=135`, all 63 tables matched count for count, all 135 objects pushed into the throwaway Storage service and byte-compared with `diff -qr`, `target_only_empty_tables=storage.iceberg_namespaces,storage.iceberg_tables` |
+
+**Three defects the run found, none of which a review would have.**
+
+1. **`databaseTables` was double.** The `\gexec` loop printed the generated statements and their
+   results to one stream. Both earlier hosted sets say 126 tables; **there are 63**. The row
+   total was right, which is why nothing caught it. `scripts/sql/row-counts.sql` is one statement
+   now, shared by the backup and the verifier so the two sides cannot drift.
+2. **A restore into an older target dies halfway through the data.** Hosted `storage.buckets` has
+   `versioning_status`; hosted `storage.objects` has `archived_at`, `is_delete_marker`,
+   `is_versioned`; `storage-api:v1.62.5` has none. The first drill failed 1,729 lines into
+   `data.sql`, after `roles.sql` and `schema.sql` had already run. There is a preflight now, and
+   it runs **before** the first write.
+3. **Requiring identical table lists was wrong.** The local image has two empty `iceberg_*`
+   tables the hosted project does not. The check is now per-table with an empty-only rule for
+   target extras, which is strictly stronger and no longer raises a false alarm.
+
+**One `backup.sh` change of substance and one of hygiene.** `SOURCE_STORAGE_MODE=rest` copies
+Storage with the service-role key over the REST API, because S3 access keys can only be minted by
+a human in the dashboard. It is a real weakening of least privilege and is written down as one.
+The copy is one bounded `curl --config` per bucket with the key in a mode-0600 file rather than
+135 invocations with the key in the process list.
+
+**What is still not true.** No alerting — `BACKUP_CANARY_HEARTBEAT_URL` is unset and the canary
+skips its ping with a notice. The Recovery Centre still reads `not verified by this app` — no
+report target, and the endpoint is not deployed. Google Drive is written and un-authorised; the
+OAuth consent is Mohamed's. The schedule has been dispatched by hand twice, not observed firing.
+**And the age private key exists in exactly one place**, `/Users/motamer/.config/coditu/backup.agekey`
+— if that Mac is what is lost, every archive in the recovery repository is noise. That is the
+largest remaining risk in the design and it needs Mohamed, not code.
+
+## 2026-08-29 · T0.3 — the keepalive, built and inert until the app is deployed
+
+A free Supabase project pauses after about seven days of low **user database** activity. That is
+downtime with no deploy involved, no rollback that helps, and nothing in git that caused it.
+
+**Three pieces.**
+
+1. `20260829120000_database_heartbeat.sql` — `public.database_heartbeat()`: one bounded read of
+   `public.app_settings`, returning the fixed string `coditu-database-awake`. It is
+   `security definer`, and the first version was not: `anon` has no `SELECT` **grant** on
+   `app_settings`, so `security invoker` failed with `42501 permission denied` before RLS was
+   ever consulted. The choice was between granting `anon` a standing read on a settings table so
+   a liveness probe could run, or letting one argument-free function with a single literal
+   `return` read on the owner's behalf. The migration asserts zero arguments, exactly one
+   `return`, the literal keyword, that `anon` can execute it — and that `anon` has **not** been
+   granted select on `app_settings`, since that grant is the thing this exists to avoid.
+2. `app/api/health/database/route.ts` — dynamic, `no-store`, anon key, no cookies, 5-second
+   deadline. 200 with the keyword or 503. Not on the middleware matcher.
+3. `.github/workflows/keepalive.yml` — every six hours, asserting the **keyword** rather than the
+   status code, because a 200 from a CDN error page would keep it green while the database slept.
+
+**Verified.** Against the local stack: `POST /rest/v1/rpc/database_heartbeat` as `anon` →
+`"coditu-database-awake"`, **200**; the same anon key reading `app_settings` directly → **401**,
+unchanged. Against a real server: `npx playwright test e2e/keepalive.spec.ts --project=chromium`
+→ **2 passed** — the keyword exactly, `no-store` present, and the whole body asserted so the probe
+cannot quietly grow a payload. `npm run test` → **506 passed**; `npm run lint` clean.
+
+**A Tier-0 decision taken while doing it: the freshness canary drops from hourly to three-hourly.**
+GitHub Free gives a private repository 2,000 Actions minutes a month, billed per job rounded up.
+Hourly is 720 runs — a third of the allowance — to re-read a file that changes once a day. Add the
+nightly, CI and the keepalive and the month gets tight, and the failure mode of running out is that
+**the nightly backup silently stops**. Three-hourly costs 240 and still catches a stale copy nine
+times over inside the 26-hour threshold. The UptimeRobot heartbeat must therefore expect a
+three-hourly check-in, and the runbook says so.
+
+**Not active.** `PRODUCTION_BASE_URL` is unset, so the workflow skips with a visible notice, and
+the route is not deployed. Both close at T1.5. Also worth knowing: GitHub disables scheduled
+workflows in a repository with no activity for 60 days.
+
+**A note on T1.2's scope.** This adds a fourth pending migration. T1.2 was written as "the three
+pending migrations"; because the tier order puts T0.3 first, it is **four** by the time T1.2 runs,
+and hosted must reach **39**, not 38.
+
+## 2026-08-29 · T1.1 — automatic production deployment is off, confirmed by observation
+
+**What was true before.** Every push to `main` produced an automatic **production** deployment.
+Not inferred — read off the provider: the last twenty deployments each carry
+`githubDeployment: "1"`, `githubCommitRef: "main"` and `target: "production"`, one per commit, up
+to `b63f4c7` (`dpl_HYi7JZdpFrtFmcU2PspZDZTch74z`), which is what is serving now. Merging 51
+commits into `main` would have shipped every one of them, unreviewed, ahead of their migrations —
+the 2026-08-21 outage exactly, at 51× the size.
+
+**What holds it shut.** `vercel.json` on this branch sets `git.deploymentEnabled: false`, added by
+`eb5b141` when the release gate was built. Vercel reads it from the pushed commit and creates no
+deployment at all.
+
+**Confirmed, rather than asserted.** The deployment head was recorded
+(`dpl_HYi7JZdpFrtFmcU2PspZDZTch74z`, `created 1787851083870`), then `visual-conformance` — 51
+commits, never pushed before — was pushed to `origin`. Two minutes later,
+`list_deployments since=1787851083871` returned **`count: 0`**, and
+`GET repos/MooTamer/coditu/deployments` still ends at `b63f4c7`. **No preview, no production,
+nothing.** The control is real and it is in force.
+
+**Two limits, both stated rather than papered over.**
+
+1. **The dashboard toggle was not flipped, because it cannot be from here.** There is no Vercel
+   CLI on this machine, no API token, and the connected Vercel tooling exposes read plus
+   deployment-protection only — no project-settings write. The repo-level control is equally
+   binding for a push, but it lives in a file, so anybody who edits `vercel.json` turns automatic
+   deployment back on. **Mohamed should also set Settings → Git → Production Deployments to
+   off**, so the two controls are independent. Until he does, this is one control, not two.
+2. **`main` does not carry `vercel.json` today** — the file exists only on this branch, so the
+   protection arrives *with* the merge commit rather than before it. The merge push in T1.3 is
+   therefore the one moment this has not been observed to hold, and it will be checked the same
+   way, immediately, before anything else proceeds.
+
+**Also note for T1.5:** `deploymentEnabled: false` disables **previews as well**. T1.4 wants
+previews to be the UAT environment, so the end state is `{ "main": false }` — Git builds previews,
+and only CI deploys production. That change belongs with the gate, not before it.
+
+## 2026-08-29 · T0-CORRECTION — the backup heartbeat was specified against a paid feature
+
+**Supersedes, in this file, every earlier sentence naming UptimeRobot as the backup heartbeat** —
+notably the entries above that say *"the external monitor is UptimeRobot Free: its current
+published plan includes heartbeat monitoring"* and *"the UptimeRobot heartbeat must therefore
+expect a check-in every three hours"*. The cadence is right; the vendor is not. Those entries are
+left standing rather than edited, because a ledger that quietly rewrites what it once claimed
+cannot be used to audit itself.
+
+**The fact.** UptimeRobot's monitor-type picker: *"Cron job / Heartbeat monitoring — Available
+only in Solo, Team and Scale."* Free is HTTP, Keyword, Ping and Port. Under the standing
+no-paid-service constraint, the alerting leg of Tier 0 was specified against something
+unbuyable. Found by Mohamed using the product. The research error is recorded in the ADR of
+2026-08-29 and struck through, not deleted, at reference 7 of `09-BACKUP-PROPOSAL.md`.
+
+**The split now.** healthchecks.io — 20 cron checks free, no card, BSD-licensed — takes the
+backup heartbeat. UptimeRobot keeps both HTTPS jobs: public site uptime, and the Supabase
+keepalive Keyword check on `/api/health/database`. Those are free-plan types and were never
+wrong.
+
+**What changed in the repository.**
+
+| Change | Where |
+|---|---|
+| Heartbeat step moved to **last** in the job, explicit `if: success()` | `ops/recovery-repo/workflows/backup-canary.yml` |
+| Secret renamed `BACKUP_CANARY_HEARTBEAT_URL` → `HEARTBEAT_URL` | same, plus both runbooks |
+| Reference 7 struck through with the citation rule it produced | `docs/09-BACKUP-PROPOSAL.md` |
+| Activation step 1 rewritten for healthchecks.io | `docs/12-RECOVERY-RUNBOOK.md` §1 |
+| Free-plan scope caveat added to the UptimeRobot citation | `docs/13-DEPLOYMENT-RUNBOOK.md` |
+| ADR recording the error, the replacement, and the rejected alternatives | `docs/05-DECISIONS.md` |
+
+**Why last-and-on-success is the substantive half of this, not the vendor.** The ping was third
+of four steps, ahead of the report-publishing step. A heartbeat that fires before the job
+finishes proves the runner booted — not that the backup was verified. A dead-man's switch that
+reports "alive" while the thing it watches is broken is worse than no switch, because it is
+believed.
+
+**Verified.** `ops/recovery-repo/workflows/backup-canary.yml` parses (Psych) to **4 steps**, the
+heartbeat is index **3 of 3** with `if: success()`, and its only `env` key is `HEARTBEAT_URL`.
+The step body was executed directly in both branches: with the variable unset it prints
+`::notice::HEARTBEAT_URL is not set…` and **exits 0**, so an unconfigured canary stays green for
+backup reasons only; against a deliberately-500 endpoint `curl -fsS` **exits 56**, so a heartbeat
+that cannot be delivered is a red run rather than a silent success.
+
+**Pushed and proven on the real runner, not just locally.**
+`scripts/sync-recovery-repo.sh` pushed the corrected tree to `MooTamer/coditu-recovery` at
+`ca86da5`; the diff against `2e1f5bb` is **1 file changed, 29 insertions, 15 deletions** — only
+`backup-canary.yml`, nothing else in the tree disturbed, and both nightly releases
+(`nightly-2026-08-29T181341Z`, `nightly-2026-08-29T170615Z`) still listed afterwards, because
+releases are not part of the tree a sync replaces.
+
+`Recovery copy freshness` was then dispatched: run **33273071687**, **success**, 13s. Its step
+list ends `4 success Publish only the evidence this canary read` → `5 success Tell the independent
+monitor this check passed`, and step 5's log shows `HEARTBEAT_URL:` empty followed by
+`##[notice]HEARTBEAT_URL is not set; external alerting is NOT active. Nothing will tell anybody if
+this canary stops running.` That is the whole contract demonstrated on the runner: the ping is
+last, it is reached only after everything else passed, and its absence is a visible notice on a
+green run rather than a failure.
+
+**Still not true, and unchanged by this correction.** `HEARTBEAT_URL` is unset — the
+healthchecks.io check does not exist yet. Creating it and pasting one secret into
+`MooTamer/coditu-recovery` is Mohamed's, and it is now the **only** step between this canary and
+working alerting.
+
+## 2026-08-29 · T1.2 — the four pending migrations are on hosted; hosted is 39
+
+**R3 first, because the tier said assert and not trust.** `coditu_backup` was created on hosted
+through the Management API *before* the migration that describes it, so hosted held a role
+`schema_migrations` did not record. The migration has an `if exists … alter … else create` guard,
+which looks idempotent; looking idempotent is not the bar.
+
+**The rehearsal.** A throwaway Supabase Postgres (`public.ecr.aws/supabase/postgres:17.6.1.155`)
+was stood up on 54522 and driven to hosted's exact state:
+
+- The `storage` and `realtime` schemas are created by their **services**, not by any migration, so
+  they were taken verbatim by `pg_dump --schema-only` from the running local stack rather than
+  hand-authored. An approximation would have weakened the test.
+- Migrations **1..35** applied, **0 failures** — the same 35 hosted had.
+- `coditu_backup` then created by hand the way the Management API did: `login bypassrls`, a
+  password, `pg_read_all_data`, `statement_timeout=30min`, `idle_in_transaction_session_timeout=5min`.
+  Byte-for-byte the attribute set read off hosted beforehand.
+- **Fidelity check that mattered:** the container's `postgres` role is `super=false createrole=true
+  bypassrls=true` — the *same shape* as hosted's. A superuser rehearsal would have proved less,
+  because `alter role … bypassrls` succeeds trivially for a superuser.
+
+**Result.** `supabase db push` applied all four to that database, exit 0. The role migration was
+then applied **twice more by hand** — exit 0 both times, output a single
+`NOTICE: role "coditu_backup" has already been granted membership in role "pg_read_all_data"`.
+
+**The thing worth having checked.** After the migration, `coditu_backup` **still authenticated with
+its pre-existing password** and could still read `work_items`. `alter role … with login bypassrls`
+does not touch the password. Had it done so, the push would have looked clean and the nightly
+backup's `BACKUP_DB_URL` would have started failing on hosted with nothing pointing at the cause.
+
+**Then hosted.** `supabase db push --linked` — the CLI's own temporary login role, because no
+`postgres` password exists on this machine and `push-to-hosted.sh --db-url` therefore could not be
+used; its assertion battery was run through the Management API instead. Hosted emitted the *same*
+`pg_read_all_data` NOTICE the rehearsal predicted.
+
+| | before | after |
+|---|---|---|
+| migrations | 35 | **39** |
+| work_items | 107 | 107 |
+| profiles | 4 | 4 |
+| comments | 14 | 14 |
+| components | 41 | 41 |
+| time_entries | 79 | 79 |
+| projects | 5 | 5 |
+| highest key | COD-258 | COD-258 |
+| `public.backup_health` | absent | present |
+| `public.database_heartbeat()` | 0 | 1 |
+
+Every row count unchanged: the four were additive. `supabase migration list --linked` →
+**local 39, remote 39, pending NONE, remote-only NONE.** `coditu_backup` after the push:
+`login=true bypassrls=true has_password=true` with both timeouts intact. PostgREST's schema cache
+was reloaded with `notify pgrst, 'reload schema'` — see the field note on PGRST205.
+
+**The preflight did not pass, and the reason was a defect in the preflight.** It asserted
+encryption with `pg_stat_ssl`, which through Supavisor describes the pooler-to-Postgres hop and
+reports `false` on a session that is TLSv1.3 from here; the one route where it would have answered
+about us is IPv6-only and this Mac has no IPv6. Fixed to read the client socket and pin the issuer,
+with the stronger `verify-full` form behind `HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1`. ADR of
+2026-08-29.
+
+**Verification.**
+
+```
+node scripts/check-hosted-schema.mjs
+  hosted_schema_verified=true  migrations=39  relations=38
+  columns=334  functions=31  enums=12  storage_buckets=3      exit 0
+```
+
+Still fails closed: `sslmode=disable` → exit **1** `database connection is not encrypted`;
+`HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1` with no CA → exit **1** naming `SELF_SIGNED_CERT_IN_CHAIN`.
+`npm run typecheck` and `npm run lint` both exit 0.
+
+### T1.2's restore point — taken after the schema moved, and opened to check
+
+The T0.1 sets predate migration 39, so a restore from them would have rebuilt a database the code
+no longer matches. `Nightly recovery copy` was dispatched immediately after the push (run
+**33274103707**, success) and produced `nightly-2026-08-29T204055Z`, 19,401,107 bytes.
+
+**Verified by opening it, not by its own say-so.** Downloaded, SHA-256 recomputed →
+`a9b80bf6482f8160dbf38ff25559a594a2ccd6af1b44a04115371c75d95225cf`, byte-identical to the release
+notes *and* the sidecar. Decrypted with the age key and extracted: 218 entries,
+`shasum -c checksums.sha256` clean across every Storage object.
+
+The new schema is genuinely in it:
+
+| Object | Evidence in the archive |
+|---|---|
+| `public.backup_health` | `schema.sql:3061 CREATE TABLE IF NOT EXISTS "public"."backup_health"`, and `row-counts.tsv` lists `public.backup_health 0` |
+| `public.database_heartbeat()` | `schema.sql:667`, with its comment and `REVOKE ALL … FROM PUBLIC` at 5773 |
+| `record_backup_health()` | `schema.sql:1558` |
+| `allowed_emails.invited_at` | `schema.sql:3102` |
+| `coditu_backup` | 5 references in `roles.sql` |
+
+`databaseTables` is **64**, up from 63 in the 18:13Z set — the one new table, counted.
+`databaseRows` 1,391, buckets 3, objects 135, all unchanged. `Recovery copy freshness` then ran
+against it: run **33274226384**, success.
+
+**Noted for T2.1, because it changes what "restore" means.** `supabase_migrations.schema_migrations`
+is **not** in the dump — `grep -c supabase_migrations schema.sql data.sql` → `0`, `0`. A restore
+rebuilds the schema and the data but arrives with **no migration history**, so the history has to
+be repaired by hand afterwards. That is exactly the operation T2.1 performs deliberately, and it
+is worth knowing it is also an unavoidable step of any real restore.
+
+**The decrypted copy was deleted from the scratchpad as soon as it had been read.** It is every
+profile, comment and client thread in the workspace in plaintext.

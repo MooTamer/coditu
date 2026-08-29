@@ -6,7 +6,9 @@ import { KeyRound, MonitorSmartphone } from "lucide-react";
 
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
+import { settle } from "@/lib/action-result";
 import { signOutOtherDevices } from "@/lib/actions/auth";
+import { control } from "@/lib/interactive";
 
 /**
  * The two things you can do about how you get in.
@@ -40,13 +42,20 @@ export function SecuritySettings() {
   function signOutOthers() {
     if (pending) return;
     startTransition(async () => {
-      const result = await signOutOtherDevices();
+      const result = await settle(
+        () => signOutOtherDevices(),
+        "Those sessions could not be signed out. Try again in a moment."
+      );
       if (result.error) {
         toast(result.error);
         return;
       }
       setDone(true);
-      toast(result.notice ?? "Every other device has been signed out.");
+      // `in`, because the failure branch `settle` returns has no `notice` —
+      // this action answers `{ error?, notice? }` rather than `{ ok, error? }`.
+      // The branch is unreachable here (a result with no error is the action's
+      // own), and narrowing it honestly costs one keyword.
+      toast(("notice" in result && result.notice) || "Every other device has been signed out.");
     });
   }
 
@@ -67,6 +76,7 @@ export function SecuritySettings() {
       </Link>
 
       <button
+        {...control(pending ? "pending" : "idle")}
         type="button"
         onClick={signOutOthers}
         disabled={pending}

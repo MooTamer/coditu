@@ -22,7 +22,16 @@ import { SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixture
  */
 
 const LIST = "/app/projects";
-const SLUGS = ["converso", "meinevim", "nile-atelier", "nvrmiss", "ops-console"];
+/**
+ * In `byProminence` order, not alphabetical — PF-3.
+ *
+ * A running sprint first, then the longest engagement, then the alphabet. That
+ * is why `meinevim` leads and `converso` — one sprint, none running — follows
+ * it, and why the three projects with no sprint at all keep the alphabet
+ * between them. `tests/project-prominence.test.ts` holds the rule; this holds
+ * that the screen uses it, which is the half a unit test cannot say.
+ */
+const SLUGS = ["meinevim", "converso", "nile-atelier", "nvrmiss", "ops-console"];
 
 const rows = (page: import("@playwright/test").Page) => page.locator("[data-project-row]");
 const slugs = (page: import("@playwright/test").Page) =>
@@ -121,7 +130,8 @@ test.describe("the projects list", () => {
     expect(await slugs(page)).toEqual(["meinevim"]);
 
     await page.goto(`${LIST}?state=active,planned`);
-    expect(await slugs(page)).toEqual(["converso", "meinevim"]);
+    // MEINEvim first: it is the one with the running sprint. See `SLUGS`.
+    expect(await slugs(page)).toEqual(["meinevim", "converso"]);
 
     // `paused` is the prototype's word and this schema has no column that could
     // answer it. It narrows by the state that IS named rather than guessing.

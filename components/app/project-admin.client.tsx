@@ -16,6 +16,7 @@ import {
 } from "@/lib/actions/projects";
 import type { ClientSummary, ProjectSummary } from "@/lib/data/projects";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 const FIELD =
   "h-[34px] w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-[10px] text-[13.5px] text-[var(--ink)]";
@@ -253,7 +254,8 @@ function NewProjectForm({ clients, onDone }: { clients: ClientSummary[]; onDone:
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={pending} aria-busy={pending} className={PRIMARY}>
+        <button
+          {...control(pending ? "pending" : "idle")} type="submit" disabled={pending} className={PRIMARY}>
           {pending ? "Opening…" : "Open project"}
         </button>
         <Mono size="meta" className="text-[var(--ink-faint)]">
@@ -355,7 +357,8 @@ function NewClientForm({ onDone }: { onDone: () => void }) {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={pending} aria-busy={pending} className={PRIMARY}>
+        <button
+          {...control(pending ? "pending" : "idle")} type="submit" disabled={pending} className={PRIMARY}>
           {pending ? "Adding…" : "Add client"}
         </button>
         {error ? (
@@ -476,6 +479,7 @@ export function ProjectRowControls({
           />
         </label>
         <button
+          {...control(pending ? "pending" : "idle")}
           type="button"
           onClick={save}
           disabled={pending}
@@ -615,6 +619,7 @@ function ClientRow({ client }: { client: ClientSummary }) {
           />
         </label>
         <button
+          {...control(pending ? "pending" : "idle")}
           type="button"
           onClick={save}
           disabled={pending}

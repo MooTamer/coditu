@@ -16,6 +16,7 @@ import type { ProfileRef } from "@/lib/data/profiles";
 import { deleteWorkItem, moveWorkItem, restoreWorkItem, setWorkItemFields } from "@/lib/actions/work-items";
 import { hoursLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 /**
  * The same editor every other writing surface uses, loaded the same way — only
@@ -49,8 +50,10 @@ const EMPTY_PROSE_DOC = { type: "doc", content: [{ type: "paragraph" }] };
  * restraint. The day after planning, somebody always wants to fix a typo.
  *
  * Every control here is optimistic with a rollback and a visible error
- * (invariant 4), and every one of them is `settle()`d, because a Server Action
- * that *rejects* skips the rollback path a plain `if (!result.ok)` covers.
+ * (invariant 4), and every one goes through `trackedSave`, which calls
+ * `settle()` itself — because a Server Action that *rejects* skips the rollback
+ * path a plain `if (!result.ok)` covers, and because the save chip has to be
+ * told `sending` / `saved` / `failed` either way.
  */
 
 const FIELD =
@@ -152,6 +155,7 @@ export function EditableTitle({
         />
         <div className="flex items-center gap-2">
           <button
+          {...control(pending ? "pending" : "idle")}
             type="button"
             onClick={save}
             disabled={pending}
@@ -540,6 +544,7 @@ export function ItemActions({
       ) : null}
 
       <button
+          {...control(pending ? "pending" : "idle")}
         type="button"
         onClick={remove}
         disabled={pending}

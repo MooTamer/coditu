@@ -1,4 +1,4 @@
-import { expect, query, test } from "./fixtures";
+import { expect, query, shell, test } from "./fixtures";
 
 /**
  * The two things people do all day: log time, and post a comment.
@@ -23,7 +23,11 @@ const ITEM = `${SPRINT}/items/COD-229`;
 
 /** The panel's own running total, as rendered. */
 async function loggedTotal(page: import("@playwright/test").Page): Promise<string> {
-  const panel = page.locator("div", { hasText: /^total/ }).last();
+  // Through `shell()`: unscoped, `.last()` picks whichever copy of the
+  // total is last in the document, and between the streaming wrapper and the
+  // live tree that is not the same element twice running — which is how this
+  // read "total9.0 h" once and "total 9.0 h" the next time for one number.
+  const panel = shell(page).locator("div", { hasText: /^total/ }).last();
   return (await panel.innerText()).replace(/\s+/g, " ").trim();
 }
 

@@ -1,4 +1,4 @@
-import { SEED, SEED_ENGINEER, auditA11y, expect, query, signIn, test } from "./fixtures";
+import { SEED, SEED_ENGINEER, SUPABASE_URL, auditA11y, expect, query, signIn, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
 
@@ -159,7 +159,7 @@ test.describe("new item", () => {
        where p.slug = 'meinevim' and s.number = 17`
     );
 
-    const status = await page.evaluate(async (sprintId) => {
+    const status = await page.evaluate(async ({ sprintId, supabaseUrl }) => {
       const raw = document.cookie
         .split("; ")
         .find((c) => c.startsWith("sb-127-auth-token="))
@@ -167,7 +167,7 @@ test.describe("new item", () => {
         .slice(1)
         .join("=");
       const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
-      const response = await fetch("http://127.0.0.1:54421/rest/v1/work_items", {
+      const response = await fetch(`${supabaseUrl}/rest/v1/work_items`, {
         method: "POST",
         headers: {
           apikey: json.access_token,
@@ -177,7 +177,7 @@ test.describe("new item", () => {
         body: JSON.stringify({ sprint_id: sprintId, title: "E2E new item — smuggled" }),
       });
       return response.status;
-    }, sprint.id);
+    }, { sprintId: sprint.id, supabaseUrl: SUPABASE_URL });
 
     expect(status, "an engineer was able to insert a work item").toBeGreaterThanOrEqual(400);
 

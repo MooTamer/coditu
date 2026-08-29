@@ -7,9 +7,11 @@ import { Upload } from "lucide-react";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { ToneChip } from "@/components/coditu/status-chip";
+import { settle } from "@/lib/action-result";
 import { commitImport, previewImport } from "@/lib/actions/import";
 import type { ImportPreview } from "@/lib/import/notion";
 import { hours } from "@/lib/format";
+import { control } from "@/lib/interactive";
 
 const HEAD =
   "px-4 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.06em] text-[var(--ink-faint)]";
@@ -47,7 +49,7 @@ export function ImportPanel({
 
       const form = new FormData();
       form.append("file", file);
-      const result = await previewImport(form);
+      const result = await settle(() => previewImport(form), "That file could not be read.");
 
       if (result.ok && result.preview) setPreview(result.preview);
       else {
@@ -60,7 +62,7 @@ export function ImportPanel({
   function commit() {
     if (!sprintId) return;
     startTransition(async () => {
-      const result = await commitImport({ csv, sprintId });
+      const result = await settle(() => commitImport({ csv, sprintId }), "The import did not save.");
       if (result.ok) {
         toast(
           `Imported ${result.written} row${result.written === 1 ? "" : "s"}` +
@@ -143,10 +145,10 @@ export function ImportPanel({
 
         {preview ? (
           <button
+        {...control(pending ? "pending" : "idle")}
             type="button"
             onClick={commit}
             disabled={pending || !canCommit || !sprintId || preview.committable === 0}
-            aria-busy={pending}
             title={
               !canCommit
                 ? "Only an admin or lead can import work items"

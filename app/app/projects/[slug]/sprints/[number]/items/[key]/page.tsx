@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
+import { PageShell } from "@/components/app/page-shell";
 import { ItemDetailBody } from "@/components/app/item-detail";
 import { BackToPeek } from "@/components/app/back-to-peek.client";
 import { ItemRealtime } from "@/components/app/realtime.client";
@@ -66,7 +67,7 @@ export default async function ItemPage({
   ]);
 
   return (
-    <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+    <PageShell measure="story">
       {/* The sprint is not rendered underneath this one, so nothing else is
           listening for the story changing. The modal does not need it. */}
       <ItemRealtime workItemId={item.id} />
@@ -130,6 +131,6 @@ export default async function ItemPage({
           }}
         />
       </Reveal>
-    </main>
+    </PageShell>
   );
 }

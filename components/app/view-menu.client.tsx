@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Bookmark, Check, ChevronDown, Trash2, Users } from "lucide-react";
 
@@ -8,6 +8,8 @@ import { DialogShell } from "@/components/app/dialog-shell.client";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
+import { useUrlWrite } from "@/lib/hooks/use-url-write";
+import { control } from "@/lib/interactive";
 import { FavouriteStar } from "@/components/app/favourite-star.client";
 import { deleteView, saveView, setViewShared } from "@/lib/actions/saved-views";
 import type { SavedView } from "@/lib/data/saved-views";
@@ -67,8 +69,9 @@ export function ViewMenu({
   starredViews: Set<string>;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  // `push` and not `replace`: applying a saved view is a place somebody may
+  // want the back button to return them from, which a filter toggle is not.
+  const { params, pending: applying, write: writeUrl } = useUrlWrite({ history: "push" });
   const toast = useToast();
   const [, startTransition] = useTransition();
 
@@ -86,9 +89,13 @@ export function ViewMenu({
   );
 
   function apply(view: SavedView) {
+    // The menu goes first, for the same reason PF-12 closes the export dialog
+    // on the click: leaving it up through a two-second navigation reads as a
+    // row that did not take. Which means the control that reports the wait has
+    // to be the TRIGGER — it is the only thing still on screen — and it does,
+    // through `applying` below.
     setOpen(false);
-    const query = searchFromSpec(view.spec);
-    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    writeUrl(new URLSearchParams(searchFromSpec(view.spec)), `view:${view.id}`);
   }
 
   function submit() {
@@ -159,6 +166,7 @@ export function ViewMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         data-view-menu
+        {...control(applying ? "pending" : "idle")}
         className="inline-flex h-[34px] cursor-pointer items-center gap-2 rounded-control border border-[var(--hairline)] px-3 text-[12.5px] text-[var(--ink)] hover:border-[var(--hairline-strong)]"
       >
         <Bookmark size={13} strokeWidth={1.8} aria-hidden className="text-[var(--ink-faint)]" />

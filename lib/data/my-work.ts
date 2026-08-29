@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { weekStartOf, type LoggedDay } from "@/lib/home";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { todayInCairo } from "@/lib/data/sprint";
 import type { WorkItemStatus } from "@/lib/work-items";
@@ -26,16 +27,15 @@ export interface MyWork {
   awaitingMyReview: MyWorkItem[];
 }
 
-/** Monday of the current week, in Cairo, as a calendar date. */
+/**
+ * Monday of the current week, in Cairo, as a calendar date.
+ *
+ * The arithmetic itself lives in `lib/home.ts` because PF-5 needs the same
+ * answer for a date that is not today and this module is `server-only`. Two
+ * copies of a week boundary is exactly the kind of duplication that drifts.
+ */
 export function startOfWeek(today = todayInCairo()): string {
-  const [y, m, d] = today.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  // getUTCDay: 0 is Sunday. Shift so Monday is the first day.
-  const offset = (date.getUTCDay() + 6) % 7;
-  date.setUTCDate(date.getUTCDate() - offset);
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(
-    date.getUTCDate()
-  ).padStart(2, "0")}`;
+  return weekStartOf(today);
 }
 
 /**
@@ -133,4 +133,39 @@ export const getTeamLoad = cache(async (sprintId: string): Promise<PersonLoad[]>
       capacityMinutes: Number(row.weekly_capacity_minutes ?? 0),
     }))
     .sort((a, b) => b.minutesLogged - a.minutesLogged || a.fullName.localeCompare(b.fullName));
+});
+
+/**
+ * Every day of logged time on one project, for PF-5's average and cumulative.
+ *
+ * ## Scoped to a project, because nothing here is global
+ *
+ * Invariant 1. Home asks this about the project whose sprint is active — the
+ * same project the sprint card, the activity feed and the status bar are all
+ * about — and the filter reaches it through the item's own sprint rather than
+ * through anything the client supplied. `v_person_load` cannot answer this: it
+ * is one row per person per SPRINT and carries no dates, so a weekly figure
+ * cannot be derived from it without assuming a sprint is a week, which is a
+ * planning convention and not a fact about the table.
+ *
+ * ## Days, not weeks
+ *
+ * The grouping is `lib/home.ts`'s job, where it can be held to fixtures. This
+ * returns the rows.
+ */
+export const getProjectLoadOverTime = cache(async (projectId: string): Promise<LoggedDay[]> => {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("time_entries")
+    .select("profile_id, worked_on, minutes, work_items!inner ( sprints!inner ( project_id ) )")
+    .eq("work_items.sprints.project_id", projectId);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    personId: row.profile_id!,
+    workedOn: row.worked_on!,
+    minutes: Number(row.minutes ?? 0),
+  }));
 });

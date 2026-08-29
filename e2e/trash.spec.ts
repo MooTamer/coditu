@@ -1,4 +1,4 @@
-import { SEED, SEED_ENGINEER, SEED_LEAD, auditA11y, expect, query, signIn, test } from "./fixtures";
+import { SEED, SEED_ENGINEER, SEED_LEAD, auditA11y, expect, query, shell, signIn, test } from "./fixtures";
 
 const ITEM_KEY = "COD-237";
 
@@ -205,12 +205,16 @@ test.describe("trash", () => {
     // the second one is half of what this test is here to prove, so it is
     // asserted rather than escaped from.
     await page.goto(`${SEED.sprint}/items/${ITEM_KEY}`);
-    await expect(page.getByText(marker, { exact: true })).toBeVisible();
+    await expect(shell(page).getByText(marker, { exact: true })).toBeVisible();
     // `toBeAttached`, not `toBeVisible`: the diff lives inside a collapsed
     // `<details>` — W4c's decision, so the panel ships a diff viewer and no
     // JavaScript. Whether a reader can expand it is `version-history.spec.ts`'s
     // question; this one only asks whether the version is still there.
-    await expect(page.getByText(`+ added: ${marker}`)).toBeAttached();
+    // `shell()`, like the line above it. Unscoped, this matched the streaming
+    // tree's copy as well as the real one and raised a strict-mode violation on
+    // roughly one run in two — the fault `shell()` exists for, and one the
+    // ninth pass's sweep of eleven files missed here.
+    await expect(shell(page).getByText(`+ added: ${marker}`)).toBeAttached();
 
     // And the count, because the panel shows a window and the table is what
     // survives.

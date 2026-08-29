@@ -11,6 +11,7 @@ import { Mono } from "@/components/coditu/mono";
 import { publishPage, renamePage, setPageDeleted } from "@/lib/actions/pages";
 import { isEmptyDocument } from "@/lib/blocks/schema";
 import type { ProfileRef } from "@/lib/data/profiles";
+import { control } from "@/lib/interactive";
 
 /**
  * A project page or a workspace page, read and written.
@@ -243,6 +244,7 @@ export function PageEditor({
               {saving ? "Publishing…" : published ? "Publish changes" : "Publish to the team"}
             </button>
             <button
+        {...control(saving ? "pending" : "idle")}
               type="button"
               onClick={cancel}
               disabled={saving}

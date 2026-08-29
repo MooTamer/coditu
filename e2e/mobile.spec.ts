@@ -1,4 +1,4 @@
-import { auditA11y, expect, query, SEED, test } from "./fixtures";
+import { auditA11y, expect, query, SEED, settleAnimations, shell, test } from "./fixtures";
 
 /**
  * `/app`, on a phone.
@@ -22,6 +22,41 @@ import { auditA11y, expect, query, SEED, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
 const PHONE = { width: 390, height: 844 };
+
+/**
+ * The sheet's scroll lock, once it has actually been applied.
+ *
+ * Four computed values that are one state. Read together and retried together:
+ * the lock arrives from an effect, so the tick in which the dialog becomes
+ * visible is not yet the tick in which the body stops scrolling.
+ */
+async function expectLock(page: import("@playwright/test").Page) {
+  const read = () =>
+    page.evaluate(() => {
+      const scrim = document.querySelector("[data-scrim]");
+      const panel = document.querySelector("[data-scrim] [role=dialog] > div:nth-child(2)");
+      return {
+        body: getComputedStyle(document.body).overflow,
+        scrim: scrim ? getComputedStyle(scrim).touchAction : null,
+        panel: panel ? getComputedStyle(panel).touchAction : null,
+        // The document scroll must not have been touched. Pinning the body with
+        // `position: fixed` is the usual lock and it fights the router's own
+        // restoration on `router.back()` — measured at 596, 1251 and 442 on
+        // three consecutive runs from the same starting point.
+        position: getComputedStyle(document.body).position,
+      };
+    });
+
+  await expect
+    .poll(async () => (await read()).body, {
+      timeout: 5000,
+      message: "the sheet never locked the document scroll",
+    })
+    .toBe("hidden");
+
+  return read();
+}
+
 
 test.describe("the shell on a phone", () => {
   test("the rail is gone and the tab bar has taken over", async ({ adminPage: page }) => {
@@ -177,18 +212,18 @@ test.describe("dialogs are sheets on a phone", () => {
     // the body stops a wheel and does NOT stop a finger; `touch-action: none`
     // on the scrim is what stops the finger, and the panel's own scroller opts
     // back in with `pan-y`.
-    const lock = await page.evaluate(() => ({
-      body: getComputedStyle(document.body).overflow,
-      scrim: getComputedStyle(document.querySelector("[data-scrim]")!).touchAction,
-      panel: getComputedStyle(
-        document.querySelector("[data-scrim] [role=dialog] > div:nth-child(2)")!
-      ).touchAction,
-      // The document scroll must not have been touched. Pinning the body with
-      // `position: fixed` is the usual lock and it fights the router's own
-      // restoration on `router.back()` — measured at 596, 1251 and 442 on
-      // three consecutive runs from the same starting point.
-      position: getComputedStyle(document.body).position,
-    }));
+    // `expect.poll`, not `page.evaluate`. This read the four values ONCE, in
+    // the tick after the dialog first became visible, and the scroll lock is
+    // applied by an effect that runs after that — so on mobile-safari it
+    // sometimes read `visible` and reported "the wheel is not locked" about a
+    // lock that was applied 20ms later. One of two full suite runs; the run
+    // that read 79/0 is the run where it happened not to fire, which is not
+    // the same as green.
+    //
+    // Polling all four together rather than four separate polls, because they
+    // are one state: three of them true and the fourth stale is a real failure
+    // and must not be smoothed over by each being allowed to arrive alone.
+    const lock = await expectLock(page);
     expect(lock.body, "the wheel is not locked").toBe("hidden");
     expect(lock.scrim, "a finger will scroll the page behind the sheet on iOS").toBe("none");
     expect(lock.panel, "the sheet's own body cannot be scrolled").toBe("pan-y");
@@ -196,7 +231,6 @@ test.describe("dialogs are sheets on a phone", () => {
 
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await page.waitForTimeout(300);
 
     // Not `toBe(before)`, and the reason is worth stating rather than rounding
     // off. An item sheet is an INTERCEPTED route: it closes through
@@ -205,8 +239,18 @@ test.describe("dialogs are sheets on a phone", () => {
     // exactly 900; WebKit puts it at 596. What the sheet owes is that it does
     // not throw the reader to the top — which is what the fixed-body lock did,
     // and what this asserts.
-    const after = await page.evaluate(() => window.scrollY);
-    expect(after, "closing the sheet returned the reader to the top").toBeGreaterThan(300);
+    // POLLED, not slept-then-read. `waitForTimeout(300)` and one `scrollY` was
+    // reading an ASYNCHRONOUS restoration at a fixed moment: on one run in two
+    // it caught the page mid-climb and reported 62 for a scroll that settles
+    // above 300 a beat later. Same mistake `expectLock` above documents, in the
+    // same file. The claim is unchanged — the reader is not thrown to the top —
+    // and a restoration that takes another second still reads as "it stayed".
+    await expect
+      .poll(async () => page.evaluate(() => window.scrollY), {
+        timeout: 5000,
+        message: "closing the sheet returned the reader to the top",
+      })
+      .toBeGreaterThan(300);
   });
 
   test("above md it is still a centred dialog", async ({ adminPage: page }) => {
@@ -302,7 +346,7 @@ test.describe("the composer, with a thumb", () => {
       await page.setViewportSize(PHONE);
       await page.goto(`${SPRINT}/items/${key}`);
 
-      await page.getByText("Write a comment — @ to mention").click();
+      await shell(page).getByText("Write a comment — @ to mention").click();
       const editor = page.locator(".coditu-prose");
       await editor.click();
       await page.keyboard.type("@Adam");
@@ -620,4 +664,65 @@ test.describe("the editor does not zoom an iPhone in and leave it there", () => 
 
     expect(tooSmall, "a field under 16px will zoom mobile Safari in").toEqual([]);
   });
+});
+
+/**
+ * The export dialog, on a thumb.
+ *
+ * PF-11 rewrote its three selection presets — `all` / `none` / `drop drafts`
+ * became `Select all` / `Select none` / `Drop drafts`, each with a pressed
+ * state — and longer words in a row that already had four things in it is
+ * exactly the change that wraps badly or pushes a panel past the screen.
+ *
+ * The aggregate coarse sweep above cannot see any of this: it walks ROUTES, and
+ * a dialog is not a route. Nothing behind a click is measured by it, which is
+ * worth knowing about that sweep and is not fixed here.
+ */
+test.describe("the export dialog on a phone", () => {
+  // On the CONTEXT, so this holds on chromium too. The 44px floor lives in
+  // `@media (pointer: coarse)`, which Chromium derives from `isMobile` — a
+  // headless desktop context reports `pointer: fine` and passes this test
+  // without ever applying the rule it is about.
+  test.use({ sprintTotals: "read", hasTouch: true, isMobile: true });
+
+  for (const width of [320, 390, 768]) {
+    test(`its presets clear 44px and it does not overflow at ${width}px`, async ({
+      adminPage: page,
+    }) => {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(SPRINT);
+      await page.getByRole("button", { name: "Export" }).click();
+
+      const dialog = page.getByRole("dialog", { name: /^Export EVIM/ });
+      await expect(dialog).toBeVisible();
+      // The dialog is behind `next/dynamic` now, so it mounts a beat later and
+      // its entrance transform is still running here. A SCALED element's
+      // bounding rect is smaller than its laid-out size, which reports a 44px
+      // control as 43-and-change and fails a rule it actually keeps.
+      await settleAnimations(page);
+
+      const small = await dialog.evaluate((root) =>
+        ["Select all", "Select none", "Drop drafts"]
+          .map((label) => {
+            const el = [...root.querySelectorAll<HTMLElement>("button")].find(
+              (b) => (b.textContent ?? "").trim() === label
+            );
+            if (!el) return `${label} — not on the page`;
+            const box = el.getBoundingClientRect();
+            return box.width >= 44 && box.height >= 44
+              ? null
+              : `${label} ${Math.round(box.width)}×${Math.round(box.height)}`;
+          })
+          .filter(Boolean)
+      );
+      expect(small, `presets under 44px at ${width}px`).toEqual([]);
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+      );
+      expect(overflow, `horizontal overflow at ${width}px`).toBeLessThanOrEqual(0);
+
+      expect(await auditA11y(page)).toEqual([]);
+    });
+  }
 });

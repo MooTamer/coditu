@@ -3,7 +3,9 @@
 import { useRef, useState, useTransition } from "react";
 import { SendHorizontal } from "lucide-react";
 
+import { settle } from "@/lib/action-result";
 import { replyToClientThread } from "@/lib/actions/client-threads";
+import { control } from "@/lib/interactive";
 
 /**
  * Answering, on a phone, with a thumb.
@@ -84,7 +86,7 @@ export function ReplyComposer({
     setError(null);
 
     startTransition(async () => {
-      const result = await replyToClientThread({
+      const result = await settle(() => replyToClientThread({
         threadId,
         // The same document shape `comments.body_json` uses. One paragraph per
         // line, blank lines dropped — which is what somebody typing into a
@@ -100,7 +102,7 @@ export function ReplyComposer({
               content: [{ type: "text", text: block }],
             })),
         },
-      }).catch(() => ({
+      }), "That did not send.").catch(() => ({
         ok: false as const,
         // A thrown Server Action never reaches the `ok: false` branch, so
         // without this the composer would simply stop with the text still in
@@ -147,6 +149,7 @@ export function ReplyComposer({
 
       <div className="flex justify-end">
         <button
+        {...control(pending ? "pending" : "idle")}
           type="button"
           onClick={send}
           disabled={pending || value.trim().length === 0}

@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Star } from "lucide-react";
 
+import { settle } from "@/lib/action-result";
 import { useToast } from "@/components/app/toast.client";
 import { toggleFavourite } from "@/lib/actions/favourites";
 import type { FavouriteKind } from "@/lib/favourites";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 /**
  * The one control that puts something in the sidebar, wherever it is.
@@ -58,10 +60,13 @@ export function FavouriteStar({
     setOn(next);
 
     startTransition(async () => {
-      const result = await toggleFavourite({ kind, targetId }).catch(() => ({
-        ok: false as const,
-        error: "That could not be starred.",
-      }));
+      // `settle` rather than the hand-rolled `.catch` this had: same failure
+      // result, and `redirect()` / `notFound()` are rethrown instead of being
+      // turned into "that could not be starred".
+      const result = await settle(
+        () => toggleFavourite({ kind, targetId }),
+        "That could not be starred."
+      );
 
       if (!result.ok) {
         setOn(!next);
@@ -74,6 +79,7 @@ export function FavouriteStar({
 
   return (
     <button
+        {...control(pending ? "pending" : "idle")}
       type="button"
       onClick={toggle}
       disabled={pending}

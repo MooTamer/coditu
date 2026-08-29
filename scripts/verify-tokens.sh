@@ -55,10 +55,10 @@ need ".light mirror"       ".light"
 
 echo
 echo "status chip pairs — a light-only value would sit at ~2.4:1 on the dark canvas"
-need "dev_started light"   "--chip-dev-started-fg: #183fbf"
-need "dev_started dark"    "--chip-dev-started-fg: #89a7ff"
-need "peer review light"   "--chip-ready-for-peer-review-fg: #7a4f00"
-need "peer review dark"    "--chip-ready-for-peer-review-fg: #ffc24d"
+need "in_progress light"   "--chip-in-progress-fg: #183fbf"
+need "in_progress dark"    "--chip-in-progress-fg: #89a7ff"
+need "peer review light"   "--chip-in-peer-review-fg: #7a4f00"
+need "peer review dark"    "--chip-in-peer-review-fg: #ffc24d"
 need "done light"          "--chip-done-fg: #0e6b4b"
 need "done dark"           "--chip-done-fg: #63e3a9"
 

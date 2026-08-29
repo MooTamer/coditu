@@ -78,6 +78,28 @@ export function parseStatusFilter(value: string | null | undefined): WorkItemSta
 }
 
 /** In-app chip labels. Not the enum value, and not what the client sees. */
+/**
+ * The status bar's colour per status — `STATUS[…].bar` in
+ * `design/project/Coditu Workspace.dc.html`.
+ *
+ * Beside `STATUS_LABEL` because they answer the same question and drifting
+ * apart would be silent: the sprint header and Workspace Home both draw this
+ * bar, and until this was shared one of them held a private copy.
+ *
+ * These are bar fills, not text. Contrast is not the constraint — nothing is
+ * written in them, and every legend beside them prints the label in ink.
+ */
+export const STATUS_BAR_COLOR: Record<WorkItemStatus, string> = {
+  in_progress: "#2B57FF",
+  in_peer_review: "#FFB020",
+  in_qa: "#21E2C6",
+  changes_requested: "#FF5F6D",
+  ready: "#6B7A90",
+  draft: "rgba(107,122,144,0.35)",
+  blocked: "#FF5F6D",
+  done: "#23C97F",
+};
+
 export const STATUS_LABEL: Record<WorkItemStatus, string> = {
   draft: "draft",
   ready: "ready",

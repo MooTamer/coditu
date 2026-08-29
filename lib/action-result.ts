@@ -33,7 +33,18 @@ export interface ActionOutcome {
   error?: string;
 }
 
-export async function settle<T extends ActionOutcome>(
+/**
+ * `T extends object`, not `T extends ActionOutcome`.
+ *
+ * Most actions here answer `{ ok, error? }` and most callers read `result.ok`.
+ * A few do not — `signOutOtherDevices` answers `{ error?, notice? }`, because
+ * "every other device has been signed out" is a notice and not an outcome — and
+ * a constraint that excluded them would have left exactly the calls with an
+ * unusual shape as the calls with no protection. The failure branch is still
+ * `{ ok: false, error }` whatever went in, so a caller whose success type has no
+ * `ok` narrows on `error` or with `in`, which is what it was doing anyway.
+ */
+export async function settle<T extends object>(
   run: () => Promise<T>,
   fallback: string
 ): Promise<T | { ok: false; error: string }> {

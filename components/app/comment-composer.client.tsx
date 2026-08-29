@@ -17,6 +17,7 @@ import { useAnnounceSurface } from "@/components/app/presence-surface.client";
 import { postComment } from "@/lib/actions/comments";
 import type { ProfileRef } from "@/lib/data/profiles";
 import { isEmptyDocument } from "@/lib/blocks/schema";
+import { control } from "@/lib/interactive";
 
 /**
  * TipTap and ProseMirror are a large dependency, so they are loaded only when
@@ -233,7 +234,8 @@ export function CommentComposer({
       onPending?.(current);
 
       const result = await trackedSave(
-        () => postComment({ itemId, doc: current, idempotencyKey: token }),
+        () =>
+          postComment({ itemId, doc: current, idempotencyKey: token }),
         "That comment did not save — check your connection."
       );
       if (result.ok) {
@@ -302,10 +304,10 @@ export function CommentComposer({
 
       <div className="flex items-center gap-3">
         <button
+        {...control(pending ? "pending" : "idle")}
           type="button"
           onClick={submit}
           disabled={empty || pending}
-          aria-busy={pending}
           className="signal-gradient h-[34px] rounded-control px-4 text-[13.5px] font-semibold text-[#07090E] disabled:opacity-50"
         >
           Comment

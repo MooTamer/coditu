@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import Link from "next/link";
 
+import { PageShell } from "@/components/app/page-shell";
 import { ClientMark } from "@/components/app/client-mark";
 import { PersonAvatar } from "@/components/app/person-avatar";
 import { PageList } from "@/components/app/page-list";
@@ -95,7 +96,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
     .slice(0, 5);
 
   return (
-    <main className="flex flex-1 flex-col gap-5 p-[var(--app-gutter)]">
+    <PageShell measure="project">
       <RecordVisit href={`/app/projects/${project.slug}`} label={project.name} glyph="proj" />
 
       <Reveal tier="section" as="header">
@@ -385,7 +386,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
           </div>
         </Reveal>
       </div>
-    </main>
+    </PageShell>
   );
 }
 

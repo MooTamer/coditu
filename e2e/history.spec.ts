@@ -20,10 +20,38 @@ const ITEM_KEY = "COD-235";
 
 const MARKER = "HISTORY SPEC probe";
 
+/**
+ * The revisions COD-235 arrived with — seven of them, written by the import.
+ *
+ * This used to delete every revision on the item, seeded ones included, and
+ * `afterAll` never put them back: one run of this file emptied a story's whole
+ * imported history for the rest of the run and did not restore it until the
+ * next `db:reset`. Same shape as `inline-edit`'s time entries and
+ * `reliable-writes`'s hour.
+ *
+ * Nothing here asserts an absolute version number — the rows are found by item
+ * key and surface — so preserving the seed costs these tests nothing.
+ * `version-history.spec.ts` is the file that DOES assert `revision_no`, and it
+ * clears its own item deliberately and says so.
+ */
+let seededRevisions: string[] = [];
+
+async function snapshotRevisions() {
+  seededRevisions = (
+    await query<{ id: string }>(
+      `select id::text as id from document_revisions
+        where work_item_id = (select id from work_items where key = $1)`,
+      [ITEM_KEY]
+    )
+  ).map((row) => row.id);
+}
+
 async function clearRevisions() {
   await query(
-    `delete from document_revisions where work_item_id = (select id from work_items where key = $1)`,
-    [ITEM_KEY]
+    `delete from document_revisions
+      where work_item_id = (select id from work_items where key = $1)
+        and not (id::text = any($2::text[]))`,
+    [ITEM_KEY, seededRevisions]
   );
 }
 
@@ -39,6 +67,7 @@ test.describe("version history, workspace-wide", () => {
       [ITEM_KEY]
     );
     original = row.description;
+    await snapshotRevisions();
   });
 
   test.beforeEach(async () => {

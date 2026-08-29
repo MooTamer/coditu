@@ -13,6 +13,7 @@ import { updateComponent } from "@/lib/actions/components";
 import { COMPONENT_KINDS, COMPONENT_KIND_LABEL } from "@/lib/components";
 import type { ComponentRef } from "@/lib/data/components";
 import { cn } from "@/lib/utils";
+import { control } from "@/lib/interactive";
 
 /**
  * Managing the registry: adding one from the registry page, and correcting one
@@ -83,6 +84,17 @@ export function ComponentSettings({
   const [kind, setKind] = useState(component.kind);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
 
   function save(patch: Parameters<typeof updateComponent>[0], close?: () => void) {
     setError(null);
@@ -164,6 +176,8 @@ export function ComponentSettings({
             ) : null}
 
             <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
               type="button"
               disabled={pending}
               onClick={() => save({ componentId: component.id, name, kind }, close)}
@@ -174,6 +188,8 @@ export function ComponentSettings({
 
             <div className="flex flex-col gap-2 border-t border-[var(--hairline)] pt-3">
               <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
                 type="button"
                 disabled={pending}
                 onClick={() =>

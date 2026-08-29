@@ -1,0 +1,29 @@
+name: Monthly recovery-copy integrity
+
+on:
+  schedule:
+    # The day-01 writer has more than a day to publish the monthly tier first.
+    - cron: "23 3 2 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monthly-recovery-copy-integrity
+  cancel-in-progress: false
+
+jobs:
+  integrity:
+    name: download and verify the newest monthly ciphertext
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify ciphertext, sidecar and recorded recovery counts
+        env:
+          RECOVERY_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/check-backup-integrity.sh

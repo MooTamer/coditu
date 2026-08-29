@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Copy, Trash2, UserPlus } from "lucide-react";
 
+import { settle } from "@/lib/action-result";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import {
@@ -25,6 +26,7 @@ import {
 } from "@/lib/actions/client-access";
 import type { ClientAccessRow } from "@/lib/data/client-access";
 import { calendarDate } from "@/lib/format";
+import { control } from "@/lib/interactive";
 
 const FIELD =
   "h-11 w-full rounded-control border border-[var(--hairline-strong)] bg-[var(--canvas)] px-3 text-[14px] text-[var(--ink)] placeholder:text-[var(--ink-faint)]";
@@ -59,6 +61,17 @@ export function ClientAccessPanel({
 }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
+  /**
+   * Which control was pressed, so that one reports and the others do not.
+   *
+   * `pending` is shared by every action in this component, and binding it
+   * straight to each button lights all of them on any click — the exact bug
+   * PF-4's first draft shipped and `e2e/interactive-states.spec.ts` caught.
+   * `onClickCapture` records the presser before the handler runs and works for
+   * a keyboard activation too; nothing has to clear it, because the conjunction
+   * with `pending` goes false on its own when the work finishes.
+   */
+  const [acting, setActing] = useState<string | null>(null);
   const [openInviteFor, setOpenInviteFor] = useState<string | null>(null);
   const [issued, setIssued] = useState<{ email: string; password: string } | null>(null);
 
@@ -191,6 +204,8 @@ export function ClientAccessPanel({
 
                     {isAdmin ? (
                       <button
+          onClickCapture={() => setActing("c1")}
+          {...control(pending && acting === "c1" ? "pending" : "idle")}
                         type="button"
                         disabled={pending}
                         onClick={() => {
@@ -205,8 +220,8 @@ export function ClientAccessPanel({
                           run(
                             () =>
                               revoked
-                                ? restoreClientAccess({ contactProfileId: contact.profileId })
-                                : revokeClientAccess({ contactProfileId: contact.profileId }),
+                                ? settle(() => restoreClientAccess({ contactProfileId: contact.profileId }), "That access was not restored.")
+                                : settle(() => revokeClientAccess({ contactProfileId: contact.profileId }), "That access was not revoked."),
                             revoked
                               ? `${contact.fullName} has access again.`
                               : `${contact.fullName} no longer has access.`
@@ -260,11 +275,13 @@ export function ClientAccessPanel({
 
                   {isAdmin ? (
                     <button
+          onClickCapture={() => setActing("c2")}
+          {...control(pending && acting === "c2" ? "pending" : "idle")}
                       type="button"
                       disabled={pending}
                       onClick={() =>
                         run(
-                          () => withdrawInvitation({ invitationId: invitation.id }),
+                          () => settle(() => withdrawInvitation({ invitationId: invitation.id }), "That invitation was not withdrawn."),
                           `${invitation.email} can no longer sign up.`
                         )
                       }
@@ -326,16 +343,20 @@ function InviteForm({
       action={async (formData) => {
         setBusy(true);
         try {
-          const result = await inviteClientContact({
-            email: String(formData.get("email") ?? ""),
-            clientId: row.clientId,
-            projectIds,
-            preset,
-            capabilities: custom,
-          }).catch(() => ({
-            ok: false as const,
-            error: "That did not reach the server. Check your connection and try again.",
-          }));
+          // `settle`, not the hand-rolled `.catch` this had. Same failure
+          // result; the difference is that a `redirect()` out of the action is
+          // rethrown rather than reported as a connection problem.
+          const result = await settle(
+            () =>
+              inviteClientContact({
+                email: String(formData.get("email") ?? ""),
+                clientId: row.clientId,
+                projectIds,
+                preset,
+                capabilities: custom,
+              }),
+            "That did not reach the server. Check your connection and try again."
+          );
 
           if (result.ok && "password" in result && result.password) {
             onDone(String(formData.get("email") ?? "").trim().toLowerCase(), result.password);
@@ -451,12 +472,13 @@ function InviteForm({
       </div>
 
       <p className="text-[12.5px] leading-[1.5] text-[var(--ink-faint)]">
-        No email is sent — this application has no mail transport. You will be given a password once,
-        to pass on yourself.
+        No email is sent for a client account. You will be given a password once, to pass on
+        yourself — unlike an internal invitation, which does send a link.
       </p>
 
       <div className="flex flex-wrap gap-3">
         <button
+          {...control(busy ? "pending" : "idle")}
           type="submit"
           disabled={pending || busy || projectIds.length === 0}
           className="inline-flex h-11 items-center rounded-control bg-[var(--ink)] px-4 text-[13.5px] font-medium text-[var(--canvas)] disabled:opacity-60"

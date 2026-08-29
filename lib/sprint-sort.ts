@@ -291,3 +291,113 @@ export function sortLabelFor(stack: SortKey[], column: SortColumn): string | nul
 
 /** Display order is the app's, so this module and the chips cannot disagree. */
 export const SORT_STATUS_ORDER = STATUS_DISPLAY_ORDER;
+
+/* -------------------------------------------------------------------------- */
+/*  What a column is, so the panel can say what sorting it means.              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The kind of value a column holds — which is the only thing that decides how
+ * its two directions should be worded.
+ *
+ * PF-8's brief is explicit that the panel must never say "asc" and "desc".
+ * Those are two words about the comparator, and the reader is asking a question
+ * about their work: newest first, or the biggest number, or A to Z. Notion
+ * words each column by its type and that is what makes the menu readable
+ * without a legend.
+ *
+ * `person` is `text` that happens to be a name — it exists as its own kind so
+ * the icon can be a person rather than a paragraph, not because it sorts
+ * differently.
+ */
+export type SortColumnKind = "text" | "number" | "date" | "option" | "person";
+
+/** Every sortable column's display name and kind, in one place. */
+export const SORT_COLUMN_META: Record<SortColumn, { label: string; kind: SortColumnKind }> = {
+  key: { label: "Key", kind: "text" },
+  component: { label: "Component", kind: "text" },
+  status: { label: "Status", kind: "option" },
+  hours: { label: "Hours", kind: "number" },
+  assignee: { label: "Assignee", kind: "person" },
+  reviewer: { label: "Reviewer", kind: "person" },
+  deadline: { label: "Deadline", kind: "date" },
+  type: { label: "Type", kind: "option" },
+  grouping: { label: "Grouping", kind: "number" },
+  criteria: { label: "Criteria", kind: "number" },
+};
+
+/**
+ * How to say a direction, in the vocabulary of the column's own type.
+ *
+ * An option column is ordered by the app's own display order — the same
+ * `STATUS_DISPLAY_ORDER` the chips use — so "in status order" is literally what
+ * it does, and there is no alphabet involved to appeal to.
+ */
+const DIRECTION_WORDS: Record<SortColumnKind, Record<SortDirection, string>> = {
+  text: { asc: "A → Z", desc: "Z → A" },
+  person: { asc: "A → Z", desc: "Z → A" },
+  number: { asc: "Sort low → high", desc: "Sort high → low" },
+  date: { asc: "Earliest → latest", desc: "Latest → earliest" },
+  option: { asc: "In display order", desc: "In reverse order" },
+};
+
+export function directionLabel(column: SortColumn, direction: SortDirection): string {
+  return DIRECTION_WORDS[SORT_COLUMN_META[column].kind][direction];
+}
+
+/**
+ * Move one rule to another position in the stack.
+ *
+ * The stack IS the priority — first key wins, the next breaks its ties — so
+ * dragging a row is the only way to say "by status, and only then by deadline"
+ * rather than the other way round. Out-of-range indices are clamped rather than
+ * rejected: a drop is a gesture, not a form field.
+ */
+export function reorderSort(stack: SortKey[], from: number, to: number): SortKey[] {
+  if (from === to) return stack;
+  if (from < 0 || from >= stack.length) return stack;
+  const next = [...stack];
+  const [moved] = next.splice(from, 1);
+  next.splice(Math.max(0, Math.min(to, next.length)), 0, moved);
+  return next;
+}
+
+/** Replace one rule's column, keeping its place and its direction. */
+export function setSortColumn(stack: SortKey[], at: number, column: SortColumn): SortKey[] {
+  if (at < 0 || at >= stack.length) return stack;
+  // A column already used further up wins; sorting by the same column twice is
+  // the second one meaning nothing, and `parseSort` drops it on the way back in
+  // anyway. Dropping it here keeps the panel and the URL agreeing.
+  if (stack.some((entry, index) => index !== at && entry.column === column)) return stack;
+  const next = [...stack];
+  next[at] = { column, direction: next[at].direction };
+  return next;
+}
+
+/** Replace one rule's direction, keeping its place and its column. */
+export function setSortDirection(stack: SortKey[], at: number, direction: SortDirection): SortKey[] {
+  if (at < 0 || at >= stack.length) return stack;
+  const next = [...stack];
+  next[at] = { column: next[at].column, direction };
+  return next;
+}
+
+/** Drop one rule. */
+export function removeSort(stack: SortKey[], at: number): SortKey[] {
+  return stack.filter((_, index) => index !== at);
+}
+
+/**
+ * Append a rule for the first column not already in the stack.
+ *
+ * Returns the stack unchanged when it is full or every column is spoken for,
+ * so "+ Add sort" is disabled on the same condition the function refuses —
+ * one rule, in one place, that the button reads rather than restates.
+ */
+export function addSort(stack: SortKey[]): SortKey[] {
+  if (stack.length >= MAX_SORT_KEYS) return stack;
+  const used = new Set(stack.map((entry) => entry.column));
+  const next = SORTABLE_COLUMNS.find((column) => !used.has(column));
+  if (!next) return stack;
+  return [...stack, { column: next, direction: "asc" }];
+}

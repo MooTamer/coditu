@@ -1,4 +1,4 @@
-import { SEED, expect, query, test } from "./fixtures";
+import { expect, query, SEED, shell, test } from "./fixtures";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
 const ITEM = `${SPRINT}/items/COD-241`;
@@ -108,7 +108,7 @@ test.describe("comment rendering is inert against hostile JSON", () => {
     expect(scriptSrcs.some((src) => src.includes("evil.example"))).toBe(false);
 
     // The text still reads — fail closed, not fail blank.
-    await expect(page.getByText("window.__pwned = true")).toBeVisible();
+    await expect(shell(page).getByText("window.__pwned = true")).toBeVisible();
   });
 
   test("text that looks like markup renders as characters", async ({ adminPage: page }) => {
@@ -134,7 +134,7 @@ test.describe("comment rendering is inert against hostile JSON", () => {
     expect(await page.evaluate(() => "__xss2" in window)).toBe(false);
 
     // React escaped it, so it is visible text rather than an element.
-    await expect(page.getByText('<img src=x onerror="window.__xss=1">')).toBeVisible();
+    await expect(shell(page).getByText('<img src=x onerror="window.__xss=1">')).toBeVisible();
     const injected = await page.evaluate(
       () => document.querySelectorAll('img[src="x"]').length
     );
@@ -164,7 +164,7 @@ test.describe("comment rendering is inert against hostile JSON", () => {
     await page.goto(ITEM);
 
     // The words are still there; they are just not a link.
-    await expect(page.getByText("click me")).toBeVisible();
+    await expect(shell(page).getByText("click me")).toBeVisible();
     const hrefs = await page.evaluate(() =>
       [...document.querySelectorAll("a")].map((a) => a.getAttribute("href") ?? "")
     );
@@ -216,7 +216,7 @@ test.describe("comment rendering is inert against hostile JSON", () => {
       (root) => root.querySelectorAll("[onclick], [onmouseover], [onerror], [onload]").length
     );
     expect(withHandlers).toBe(0);
-    await expect(page.getByText("attributes should be dropped")).toBeVisible();
+    await expect(shell(page).getByText("attributes should be dropped")).toBeVisible();
   });
 
   test("a deeply nested document does not crash the page", async ({ adminPage: page }) => {
@@ -247,7 +247,7 @@ test.describe("comment rendering is inert against hostile JSON", () => {
     await seedComment("just a string, not a document", "malformed");
 
     await page.goto(ITEM);
-    await expect(page.getByText("This comment could not be displayed.")).toBeVisible();
+    await expect(shell(page).getByText("This comment could not be displayed.")).toBeVisible();
     // The rest of the page is intact.
     await expect(page.getByRole("heading", { level: 1, name: SEED.hostileThreadTitle })).toBeVisible();
   });
@@ -286,13 +286,13 @@ test.describe("comment rendering is inert against hostile JSON", () => {
 
     await page.goto(ITEM);
 
-    await expect(page.locator("strong", { hasText: "Bold" })).toBeVisible();
-    await expect(page.locator("code", { hasText: "and code" }).first()).toBeVisible();
-    await expect(page.locator("pre code")).toContainText("const minutes = 450;");
+    await expect(shell(page).locator("strong", { hasText: "Bold" })).toBeVisible();
+    await expect(shell(page).locator("code", { hasText: "and code" }).first()).toBeVisible();
+    await expect(shell(page).locator("pre code")).toContainText("const minutes = 450;");
     // Highlighted server-side, so the tokens are real elements.
-    expect(await page.locator("pre code span").count()).toBeGreaterThan(0);
+    expect(await shell(page).locator("pre code span").count()).toBeGreaterThan(0);
 
-    const link = page.locator('a[href="https://www.evim.de"]');
+    const link = shell(page).locator('a[href="https://www.evim.de"]');
     await expect(link).toHaveText("the docs");
     await expect(link).toHaveAttribute("rel", /noreferrer/);
   });
@@ -322,9 +322,9 @@ test.describe("comment rendering is inert against hostile JSON", () => {
 
     // `.first()` is the chip in the thread; the version history panel carries
     // the same mention as a diff line since W4c.
-    await expect(page.getByText("@Adam Nafie").first()).toBeVisible();
+    await expect(shell(page).getByText("@Adam Nafie").first()).toBeVisible();
     // A mention is a chip, not a link.
-    expect(await page.locator(`a:has-text("Adam Nafie")`).count()).toBe(0);
+    expect(await shell(page).locator(`a:has-text("Adam Nafie")`).count()).toBe(0);
   });
 
   test("@prod the editor bundle is not shipped to a reader who never composes", async ({ adminPage: page }) => {

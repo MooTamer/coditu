@@ -6,6 +6,7 @@ import {
   createThrowawayAccount,
   expect,
   removeThrowawayAccount,
+  shell,
   signIn,
   test,
 } from "./fixtures";
@@ -376,16 +377,32 @@ test.describe("the breadcrumb trail", () => {
     await expect(page).toHaveURL(new RegExp(`${SPRINT}$`));
   });
 
-  test("is not there below lg, and says nothing on Home", async ({ adminPage: page }) => {
+  test("collapses on a phone instead of disappearing, and is on Home too", async ({
+    adminPage: page,
+  }) => {
     await page.setViewportSize(PHONE);
     await page.goto(`${SPRINT}/items/COD-241`);
-    await expect(trail(page)).toBeHidden();
 
-    // `Coditu / Home` says nothing the rail does not, so there is no trail at
-    // all rather than a one-crumb one.
+    // It used to be hidden below `lg`. `Coditu Workspace.dc.html` draws the
+    // trail at 390 and at 320, so it is there — with the middle folded into an
+    // ellipsis rather than four crumbs clipping each other.
+    await expect(trail(page)).toBeVisible();
+    await expect(trail(page)).toContainText("Coditu");
+    await expect(trail(page)).toContainText("COD-241");
+    await expect(trail(page)).toContainText("…");
+    // The folded crumbs stay in the accessibility tree — hidden with CSS, not
+    // dropped — so the whole path is still readable by a screen reader.
+    await expect(trail(page).getByText("MEINEvim components")).toHaveCount(1);
+
+    // And the trail is on Home now: two crumbs, no ellipsis, nothing to fold.
+    await page.goto("/app");
+    await expect(trail(page)).toBeVisible();
+    await expect(trail(page)).toContainText("Home");
+    await expect(trail(page)).not.toContainText("…");
+
     await page.setViewportSize({ width: 1400, height: 900 });
     await page.goto("/app");
-    await expect(trail(page)).toHaveCount(0);
+    await expect(trail(page)).toBeVisible();
   });
 
   /**
@@ -466,5 +483,128 @@ test.describe("the console after opening a story", () => {
     await page.waitForTimeout(1200);
 
     expect(logged, "opening a story logged nothing").toEqual([]);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Promoted out of the local sweeps, 2026-08-28                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The measures, and Home's second column.
+ *
+ * These two claims were signed off from `e2e/measures.local.spec.ts` and
+ * `e2e/home-shell.local.spec.ts`, which `.gitignore` keeps out of the
+ * repository — so `08-GAP-MATRIX.md`'s strongest visual rows rested on files no
+ * clone has. `05-DECISIONS.md`, *The visual evidence lives in three specs git
+ * does not carry*, named promoting the durable half as the right answer and
+ * asked that somebody choose it rather than default into it. This is that
+ * choice, for the two rows in it that belong to geometry; the keyboard ones are
+ * in `a11y.spec.ts` and the throwaway diagnostics stay local.
+ *
+ * What "durable" means here, since it is the whole distinction: a measure is a
+ * number `Coditu Workspace.dc.html` specifies and the design system owns. If it
+ * changes, that is a design decision and this test is exactly where it should
+ * surface. The diagnostics left behind — a 26px greeting, a hover token, a
+ * legend's hrefs — are one-off answers to one-off questions, and holding the
+ * gate to them would be holding it to somebody's afternoon.
+ *
+ * Chromium only. Both are desktop geometry, and the phone shape of the same
+ * screens is `mobile.spec.ts`'s subject; running a 1920 assertion on a Pixel 7
+ * emulation measures nothing extra and costs three times the wall clock.
+ */
+test.describe("the surfaces carry their measure", () => {
+  test.skip(
+    ({ isMobile }) => !!isMobile,
+    "desktop geometry — the phone shape of these screens is mobile.spec.ts"
+  );
+
+  /**
+   * Every surface, and the cap `Coditu Workspace.dc.html` gives it.
+   *
+   * At 1920 with a 268px rail there is room for every cap, so the cap BINDS —
+   * at 1440 the sidebar leaves less than 1320 and nothing would be proved.
+   */
+  const SURFACES: Array<[string, number]> = [
+    ["/app", 1320],
+    ["/app/my-work", 1240],
+    ["/app/projects", 1320],
+    ["/app/projects/meinevim", 1320],
+    [SPRINT, 1520],
+    [`${SPRINT}/notes`, 860],
+    ["/app/people", 1320],
+    ["/app/profile", 900],
+    ["/app/settings", 900],
+    ["/app/settings/payouts", 1080],
+    ["/app/settings/recovery", 1240],
+    ["/app/earnings", 1080],
+    ["/app/trash", 1240],
+    ["/app/history", 1320],
+    ["/app/import", 1080],
+  ];
+
+  for (const [route, expected] of SURFACES) {
+    test(`${route} is capped at ${expected}px, and renders a main landmark`, async ({
+      adminPage: page,
+    }) => {
+      await page.setViewportSize({ width: 1920, height: 1080 });
+      await page.goto(route);
+
+      // `shell()` and not a bare `main`, for two separate reasons that look the
+      // same from the outside. While a route streams, its `loading.tsx` renders
+      // `<main data-loading-skeleton>` — which has no measure, because a
+      // skeleton is not a surface — and the resolved page arrives inside a
+      // `hidden` wrapper before being moved into place. A cold run of the local
+      // version of this reported 11 of 15 for the first reason alone.
+      const surface = shell(page);
+      await expect(surface).toBeVisible();
+
+      const got = await surface.evaluate((main) => {
+        const inner = main.firstElementChild as HTMLElement | null;
+        return {
+          maxWidth: inner ? getComputedStyle(inner).maxWidth : null,
+          width: inner ? Math.round(inner.getBoundingClientRect().width) : 0,
+        };
+      });
+
+      expect(got.maxWidth, `${route} measure`).toBe(`${expected}px`);
+      expect(got.width, `${route} should be capped at its measure`).toBe(expected);
+
+      const overflows = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth + 1
+      );
+      expect(overflows, `${route} overflows horizontally at 1920`).toBe(false);
+    });
+  }
+
+  /**
+   * Home's right-hand column is 320px, and it is a column at all only above
+   * 1180.
+   *
+   * The correction the whole visual batch turned on: the grid used to open
+   * BELOW the active sprint card, so the second column started a card too low
+   * and the sprint goal was printed twice. Asserting the track width is what
+   * pins the shape — `grid-template-columns` ending in ` 320px` is two columns
+   * with the handoff's aside; anything else is one column, or a different
+   * aside.
+   */
+  test("Home is one column below 1180 and a 320px aside above it", async ({ adminPage: page }) => {
+    await page.goto("/app");
+    await expect(shell(page)).toBeVisible();
+
+    for (const width of [1920, 1440, 1180, 1024, 834, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.waitForTimeout(150);
+
+      const columns = await page
+        .locator("[data-home-grid]")
+        .evaluate((grid) => getComputedStyle(grid).gridTemplateColumns);
+
+      if (width >= 1180) {
+        expect(columns, `Home should be two columns at ${width}`).toMatch(/ 320px$/);
+      } else {
+        expect(columns, `Home should be one column at ${width}`).not.toMatch(/ 320px$/);
+      }
+    }
   });
 });

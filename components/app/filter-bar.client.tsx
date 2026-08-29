@@ -1,17 +1,19 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import dynamic from "next/dynamic";
+import { useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown, SlidersHorizontal } from "lucide-react";
 
 import { ComponentMultiPicker } from "@/components/app/component-picker.client";
-import { FilterPanel } from "@/components/app/filter-panel.client";
 import { ViewMenu } from "@/components/app/view-menu.client";
 import { Mono } from "@/components/coditu/mono";
 import { COMPONENT_MATCHES, type ComponentMatch } from "@/lib/components";
 import type { ComponentRef } from "@/lib/data/components";
 import type { SavedView } from "@/lib/data/saved-views";
+import { useUrlWrite } from "@/lib/hooks/use-url-write";
+import { control } from "@/lib/interactive";
 import { activeFilterCount, type FilterSpec } from "@/lib/sprint-filters";
+import { SORT_COLUMN_META, parseSort, type SortColumn } from "@/lib/sprint-sort";
 import {
   STATUS_DISPLAY_ORDER,
   STATUS_LABEL,
@@ -19,6 +21,32 @@ import {
   type WorkItemStatus,
 } from "@/lib/work-items";
 import { cn } from "@/lib/utils";
+
+/**
+ * The panel's first line is `if (!open) return null`, so it has always drawn
+ * nothing until the Filter button is pressed — and it has always been in this
+ * page's entry bundle anyway. Deferred, and gated at the call site below so the
+ * import is not even requested until it is wanted. Behaviour is unchanged in
+ * both directions: closing unmounts it exactly as the internal early return did.
+ *
+ * `ssr: false` for the same reason as the export dialog: there is nothing to
+ * server-render for a surface that does not exist until a click.
+ */
+const FilterPanel = dynamic(
+  () => import("@/components/app/filter-panel.client").then((m) => m.FilterPanel),
+  { ssr: false }
+);
+
+/**
+ * PF-8's panel, deferred for the same reason and on the same terms as the
+ * filter one: it does not exist until somebody presses Sort, and the app shell
+ * had 3.6 KB of headroom when it was written. It carries `@dnd-kit`, which the
+ * sprint table already pays for, so the lazy chunk is the panel itself.
+ */
+const SortPanel = dynamic(
+  () => import("@/components/app/sort-panel.client").then((m) => m.SortPanel),
+  { ssr: false }
+);
 
 /**
  * View mode and status filters, held in the URL.
@@ -73,10 +101,20 @@ export function FilterBar({
   /** The sprint on screen, for a view somebody pins to this week. */
   sprintId: string;
 }) {
-  const router = useRouter();
   const [panelOpen, setPanelOpen] = useState(false);
-  const pathname = usePathname();
-  const params = useSearchParams();
+  const [sortOpen, setSortOpen] = useState(false);
+  /** Which rule a toolbar chip asked to open on. Null when Sort itself was pressed. */
+  const [sortFocus, setSortFocus] = useState<SortColumn | null>(null);
+  // PF-4. Every write below used to be a bare `router.replace`, which on a
+  // dynamic route is a server round trip with no sign it is happening — the
+  // reported "sorting does nothing for ~2s then sorts". `useUrlWrite` puts the
+  // navigation in a transition and hands back which control is waiting on it.
+  const { params, write, state } = useUrlWrite();
+
+  // Read with the same parser the server sorts by, so the chips and the table
+  // cannot disagree — an unrecognised column is dropped in both places rather
+  // than guessed at in one.
+  const sortStack = parseSort(params.get("sort"));
 
   // Through the same parser the server uses, so a link carrying retired values
   // lights up the right chips instead of none. The first toggle rewrites the
@@ -84,23 +122,13 @@ export function FilterBar({
   const active = parseStatusFilter(params.get("status"));
   const view = params.get("view") === "board" ? "board" : "table";
 
-  const write = useCallback(
-    (next: URLSearchParams) => {
-      const query = next.toString();
-      // `scroll: false` — toggling a filter must not throw the reader back to
-      // the top of a table they were part way down.
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    },
-    [pathname, router]
-  );
-
   function toggleStatus(status: WorkItemStatus) {
     const next = new URLSearchParams(params);
     const on = active.includes(status);
     const updated = on ? active.filter((s) => s !== status) : [...active, status];
     if (updated.length) next.set("status", updated.join(","));
     else next.delete("status");
-    write(next);
+    write(next, `status:${status}`);
   }
 
   function setComponents(chosen: ComponentRef[]) {
@@ -113,7 +141,7 @@ export function FilterBar({
       // `match` on its own is noise in a URL nobody can act on.
       next.delete("match");
     }
-    write(next);
+    write(next, "component");
   }
 
   function setMatch(mode: ComponentMatch) {
@@ -121,14 +149,14 @@ export function FilterBar({
     // `any` is the default, so it does not need saying.
     if (mode === "all") next.set("match", "all");
     else next.delete("match");
-    write(next);
+    write(next, `match:${mode}`);
   }
 
   function setView(mode: "table" | "board") {
     const next = new URLSearchParams(params);
     if (mode === "board") next.set("view", "board");
     else next.delete("view");
-    write(next);
+    write(next, `view:${mode}`);
   }
 
   const ordered = STATUS_DISPLAY_ORDER.filter((status) => availableStatuses.includes(status));
@@ -143,6 +171,7 @@ export function FilterBar({
             type="button"
             onClick={() => setView(mode)}
             aria-pressed={view === mode}
+            {...control(state(`view:${mode}`))}
             className={cn(
               "h-[30px] rounded-[7px] px-[14px] text-[13px] font-semibold capitalize",
               // Filter pills are the `micro` tier: 200ms, no blur. A pill does
@@ -169,6 +198,10 @@ export function FilterBar({
           projectSlug={projectSlug}
           canEdit
           allowCreate={false}
+          // Selecting nothing here already means every component, so a
+          // Select-all would write forty slugs into the URL to say what an
+          // empty parameter says in none of them. See PF-7.
+          allowSelectAll={false}
           onChange={setComponents}
           emptyLabel="all components"
           className="h-[32px]"
@@ -186,6 +219,7 @@ export function FilterBar({
               type="button"
               onClick={() => setMatch(mode)}
               aria-pressed={match === mode}
+              {...control(state(`match:${mode}`))}
               title={
                 mode === "any"
                   ? "Stories naming at least one of these components"
@@ -213,6 +247,7 @@ export function FilterBar({
             type="button"
             onClick={() => toggleStatus(status)}
             aria-pressed={on}
+            {...control(state(`status:${status}`))}
             className={cn(
               "flex h-8 items-center gap-2 rounded-pill border px-3 text-[13px]",
               "transition-[background-color,border-color,color] duration-[var(--dur-micro)] ease-[var(--ease-entrance)]",
@@ -267,13 +302,83 @@ export function FilterBar({
         ) : null}
       </button>
 
-      <FilterPanel
-        open={panelOpen}
-        onClose={() => setPanelOpen(false)}
-        spec={filters}
-        people={people}
-        groupings={groupings}
-      />
+      {/* ---- PF-8: the sort, read from the same `?sort=` the table sorts by ---- */}
+      <button
+        type="button"
+        onClick={() => {
+          setSortFocus(null);
+          setSortOpen(true);
+        }}
+        aria-haspopup="dialog"
+        aria-expanded={sortOpen}
+        data-sort-button
+        // Highlighted while ANY sort is active — the one thing the toolbar has
+        // to say without being opened, because a table in an order nobody can
+        // see an explanation for is the whole complaint PF-8 opens with.
+        data-sort-active={sortStack.length > 0 ? "" : undefined}
+        className={cn(
+          "inline-flex h-[34px] cursor-pointer items-center gap-2 rounded-control border px-3 text-[12.5px]",
+          "transition-[border-color,color] duration-[var(--dur-micro)]",
+          sortStack.length > 0
+            ? "border-[var(--hairline-strong)] font-medium text-[var(--ink)]"
+            : "border-[var(--hairline)] text-[var(--ink-muted)] hover:border-[var(--hairline-strong)]"
+        )}
+      >
+        <ArrowUpDown
+          size={13}
+          strokeWidth={1.8}
+          aria-hidden
+          className={sortStack.length > 0 ? "text-[var(--accent)]" : undefined}
+        />
+        Sort
+        {sortStack.length > 0 ? (
+          <span className="sr-only">{` — ${sortStack.length} active`}</span>
+        ) : null}
+      </button>
+
+      {/* One chip per rule, in priority order, each reopening the panel on
+          itself. The arrow is the direction; the word is the column. Together
+          they are the whole rule, which is what makes the chip worth the room
+          it takes rather than a second copy of the count. */}
+      {sortStack.map((rule, index) => {
+        const Arrow = rule.direction === "asc" ? ArrowUp : ArrowDown;
+        const meta = SORT_COLUMN_META[rule.column];
+        return (
+          <button
+            key={rule.column}
+            type="button"
+            data-sort-chip={rule.column}
+            onClick={() => {
+              setSortFocus(rule.column);
+              setSortOpen(true);
+            }}
+            aria-haspopup="dialog"
+            title={`${meta.label} — ${index + 1} of ${sortStack.length}`}
+            className="inline-flex h-[34px] cursor-pointer items-center gap-[5px] rounded-chip border border-[var(--hairline)] bg-[var(--tint)] px-[9px] text-[12.5px] text-[var(--ink-muted)] hover:border-[var(--hairline-strong)] hover:text-[var(--ink)]"
+          >
+            <Arrow size={12} strokeWidth={2} aria-hidden className="text-[var(--accent)]" />
+            {meta.label}
+          </button>
+        );
+      })}
+
+      {sortOpen ? (
+        <SortPanel
+          stack={sortStack}
+          focusColumn={sortFocus}
+          onClose={() => setSortOpen(false)}
+        />
+      ) : null}
+
+      {panelOpen ? (
+        <FilterPanel
+          open
+          onClose={() => setPanelOpen(false)}
+          spec={filters}
+          people={people}
+          groupings={groupings}
+        />
+      ) : null}
 
       {/* The link this view IS, read from the URL rather than rebuilt from the
           controls above it.

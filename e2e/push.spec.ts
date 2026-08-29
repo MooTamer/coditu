@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { auditA11y, expect, query, test } from "./fixtures";
+import { auditA11y, expect, query, shell, test } from "./fixtures";
 
 /**
  * Notifications that reach an operating system — and an honest account of how
@@ -223,7 +223,7 @@ test.describe("a comment still saves when push cannot be sent", () => {
     await clear();
     try {
       await page.goto(`/app/projects/meinevim/sprints/17/items/${key}`);
-      await page.getByText("Write a comment — @ to mention").click();
+      await shell(page).getByText("Write a comment — @ to mention").click();
       await page.locator(".coditu-prose").click();
       await page.keyboard.type("@Adam");
       const list = page.getByRole("listbox", { name: "Mention someone" });

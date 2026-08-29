@@ -7,6 +7,7 @@ import {
   removeThrowawayAccount,
   signIn,
   SEED_ENGINEER,
+  SUPABASE_URL,
   test,
 } from "./fixtures";
 
@@ -92,7 +93,7 @@ async function issueTemporaryPasswordFor(adminPage: import("@playwright/test").P
   return shown;
 }
 
-test.describe("one form, and no mail anywhere", () => {
+test.describe("one form, and one sender", () => {
   test("the login page offers exactly one email field and one password field", async ({ page }) => {
     await page.goto("/login");
 
@@ -108,16 +109,60 @@ test.describe("one form, and no mail anywhere", () => {
     // And it says what to do instead, rather than leaving a hole.
     await expect(page.getByText(/Ask an admin for a temporary one/)).toBeVisible();
 
-    // Sign-up is still here, and still gated.
-    await page.getByRole("tab", { name: "Create account" }).click();
-    await expect(page.getByText(/invite-only/)).toBeVisible();
-    await expect(page.locator('input[type="email"]')).toHaveCount(1);
+    // And sign-up is gone with them — PF-10. No tab, no second submit label,
+    // no name field, and no control anywhere on the page that reads as one.
+    await expect(page.getByRole("tab")).toHaveCount(0);
+    await expect(page.getByRole("tablist")).toHaveCount(0);
+    await expect(page.getByText(/Create account/i)).toHaveCount(0);
+    await expect(page.getByLabel("Your name")).toHaveCount(0);
+    // One submit, and it says the one thing this screen does.
+    const submits = page.locator('button[type="submit"]');
+    await expect(submits).toHaveCount(1);
+    await expect(submits).toHaveText("Sign in");
   });
 
-  test("nothing in the repository sends mail", async () => {
-    // A grep, and it earns its place: the two actions are deleted, but the
-    // thing that must stay true is that no NEW caller appears. Every Supabase
-    // API below sends an email and there is no transport to send it with.
+  test("no route or link on this screen leads to a registration form", async ({ page }) => {
+    await page.goto("/login");
+
+    // Every href the sign-in screen offers. There should be nothing here that
+    // goes anywhere near an account-creation surface — and the page is allowed
+    // to have no links at all, which is what it has.
+    const hrefs = await page.locator("a[href]").evaluateAll((nodes) =>
+      nodes.map((n) => (n as HTMLAnchorElement).getAttribute("href") ?? "")
+    );
+    for (const href of hrefs) {
+      expect(href, `${href} looks like a registration route`).not.toMatch(
+        /sign-?up|register|create-?account|join/i
+      );
+    }
+
+    // And the routes somebody would guess are not routes. Two shapes are both
+    // correct here and the first draft of this test only allowed one: a 404,
+    // or the middleware bouncing an unauthenticated visitor to `/login`, which
+    // is a 200 at `/login` and not a registration form. `/app/signup` is the
+    // second shape, so the assertion is about what is ON the page.
+    for (const guess of ["/signup", "/sign-up", "/register", "/join", "/app/signup"]) {
+      const response = await page.goto(guess);
+      const status = response?.status() ?? 0;
+      if (status < 400) {
+        expect(new URL(page.url()).pathname, `${guess} rendered a page of its own`).toBe("/login");
+      }
+      await expect(page.getByText(/Create account/i)).toHaveCount(0);
+      await expect(page.getByLabel("Your name")).toHaveCount(0);
+    }
+  });
+
+  test("the invitation is the only thing in the repository that sends mail", async () => {
+    // This assertion used to be "nothing sends mail", and it was right until
+    // PF-14. Removing the sign-up form left no path at all from *on the
+    // allowlist* to *has an account*, and `sendInvitation` is the door that
+    // replaces it — so exactly one caller is now expected, and the point of
+    // this grep is that it stays exactly one.
+    //
+    // Every API named below sends an email. `resetPasswordForEmail` and
+    // `signInWithOtp` in particular must NOT come back: a temporary password
+    // read out by an admin is still the recovery story, and a reset link would
+    // be a second one that nobody maintains.
     const { execSync } = await import("node:child_process");
     // Call sites, not mentions: the trailing `(` is what keeps a comment
     // explaining why the mail is gone from failing the test that proves it.
@@ -125,8 +170,14 @@ test.describe("one form, and no mail anywhere", () => {
       "grep -rnE '(signInWithOtp|resetPasswordForEmail|inviteUserByEmail|generateLink|sendMagicLink|requestPasswordReset)\\(' " +
         "app components lib scripts || true",
       { encoding: "utf8" }
-    ).trim();
-    expect(hits, "something in the app sends mail").toBe("");
+    )
+      .trim()
+      .split("\n")
+      .filter(Boolean);
+
+    expect(hits, "more than the invitation sends mail now").toHaveLength(1);
+    expect(hits[0]).toContain("lib/actions/allowlist.ts");
+    expect(hits[0]).toContain("inviteUserByEmail");
   });
 });
 
@@ -327,7 +378,7 @@ test.describe("a temporary password, and the change it forces", () => {
       await signIn(page, SEED_ENGINEER);
       await page.goto("/app/my-work");
 
-      const outcome = await page.evaluate(async () => {
+      const outcome = await page.evaluate(async (supabaseUrl) => {
         const raw = document.cookie
           .split("; ")
           .find((c) => c.startsWith("sb-127-auth-token="))
@@ -336,7 +387,7 @@ test.describe("a temporary password, and the change it forces", () => {
           .join("=");
         const json = JSON.parse(atob(decodeURIComponent(raw ?? "").replace("base64-", "")));
         const me = JSON.parse(atob(json.access_token.split(".")[1])).sub;
-        const response = await fetch(`http://127.0.0.1:54421/rest/v1/profiles?id=eq.${me}`, {
+        const response = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${me}`, {
           method: "PATCH",
           headers: {
             apikey: json.access_token,
@@ -349,7 +400,7 @@ test.describe("a temporary password, and the change it forces", () => {
           body: JSON.stringify({ must_set_password: true }),
         });
         return { status: response.status, body: await response.text() };
-      });
+      }, SUPABASE_URL);
 
       // The trigger's own errcode, surfaced by PostgREST as a 403.
       expect(outcome.status).toBe(403);
@@ -430,7 +481,7 @@ test.describe("a temporary password, and the change it forces", () => {
   });
 });
 
-test.describe("the callback route, which nothing sends links to any more", () => {
+test.describe("the callback route, which the invitation now sends links to", () => {
   // Kept because it costs nothing, its open-redirect guard is written and
   // tested, and it still serves the forced-change redirect. Deleting a tested
   // guard because the caller went away is how it comes back untested.

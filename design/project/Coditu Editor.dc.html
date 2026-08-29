@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display: flex; flex-direction: column; gap: 2px; position: relative; font-family: Satoshi, 'Instrument Sans', sans-serif;">
+
+  <sc-if value="{{ typing.show }}" hint-placeholder-val="{{ false }}">
+    <div aria-live="polite" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: {{ typing.color }};">
+      <span style="display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 999px; border: 1px solid var(--hairline-strong); background: var(--canvas); font-size: 9px;">{{ typing.initials }}</span>
+      <span>{{ typing.text }}</span>
+      <span style="display: flex; gap: 2px;">
+        <span class="pulse" style="width: 3px; height: 3px; border-radius: 999px; background: currentColor;"></span>
+        <span class="pulse" style="width: 3px; height: 3px; border-radius: 999px; background: currentColor; animation-delay: 200ms;"></span>
+        <span class="pulse" style="width: 3px; height: 3px; border-radius: 999px; background: currentColor; animation-delay: 400ms;"></span>
+      </span>
+    </div>
+  </sc-if>
+
+  <sc-for list="{{ blocks }}" as="b" hint-placeholder-count="3">
+    <div style="position: relative; display: flex; align-items: flex-start; gap: 4px; margin-top: {{ b.marginTop }}; border-radius: 6px; background: {{ b.selectedBg }}; outline: {{ b.outline }};" style-hover="background: var(--tint);">
+      <span style="flex-shrink: 0; display: flex; align-items: center; gap: 1px; width: 34px; padding-top: {{ b.handlePad }}; opacity: {{ b.handleOpacity }};">
+        <button type="button" onClick="{{ b.moveUp }}" aria-label="Move block up" title="Move up · Alt+↑" style="width: 16px; height: 20px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: var(--ink-faint); cursor: grab; border-radius: 4px;" style-hover="background: var(--hairline); color: var(--ink);">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M7 14l5-5 5 5" /></svg>
+        </button>
+        <button type="button" onClick="{{ b.moveDown }}" aria-label="Move block down" title="Move down · Alt+↓" style="width: 16px; height: 20px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: var(--ink-faint); cursor: grab; border-radius: 4px;" style-hover="background: var(--hairline); color: var(--ink);">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M7 10l5 5 5-5" /></svg>
+        </button>
+      </span>
+
+      <div style="flex: 1; min-width: 0; padding: {{ b.padding }}; border-left: {{ b.borderLeft }}; background: {{ b.bg }}; border-radius: {{ b.radius }};">
+        <sc-if value="{{ b.isDivider }}" hint-placeholder-val="{{ false }}">
+          <span style="display: block; height: 1px; background: var(--hairline-strong); margin: 6px 0;"></span>
+        </sc-if>
+
+        <sc-if value="{{ b.isImage }}" hint-placeholder-val="{{ false }}">
+          <div style="border: 1px dashed {{ b.img.border }}; border-radius: 10px; background: var(--canvas); padding: 14px; display: flex; align-items: center; gap: 12px;">
+            <span style="width: 38px; height: 38px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--tint); color: {{ b.img.iconColor }};">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="{{ b.img.icon }}" /></svg>
+            </span>
+            <span style="min-width: 0; flex: 1;">
+              <span style="display: block; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ b.img.name }}</span>
+              <span style="display: block; margin-top: 3px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: {{ b.img.stateColor }};">{{ b.img.state }}</span>
+              <sc-if value="{{ b.img.uploading }}" hint-placeholder-val="{{ false }}">
+                <span style="display: block; margin-top: 6px; height: 3px; border-radius: 999px; background: var(--hairline);"><span style="display: block; height: 100%; width: {{ b.img.pct }}; border-radius: 999px; background: linear-gradient(90deg, #2B57FF, #21E2C6);"></span></span>
+              </sc-if>
+            </span>
+            <sc-if value="{{ b.img.failed }}" hint-placeholder-val="{{ false }}">
+              <button type="button" onClick="{{ b.img.retry }}" style="flex-shrink: 0; height: 30px; padding: 0 11px; border-radius: 8px; border: 1px solid var(--hairline-strong); background: transparent; color: var(--ink); font-size: 12.5px; cursor: pointer;">Retry</button>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ b.isTable }}" hint-placeholder-val="{{ false }}">
+          <div style="border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden;">
+            <sc-for list="{{ b.rows }}" as="row" hint-placeholder-count="3">
+              <div style="display: grid; grid-template-columns: {{ row.cols }}; border-bottom: 1px solid var(--hairline); background: {{ row.bg }};">
+                <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="3">
+                  <span style="padding: 8px 10px; font-size: 12.5px; font-weight: {{ cell.weight }}; color: {{ cell.color }}; border-right: 1px solid var(--hairline); font-family: {{ cell.font }};">{{ cell.v }}</span>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ b.isText }}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; align-items: flex-start; gap: 9px;">
+            <sc-if value="{{ b.hasPrefix }}" hint-placeholder-val="{{ false }}">
+              <button type="button" onClick="{{ b.prefixClick }}" aria-label="{{ b.prefixLabel }}" style="flex-shrink: 0; margin-top: {{ b.prefixTop }}; min-width: {{ b.prefixWidth }}; height: 18px; display: flex; align-items: center; justify-content: center; border: {{ b.prefixBorder }}; border-radius: {{ b.prefixRadius }}; background: {{ b.prefixBg }}; color: {{ b.prefixColor }}; font-family: 'JetBrains Mono', monospace; font-size: 11px; cursor: {{ b.prefixCursor }}; padding: 0 2px;">{{ b.prefix }}</button>
+            </sc-if>
+            <sc-if value="{{ b.editing }}" hint-placeholder-val="{{ false }}">
+              <textarea value="{{ b.text }}" onChange="{{ b.input }}" onKeyDown="{{ b.keydown }}" onBlur="{{ b.blur }}" autoFocus="{{ true }}" rows="{{ b.rows2 }}" aria-label="{{ b.aria }}" style="flex: 1; min-width: 0; resize: none; border: none; outline: none; background: transparent; padding: 0; font-family: {{ b.fontFamily }}; font-size: {{ b.fontSize }}; font-weight: {{ b.fontWeight }}; line-height: {{ b.lineHeight }}; color: {{ b.color }}; letter-spacing: {{ b.tracking }};"></textarea>
+            </sc-if>
+            <sc-if value="{{ b.reading }}" hint-placeholder-val="{{ true }}">
+              <span onClick="{{ b.click }}" onKeyDown="{{ b.spanKey }}" tabIndex="{{ b.tab }}" role="textbox" aria-label="{{ b.aria }}" style="flex: 1; min-width: 0; display: block; min-height: {{ b.minH }}; white-space: pre-wrap; word-break: break-word; font-family: {{ b.fontFamily }}; font-size: {{ b.fontSize }}; font-weight: {{ b.fontWeight }}; line-height: {{ b.lineHeight }}; color: {{ b.readColor }}; letter-spacing: {{ b.tracking }}; text-decoration: {{ b.strike }}; cursor: text;">{{ b.readText }}</span>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-for>
+
+  <sc-if value="{{ addOpen }}" hint-placeholder-val="{{ true }}">
+    <button type="button" onClick="{{ add }}" style="margin-top: 4px; margin-left: 34px; display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 8px; border: none; border-radius: 7px; background: transparent; color: var(--ink-faint); font-size: 13px; cursor: pointer; text-align: left;" style-hover="background: var(--tint); color: var(--ink-muted);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+      {{ addLabel }}
+    </button>
+  </sc-if>
+
+  <sc-if value="{{ slash.open }}" hint-placeholder-val="{{ false }}">
+    <div class="in" role="listbox" aria-label="Insert block" style="position: absolute; z-index: 20; left: 34px; top: {{ slash.top }}; width: min(300px, 88%); max-height: 264px; overflow-y: auto; border: 1px solid var(--hairline-strong); border-radius: 12px; background: var(--overlay); box-shadow: 0 24px 64px -24px rgba(0,0,0,0.45);">
+      <div style="padding: 8px 12px 6px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-faint);">{{ slash.label }}</div>
+      <sc-for list="{{ slash.items }}" as="s" hint-placeholder-count="8">
+        <button type="button" onClick="{{ s.pick }}" role="option" aria-selected="{{ s.selected }}" style="width: 100%; display: flex; align-items: center; gap: 11px; padding: 8px 12px; border: none; background: {{ s.bg }}; color: inherit; cursor: pointer; text-align: left;" style-hover="background: var(--tint);">
+          <span style="width: 22px; height: 22px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1px solid var(--hairline); border-radius: 6px; color: var(--ink-muted);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="{{ s.icon }}" /></svg>
+          </span>
+          <span style="flex: 1; min-width: 0; font-size: 13px;">{{ s.label }}</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--ink-faint);">{{ s.hint }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ mention.open }}" hint-placeholder-val="{{ false }}">
+    <div class="in" role="listbox" aria-label="Mention a teammate" style="position: absolute; z-index: 20; left: 34px; top: {{ mention.top }}; width: min(320px, 92%); border: 1px solid var(--hairline-strong); border-radius: 12px; background: var(--overlay); box-shadow: 0 24px 64px -24px rgba(0,0,0,0.45); overflow: hidden;">
+      <div style="padding: 8px 12px 6px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-faint);">Mention · ↑↓ then ⏎</div>
+      <sc-for list="{{ mention.items }}" as="m" hint-placeholder-count="4">
+        <button type="button" onClick="{{ m.pick }}" role="option" aria-selected="{{ m.selected }}" style="width: 100%; display: flex; align-items: center; gap: 11px; padding: 9px 12px; border: none; background: {{ m.bg }}; color: inherit; cursor: pointer; text-align: left;" style-hover="background: var(--tint);">
+          <span style="position: relative; flex-shrink: 0;">
+            <span style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--hairline-strong); background: var(--canvas); font-family: 'JetBrains Mono', monospace; font-size: 9.5px;">{{ m.initials }}</span>
+            <span style="position: absolute; right: -1px; bottom: -1px; width: 8px; height: 8px; border-radius: 999px; background: {{ m.dot }}; border: 2px solid var(--overlay);"></span>
+          </span>
+          <span style="min-width: 0; flex: 1;">
+            <span style="display: block; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ m.name }}</span>
+            <span style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--ink-faint);">{{ m.meta }}</span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:720,&quot;height&quot;:420},&quot;blocks&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;Block[]&quot;},&quot;slash&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;{ open: boolean; top: string; items: SlashItem[] }&quot;},&quot;mention&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;{ open: boolean; top: string; items: MentionItem[] }&quot;},&quot;typing&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;{ show: boolean; text: string; initials: string; color: string }&quot;},&quot;addOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;addLabel&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Type / for blocks, @ to mention&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;add&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}"></script>
+</body>
+</html>

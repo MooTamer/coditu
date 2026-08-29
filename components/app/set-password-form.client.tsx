@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { setPassword, type AuthState } from "@/lib/actions/auth";
+import { control } from "@/lib/interactive";
 import { Mono } from "@/components/coditu/mono";
 
 const FIELD =
@@ -13,9 +14,9 @@ function SubmitButton({ children }: { children: React.ReactNode }) {
   const { pending } = useFormStatus();
   return (
     <button
+        {...control(pending ? "pending" : "idle")}
       type="submit"
       disabled={pending}
-      aria-busy={pending}
       className="signal-gradient h-[38px] w-full rounded-control text-[13.5px] font-semibold text-[#07090E] disabled:opacity-70"
     >
       {children}
