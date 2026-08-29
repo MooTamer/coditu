@@ -5709,3 +5709,60 @@ is the queueing cost the R5 postscript measures.
 The remaining unknown is `degraded` alone, and it is the one step that pauses containers and waits
 on recovery — the step most sensitive to a contended runner. It has never been red on cause; it has
 never been reached before tonight.
+
+## 2026-08-30 · CORRECTION — `check` did not finish; it was cancelled at its timeout, and the cause is a hang after success
+
+**The entry above ("eighteen of nineteen green, step 19 in flight") reported a run still in
+progress. It ended `cancelled`, and the reason is more interesting than contention.**
+
+Run **33276729275**: job `21:41:50 → 22:17:08` = **35m 18s**, which is `timeout-minutes: 35` firing
+exactly. The step timings settle what happened:
+
+```
+16. success   21:47:12 -> 21:47:31   playwright install chromium-headless-shell   19s
+17. success   21:47:31 -> 21:47:47   check-budgets.mjs                            16s
+18. success   21:47:47 -> 21:47:48   npm run resilience                            1s
+19. cancelled 21:47:48 -> 22:17:04   npm run degraded                         29m 16s
+```
+
+And the `degraded` log:
+
+```
+21:48:13   degraded-dependency behaviour OK
+22:17:04   ##[error]The operation was canceled.
+```
+
+**Every assertion in it passed, in 25 seconds. The process then sat there for 28m 51s and took the
+whole job down with it.** So my earlier attribution to runner contention was wrong: the run was not
+slow, it was hung, and it hung *after* succeeding.
+
+**The cause.** `scripts/check-degraded-dependency.mjs` starts the server with
+`spawn("npx", ["next", "start", …], { stdio: ["ignore","pipe","pipe"] })`. `npx` is a wrapper — the
+real server is `next start`, a **grandchild**. The `finally` killed the `npx` child, which left the
+grandchild running with its stdio pipes still attached to this process's event loop, so node had a
+live handle and never exited.
+
+**Demonstrated in isolation**, away from this repository, with a spawned `npx node -e 'setInterval(…)'`:
+
+| | |
+|---|---|
+| kill the **child** (today's behaviour) | node **hung**, force-killed at 15s |
+| kill the process **group** | node exited cleanly in **2s** |
+
+**The fix.** `detached: true` gives the server its own process group, and the `finally` now kills
+`-server.pid` — the group — inside a `try` so an already-reaped group cannot turn a green run red
+from the cleanup path. A `process.exit(process.exitCode ?? 0)` after the `finally` is a backstop:
+it changes no outcome, it only guarantees that reaching the end of the file ends the process.
+
+**Not yet proved end to end, and that is owed.** `lint` passes and `node --check` passes, and the
+mechanism is demonstrated above, but the real script could not be run to completion here: it dies
+at `sessionCookie` with *"An invalid response was received from the upstream server"* — Kong
+502-ing because this machine's `supabase_auth_coditu` has been stuck at `health: starting` for
+hours, which is the field note about Kong caching the database after a reset. Restarting it did not
+bring it back and Docker went unresponsive again. **CI is the proof, and it arrives on the next
+code push**, because this is exactly the step that has been eating the job.
+
+**What this means for the gate right now:** `check` still cannot reach `success`, so `deploy` is
+still `skipped` on every push — visible on both `33276729275` and the docs-only `33276884732`. The
+skip itself worked on that second run (`lighthouse | skipped`, `browser | skipped`), so the R5
+change is unaffected by this.

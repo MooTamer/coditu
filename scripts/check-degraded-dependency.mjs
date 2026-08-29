@@ -166,7 +166,19 @@ async function main() {
   }
 
   const appPort = await freePort();
-  server = spawn("npx", ["next", "start", "-p", String(appPort)], { stdio: ["ignore", "pipe", "pipe"] });
+  // `detached` so this gets its own process group.
+  //
+  // `npx` is a wrapper: the actual server is `next start`, a GRANDCHILD. Killing
+  // the `npx` process leaves that grandchild running with its stdio pipes still
+  // attached to this process's event loop, so node never exits. In CI on
+  // 2026-08-29 this script printed `degraded-dependency behaviour OK` at
+  // 21:48:13 and then sat there until the job's 35-minute timeout killed it at
+  // 22:17 — every assertion green, the whole run cancelled. Killing the process
+  // GROUP (see the `finally`) reaps the server too.
+  server = spawn("npx", ["next", "start", "-p", String(appPort)], {
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
+  });
   server.stdout.on("data", () => undefined);
   server.stderr.on("data", () => undefined);
 
@@ -347,7 +359,26 @@ try {
     console.error(`\nunpausing ${container}`);
     unpause(container);
   }
-  server?.kill("SIGTERM");
+  // The GROUP, not the process: `-pid` means "every process in the group whose
+  // leader is pid", which is what `detached: true` above bought. Wrapped
+  // because the group is already gone if the server died on its own, and an
+  // ESRCH here would turn a green run red in the `finally`.
+  const stop = (signal) => {
+    try {
+      if (server?.pid) process.kill(-server.pid, signal);
+    } catch {
+      /* already reaped */
+    }
+  };
+  stop("SIGTERM");
   await sleep(300);
-  server?.kill("SIGKILL");
+  stop("SIGKILL");
 }
+
+// A backstop, and deliberately after the `finally` has run.
+//
+// Everything above is meant to leave no live handles, but "meant to" is what
+// cost a 35-minute CI job once. `exitCode` is already set by the catch, so this
+// changes no outcome — it only guarantees that reaching the end of this file
+// ends the process.
+process.exit(process.exitCode ?? 0);
