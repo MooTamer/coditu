@@ -118,6 +118,63 @@ function sameValues(left, right) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+// Whether the connection this process actually holds is encrypted.
+//
+// This used to be one line — `pg_stat_ssl.ssl` for our own backend pid — and
+// it was wrong in a way that only shows up against the real project. Supabase
+// reaches the database through **Supavisor**, which terminates TLS at the
+// pooler and opens its own plain connection to Postgres inside the VPC. So
+// `pg_stat_ssl` describes the pooler-to-Postgres hop, not ours, and reports
+// `false` on a session that is TLSv1.3 end to end from here. The direct host
+// (`db.<ref>.supabase.co`) has an AAAA record and no A record, so a machine or
+// runner without an IPv6 route cannot use the one path where `pg_stat_ssl`
+// would have answered about us. Measured 2026-08-29; see the ADR.
+//
+// The assertion therefore reads the client socket, which is the only place
+// that knows about the leg we are responsible for. `pg_stat_ssl` is kept as
+// corroboration when it is true, and explained rather than believed when it is
+// false.
+//
+// `authorized` is false against the pooler because the chain ends at
+// "Supabase Root 2021 CA", which is not in any public trust store, so full
+// verification needs that root supplied out of band. Until it is, the chain is
+// pinned by name instead: a downgrade to cleartext fails, and so does a
+// certificate that is not Supabase's.
+const SUPABASE_ISSUER_O = "Supabase Inc";
+
+function transportFailures(client, pgStatSslSaysEncrypted) {
+  const socket = client.connection?.stream;
+  if (socket?.encrypted !== true) {
+    return [
+      pgStatSslSaysEncrypted
+        ? "database connection is not encrypted on this leg (pg_stat_ssl disagrees; trust the socket)"
+        : "database connection is not encrypted",
+    ];
+  }
+
+  const certificate =
+    typeof socket.getPeerCertificate === "function" ? socket.getPeerCertificate(true) : null;
+
+  // Verified against a supplied root is the strong form. Ask for it explicitly
+  // rather than silently accepting the weaker one, so that turning it on is a
+  // deliberate act and turning it off cannot happen by accident.
+  if (process.env.HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS === "1" && socket.authorized !== true) {
+    return [
+      `database TLS certificate did not verify (${socket.authorizationError ?? "unknown"}); ` +
+        "supply the project CA and use sslmode=verify-full",
+    ];
+  }
+
+  if (socket.authorized !== true && certificate?.issuer?.O !== SUPABASE_ISSUER_O) {
+    return [
+      "database TLS certificate is neither publicly verified nor issued by " +
+        `${SUPABASE_ISSUER_O} (got ${certificate?.issuer?.O ?? "no certificate"})`,
+    ];
+  }
+
+  return [];
+}
+
 async function main() {
   const connectionString = process.env.HOSTED_SCHEMA_DB_URL;
   if (!connectionString) fail("HOSTED_SCHEMA_DB_URL is required");
@@ -163,7 +220,7 @@ async function main() {
         (!role || role.current_user !== "coditu_backup" || !role.rolbypassrls || !role.can_read || role.can_write)) {
       failures.push("connection role is not the read-only coditu_backup contract");
     }
-    if (!localHost && !role?.encrypted) failures.push("database connection is not encrypted");
+    if (!localHost) failures.push(...transportFailures(client, role?.encrypted === true));
 
     const migrationRows = await client.query(
       "select version::text from supabase_migrations.schema_migrations order by version::text",

@@ -5190,3 +5190,49 @@ because HTTP and Keyword *are* on its free plan and nothing about that half was 
 `HEARTBEAT_URL` is Mohamed's; it is the only remaining step. The correction to the three-hourly
 cadence in the entry above stands — the check's period is three hours, plus grace for GitHub
 queue delay — only the vendor changed.
+
+## 2026-08-29 · The hosted schema preflight was asserting encryption on somebody else's connection
+
+**What was wrong.** `scripts/check-hosted-schema.mjs` proved the connection was encrypted with one
+line — `exists (select 1 from pg_stat_ssl where pid = pg_backend_pid() and ssl)`. Against the real
+project that returns **false on a session that is TLSv1.3 end to end**, and the check fails closed
+for a reason that has nothing to do with the schema.
+
+**Why.** Supabase's only reachable endpoint from here is **Supavisor**, the session pooler.
+Supavisor terminates TLS at the pooler and opens its own cleartext connection to Postgres inside
+the VPC. `pg_stat_ssl` describes *that* hop. It is a true statement about a connection this
+process does not own. The one route where the old assertion would have answered about us is the
+direct host `db.hayfsvsepgfescojesbd.supabase.co` — which has an **AAAA record and no A record**
+(measured 2026-08-29), so any machine or runner without an IPv6 route cannot use it at all. This
+Mac has none.
+
+**Measured, not assumed.** `openssl s_client -starttls postgres` against the pooler: `CONNECTION
+ESTABLISHED, Protocol version: TLSv1.3, Peer certificate: CN=*.pooler.supabase.com, O=Supabase
+Inc`, chain ending at `Supabase Root 2021 CA` with `verify error:num=19 self-signed certificate in
+certificate chain`. From node-postgres on the same connection: socket is a `TLSSocket`,
+`encrypted: true`, `protocol: TLSv1.3`, `authorized: false`, `authorizationError:
+SELF_SIGNED_CERT_IN_CHAIN`. And on the same session `pg_stat_ssl.ssl = false`. The pooler also
+**accepts `sslmode=disable`**, so requesting TLS is the client's job and nothing server-side
+enforces it — which is precisely why the check must be right.
+
+**The fix.** Read the client socket, because it is the only thing that knows about the leg this
+process is responsible for. `pg_stat_ssl` is kept as corroboration when it is true and *explained*
+rather than believed when it is false. Because the chain ends at a root that is in no public trust
+store, the certificate is additionally pinned by name — issuer organisation `Supabase Inc` — so a
+downgrade to cleartext fails and so does a certificate that is not Supabase's.
+
+**Why not just ship the CA and use `verify-full`.** That is the stronger form and it is available
+behind `HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1`, which requires `socket.authorized`. It is not the
+default because the root has to come from somewhere: `https://supabase.com/downloads/prod-ca-2021.crt`
+now **404s**, and the certificate is served per project from the dashboard, so obtaining it is a
+human step. Making the default depend on a file nobody has yet would reproduce the original
+failure — a check that is red for a reason unrelated to what it checks. The strict mode is there,
+named, and one environment variable away for whenever the CA is in place.
+
+**Rejected: relaxing the assertion to nothing.** "The pooler is inside Supabase, assume TLS" would
+have made the check pass and meant nothing — the pooler demonstrably accepts cleartext.
+
+**Verified.** Against hosted: pass → exit 0 with `hosted_schema_verified=true migrations=39`.
+`sslmode=disable` → exit **1**, `database connection is not encrypted`.
+`HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1` with no CA → exit **1**, naming
+`SELF_SIGNED_CERT_IN_CHAIN`. It still fails closed, on the thing it is actually about.

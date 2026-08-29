@@ -5169,3 +5169,75 @@ green run rather than a failure.
 healthchecks.io check does not exist yet. Creating it and pasting one secret into
 `MooTamer/coditu-recovery` is Mohamed's, and it is now the **only** step between this canary and
 working alerting.
+
+## 2026-08-29 · T1.2 — the four pending migrations are on hosted; hosted is 39
+
+**R3 first, because the tier said assert and not trust.** `coditu_backup` was created on hosted
+through the Management API *before* the migration that describes it, so hosted held a role
+`schema_migrations` did not record. The migration has an `if exists … alter … else create` guard,
+which looks idempotent; looking idempotent is not the bar.
+
+**The rehearsal.** A throwaway Supabase Postgres (`public.ecr.aws/supabase/postgres:17.6.1.155`)
+was stood up on 54522 and driven to hosted's exact state:
+
+- The `storage` and `realtime` schemas are created by their **services**, not by any migration, so
+  they were taken verbatim by `pg_dump --schema-only` from the running local stack rather than
+  hand-authored. An approximation would have weakened the test.
+- Migrations **1..35** applied, **0 failures** — the same 35 hosted had.
+- `coditu_backup` then created by hand the way the Management API did: `login bypassrls`, a
+  password, `pg_read_all_data`, `statement_timeout=30min`, `idle_in_transaction_session_timeout=5min`.
+  Byte-for-byte the attribute set read off hosted beforehand.
+- **Fidelity check that mattered:** the container's `postgres` role is `super=false createrole=true
+  bypassrls=true` — the *same shape* as hosted's. A superuser rehearsal would have proved less,
+  because `alter role … bypassrls` succeeds trivially for a superuser.
+
+**Result.** `supabase db push` applied all four to that database, exit 0. The role migration was
+then applied **twice more by hand** — exit 0 both times, output a single
+`NOTICE: role "coditu_backup" has already been granted membership in role "pg_read_all_data"`.
+
+**The thing worth having checked.** After the migration, `coditu_backup` **still authenticated with
+its pre-existing password** and could still read `work_items`. `alter role … with login bypassrls`
+does not touch the password. Had it done so, the push would have looked clean and the nightly
+backup's `BACKUP_DB_URL` would have started failing on hosted with nothing pointing at the cause.
+
+**Then hosted.** `supabase db push --linked` — the CLI's own temporary login role, because no
+`postgres` password exists on this machine and `push-to-hosted.sh --db-url` therefore could not be
+used; its assertion battery was run through the Management API instead. Hosted emitted the *same*
+`pg_read_all_data` NOTICE the rehearsal predicted.
+
+| | before | after |
+|---|---|---|
+| migrations | 35 | **39** |
+| work_items | 107 | 107 |
+| profiles | 4 | 4 |
+| comments | 14 | 14 |
+| components | 41 | 41 |
+| time_entries | 79 | 79 |
+| projects | 5 | 5 |
+| highest key | COD-258 | COD-258 |
+| `public.backup_health` | absent | present |
+| `public.database_heartbeat()` | 0 | 1 |
+
+Every row count unchanged: the four were additive. `supabase migration list --linked` →
+**local 39, remote 39, pending NONE, remote-only NONE.** `coditu_backup` after the push:
+`login=true bypassrls=true has_password=true` with both timeouts intact. PostgREST's schema cache
+was reloaded with `notify pgrst, 'reload schema'` — see the field note on PGRST205.
+
+**The preflight did not pass, and the reason was a defect in the preflight.** It asserted
+encryption with `pg_stat_ssl`, which through Supavisor describes the pooler-to-Postgres hop and
+reports `false` on a session that is TLSv1.3 from here; the one route where it would have answered
+about us is IPv6-only and this Mac has no IPv6. Fixed to read the client socket and pin the issuer,
+with the stronger `verify-full` form behind `HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1`. ADR of
+2026-08-29.
+
+**Verification.**
+
+```
+node scripts/check-hosted-schema.mjs
+  hosted_schema_verified=true  migrations=39  relations=38
+  columns=334  functions=31  enums=12  storage_buckets=3      exit 0
+```
+
+Still fails closed: `sslmode=disable` → exit **1** `database connection is not encrypted`;
+`HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1` with no CA → exit **1** naming `SELF_SIGNED_CERT_IN_CHAIN`.
+`npm run typecheck` and `npm run lint` both exit 0.
