@@ -5779,3 +5779,117 @@ code push**, because this is exactly the step that has been eating the job.
 still `skipped` on every push — visible on both `33276729275` and the docs-only `33276884732`. The
 skip itself worked on that second run (`lighthouse | skipped`, `browser | skipped`), so the R5
 change is unaffected by this.
+
+## 2026-08-30 · D1–D5: a wrong runbook step, a ruleset, a closed squash, the owed count, and PF-15
+
+Five blocks, each committed on its own. `main` is no longer directly pushable, so from D3 onward the
+work is on `feat/pending-mutation-queue` and merges through a pull request — which is what
+`CLAUDE.md` has described all along and nothing enforced until today.
+
+### D1 — the deploy instruction pointed at a control that does not exist
+
+Two passes told Mohamed to set *Settings → Git → Production Deployments → off*. He read the whole
+page; **there is no such toggle**. It was never executed, so nothing was mis-configured — but a step
+that cannot be followed reads to the next person as a control that is already on.
+
+Removed from `06-PROGRESS.md` (two sites) and `10-PRODUCT-FEEDBACK.md`, each replaced with a
+correction rather than a silent edit. `13-DEPLOYMENT-RUNBOOK.md` §8 now carries the real one, the
+**Ignored Build Step**, with the command Mohamed pastes and Vercel's own exit-code contract: *"Exiting
+with code 0 ignores the build, while code 1 continues it."*
+
+Two things the documentation search turned up that were worth more than the command itself:
+
+- **It fails OPEN.** `$VERCEL_GIT_COMMIT_REF` is a *system* environment variable. With *Automatically
+  Expose System Environment Variables* off it is empty, the branch test is false, the command exits 1,
+  and the build **proceeds** — on `main`, with no error and no log line. The toggle is half the control.
+- **`vercel.json` can silently override it.** An `ignoreCommand` key there takes precedence over the
+  dashboard setting, which would collapse the two controls back into the one file the second exists
+  to be independent of.
+
+Whether the Ignored Build Step also blocks a CI `vercel deploy --prod` is **undocumented, and §8 says
+so rather than guessing**. T1.5(d) tests it; `ALLOW_MAIN_BUILD=1` is already in the command as the
+escape hatch for the answer that needs it.
+
+### D2 — `main` now moves only through a green pull request
+
+Repository ruleset `21825959`, `enforcement: active`, `bypass_actors: []`,
+`current_user_can_bypass: never`: pull request required, `blocking release checks` required,
+force-push and deletion refused. Rulesets **are** available on this plan.
+
+Verified by refusal rather than by reading the setting back — an empty commit pushed straight at
+`main`:
+
+```
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: - Changes must be made through a pull request.
+remote: - Required status check "blocking release checks" is expected.
+ ! [remote rejected] main -> main (push declined due to repository rule violations)
+```
+
+The commit was discarded and `origin/main` confirmed unmoved at `2c4dd29`. Force-push and deletion
+are asserted from the ruleset object and **deliberately not tested by attempting them**: the only way
+to test "can `main` be deleted" is to delete `main`, and there is no undo worth having if the answer
+is yes.
+
+`blocking release checks` is the required check because it is the only CI job with no `if:` — the
+other two are gated on `scope.outputs.code` and would leave every documentation pull request pending
+forever.
+
+### D3 — T2.1 closed as abandoned
+
+Not deferred. The ADR restates the three measured defects (anon grants 3 → 43 including `TRUNCATE`
+on every table, `coditu_backup` lost entirely, migration-inserted `storage.buckets` rows dropped),
+records that the repo's own pgTAP found three of them unprompted, and rules out repairing the
+generator. Thirty-nine migrations is a readability cost; a baseline that silently re-grants
+privileges is a security hole.
+
+### D4 — Docker unwedged, and the count that was owed
+
+**The wedge was Colima, not Docker Desktop** — there is no `Docker.app` on this Mac. A 4-CPU/6-GiB
+Lima VM was holding three Supabase stacks, with six hung `docker` clients stacked up, one for three
+hours. `colima restart` cleared it; `docker rm -f` on the containers that had been stuck for hours
+then completed in under a second, and host swap fell 14.6 → 10.2 GB. Written up in
+`07-FIELD-NOTES.md`, because it is the mechanism behind a year of unreproducible suite counts.
+
+The run, from a throwaway worktree on an isolated stack so nothing could perturb it:
+
+```
+npx playwright test --workers=1
+7 failed · 664 passed · 43 skipped · 24 did not run · 23.1m
+```
+
+**The 24 are not independent.** Most spec files set `test.describe.configure({ mode: "serial" })`, so
+a failure skips the rest of its block. They are downstream of the 7.
+
+The stack was proved to be the isolated one before a single row was written: the app's
+`database_heartbeat` POST landed on `kong_coditu-iso` and the shared stack logged **zero** new lines.
+
+### D5 — PF-15, and what its four parts actually were
+
+Only one of the four was a gap. (c) was already built; (a) and (b) were already rejected, with
+numbers, by the prefetch ADR. (d) is `lib/pending-queue.ts`, and it makes an existing sentence true:
+the chip has said *"Offline — will retry"* since the vocabulary was written and nothing retried.
+
+**Measured, production build, before and after:** app shell own **78.0 → 78.4 KB gz**, total
+**217.9 → 218.3 / 220**. **+0.4 KB on the critical path** against a 6 KB stop rule, because the queue
+is a dynamic import; the deferred chunk is **1,106 bytes gzipped** and is fetched only in a session
+where a write actually fails.
+
+Green at the end of the block: typecheck 0, lint 0, unit **524/524**, and 52 e2e specs across the
+seven files that touch these surfaces.
+
+One regression was found by the existing suite and is worth recording, because it is the good case:
+`optimistic.spec.ts` asserted a failed write toasts *"did not save"*, which became a contradiction of
+the chip beside it saying the write will be sent. The spec now asserts the new sentence and clears
+the queue before leaving — that test strands a real time entry, and an undrained entry would have
+surfaced later as some other spec's sprint total being wrong.
+
+### Provider state, checked with the five-minute rule
+
+The push of `2c4dd29` to `main` produced **zero deployments**, checked 12 minutes after the push
+rather than at 90 seconds. The `feat/*` push produced a **preview** (`target: null`), which is the
+trunk-based model working as designed: `{"main": false}` blocks the trunk and leaves previews alone.
+
+Production is unchanged at **`707d03f`** (`dpl_8dnEkDR9XgHT7bbULC8dPAV2NHHB`), `/login` 200 and
+`/api/health/database` answering `coditu-database-awake`. `/build-health.json` is **not** on the
+deployed build — the CI deploy job that writes it has still never run, which is T1.5(d).

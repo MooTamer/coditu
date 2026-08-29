@@ -5767,3 +5767,38 @@ empty.
 interface", not "did this request arrive", and it is cheerfully `true` on hotel wifi that resolves
 nothing. It is still used for the *chip's wording*, which is a different question and the one it can
 actually answer.
+
+### What (d) cost, measured rather than estimated
+
+`npm run budgets`, production build, same command before and after, on the same machine minutes
+apart:
+
+| | app shell own | app shell total | marketing |
+|---|---|---|---|
+| before (`2c4dd29`) | 78.0 KB gz | 217.9 / 220 | 153.9 KB |
+| after | 78.4 KB gz | **218.3 / 220** | 153.9 KB |
+
+**+0.4 KB on the critical path**, against a 6 KB stop threshold and about 2 KB of remaining
+headroom. The queue's own code is a separate chunk of **1,106 bytes gzipped** (2,150 raw), fetched
+only in a session where a write actually fails — confirmed by finding the chunk that carries
+`indexedDB.open("coditu", 1)` and gzipping it.
+
+The `dynamic import()` is what makes those two numbers different, and it is the reason the design
+puts a `localStorage` integer in the shell rather than opening IndexedDB there: knowing *whether*
+anything is queued has to be free, because it is asked on every load; knowing *what* is queued can
+cost a fetch, because it is asked almost never.
+
+### How the behaviour is proved
+
+`e2e/pending-queue.spec.ts` cuts the network for POSTs only, changes a status, and asserts the chip
+reads `data-pending="1"`, that IndexedDB holds one `status` entry, and that **the database is
+unchanged** — then restores the network, fires `online`, and asserts the status lands, the chip
+clears and the queue empties. **Verified capable of failing**: with the `retry` argument removed
+from the status call site the chip goes to `data-state="failed"` and the test fails at that
+assertion.
+
+`e2e/optimistic.spec.ts`'s failed-write test changed with this, deliberately. It asserted the toast
+said *"did not save"*, which was true when nothing retried and is now a contradiction of the chip
+beside it. It asserts the new sentence instead — and clears the queue before leaving, because that
+test strands a real time entry, and an undrained entry would surface later as another spec's sprint
+total being wrong, a long way from its cause.

@@ -129,10 +129,21 @@ test.describe("logging time is optimistic", () => {
     await breakTheNextWrite(page, ITEM);
     await page.getByRole("button", { name: /^Log 1\.5 h$/ }).click();
 
-    // The sentence is the part that used to be missing: an aborted Server
-    // Action rejects, so the `if (!result.ok)` branch never ran and the reader
-    // watched the number go up and then quietly come back down.
-    await expect(page.getByText(/did not save/i)).toBeVisible({ timeout: 10_000 });
+    /**
+     * The sentence is the part that used to be missing: an aborted Server
+     * Action rejects, so the `if (!result.ok)` branch never ran and the reader
+     * watched the number go up and then quietly come back down.
+     *
+     * **The sentence changed on 2026-08-30 and the change is the point.** This
+     * used to assert `/did not save/`, which was true when nothing retried. Now
+     * an aborted write goes on the pending queue, so telling somebody it did not
+     * save would contradict the chip beside it saying it will be sent. What must
+     * not change is that *something is said* — the assertion is still that the
+     * reader is told, and `e2e/pending-queue.spec.ts` holds what happens next.
+     */
+    await expect(page.getByText(/will be sent when you are back online/i)).toBeVisible({
+      timeout: 10_000,
+    });
     await expect.poll(() => loggedTotal(page), { timeout: 10_000 }).toBe(start);
 
     const [after] = await query<{ minutes: string }>(
@@ -142,6 +153,31 @@ test.describe("logging time is optimistic", () => {
         where w.key = 'COD-229'`
     );
     expect(after.minutes, "a failed write must not have written").toBe(before.minutes);
+
+    /**
+     * Empty the queue before leaving.
+     *
+     * This test deliberately strands a real time entry in IndexedDB. Left there,
+     * a later navigation in a reused context would drain it and insert 90
+     * minutes against COD-229 — which would surface as another spec's sprint
+     * total being wrong, a long way from here. Cleaning up after a deliberate
+     * failure is part of the test.
+     */
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          const open = indexedDB.open("coditu", 1);
+          open.onerror = () => resolve();
+          open.onsuccess = () => {
+            const db = open.result;
+            if (!db.objectStoreNames.contains("pending")) return resolve();
+            const clear = db.transaction("pending", "readwrite").objectStore("pending").clear();
+            clear.onsuccess = () => resolve();
+            clear.onerror = () => resolve();
+          };
+        })
+    );
+    await page.evaluate(() => window.localStorage.removeItem("coditu.pending.n"));
   });
 });
 

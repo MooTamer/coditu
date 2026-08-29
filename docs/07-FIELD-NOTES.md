@@ -2342,3 +2342,43 @@ class of invalid output. Filter the race; never filter this.
 
 It is development-only, though, so a spec that relies on it alone proves nothing
 against a production build. Assert the response bytes as well.
+
+## Docker here is Colima, and it is a 6 GiB VM — that is why the suite numbers moved
+
+**Symptom.** `docker ps` answers instantly and `docker rm -f` never returns. `docker restart`,
+`docker logs` and `docker container prune` hang the same way, and the hung clients pile up — six of
+them at once on 2026-08-30, one of which had been stuck for three hours. The Mac reports high swap
+(14.6 of 15.3 GB) and everything is slow, so the machine looks like the problem.
+
+**It is not Docker Desktop.** There is no `Docker.app` on this Mac and `open -a Docker` fails.
+`docker context ls` says the endpoint is `unix:///Users/motamer/.colima/default/docker.sock` —
+this is **Colima** on a Lima VM. Quitting Docker Desktop is a no-op because there is nothing to quit,
+and `pgrep` for `com.docker` finds nothing while the daemon keeps answering.
+
+```bash
+docker context ls                 # the line that settles it
+colima list                       # PROFILE STATUS ARCH CPUS MEMORY DISK
+colima restart                    # this is "restart the Docker VM"
+```
+
+**The number that explains the rest: the VM has 4 CPUs and 6 GiB**, and it was being asked to hold
+three full Supabase stacks — `coditu`, `Baseeta`, and a leftover `coditurestore` from a restore
+drill. Eleven Postgres/Kong/GoTrue containers in 6 GiB. The host having 16 GB is irrelevant; the
+guest limit is the one that binds, and raising it would only move the thrashing to the host.
+
+**`colima restart` fixes it and loses nothing.** The VM disk is persistent, so named volumes and
+their data survive; containers come back up. Immediately afterwards, `docker rm -f` on the two
+containers that had been wedged for hours completed in **under a second**, and host swap fell from
+14.6 GB to 10.2 GB.
+
+**Why this matters beyond the annoyance.** The determinism work has produced 87, 10, 54, 16, 18 and
+631/0 failures from the same tree, and the ledger already suspected "the machine". This is the
+mechanism. Before trusting any suite count, check what else is inside the VM:
+
+```bash
+docker ps --format '{{.Names}}' | sed 's/.*_//' | sort -u   # which projects are running
+docker stop $(docker ps -q --filter "name=Baseeta")         # reversible; volumes stay
+```
+
+A run taken with one stack in the VM and a run taken with three are not comparable, and nothing in
+the Playwright output says which one you got.
