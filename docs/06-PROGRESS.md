@@ -5561,3 +5561,43 @@ secrets. `docs/13-DEPLOYMENT-RUNBOOK.md` carries the sequence.
 
 The schema preflight the gate runs was proved separately against hosted: `hosted_schema_verified=true
 migrations=39`, exit 0, with both negative cases exiting 1. See T1.2.
+
+## 2026-08-30 · T2.2 — the nine stale specs are fixed; the suite run is blocked on the machine
+
+**All nine fixed, each at its cause.** Block 8's diagnosis held: every one describes an older
+version of the app, and not one is an app defect. No assertion was weakened and no retired UI was
+restored.
+
+| Spec | Why it was red | Fix |
+|---|---|---|
+| `motion:135` (×3 engines) | clicked an `in progress` filter chip by name; `filter-bar.client.tsx` renders a chip only for a status the sprint **holds**, and Week 17 now holds `draft` (2) and `done` (15) only — so the chip is not on the page and the click waited out its timeout | chips get a `data-status-filter` hook; the test takes whichever exists. The assertion is that filtering does not re-run a blur, and any chip shows that |
+| `earnings` | confirmed a payout snapshot of **1,050** minutes against a sprint whose live total is **3,480**, so the card correctly read `stale` while the test asked for `confirmed` | the snapshot is derived from the same rows the page derives its live total from, and the money from the snapshot. Writing 3,480 in place of 1,050 buys one green run and breaks on the next re-import |
+| `version-history` | restored "the oldest entry"; the timeline is mixed-surface while its helper counts only `work_item_description`, so `.last()` was often not the row it then asked to restore v1 on | filter to `Description · v1`, as the assertion three tests above it already did |
+| `presence` | clicked an inline notes button that no longer exists — the click burned its whole timeout, a `.catch()` swallowed it, and the test fell through to a fallback having typed into no editor at all | notes are a route; it goes there |
+| `project-home` | `main > div.grid` — `PageShell` puts a max-width wrapper between `<main>` and page content, so the direct-child path matched nothing on a correct layout | descendant, so the next wrapper does not break it |
+| `sprint-notes` | looked for the seeded text on the sprint table; notes are their own route now, with their own history | opens `${SPRINT}/notes`, where the words are and still render |
+| `sprint-table` | asked for the burn-up's accessible label; it lives in a `<details>` the header deliberately ships **closed**, and content in a closed disclosure is not in the accessibility tree | opens the disclosure first, the way a reader would. The status distribution above it is outside the `<details>` and was never affected |
+
+`npm run typecheck` → 0. `npm run lint` → 0. `npm run test` → **520 passed / 39 files**.
+
+### The number is not reported, because this machine cannot produce an honest one
+
+**Docker on this Mac is wedged, and it was wedged before this pass touched it.** Two
+`docker rm -f supabase_realtime_coditurestore` invocations from another session have been hung for
+**3h07m and 2h57m**; `docker ps -a`, `docker inspect` and `docker restart` all now block
+indefinitely, and twelve docker CLI processes are stuck. `supabase_auth_coditu` has sat at
+`health: starting` for four hours, which is what `supabase db reset` waits on — the reset applied
+all 39 migrations and every seed, then hung on *"Restarting containers…"* and never returned.
+
+Swap is at **13.1 of 14.3 GB**. This ledger already records what that does to a browser run:
+*"Every parallel run of the same code today failed differently — 87, then 10, then 54 — so none of
+those numbers meant anything"*, and *"the flakiness was largely the MACHINE."* Producing a count
+under these conditions and writing it down would be adding a fourth meaningless number to that
+list, which is worse than reporting none.
+
+**So T2.2 is `partial`, deliberately:** the seven distinct spec defects are fixed and their causes
+are recorded above; the serial suite run that would confirm the count is **owed**, and it needs a
+machine that is not swapping — or CI, which is the argument the determinism entry already made:
+*"a clean CI runner is likely MORE deterministic than this Mac."* The `browser` job now runs on
+every code push, so the first green `check` produces exactly this number without anybody
+remembering to ask for it.
