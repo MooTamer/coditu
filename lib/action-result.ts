@@ -34,6 +34,31 @@ export interface ActionOutcome {
 }
 
 /**
+ * The failure `settle` synthesises when the call never got an answer.
+ *
+ * `{ ok: false }` from an action and `{ ok: false }` from a dead network are the
+ * same shape and want opposite handling: one is a decision a server made about
+ * this write, the other is the write never having been read by anything. Only
+ * the second is worth sending again.
+ *
+ * The flag says which. It is set here, at the one place that can actually tell
+ * them apart, rather than inferred later by comparing error strings — several
+ * call sites wrap `settle` around `settle`, so by the time an outer layer sees
+ * the result the string is the *inner* fallback and any such comparison is
+ * quietly false. `components/app/save-state.client.tsx` reads this to decide
+ * what may go on the retry queue.
+ */
+export interface UnreachableOutcome {
+  ok: false;
+  error: string;
+  unreachable: true;
+}
+
+export function isUnreachable(result: object): result is UnreachableOutcome {
+  return "unreachable" in result && result.unreachable === true;
+}
+
+/**
  * `T extends object`, not `T extends ActionOutcome`.
  *
  * Most actions here answer `{ ok, error? }` and most callers read `result.ok`.
@@ -47,11 +72,11 @@ export interface ActionOutcome {
 export async function settle<T extends object>(
   run: () => Promise<T>,
   fallback: string
-): Promise<T | { ok: false; error: string }> {
+): Promise<T | UnreachableOutcome> {
   try {
     return await run();
   } catch (error) {
     unstable_rethrow(error);
-    return { ok: false, error: fallback };
+    return { ok: false, error: fallback, unreachable: true };
   }
 }

@@ -5566,3 +5566,239 @@ back into the one file the second control exists to be independent of. `vercel.j
 neither. **T1.5(d) tests it**, and `ALLOW_MAIN_BUILD=1` is already in the command as the escape
 hatch if the answer is that it does. Guessing here would produce either a gate that ships nothing
 while reporting success, or a second control that was never actually needed.
+
+## 2026-08-30 · T2.1 is closed as ABANDONED, not deferred — and the generator will not be repaired
+
+**The decision, stated so nobody re-opens it by accident.** T2.1 — "squash the 39 migrations into
+one baseline" — is **abandoned**. Not deferred, not blocked, not waiting on a backup or a quieter
+week. The repository keeps 39 migration files. There is no follow-up ticket, and a future pass that
+finds this idea attractive should read this entry before spending an evening on it.
+
+The measurement ADR above records what the squash produced. This entry records that the matter is
+settled and why the trade is not close.
+
+**The three defects, restated because they are the whole argument.** All measured on the generated
+baseline, by dumping the local database before and after and diffing:
+
+1. **`anon` was granted `TRUNCATE` on every table.** Grants to `anon` went from **3 to 43**.
+   `TRUNCATE` ignores row-level security completely, and the `anon` key ships inside the browser
+   bundle. This is not a lint-level regression; it is a stranger being able to empty `work_items`.
+2. **The `coditu_backup` role was lost entirely.** `supabase db dump` is schema-only and roles are a
+   separate dump, so the role's own migration simply is not in the baseline — **0 mentions**. A
+   database rebuilt from it has no role for the nightly backup to connect as, which means the
+   artefact that exists to survive a disaster quietly stops being written.
+3. **The migration-inserted `storage.buckets` rows were dropped.** A schema-only dump carries no
+   rows, so four bucket assertions fail after a baseline reset, including *"the avatars bucket is
+   public"* returning `NULL`.
+
+**Three of those were caught unprompted by this repository's own pgTAP suite.** That is the fact
+that decides it. Nobody went looking for them; `npm run db:test` simply went red. Three found by
+accident is evidence about the density of what is there, not evidence that there were three.
+
+**The conclusion, in one line.** Thirty-nine migrations is a **readability cost**. A baseline that
+silently re-grants privileges is a **security hole**. That trade is not close, and no amount of
+reset time saved moves it.
+
+**Do not attempt to repair the generator.** Each defect is individually fixable — re-add the role,
+add the bucket inserts, revoke the forty extra `anon` grants, reset the search path — and repairing
+them is still the wrong move. What you would end up holding is a 6,000-line generated file, then
+hand-edited, whose correctness rests on one person having spotted every divergence in a diff that
+already hid three. What it replaces is 39 hand-written files that are individually readable, in git,
+reviewed, and known-good against production. Swapping a proved artefact for a patched generated one
+to save minutes on a database reset is a bad trade in whichever direction it is written down.
+
+**The one condition that would re-open this**, so the door is closed rather than locked: the
+Supabase CLI's squash learning to carry roles, grants and migration-inserted rows. If that ever
+happens, re-run *exactly* the verification in the ADR above — dump, squash, reset, dump, diff, then
+`npm run db:test` — because `db diff` is blind to every one of these and would have reported success.
+
+## 2026-08-30 · `main` is protected by a branch ruleset, which is the control upstream of the deploy controls
+
+**The decision.** A GitHub **repository ruleset** (id `21825959`, *"main moves only through a green
+pull request"*) is active on the default branch. It requires a pull request, requires the
+`blocking release checks` status check to pass, and blocks force-push and deletion. Enforcement is
+`active`, `bypass_actors` is empty, and the API reports `current_user_can_bypass: never` — including
+for the repository owner.
+
+**Why this sits above the Vercel controls rather than beside them.** The two deploy controls
+(`vercel.json` and the Ignored Build Step) both answer the question *"should this commit deploy?"*
+after the commit is already on `main`. This one answers *"should this commit be on `main` at all?"*
+If `main` can only move through a green CI run, then a deploy from `main` is a deploy of tested code
+**by construction**, and the deploy controls become a second line rather than the only one. It is
+also the only control here that survives someone deciding to deploy by hand.
+
+**Verified by refusal, not by reading the settings back.** An empty commit was made, pushed directly
+at `main`, and rejected. The commit was then discarded locally and `origin/main` confirmed unmoved at
+`2c4dd29`:
+
+```
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: Review all repository rules at https://github.com/MooTamer/coditu/rules?ref=refs%2Fheads%2Fmain
+remote:
+remote: - Changes must be made through a pull request.
+remote:
+remote: - Required status check "blocking release checks" is expected.
+remote:
+To https://github.com/MooTamer/coditu.git
+ ! [remote rejected] main -> main (push declined due to repository rule violations)
+```
+
+Both rules fired, which is worth noting: the status-check rule is not merely configured, it is
+evaluated on the push path too.
+
+**Force-push and deletion were NOT tested by attempting them**, and that is deliberate rather than
+an omission. The only way to test "can `main` be deleted" is to try to delete `main`, and if the
+answer turned out to be yes there is no undo worth having. The `deletion` and `non_fast_forward`
+rules are recorded in the ruleset object returned by the API; that is the evidence, and it is the
+right amount of evidence for a test whose failure mode is losing the trunk.
+
+**Rejected: requiring an approving review.** `required_approving_review_count` is **0**. GitHub does
+not let an author approve their own pull request, and Mohamed is the only account with write access
+here. Requiring one approval would mean nothing could ever merge — a control so strict it gets
+switched off in a week, which protects less than a weaker one that stays on. The pull request itself
+is what forces the CI run; the approval would only add a person, and there is not a second person.
+
+**Rejected: adding a bypass actor for the owner.** It was tempting while writing this — the
+remaining work in this pass now has to go through a pull request, which costs a CI run. But a
+control with a bypass for the only person who would ever bypass it is not a control, and the cost is
+one run of a workflow that ought to run on a code change anyway.
+
+**Consequence, stated plainly.** Direct pushes to `main` are over, including from an autonomous
+pass. Work goes on `feat/*` or `fix/*`, and merges through a pull request CI has gone green on.
+That is what `CLAUDE.md` already described; until today nothing enforced it.
+
+**Note for whoever reads the ruleset JSON later:** GitHub defaulted
+`require_extra_approval_for_unattributed_changes` to `true` on the pull-request rule. It was not
+requested. With zero required approvals it has nothing to gate today, but it is the kind of default
+that becomes visible the day a review requirement is added.
+
+## 2026-08-30 · PF-15: one of its four parts was new work, and the other three were already answered
+
+PF-15 asked for four things: **(a)** route prefetch on the paths people take, **(b)**
+stale-while-revalidate reads for the active sprint, **(c)** optimistic UI on the frequent writes,
+**(d)** an IndexedDB queue for pending mutations only. Building all four would have meant undoing
+two measured decisions and re-implementing a third. What follows is what each one turned out to be,
+because "we did not build it" and "it is already built" and "we measured it and it lost" are three
+very different answers and only one of them is a gap.
+
+### (c) — already built. Verified, not assumed.
+
+All three writes PF-15 names are already optimistic, through `useOptimistic` plus `useTrackedSave`:
+
+| Write | Where | Optimistic since |
+|---|---|---|
+| status | `components/app/row-editors.client.tsx:71` | before this pass |
+| criterion tick | `components/app/criteria-list.client.tsx:152` | before this pass |
+| log time | `components/app/log-time.client.tsx:62` | before this pass |
+
+Nothing was needed. This is recorded rather than silently ticked because a ledger that cannot tell
+"done earlier" from "done now" stops being useful for planning.
+
+### (a) — rejected, and it was already rejected with numbers.
+
+The prefetch ADR of 2026-08-27 measured exactly this, on a production build with
+`pg_stat_statements` reset before each run:
+
+| | RSC renders | Database statements | Open an item | Rail navigation |
+|---|---|---|---|---|
+| prefetch on | 28 | 178 | 210 ms | 269 ms |
+| `prefetch={false}` | **0** | **40** | 206 ms | 277 ms |
+
+Turning prefetch back on costs **138 extra database statements per sprint page view** and buys
+8 ms across a 270 ms navigation, which is noise. Every route under `/app` is dynamic, so each
+prefetch is a full server render — and `staleTimes.dynamic` defaults to `0`, so the payload is stale
+on arrival and the click re-fetches anyway. The renders are performed and discarded.
+
+**Prefetch-on-intent was considered and does not rescue it.** Hovering would fire one speculative
+render instead of twenty-eight, which fixes the cost — but `staleTimes.dynamic: 0` means that one
+render is *also* thrown away on the click. It would be a smaller waste, not a win.
+
+### (b) — rejected, for correctness, and by the same ADR.
+
+Stale-while-revalidate on the sprint **is** `experimental.staleTimes.dynamic` with a non-zero value;
+that is the mechanism. The earlier ADR rejected it in these words: this is a live sprint board with
+realtime subscriptions, and *the reason the footer total is trusted is that it is never out of date*.
+A reader who tabs to People and back would be shown the sprint as it was up to N seconds ago, and
+the number this application's credibility rests on is a sum of minutes.
+
+Trading that for ~8 ms — the measured size of the prize — is not a trade worth making. If PF-15's
+author wants it anyway, it is one config line and this entry is where the argument against it lives.
+
+### (d) — built. The only part of PF-15 that was a gap.
+
+`lib/pending-queue.ts`, and it is the part that makes an existing sentence true rather than a new
+feature: the save chip has said **"Offline — will retry"** since the vocabulary was written, and
+nothing retried. A promise nobody kept is worse than no promise, because the person who read it
+closed the tab.
+
+**It stores intentions, not data.** No dataset, no cache, no conflict resolution; nothing in
+IndexedDB is ever read to render a screen. That is what keeps it inside the local-first rejection
+rather than reopening it — the server is still the only source of truth, and the only local fact is
+"this write has not landed yet".
+
+**A Server Action cannot be serialized and called tomorrow**, so the queue stores a descriptor and a
+replay table maps it back to the real action at drain time. The consequence that matters is that
+invariant 3 is untouched: a replay goes through the *same* action, zod-validated and re-authorized
+server-side, so somebody whose access was revoked while they were offline has their replay refused
+exactly as a fresh attempt would be.
+
+**Only replay-safe writes are wired**, and the reasoning is per-write rather than blanket:
+
+- `status` and `criterion` are **assignments** to a named value, not toggles of whatever the server
+  currently holds — so arriving twice changes nothing, and a replayed tick cannot untick something
+  somebody else ticked in between;
+- `time` **appends**, so it is the one that needs the `idempotencyKey` the action already accepts,
+  minted once per submission and reused by every retry.
+
+**The discriminator became explicit, and that was a real bug found on the way.** Queueing must
+happen when the network refused the write and must NOT happen when the *server* refused it — replay
+a server's "no" and you get the same "no" forever, with a badge that never clears. The first version
+told them apart by comparing the error string against the fallback. That is wrong at every real call
+site, because several of them wrap `settle` around `settle`: the inner one catches first, so the
+outer sees a resolved result carrying the *inner* sentence, and the comparison is quietly false.
+`settle` now marks its own synthesised failure with `unreachable: true`, and
+`tests/action-result.test.ts` holds exactly the nested case that broke the string version.
+
+**Rejected: keeping server-refused replays on the queue.** An entry the server has read and declined
+is dropped, with its reason returned to the caller. Keeping it would produce a queue that can never
+empty.
+
+**Rejected: `navigator.onLine` as the test for whether to queue.** It answers "is there a network
+interface", not "did this request arrive", and it is cheerfully `true` on hotel wifi that resolves
+nothing. It is still used for the *chip's wording*, which is a different question and the one it can
+actually answer.
+
+### What (d) cost, measured rather than estimated
+
+`npm run budgets`, production build, same command before and after, on the same machine minutes
+apart:
+
+| | app shell own | app shell total | marketing |
+|---|---|---|---|
+| before (`2c4dd29`) | 78.0 KB gz | 217.9 / 220 | 153.9 KB |
+| after | 78.4 KB gz | **218.3 / 220** | 153.9 KB |
+
+**+0.4 KB on the critical path**, against a 6 KB stop threshold and about 2 KB of remaining
+headroom. The queue's own code is a separate chunk of **1,106 bytes gzipped** (2,150 raw), fetched
+only in a session where a write actually fails — confirmed by finding the chunk that carries
+`indexedDB.open("coditu", 1)` and gzipping it.
+
+The `dynamic import()` is what makes those two numbers different, and it is the reason the design
+puts a `localStorage` integer in the shell rather than opening IndexedDB there: knowing *whether*
+anything is queued has to be free, because it is asked on every load; knowing *what* is queued can
+cost a fetch, because it is asked almost never.
+
+### How the behaviour is proved
+
+`e2e/pending-queue.spec.ts` cuts the network for POSTs only, changes a status, and asserts the chip
+reads `data-pending="1"`, that IndexedDB holds one `status` entry, and that **the database is
+unchanged** — then restores the network, fires `online`, and asserts the status lands, the chip
+clears and the queue empties. **Verified capable of failing**: with the `retry` argument removed
+from the status call site the chip goes to `data-state="failed"` and the test fails at that
+assertion.
+
+`e2e/optimistic.spec.ts`'s failed-write test changed with this, deliberately. It asserted the toast
+said *"did not save"*, which was true when nothing retried and is now a contradiction of the chip
+beside it. It asserts the new sentence instead — and clears the queue before leaving, because that
+test strands a real time entry, and an undrained entry would surface later as another spec's sprint
+total being wrong, a long way from its cause.

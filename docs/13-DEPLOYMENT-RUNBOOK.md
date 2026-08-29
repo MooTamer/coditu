@@ -38,11 +38,17 @@ The required GitHub `Production` environment variable is:
 - `PRODUCTION_BASE_URL` — the stable, public HTTPS production origin without a trailing
   slash or path. It must be the origin users reach, not an immutable protected deployment.
 
-The freshness canary additionally needs `BACKUP_CANARY_REPORT_SECRET` in GitHub's
-`Production` environment. Put the same randomly generated 32+-character value in Vercel's
-Production environment. GitHub sends it only to `/api/backup-health`; the application uses
-its server-held copy to authorize that one singleton report. It is not an R2 or database
+The freshness canary needs `BACKUP_CANARY_REPORT_SECRET` — **in `MooTamer/coditu-recovery`,
+not here.** Put the same randomly generated 32+-character value in Vercel's Production
+environment. The canary sends it only to `/api/backup-health`; the application uses its
+server-held copy to authorize that one singleton report. It is not an R2 or database
 credential.
+
+> **Corrected 2026-08-30.** This paragraph used to say the secret belongs in *this* repository's
+> `Production` environment. It does not: no workflow in `MooTamer/coditu` references it, and
+> `backup-canary.yml` — which is the only thing that reads it — lives in `MooTamer/coditu-recovery`.
+> Put here, it would have had no effect and the canary would have kept refusing to report. §10 has
+> the full split.
 
 Get the two Vercel ids by linking a clean local checkout to the **existing** project and
 reading `.vercel/project.json`; do not create a second project and do not commit `.vercel/`.
@@ -300,3 +306,84 @@ workflow once and check whether a deployment is actually created.
 
 Record the observed answer here when T1.5(d) runs, and delete this subsection's speculation. Until
 then, treat the CI deploy path as unproven under this setting.
+
+## 9. The control upstream of both deploy controls
+
+Sections 1 and 8 stop a commit on `main` from deploying. This one stops a commit reaching `main`.
+
+Repository ruleset `21825959`, *"main moves only through a green pull request"*, is **active** on the
+default branch with no bypass actors:
+
+| Rule | Effect |
+|---|---|
+| `pull_request` (0 approvals) | direct pushes to `main` are refused |
+| `required_status_checks` → `blocking release checks` | the PR cannot merge until CI's blocking job is green |
+| `non_fast_forward` | force-push refused |
+| `deletion` | branch deletion refused |
+
+Inspect it with:
+
+```bash
+gh api repos/MooTamer/coditu/rulesets/21825959
+```
+
+**Why the required check is `blocking release checks` and nothing else.** It is the only CI job with
+no `if:` condition, so it reports on every pull request. `browser baseline` and `lighthouse` are both
+gated on `needs.scope.outputs.code == 'true'` and are skipped on a documentation-only change — and a
+required check that never reports leaves the pull request pending forever. Adding either to this
+ruleset would deadlock every ledger edit. `browser` becomes a hard dependency through §4's ten-run
+promotion rule, inside the workflow, not here.
+
+**What this buys the deploy story.** With this on, `main` only contains commits that passed the
+blocking job. A production deploy from `main` is therefore a deploy of tested code by construction,
+which is what §1 assumed and nothing previously guaranteed.
+
+## 10. Parked on Mohamed — exactly what is missing, and in which repository
+
+Read back from the providers on 2026-08-30, not from this document. Both `Production` environments
+exist; **both are empty**. Nothing below was placed by an autonomous pass, because minting or
+placing a credential is not something one should do.
+
+### `MooTamer/coditu` → environment `Production` — blocks T1.5(d)
+
+`gh secret list -R MooTamer/coditu --env Production` returns **nothing**, and so does the repository
+level. All five are absent, and the deploy job refuses rather than skipping when they are.
+
+| Name | Kind | Value | Who can produce it |
+|---|---|---|---|
+| `VERCEL_TOKEN` | secret | — | **Mohamed only.** Mint in Vercel account settings, scope it to this project |
+| `HOSTED_SCHEMA_DB_URL` | secret | — | **Mohamed only.** Needs a password set on `coditu_backup` out of band; must name project `hayfsvsepgfescojesbd` and negotiate SSL |
+| `VERCEL_ORG_ID` | secret | `team_vJjCIjOpMU8pPsB45cWNnoNr` | **Not a credential** — a team identifier, read from the Vercel API. Paste it |
+| `VERCEL_PROJECT_ID` | secret | `prj_GOg3XIVdg7u6WPAzaHFJy2QnfBHu` | **Not a credential** — already in this ledger. Paste it |
+| `PRODUCTION_BASE_URL` | **variable** | `https://coditu-phi.vercel.app` | **Not a credential.** Confirm it is the origin users reach before setting it |
+
+The last three are written out because hunting for them is the part that makes this get postponed.
+They are identifiers, not secrets; GitHub stores the first four as secrets because that is what the
+workflow reads, not because all four are sensitive.
+
+**Only two of the five actually require Mohamed**, and both are genuinely his: a token that must be
+minted, and a database URL whose password must be chosen.
+
+### `MooTamer/coditu-recovery` — blocks the backup alerting
+
+Its three secrets exist (`BACKUP_DB_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`); these two do
+not, and `gh variable list -R MooTamer/coditu-recovery` is empty.
+
+| Name | Kind | Why it is blocking |
+|---|---|---|
+| `HEARTBEAT_URL` | secret | `https://hc-ping.com/<uuid>` from healthchecks.io. **Without it there is no alerting at all** — the canary logs a notice and **exits 0**, so an unconfigured canary is green forever, which is precisely the failure a dead-man's switch exists to catch |
+| `BACKUP_CANARY_REPORT_SECRET` | secret | The canary refuses to report freshness without it; the same value also goes in **Vercel's** Production environment so the application can authorize the report |
+| `PRODUCTION_BASE_URL` | variable | `https://coditu-phi.vercel.app`. The canary needs it too, and it is set in neither repository |
+
+### The order, once the values exist
+
+1. Set the five in `coditu` → `Production`; confirm names only with
+   `gh secret list -R MooTamer/coditu --env Production`.
+2. Push to `main` through a pull request and watch whether `deploy` creates exactly one deployment —
+   **and, in the same run, whether the §8 Ignored Build Step interferes with it.** That is the
+   untested question, and this is the run that answers it.
+3. Set the recovery repository's two secrets and its variable, then dispatch `Recovery copy
+   freshness` and require HTTP 204 from `/api/backup-health` plus a ping recorded at healthchecks.io.
+4. Only then is `/build-health.json` expected to exist on production. It does **not** today —
+   verified 2026-08-30, the URL returns the application's HTML, because the job that writes it has
+   never run.

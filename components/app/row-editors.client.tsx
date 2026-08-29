@@ -79,7 +79,11 @@ export function StatusCell({
       showOptimistic(next);
       const result = await trackedSave(
         () => settle(() => setWorkItemStatus({ itemId, status: next }), "That change did not save."),
-        "That change did not save — check your connection."
+        "That change did not save — check your connection.",
+        // Replay-safe: setting a status is an assignment, so arriving twice
+        // leaves the same value. The optimistic chip already shows `next`, so
+        // the queue is never the only record of what was chosen.
+        { mutation: { kind: "status", itemId, status: next }, label: `Status → ${STATUS_LABEL[next]}` }
       );
       if (!result.ok) onToast(result.error ?? "That change did not save.");
     });

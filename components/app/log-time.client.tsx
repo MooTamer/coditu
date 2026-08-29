@@ -92,7 +92,23 @@ export function LogTime({
       addOptimistic(logged);
       const result = await trackedSave(
         () => logTime({ itemId, minutes: logged, workedOn: today, idempotencyKey: token }),
-        "That time did not save — check your connection."
+        "That time did not save — check your connection.",
+        // The only one of the three that APPENDS, so the only one that needs a
+        // token to be replay-safe. `token` is minted once per submission above
+        // and reused by every retry, which is exactly what the action's
+        // `idempotencyKey` is for — two identical half hours are otherwise
+        // indistinguishable from somebody genuinely logging the same half hour
+        // twice, and `minutes_logged` is a rollup nobody can unpick by eye.
+        {
+          mutation: {
+            kind: "time",
+            itemId,
+            minutes: logged,
+            workedOn: today,
+            idempotencyKey: token,
+          },
+          label: `${logged} min on ${today}`,
+        }
       );
       if (result.ok) {
         retryToken.current = null;
