@@ -6131,3 +6131,44 @@ the fix is a code-splitting change against 1.7 KB of budget headroom.
 
 Neither is in any gate that blocks anything: CI's `browser` job is
 `continue-on-error`, so both have been red on a green trunk.
+
+---
+
+## 2026-08-30 · The trunk's badge was still not green, and the cause was F1's own disease
+
+`cdbd011` — the merge of `fix/fail-closed-controls` — ran CI on `main` and the
+run concluded **`cancelled`**, not `success`. The jobs:
+
+```
+success  is the production deploy configured     <- named the four missing values
+success  what changed
+success  blocking release checks                 <- the required check, 6m16s
+failure  lighthouse (marketing)                  <- continue-on-error, as designed
+cancelled  browser baseline (report-only …)      <- hit its 70-minute job timeout
+skipped  production deploy after blocking checks <- F1, working
+```
+
+**A job that exceeds `timeout-minutes` is CANCELLED, and `continue-on-error`
+covers a failure rather than a cancellation.** So the one job in this workflow
+that is explicitly report-only, and gates nothing, decided the colour of the
+trunk — while the job that does gate had passed and the deploy had correctly
+skipped. That is the same defect this pass spent the day removing, arriving from
+the other side: not a control that is silent when it should speak, but a report
+that speaks with an authority it was never given.
+
+The budget moves down to the two suite steps, which already carry
+`continue-on-error: true`. **A STEP that exceeds `timeout-minutes` FAILS**, and a
+step-level `continue-on-error` swallows that, so a long suite now reads as a red
+report rather than a cancelled run. The job ceiling sits at 85 above a 75-minute
+step budget, where it can never fire first. The existing last step still turns
+either outcome into a visible red job.
+
+**Why 70 minutes was not enough, and it is worth recording.** That run logged
+**37 retries**. `retries: 2` in CI makes every failure cost three times, and it
+reached 601 test lines of 739 before the ceiling. A clean serial run of the same
+tree on a developer machine is 21.6 minutes. The CI environment therefore has
+materially more failures than the isolated local one — which is a thing to
+measure next, not a thing to conclude from here.
+
+`tests/fail-closed-controls.test.ts` asserts the placement now, and is verified
+capable of failing: moving either timeout back onto the job alone turns it red.

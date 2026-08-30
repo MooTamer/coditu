@@ -143,6 +143,38 @@ describe("no workflow anywhere reintroduces the shape", () => {
   });
 });
 
+describe("a report-only job cannot decide what colour the trunk is", () => {
+  /**
+   * A job that exceeds `timeout-minutes` is CANCELLED, and `continue-on-error`
+   * covers a failure rather than a cancellation — so a report-only job that ran
+   * long took the whole run's conclusion with it on `main` at `cdbd011`, while
+   * the blocking job had passed. A STEP that exceeds its own `timeout-minutes`
+   * fails, and a step-level `continue-on-error` swallows that.
+   */
+  const browser = CI.slice(CI.indexOf("\n  browser:"), CI.indexOf("\n  preflight:"));
+
+  it("puts the timeout on the suite steps, not only on the job", () => {
+    const steps = [...browser.matchAll(/timeout-minutes: (\d+)/g)].map((m) => Number(m[1]));
+    // The job ceiling and both suite steps.
+    expect(steps).toHaveLength(3);
+    const [job, ...suites] = steps;
+    const budget = suites.reduce((total, minutes) => total + minutes, 0);
+    // The job ceiling must sit ABOVE the steps' budget, or it fires first and
+    // cancels the run — which is the thing being prevented.
+    expect(job).toBeGreaterThan(budget);
+  });
+
+  it("keeps continue-on-error on the job and on both suite steps", () => {
+    expect(browser).toMatch(/^ {4}continue-on-error: true$/m);
+    expect(browser.match(/continue-on-error: true/g) ?? []).toHaveLength(3);
+  });
+
+  it("still turns a red suite into a visible red job", () => {
+    expect(browser).toContain("Preserve a visible red result without blocking release");
+    expect(browser).toMatch(/steps\.development_e2e\.outcome == 'failure'/);
+  });
+});
+
 describe("the guards that were only reachable by remembering are in a gate", () => {
   const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
   const GATE = read("scripts/gate.sh");

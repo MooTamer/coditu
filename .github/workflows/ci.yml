@@ -173,13 +173,33 @@ jobs:
       # recovery. Last, because it takes the database away from everything.
       - run: SKIP_BUILD=1 npm run degraded
 
+  # ── The timeout belongs on the STEPS, and that is not a detail ─────────────
+  #
+  # A job that exceeds its own `timeout-minutes` is CANCELLED, and
+  # `continue-on-error` does not cover a cancellation — it covers a failure. So
+  # this report-only job hit 70 minutes on `main` at `cdbd011` and took the
+  # whole run's conclusion to `cancelled` with it, while `blocking release
+  # checks` had passed and the deploy had correctly skipped.
+  #
+  # That is the same defect this repository spent a day removing, arriving from
+  # the other side: a check that gates nothing decided what colour the trunk is.
+  #
+  # A STEP that exceeds `timeout-minutes` FAILS, and a step-level
+  # `continue-on-error: true` swallows that. So the budget moves down to the two
+  # suite steps, the job ceiling sits above their sum where it can never fire,
+  # and a suite that runs long reads as a red report instead of a cancelled run.
+  # The last step still turns either outcome into a visible red job.
+  #
+  # 70 minutes was not enough for a reason worth recording: that run logged
+  # **37 retries**, and `retries: 2` makes every failure cost three times. A
+  # clean serial run of the same tree on a developer machine is 21.6 minutes.
   browser:
     name: browser baseline (report-only through the ten-run review)
     needs: [scope, check]
     if: needs.scope.outputs.code == 'true'
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 85
 
     steps:
       - uses: actions/checkout@v4
@@ -237,11 +257,13 @@ jobs:
       - name: Development-server browser suite
         id: development_e2e
         continue-on-error: true
+        timeout-minutes: 60
         run: npm run e2e
 
       - name: Production-build browser assertions
         id: production_e2e
         continue-on-error: true
+        timeout-minutes: 15
         run: npm run e2e:prod
 
       - uses: actions/upload-artifact@v4
