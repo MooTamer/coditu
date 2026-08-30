@@ -23,15 +23,50 @@ production writer:
    production origin. A failed public check restores the exact deployment that owned the
    origin before the job began.
 5. Production deploy jobs are serialized and never cancel one another. Missing configuration
-   is a red deploy; it is never interpreted as a successful no-op.
+   **skips** the deploy and says so; it is never interpreted as a successful no-op, and it is no
+   longer a red trunk either.
+
+> **Corrected 2026-08-30.** Point 5 used to read *"missing configuration is a red deploy"*, and it
+> was. Since none of the four secrets below has ever been set, **every push to `main` painted CI
+> red for a setup gap** — three of the last four runs. A permanently-red trunk teaches people to
+> stop reading red, and then the one that matters goes unnoticed.
+>
+> The deploy is now gated on a `preflight` job whose output its `if:` reads, so an unconfigured
+> deploy **skips**. Skipping is not silence: the preflight writes a warning annotation and a job
+> summary naming every missing value.
+>
+> This is deliberately the opposite of what `backup-canary.yml` now does, and the distinction is the
+> point: **a DEPLOY that is not configured should be skipped, because not deploying is safe. An
+> ALARM that is not configured must be loud, because not alarming is not safe.** ADR 2026-08-30.
 
 The required GitHub `Production` environment secrets are:
 
 - `VERCEL_TOKEN` — a narrowly used Vercel token;
 - `VERCEL_ORG_ID` — the team/account id for `mohamed-tamers-projects`;
 - `VERCEL_PROJECT_ID` — the id for the existing `coditu` project;
-- `HOSTED_SCHEMA_DB_URL` — a direct/session URL for `coditu_backup`, used read-only for the
+- `HOSTED_SCHEMA_DB_URL` — a **session pooler** URL for `coditu_backup`, used read-only for the
   schema contract. It must identify project `hayfsvsepgfescojesbd` and negotiate SSL.
+
+  It is written out here rather than described, because "a direct/session URL" left the one thing
+  that actually blocks it unstated: **`db.hayfsvsepgfescojesbd.supabase.co` has no A record** and
+  does not resolve from most machines, and the pooler's **6543** is transaction mode, which will not
+  carry what this check does. Port **5432** on the pooler is session mode and is the one that works.
+
+  ```
+  postgresql://coditu_backup.hayfsvsepgfescojesbd:<password>@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require
+  ```
+
+  The username carries the project ref after a dot — that is Supavisor's tenant routing, not a
+  typo. The only unknown is `<password>`: set it on `coditu_backup` out of band, and it is the same
+  value already inside the recovery repository's `BACKUP_DB_URL`. `scripts/check-hosted-schema.mjs`
+  asserts the connection is `coditu_backup`, has `rolbypassrls`, can `select` on `public.work_items`
+  and **cannot** `insert` — so a service-role or owner URL is refused rather than accepted as
+  convenient. `docs/12-RECOVERY-RUNBOOK.md` §"Connect through the session pooler" has the same
+  string for the backup leg.
+
+  **The two ids beside it are not credentials.** `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` are read
+  from `.vercel/project.json` after `vercel link` on a clean checkout — which needs the token
+  anyway. So of the four, exactly one has to be created: `VERCEL_TOKEN`.
 
 The required GitHub `Production` environment variable is:
 
@@ -371,7 +406,7 @@ not, and `gh variable list -R MooTamer/coditu-recovery` is empty.
 
 | Name | Kind | Why it is blocking |
 |---|---|---|
-| `HEARTBEAT_URL` | secret | `https://hc-ping.com/<uuid>` from healthchecks.io. **Without it there is no alerting at all** — the canary logs a notice and **exits 0**, so an unconfigured canary is green forever, which is precisely the failure a dead-man's switch exists to catch |
+| `HEARTBEAT_URL` | secret | `https://hc-ping.com/<uuid>` from healthchecks.io. **Without it there is no alerting at all.** Until 2026-08-30 the canary logged a notice and **exited 0**, so an unconfigured canary was green forever — precisely the failure a dead-man's switch exists to catch. It now **fails**: an alarm that is not configured is a failed alarm, and the red is true until this is set |
 | `BACKUP_CANARY_REPORT_SECRET` | secret | The canary refuses to report freshness without it; the same value also goes in **Vercel's** Production environment so the application can authorize the report |
 | `PRODUCTION_BASE_URL` | variable | `https://coditu-phi.vercel.app`. The canary needs it too, and it is set in neither repository |
 

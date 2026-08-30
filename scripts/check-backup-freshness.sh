@@ -41,10 +41,27 @@ sha256_file() {
 need_value RECOVERY_REPO
 canary_max_age=${BACKUP_MAX_AGE_SECONDS:-93600}
 canary_future_skew=${BACKUP_MAX_FUTURE_SKEW_SECONDS:-300}
+# An EMPTY recovery set used to pass this check. The sidecar assertions below
+# accepted `databaseRows >= 0` and `storageObjects >= 0`, so a dump that
+# connected, found nothing and wrote a valid, correctly-checksummed archive of
+# no rows was fresh, complete and green. "The backup ran" is not "the backup
+# contains the workspace", and this canary's title claims the second.
+#
+# Floors rather than a comparison against the previous set: a fixed expected
+# count would break the first time somebody legitimately deletes a project, and
+# the failure being guarded against is collapse to nothing, not drift. A
+# workspace with zero rows or zero buckets is a broken dump, never a valid
+# state. Override for a genuinely empty environment.
+canary_min_rows=${BACKUP_MIN_DATABASE_ROWS:-1}
+canary_min_buckets=${BACKUP_MIN_STORAGE_BUCKETS:-1}
 printf '%s\n' "$canary_max_age" | grep -Eq '^[1-9][0-9]*$' ||
   fail "BACKUP_MAX_AGE_SECONDS must be a positive integer"
 printf '%s\n' "$canary_future_skew" | grep -Eq '^[0-9]+$' ||
   fail "BACKUP_MAX_FUTURE_SKEW_SECONDS must be a non-negative integer"
+printf '%s\n' "$canary_min_rows" | grep -Eq '^[0-9]+$' ||
+  fail "BACKUP_MIN_DATABASE_ROWS must be a non-negative integer"
+printf '%s\n' "$canary_min_buckets" | grep -Eq '^[0-9]+$' ||
+  fail "BACKUP_MIN_STORAGE_BUCKETS must be a non-negative integer"
 
 for canary_command in gh jq node; do
   command -v "$canary_command" >/dev/null 2>&1 || fail "missing required command: $canary_command"
@@ -118,6 +135,11 @@ canary_storage_objects=$(jq -er '.storageObjects | select(type == "number" and .
 [ "$canary_sidecar_archive" = "$canary_archive_name" ] || fail "sidecar archive name does not match its release"
 [ "$canary_sidecar_sha" = "$canary_notes_sha" ] || fail "sidecar SHA-256 does not match the release notes"
 [ "$canary_sidecar_bytes" = "$canary_bytes" ] || fail "sidecar byte size does not match the asset"
+
+[ "$canary_database_rows" -ge "$canary_min_rows" ] ||
+  fail "newest recovery set holds $canary_database_rows database rows; the floor is $canary_min_rows"
+[ "$canary_storage_buckets" -ge "$canary_min_buckets" ] ||
+  fail "newest recovery set holds $canary_storage_buckets Storage buckets; the floor is $canary_min_buckets"
 
 canary_age=$(CANARY_LAST_MODIFIED="$canary_uploaded_at" \
   CANARY_REFERENCE_TIME="${BACKUP_CANARY_NOW:-}" \

@@ -5802,3 +5802,182 @@ said *"did not save"*, which was true when nothing retried and is now a contradi
 beside it. It asserts the new sentence instead — and clears the queue before leaving, because that
 test strands a real time entry, and an undrained entry would surface later as another spec's sprint
 total being wrong, a long way from its cause.
+
+---
+
+## 2026-08-30 · A safety control must fail CLOSED, and a deploy must not
+
+**The rule, and it is the whole of this ADR:**
+
+> **A safety control must fail CLOSED, and the absence of its configuration is itself a failure
+> condition worth alerting on.** A control that is quiet when unconfigured is indistinguishable from
+> a control that is working, which is the worst property a control can have.
+
+And its one deliberate inversion, because the two look contradictory until they are said together:
+
+> **A DEPLOY that is not configured should be SKIPPED, because not deploying is safe. An ALARM that
+> is not configured must be LOUD, because not alarming is not safe.**
+
+That second sentence is the reason `ci.yml`'s `preflight` job and `backup-canary.yml`'s `alarm` step
+are written in opposite directions from the same finding on the same day. It is not an inconsistency
+and it should not be tidied into one.
+
+### What was actually found
+
+Every instance was written the same way, and every one was added on purpose by somebody being
+careful:
+
+```bash
+if [ -z "${SOMETHING:-}" ]; then
+  echo "::notice::… is not set; X is NOT active"
+  exit 0
+fi
+```
+
+That shape reads as caution in review and behaves as a switch that turns the guard off. Three were
+already known when this pass started. Sweeping for the rest found that most of the repository's
+guards had a version of it, and that the two most consequential were not in CI at all but in the
+database and in the scanner that reads it.
+
+The full inventory, with the question that produced it — *what would have to break for this to go
+red?* — is `docs/08-GAP-MATRIX.md` §"Fail-open sweep".
+
+### The decisions
+
+**1. The production deploy SKIPS rather than fails.** `ci.yml` gained a `preflight` job that reports
+whether each deploy value is present, by name only, into a string output; `deploy` reads that output
+in its `if:`. `secrets` is not available in a job-level `if:` — GitHub evaluates those before secrets
+are in scope — so the presence test cannot live there directly, and this is the documented idiom for
+it.
+
+The step it replaces asserted every value was non-empty and exited 1. It was correct about the
+danger and wrong about the colour: `VERCEL_TOKEN` and `HOSTED_SCHEMA_DB_URL` have never been set, so
+**every push to `main` painted the trunk red for a setup gap**, and a permanently-red trunk teaches
+people to stop reading red. Three of `main`'s last four CI runs were red for exactly this.
+
+*Rejected: leaving it red until the secrets arrive.* The cost is paid immediately and the benefit
+never arrives — nobody reads a check that has never been green.
+
+*Rejected: skipping silently.* A skipped job with no explanation is the fail-open this ADR is about.
+The preflight writes a warning annotation and a job summary naming every missing value, so "not
+configured" is something you read rather than something you infer from a job that did not appear.
+
+**2. The backup canary FAILS without `HEARTBEAT_URL`.** An unconfigured dead-man's switch is green
+forever, and green forever is precisely the failure it exists to catch in the thing it watches. The
+same now applies to `PRODUCTION_BASE_URL` and `BACKUP_CANARY_REPORT_SECRET`, which are its other
+publishing path.
+
+All three are checked in ONE step, FIRST, and it does not exit there: the freshness read still runs,
+so a single run tells you both "nothing is watching" and "the newest set is fine". A last step turns
+the unconfigured alarm into the red.
+
+*Objection considered:* a red run every three hours trains everyone to ignore red — the same argument
+that decided (1). It is answered by fixing the setup, not by hiding it. Until it is fixed the red is
+**true**: nothing is watching the backup. The deploy's red would have been **false**.
+
+**3. The keepalive FAILS without `PRODUCTION_BASE_URL`.** A paused Supabase project is downtime that
+no deploy caused and no other check reports. Four green ticks a day that pinged nothing is the worst
+possible state for it. (It is in fact configured — `PRODUCTION_BASE_URL` is a repository variable —
+but it was one deletion away from being silently inert.)
+
+**4. The nightly backup reads the store back.** `backup.sh` defaults `BACKUP_UPLOAD` to 0, which is
+right for a hand-run copy and is a trapdoor in CI: lose that one line from the workflow's `env` block
+and the job dumps the whole workspace into the runner's temporary directory, prints every count,
+exits 0, and is destroyed with the runner. The job now runs the same freshness check the canary runs,
+against a one-hour window, so it can only pass on the set it just published.
+
+**5. The freshness canary rejects an EMPTY recovery set.** It accepted `databaseRows >= 0`, so a dump
+that connected, found nothing, and wrote a valid correctly-checksummed archive of no rows was fresh,
+complete and green. Floors — `BACKUP_MIN_DATABASE_ROWS`, `BACKUP_MIN_STORAGE_BUCKETS`, both 1 by
+default — rather than a comparison against the previous set: a fixed expected count breaks the first
+time somebody legitimately deletes a project, and the failure being guarded against is collapse to
+nothing, not drift.
+
+**6. The monthly drill proves what it can, and says what it cannot.** It now reads the age v1 header
+— plaintext, no key needed — and asserts the archive IS encrypted, to EXACTLY ONE recipient, with a
+complete header. It cannot assert *which* recipient: an X25519 stanza carries an ephemeral share, not
+the public key, by design.
+
+**It is still not a restore.** `verify-backup-restore.sh` is the restore drill, it needs the private
+key, and the private key is deliberately not on GitHub — so no scheduled job can run it. The
+2026-08-28 decision "who runs the drill? nobody — automated monthly" is therefore **not satisfied by
+what was built**, and cannot be while R1 stands. Recorded as an open risk rather than papered over;
+the job prints `this_is_not_a_restore=true` so the run page says so too.
+
+**7. `sync-recovery-repo.sh --check` is in the gate now.** It reports drift between this repository
+and `MooTamer/coditu-recovery`'s copy of the backup tooling, it needs no network, it has existed
+since the recovery repository did — and it was in no gate, no CI job and no `package.json` script. It
+was one command away from visible, which `scripts/gate.sh`'s own header says is the same as
+invisible.
+
+**8. The engineer column guards are allowlists now.** This is the largest finding of the pass and it
+is not in CI at all.
+
+`guard_work_item_columns` raised only for columns *named in a case expression*. Its message said "an
+engineer may change only status and order_index" and that sentence was false. Measured on a clean
+local stack, as `engineer`, on an item assigned to them:
+
+| Column | Before `20260830140000` | After |
+|---|---|---|
+| `title` | refused, 42501 | refused |
+| `order_index` | `UPDATE 1` — intended | `UPDATE 1` |
+| **`minutes_logged`** | **`UPDATE 1`** | refused |
+| `closed_at` | `UPDATE 1` | refused |
+| `created_at` | `UPDATE 1` | refused |
+| `id` | refused — by a foreign key from `activity`, not by the guard | refused |
+
+`minutes_logged` is the trigger-maintained rollup **invariant 2 exists to protect**, and every sprint
+total, earnings figure and payout is derived from it. An engineer could set their own to any number
+and nothing in the database would object.
+
+The guards now derive their list from `information_schema.columns` and refuse everything outside the
+allowlist, so **a column added tomorrow is locked by default** and opening it is a deliberate edit
+rather than an omission. `pg_trigger_depth() > 1` exempts writes a trigger makes on the caller's
+behalf — `refresh_minutes_logged` is `security definer`, but `auth.uid()` reads a GUC that
+`security definer` does not reset, so without that escape no engineer could log time at all.
+
+*Why this counts as the same defect:* "configured" here means "somebody remembered to add the new
+column to the list". `component_id` and `body_json` were each added retrospectively for exactly that
+reason — the pattern announced itself twice before anybody named it.
+
+**9. The test for (8) had the same defect, and is replaced.** `read-boundary.sql` asserted that the
+guard's SOURCE TEXT contained each of nineteen hard-coded column names. A column absent from the
+guard was also absent from the test, so both stayed green about a column neither had heard of. It is
+replaced by `supabase/tests/column-guards.sql`, which asks the database — for every column the
+catalogue reports, can an engineer change it? — plus a one-line structural assertion that the guard
+derives from the catalogue, which is what makes the sweep's coverage total. **Verified capable of
+failing: 5 of its 9 assertions fail against the pre-migration guard.**
+
+**10. Two scans that were green because they found nothing.** `check-action-resilience.mjs` reports
+`bare = 0` both when every call site is correct and when it read no call sites at all; it now fails
+below a floor of 40 (99 today). `check-budgets.mjs` measured `own ≈ 0 KB` for a route that redirected
+to `/login` on an expired cookie, or loaded zero chunks; it now fails on either.
+
+### What is deliberately NOT changed
+
+**`lighthouse` stays report-only, and stays red.** It fails on Simulated LCP on a busy shared runner,
+which is not "the marketing page regressed" — so it is a check whose red does not mean the thing in
+its title, and it is in the table for that. But it fails CLOSED, and the earlier ADR's reasoning for
+not gating on a number the stack cannot reach still holds. Changing it would be tuning a report, not
+closing a hole.
+
+**`components:check` stays out of CI.** It reads a second checkout (`microsoft-web-parts-final`) that
+is not on the runner. It fails closed when that checkout is missing, so it cannot be made to lie; it
+simply cannot run there. Recorded rather than worked around.
+
+### Parked, and named rather than routed around
+
+`VERCEL_TOKEN` and `HOSTED_SCHEMA_DB_URL` are Mohamed's, as is `HEARTBEAT_URL`. Verified by name on
+2026-08-30: `MooTamer/coditu` holds **zero** secrets at repository or `Production`-environment level,
+and one variable, `PRODUCTION_BASE_URL`. `MooTamer/coditu-recovery` holds `BACKUP_DB_URL`,
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, and **no** `HEARTBEAT_URL`,
+`BACKUP_CANARY_REPORT_SECRET` or `PRODUCTION_BASE_URL`.
+
+So four deploy values are missing, not two: `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` are ids rather
+than credentials and are read from `.vercel/project.json` after linking, which needs the token
+anyway. `docs/13-DEPLOYMENT-RUNBOOK.md` §1 now carries the exact recipe for
+`HOSTED_SCHEMA_DB_URL` — the `coditu_backup` role over the **session pooler on 5432**, because
+`db.<ref>.supabase.co` has no A record — so the only thing that has to be invented is the token.
+
+Making `HEARTBEAT_URL`'s absence loud is the correct state until it is set. That is the point of the
+rule, applied to itself.

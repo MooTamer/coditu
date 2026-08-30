@@ -46,3 +46,24 @@ jobs:
           RECOVERY_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/backup.sh
+
+      # ── Read the store back, do not trust the writer's exit status ──────────
+      #
+      # `backup.sh` defaults `BACKUP_UPLOAD` to 0, which is right for a hand-run
+      # copy on somebody's laptop and is a trapdoor here: drop the `BACKUP_UPLOAD`
+      # line from the block above — an edit, a rename, a merge — and this job
+      # dumps the whole workspace into the runner's temporary directory, prints
+      # every count, exits 0, and is destroyed with the runner. A green nightly
+      # backup, every night, and no off-site copy.
+      #
+      # Nothing else in the pipeline would say so for up to 26 hours, and only
+      # then through a canary whose own alerting was unconfigured until today.
+      # So the job proves its own result: the same freshness check the canary
+      # runs, against a one-hour window, so it can only pass on the set this run
+      # just published. It costs one `gh release view` and one sidecar download.
+      - name: The set this run published is really in the store
+        env:
+          RECOVERY_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BACKUP_MAX_AGE_SECONDS: "3600"
+        run: ./scripts/check-backup-freshness.sh

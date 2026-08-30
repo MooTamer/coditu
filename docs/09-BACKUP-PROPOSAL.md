@@ -450,12 +450,19 @@ therefore carries its own copy of the tooling, pushed by `scripts/sync-recovery-
 ### What is still not true
 
 
-- **Nothing alerts anybody.** `HEARTBEAT_URL` is unset, so the canary skips its heartbeat with a
-  notice. Creating the **healthchecks.io** check and adding that one secret to
-  `MooTamer/coditu-recovery` is Mohamed's — it is the only thing standing between the canary and
-  working alerting. Until it exists, a canary that stops being dispatched is silent.
+- **Nothing alerts anybody, and the canary is now RED about it.** `HEARTBEAT_URL` is unset.
+  Until 2026-08-30 the canary skipped its heartbeat with a notice and exited 0, which meant an
+  unconfigured dead-man's switch was green forever and indistinguishable from a working one — the
+  exact failure it exists to catch in the backup. It now **fails**, with the fix in the job summary.
+  Creating the **healthchecks.io** check and adding that one secret to `MooTamer/coditu-recovery`
+  is Mohamed's, and it is the only thing standing between the canary and working alerting.
+
+  The red is **true** while this is unset. Do not silence it; set the secret. ADR 2026-08-30.
 - **The Recovery Centre still says `not verified by this app`.** `PRODUCTION_BASE_URL` and
-  `BACKUP_CANARY_REPORT_SECRET` are unset, so the canary skips the report step with a notice.
+  `BACKUP_CANARY_REPORT_SECRET` are unset **in `MooTamer/coditu-recovery`**, which is where the
+  canary reads them; the same report secret also goes in Vercel's Production environment so the
+  application can authorize the report. The canary used to skip that step with a notice and now
+  fails on it, in the same first step as the heartbeat, so one run names every missing value.
   The endpoint is also not deployed yet — that is T1.5.
 - **The Google Drive leg is written and inert.** `scripts/sync-backup-drive.sh` is finished;
   rclone's Drive backend is OAuth and the consent screen is Mohamed's to click. One
@@ -515,9 +522,17 @@ secrets without printing their values:
   the path as a credential because possessing it can forge successful check-ins. (Named
   `BACKUP_CANARY_HEARTBEAT_URL` until 2026-08-29; renamed with the vendor correction, and safe to
   rename because it had never been set.)
-- `BACKUP_CANARY_REPORT_SECRET` — one randomly generated 32+-character capability stored in
-  both GitHub's and Vercel's Production environments. It can report one validated canary
-  result through `/api/backup-health`; it is not a database or R2 credential.
+- `BACKUP_CANARY_REPORT_SECRET` — one randomly generated 32+-character capability. **In
+  `MooTamer/coditu-recovery`**, because that is where `backup-canary.yml` lives and it is the only
+  thing that reads it, **and** in **Vercel's** Production environment so the application can
+  authorize the report. Not in `MooTamer/coditu`: nothing there references it, and put there it
+  would have done nothing, silently. It can report one validated canary result through
+  `/api/backup-health`; it is not a database or object-store credential.
+
+  `PRODUCTION_BASE_URL` has the same split and it was not written down: the canary reads it from
+  **`MooTamer/coditu-recovery`**, where it is still unset, while the copy that exists today is a
+  repository variable on `MooTamer/coditu` for the keepalive and the deploy. Two repositories, same
+  name, different purposes.
 
 Then dispatch `Nightly recovery copy` once, verify the encrypted object and sidecar by
 `HEAD`, and only then let the schedule establish the first real recovery point. The local
