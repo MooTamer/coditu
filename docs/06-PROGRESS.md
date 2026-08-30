@@ -6086,3 +6086,48 @@ Both of them pass there. Whatever is wrong is position in the run, not the
 specs — the same conclusion as 2026-08-28's *"the flakiness was largely the
 MACHINE"*, reached the same way and worth stating again rather than carrying
 two rows forward as though they were findings.
+
+### `npm run e2e:bundle` is RED on `main`, and was before this branch
+
+The two production-only assertions — the ones `scripts/gate.sh` exists because
+they had gone quiet for weeks — both fail. Verified at **`b6328c5`**, on the
+base commit, with none of this branch's changes:
+
+```
+./scripts/with-prod-server.sh npx playwright test --project=chromium --grep @prod
+2 failed
+  comments.spec.ts:330   @prod the editor bundle is not shipped to a reader who never composes
+  navigation.spec.ts:460 @prod nothing is logged when a row opens the item over the sprint
+```
+
+**`navigation.spec.ts:460` was failing before it reached its assertion.**
+`expect(page.locator("table")).toBeVisible()` is a strict-mode violation — the
+streaming duplicate `fixtures.ts` documents at length, two of every element with
+the second not connected. `:visible` fixes it, and the test then reaches what it
+was written to check and reports something true:
+
+```
+opening a story logged nothing
++ "Failed to load resource: the server responded with a status of 404 (Not Found)"
+```
+
+Traced: `404 /api/attachments/a0000000-…/3b322b02-….png`. A seeded comment
+references an image in `comment-images` that the bucket does not hold —
+`storage.objects` has **one** row there and it is not that one. `npm run db:reset`
+does not run `npm run db:attachments`, so **every freshly reset stack has broken
+image references, CI included**, and this assertion is red on all of them for a
+reason that is not the console error it names. Left as found, named here: fixing
+it means either running the attachment upload in the harness or seeding a
+placeholder object, and both are decisions about the seed rather than about this
+pass.
+
+**`comments.spec.ts:330` is the regression the gate was built to catch, and it
+is back.** A reader of a story page downloads ProseMirror. This is the exact
+condition `scripts/gate.sh`'s header describes — *"a reader of a story page was
+downloading 329 KB of ProseMirror"* — and it is true again at `b6328c5`. It is
+**not** touched by this branch and it is not a spec defect: the assertion is
+correct and the application fails it. It needs its own measured pass, because
+the fix is a code-splitting change against 1.7 KB of budget headroom.
+
+Neither is in any gate that blocks anything: CI's `browser` job is
+`continue-on-error`, so both have been red on a green trunk.

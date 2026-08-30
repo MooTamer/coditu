@@ -474,7 +474,12 @@ test.describe("the console after opening a story", () => {
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`${prodUrl}${SPRINT}`);
-    await expect(page.locator("table")).toBeVisible();
+    // `:visible`, for the reason `fixtures.ts`'s `shell()` documents at length:
+    // during streaming there are two of every element and the second is not
+    // connected, so a bare `locator("table")` is a strict-mode violation about
+    // a table the application renders exactly once. This assertion has been red
+    // on `main` for that reason, and it is not the reason this test exists.
+    await expect(page.locator("table:visible")).toBeVisible();
 
     await page.locator(`a[href$="/items/${SEED.item}"]`).first().click();
     await expect(page).toHaveURL(new RegExp(`/items/${SEED.item}$`));
