@@ -1860,7 +1860,7 @@ was changed in this pass; everything marked *accepted* is a limitation stated on
 | `npm run components:check` | `supabase/seeds/components.sql` is out of step with the delivery repository | Missing checkout = exit 1 | closed. **Not in CI and cannot be** — it reads a second checkout that is not on the runner. *Accepted* |
 | `npm run recovery:check` | This repository's copy of the backup tooling differs from what was pushed to `MooTamer/coditu-recovery` | n/a; a missing recorded digest = exit 1 | closed — **and until today it was in NO gate, no CI job and no `package.json` script**. → **FIXED**: `npm run recovery:check`, in `gate.sh` and in `ci.yml` |
 | `npm run roundtrip` (PF-2) | The Notion round trip starts **working**. Inverted on purpose: red means done | n/a; "no test files found" is caught and exits 1 | closed |
-| `e2e:bundle` / the two `@prod` specs | The editor bundle reaches a reader who never composes | **Without `E2E_PROD_URL` these skip themselves.** `npm run e2e:prod` sets it; `gate.sh` runs it | closed **inside the gate**; open if invoked any other way — *accepted, and it is the trap `gate.sh`'s own header records* |
+| `e2e:bundle` / the two `@prod` specs | The editor bundle reaches a reader who never composes; the console logs on opening a story | **Without `E2E_PROD_URL` these skip themselves.** `npm run e2e:prod` sets it; `gate.sh` runs it | closed **inside the gate**; open if invoked any other way — *accepted, and it is the trap `gate.sh`'s own header records*. **Both are RED at `b6328c5`** — see below |
 | `browser` job (`npm run e2e`) | A browser spec fails — but the job is `continue-on-error`, so it colours itself and gates nothing, by design, until ten consecutive green runs | n/a | closed, non-gating — *accepted* |
 | `lighthouse` job | Performance drops below §5 — **or the shared runner is busy.** Measured red at LCP 3.4 s on 2026-08-29, which is not "the marketing page regressed" | n/a | closed, non-gating. **A check whose red does not mean the thing in its title** — *accepted; the ADR for not gating on an unreachable number still holds* |
 | `preflight` (**new**) | Nothing. It reports and never fails | Names every missing value in a warning annotation and the job summary, sets `configured=false`, and `deploy` skips | **skips by design** — a deploy that is not configured is safe not to run |
@@ -1922,6 +1922,40 @@ want: {}
 `23502` is NOT NULL, which happens to stop *this* write and says nothing about the next one —
 `minutes_logged = 99999` and `created_at = now() - interval '5 years'` both landed. `closed_at` and
 `updated_at` had no error at all.
+
+### The two `@prod` assertions are red, and one of them was red before it asked anything
+
+Measured at **`b6328c5`**, the base commit, with none of this pass's changes.
+
+`navigation.spec.ts:460` failed on `expect(page.locator("table")).toBeVisible()`
+— a strict-mode violation against the streaming duplicate, thirty lines before
+the thing it exists to check. With `:visible` it reaches that check and reports
+a true condition: a **404 on `/api/attachments/…/3b322b02-….png`** when a story
+opens. A seeded comment references an image the `comment-images` bucket does not
+hold (one object in it, and not that one), because `npm run db:reset` does not
+run `npm run db:attachments`. So this assertion is red on **every** freshly
+reset stack, CI included, for a reason that is not the console error in its
+title. Answering the table's question honestly: what makes it red today is a
+seed step nobody runs.
+
+`comments.spec.ts:330` is the regression `scripts/gate.sh`'s header was written
+about — *"a reader of a story page was downloading 329 KB of ProseMirror"* — and
+it is true again. The assertion is correct and the application fails it. Not
+touched here: the fix is a code-splitting change against 1.7 KB of headroom and
+needs its own measured pass.
+
+**Neither is in a gate that blocks anything.** CI's `browser` job is
+`continue-on-error`, so both have been red on a green trunk — which is the same
+disease as an unconfigured control, arrived at from the other side: a check
+whose red nobody has to answer.
+
+### `npm run components:check` is red too, and was before this branch
+
+`supabase/seeds/components.sql` is out of step with the delivery repository:
+`News-Redaktion` and `Redaktionskalender` are gone from it. The script says what
+to do — *"add it to RETIRED in this script; it keeps its history"* — and that is
+a decision about the registry, not about this pass. `supabase/seeds/components.sql`
+is untouched by this branch, so the staleness predates it.
 
 ## The shape, so the next one is recognisable
 
