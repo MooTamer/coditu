@@ -158,6 +158,28 @@ if (swallowing.length) {
 }
 
 const wrong = bare.length + swallowing.length;
+
+// ── A scan that finds nothing passes, which is not the same as being clean ───
+//
+// `bare.length` is 0 when every call site is correct AND when the scan found no
+// call sites at all. Rename `settle`, move client components out of `app/` and
+// `components/`, change what a call site looks like, and this prints
+// `total 0 … resilience: OK` — green, in a gate, about a codebase it did not
+// read. That is the same shape as the three CI controls of 2026-08-30: quiet
+// when unconfigured, indistinguishable from working.
+//
+// A floor, not an exact count: the number moves with every feature and pinning
+// it would make this a chore rather than a check. 99 call sites today; 40 is
+// well below any plausible refactor and far above a broken walk.
+const FOUND_FLOOR = Number(process.env.RESILIENCE_MIN_CALL_SITES ?? 40);
+if (process.argv.includes("--check") && rows.length < FOUND_FLOOR) {
+  console.log(
+    `resilience: the scan found only ${rows.length} Server Action call sites, below the floor of ${FOUND_FLOOR}.`
+  );
+  console.log("This is a broken scan reporting a clean codebase. Check ROOTS and the idioms above.");
+  process.exit(1);
+}
+
 if (process.argv.includes("--check") && wrong) {
   console.log(`resilience: ${bare.length} bare, ${swallowing.length} swallowing a navigation`);
   process.exit(1);

@@ -1824,3 +1824,122 @@ clipping, dedicated notes route and editor, folded burn-up semantics, and presen
 typing on notes and criteria. **4/4 passed.** No production file or committed browser spec was changed;
 making the application recreate retired UI for these assertions would regress decisions already
 measured and recorded above.
+
+---
+
+# Fail-open sweep — every guard, and what would have to break for it to go red, 2026-08-30
+
+Three controls were found failing open in one night. The question that found them is the only one
+this table asks:
+
+> **What would have to break for this to go red?** If the answer is not the thing in its title, it is
+> not that check.
+
+Second column is what a red run actually proves. Third is what happens when the control's
+configuration is **absent** — the case that produced every instance of the defect, because absence
+is the state nobody tests. `open` means the guard goes quiet and the run stays green.
+
+The rule and the reasoning are ADR 2026-08-30 in `docs/05-DECISIONS.md`. Everything marked **FIXED**
+was changed in this pass; everything marked *accepted* is a limitation stated on purpose.
+
+## A. The application repository — `MooTamer/coditu`
+
+| Control | What would have to break for this to go red | Config absent | Verdict |
+|---|---|---|---|
+| `scope` (what changed) | Nothing — it classifies. It cannot go red | n/a; an undeterminable file list reports `code=true` and runs everything | **closed** — fails toward doing more work |
+| `npm run lint` | An ESLint rule is violated | n/a | closed |
+| `npm run typecheck` | `tsc` finds a type error | n/a | closed |
+| `npm run test` (vitest) | A unit assertion fails. **Not** the Notion round trip — that is excluded by name and lives in `npm run roundtrip` | n/a | closed |
+| `npm run db:test` (pgTAP) | An RLS or schema assertion fails | n/a; no database = the step dies | closed |
+| db:types drift | The generated types differ from the clean schema. A failed generation truncates the file, which is also a diff | n/a | closed |
+| `npm run build` | The build fails | n/a | closed |
+| `verify-tokens.sh` | A **named** token, chip pair, motion tier or keyframe is missing from the built CSS. **A NEW token being pruned would not**: the list of things to look for is hand-maintained, the same shape as the column guard in §C | n/a; no built CSS = exit 1 | closed, coverage is a hand-maintained list — *accepted, and named* |
+| `check-budgets.mjs` — route budgets | A route's own JavaScript exceeds its cap, the editor bundle enters an initial load, or `/` stops being prerendered. **Until today it could also read `ok` for a route that loaded ZERO chunks or redirected to `/login` on an expired cookie — `own ≈ 0 KB`, comfortably under budget** | n/a | was **open** for the zero-measurement case → **FIXED**: fails on zero chunks and on landing anywhere but the requested path |
+| `npm run resilience` | A Server Action call site is awaited, inspected, and unprotected. **`bare = 0` was also what a scan that read no files at all reported** | n/a | was **open** → **FIXED**: fails below a floor of 40 discovered call sites (99 today) |
+| `npm run degraded` | The app hangs rather than failing fast when Supabase is paused, or `/app` fails open rather than closed. **The bulkhead assertions used to print a dash and pass on a machine without Chromium** | n/a | was **open** for the bulkhead → **FIXED**: absent Chromium fails unless `DEGRADED_ALLOW_NO_CHROMIUM=1` is typed on purpose |
+| `npm run components:check` | `supabase/seeds/components.sql` is out of step with the delivery repository | Missing checkout = exit 1 | closed. **Not in CI and cannot be** — it reads a second checkout that is not on the runner. *Accepted* |
+| `npm run recovery:check` | This repository's copy of the backup tooling differs from what was pushed to `MooTamer/coditu-recovery` | n/a; a missing recorded digest = exit 1 | closed — **and until today it was in NO gate, no CI job and no `package.json` script**. → **FIXED**: `npm run recovery:check`, in `gate.sh` and in `ci.yml` |
+| `npm run roundtrip` (PF-2) | The Notion round trip starts **working**. Inverted on purpose: red means done | n/a; "no test files found" is caught and exits 1 | closed |
+| `e2e:bundle` / the two `@prod` specs | The editor bundle reaches a reader who never composes | **Without `E2E_PROD_URL` these skip themselves.** `npm run e2e:prod` sets it; `gate.sh` runs it | closed **inside the gate**; open if invoked any other way — *accepted, and it is the trap `gate.sh`'s own header records* |
+| `browser` job (`npm run e2e`) | A browser spec fails — but the job is `continue-on-error`, so it colours itself and gates nothing, by design, until ten consecutive green runs | n/a | closed, non-gating — *accepted* |
+| `lighthouse` job | Performance drops below §5 — **or the shared runner is busy.** Measured red at LCP 3.4 s on 2026-08-29, which is not "the marketing page regressed" | n/a | closed, non-gating. **A check whose red does not mean the thing in its title** — *accepted; the ADR for not gating on an unreachable number still holds* |
+| `preflight` (**new**) | Nothing. It reports and never fails | Names every missing value in a warning annotation and the job summary, sets `configured=false`, and `deploy` skips | **skips by design** — a deploy that is not configured is safe not to run |
+| `deploy` | The hosted schema cannot serve the commit, a staged smoke fails, or a public smoke fails after promotion (which rolls back) | Skipped via `preflight`. It used to **FAIL**, which is why three of `main`'s last four CI runs were red | was red-by-design → **FIXED** |
+| `check-hosted-schema.mjs` | The hosted schema is behind the code that reads it — the 2026-08-21 outage | Missing `HOSTED_SCHEMA_DB_URL` = exit 1 | closed. **But it has never run once**: it only runs inside `deploy`, and `deploy` has never been configured |
+| `deploy-production.sh` smoke + rollback | A staged or public smoke fails | Missing values = exit 1 | closed. **Never run**, same reason |
+| `write-build-health.mjs` | `GITHUB_SHA` absent | exit 1 | closed |
+| `tests/deploy-control.test.ts` | `vercel.json` stops declaring `git.deploymentEnabled.main = false`, or is replaced by the deprecated `github.enabled` | n/a | closed — **as a tripwire on a file**. It does not and cannot prove Vercel honours it; that was **falsified once already** on 2026-08-29 |
+| The Ignored Build Step | — | **It does not exist.** `vercel.json` carries no `ignoreCommand` and the dashboard field is empty. Per the earlier ADR it would fail open anyway: `VERCEL_GIT_COMMIT_REF` is a system variable that is empty unless system variables are exposed, and a `vercel.json` `ignoreCommand` **overrides** the dashboard, collapsing two supposedly independent controls into one editable file | **not a control** — *recorded, not built* |
+| GitHub ruleset 21825959 | — | It is an enforcement, not a check. **Nothing anywhere notices if it is disabled.** Reading rulesets from a workflow needs `administration: read`, which the default token does not have, and a 403 would paint the trunk red for a permissions reason — the exact defect this pass removed | **silent if removed** — *accepted; verified by hand and by an actual push refusal, `enforcement: active`, required check `blocking release checks`* |
+| `keepalive.yml` | The database does not answer `coditu-database-awake`. **Without `PRODUCTION_BASE_URL` it pinged nothing and exited 0 — four green ticks a day and a project drifting towards the seven-day pause** | was `exit 0` | was **open** → **FIXED**: absent origin fails, with the reason in the job summary |
+| `/api/backup-health` | A report is unauthorized, malformed, too large, or outside its freshness window | No `BACKUP_CANARY_REPORT_SECRET` = 503, which fails the caller's `curl --fail` | closed |
+| `with-prod-server.sh` | `NEXT_PUBLIC_SUPABASE_URL` is not local — the harness deletes rows | Unset falls to the refusing branch | closed |
+| `tests/fail-closed-controls.test.ts` (**new**) | Any workflow reintroduces `if [ -z "$X" ]; then … exit 0`, the deploy gate stops being a `preflight` output, or `recovery:check` leaves the gate | n/a | closed. **Verified capable of failing**: the detector finds exactly the three original instances in `b6328c5` and none after |
+
+## B. The recovery repository — `MooTamer/coditu-recovery`
+
+| Control | What would have to break for this to go red | Config absent | Verdict |
+|---|---|---|---|
+| `nightly-backup.yml` → `backup.sh` | The dump, the Storage copy, the encryption or the release upload fails. **`BACKUP_UPLOAD` defaults to 0**, so losing that one line from the `env` block wrote the whole workspace to the runner's temp directory, printed every count, exited 0, and was destroyed with the runner | was **silent** | was **open** → **FIXED**: the job now re-reads the store with a one-hour freshness window, so it can only pass on the set it just published |
+| `check-backup-freshness.sh` (the canary's read) | The newest set is older than 26 h, incomplete, or its three records — asset, release notes, sidecar — disagree. **An EMPTY set passed**: `databaseRows >= 0` accepted zero | n/a; `RECOVERY_REPO` unset = exit 1 | was **open** for empty → **FIXED**: `BACKUP_MIN_DATABASE_ROWS` and `BACKUP_MIN_STORAGE_BUCKETS`, both 1. Proved by inversion — floors of 99999 and 9 both exit 1 |
+| Canary heartbeat (`HEARTBEAT_URL`) | The canary run fails. **Absent, it logged a notice and exited 0 — an unconfigured dead-man's switch is green forever, which is precisely the failure it exists to catch** | was `exit 0` | was **open** → **FIXED**: fails, loudly, with the fix in the job summary |
+| Canary report (`BACKUP_CANARY_REPORT_SECRET`, `PRODUCTION_BASE_URL`) | `/api/backup-health` refuses the report. **Absent, it skipped with a notice** — and the secret was documented as belonging in the app repository, where nothing reads it | was `exit 0` | was **open** → **FIXED**: checked in the same first step as the heartbeat, so one run names every missing value |
+| `monthly-backup-integrity.yml` | The stored ciphertext is corrupt, truncated, disagrees with its sidecar, or is not an age file encrypted to exactly one recipient | n/a; no monthly set = exit 1 | closed → **STRENGTHENED**: reads the age v1 header, which needs no key. **It is still NOT a restore** — see below |
+| **The restore drill** | — | `verify-backup-restore.sh` is the only thing that proves a set can be restored, it needs the **private age key**, and the key is deliberately not on GitHub. **No scheduled job can run it.** The 2026-08-28 decision *"who runs the drill? nobody — automated monthly"* is **not satisfied by what was built** | **a drill somebody must remember** — the thing that decision existed to avoid. Open, and bounded by R1 |
+| `prune-backups.sh` | GFS pruning removes the wrong set, or the counts do not hold | `RECOVERY_REPO` unset = exit 1 | closed; called from `upload-backup.sh`, so it runs on every publish |
+| `sync-backup-local.sh` / `sync-backup-drive.sh` | A checksum mismatch, a missing rclone remote, or Drive holding fewer archives than disk | Missing dir/remote = exit 1 | closed **when run**. Both are manual, on Mohamed's Mac, and nothing reports that they have not been |
+
+## C. The database — the guards nobody had swept
+
+| Control | What would have to break for this to go red | Config absent | Verdict |
+|---|---|---|---|
+| `guard_work_item_columns` | An engineer changes a column **named in a case expression**. Its own message claimed "only status and order_index" and that was false: 20 of 27 columns were named, and the other seven were writable | "configured" = somebody remembered to add the new column. `component_id` and `body_json` were each added retrospectively for that reason | was **open** → **FIXED** in `20260830140000`: derived from `information_schema`, refuses everything outside `status, order_index` |
+| `guard_criteria_columns` | Same shape. `id`, `created_at` and `body_version` were unnamed | same | was **open** → **FIXED**: allowlist `body, body_json, is_done` |
+| `read-boundary.sql`'s guard assertion | The guard's **source text** stopped containing one of nineteen hard-coded column names. A column absent from the guard was also absent from the test | same list, maintained by hand, one layer up | was **open** → **REPLACED** by `supabase/tests/column-guards.sql`, which asks the database per column, plus a structural assertion that the guard derives from the catalogue |
+| RLS policies | A policy stops refusing what it must refuse | n/a | closed; 331 pgTAP assertions, positive and negative |
+
+### The measurement behind §C
+
+On a clean isolated stack, signed in as `engineer`, on a work item assigned to them:
+
+```
+=== baseline: title must be REFUSED ===   ERROR 42501  (the guard, correctly)
+=== order_index: must be ALLOWED ===      UPDATE 1
+=== minutes_logged ===                    UPDATE 1        <- invariant 2's rollup
+=== closed_at ===                         UPDATE 1
+=== created_at ===                        UPDATE 1
+=== id ===                                refused — by a foreign key from `activity`
+```
+
+After `20260830140000` the same six probes read: refused, `UPDATE 1`, refused, refused, refused,
+refused. The new sweep names what leaked and why each was stopped, when anything was:
+
+```
+have: {id:23502, minutes_logged:23502, closed_at, created_at:23502, updated_at}
+want: {}
+```
+
+`23502` is NOT NULL, which happens to stop *this* write and says nothing about the next one —
+`minutes_logged = 99999` and `created_at = now() - interval '5 years'` both landed. `closed_at` and
+`updated_at` had no error at all.
+
+## The shape, so the next one is recognisable
+
+Every instance in this table was written the same way, and every one was added by somebody being
+careful:
+
+```bash
+if [ -z "${SOMETHING:-}" ]; then
+  echo "::notice::… is not set; X is NOT active"
+  exit 0
+fi
+```
+
+It has three tells, and any one of them is enough to start looking:
+
+1. **An emptiness test on configuration whose branch ends in success.** The three CI instances.
+2. **A hand-maintained list of things to check.** The column guards, the test that watched them, and
+   `verify-tokens.sh`. The list is an allowlist wearing a denylist's clothes, and what is not on it
+   is not merely unchecked — it is *permitted*.
+3. **A count of findings with no floor under the count of things examined.** `resilience` and
+   `check-budgets.mjs`. Zero findings and zero examined print the same word.
