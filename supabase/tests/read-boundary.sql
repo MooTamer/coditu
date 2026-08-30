@@ -32,7 +32,7 @@ create extension if not exists pgtap with schema extensions;
 
 begin;
 
-select plan(20);
+select plan(21);
 
 -- ---------------------------------------------------------------------------
 -- 1. The four functions exist, and return exactly these columns.
@@ -211,27 +211,37 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- 6. The engineer column guard is an allowlist written as a denylist, so every
---    client-facing column has to be NAMED in it. This is the assertion that
---    fails when a new column is added and nobody remembers.
+-- 6. The engineer column guard is an allowlist. It used to be an allowlist
+--    written as a denylist, and this assertion had the same defect as the thing
+--    it was testing: it read the function's SOURCE TEXT for nineteen hard-coded
+--    column names, so a column absent from the guard was also absent from here
+--    and both stayed green about it. Five were: `minutes_logged` — invariant
+--    2's rollup — `closed_at`, `created_at`, `updated_at` and `id`.
+--
+--    What replaces it is behavioural and lives in `column-guards.sql`: it asks
+--    the database, for every column the catalogue reports, whether an engineer
+--    can change it. A column added tomorrow is in that loop the moment it
+--    exists.
+--
+--    What is left here is the one-line structural invariant that makes the
+--    behavioural test's coverage total — that the guard derives its list from
+--    the catalogue rather than naming columns. A guard that goes back to
+--    naming them turns this red immediately, rather than in however long it
+--    takes somebody to add the next column.
 -- ---------------------------------------------------------------------------
 
-select is(
-  (select count(*)::int
-     from unnest(array['client_published_at', 'client_title', 'client_summary',
-                       'component_id', 'title', 'description', 'highlight',
-                       'assignee_id', 'reviewer_id', 'deadline', 'estimate_minutes',
-                       'grouping', 'sprint_id', 'key', 'type',
-                       -- The block documents and their version stamps. Same rule
-                       -- as the text columns they sit beside: what a story SAYS
-                       -- is an admin-and-lead decision, in either shape.
-                       'description_json', 'description_version',
-                       'highlight_json', 'highlight_version']) as guarded(col)
-    where (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-            where n.nspname = 'public' and p.proname = 'guard_work_item_columns')
-          not like '%' || guarded.col || '%'),
-  0,
-  'guard_work_item_columns names every column an engineer must not write'
+select ok(
+  (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'guard_work_item_columns')
+    like '%information_schema.columns%',
+  'guard_work_item_columns derives its list from the catalogue, so a new column is guarded by default'
+);
+
+select ok(
+  (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'guard_criteria_columns')
+    like '%information_schema.columns%',
+  'guard_criteria_columns derives its list from the catalogue, so a new column is guarded by default'
 );
 
 select * from finish();
