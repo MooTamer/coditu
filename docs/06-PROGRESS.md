@@ -5893,3 +5893,196 @@ trunk-based model working as designed: `{"main": false}` blocks the trunk and le
 Production is unchanged at **`707d03f`** (`dpl_8dnEkDR9XgHT7bbULC8dPAV2NHHB`), `/login` 200 and
 `/api/health/database` answering `coditu-database-awake`. `/build-health.json` is **not** on the
 deployed build — the CI deploy job that writes it has still never run, which is T1.5(d).
+
+---
+
+## 2026-08-30 · F1–F3 — the fail-open sweep: every guard asked one question
+
+Branch `fix/fail-closed-controls`, from `b6328c5`. `main` is behind ruleset 21825959, so this merged
+through a pull request. The question, asked of every guard in both repositories:
+
+> **What would have to break for this to go red?** If the answer is not the thing in its title, it is
+> not that check.
+
+The full table is `docs/08-GAP-MATRIX.md` §"Fail-open sweep". The rule and the reasoning are
+ADR 2026-08-30 in `docs/05-DECISIONS.md`. Three instances were known going in; **the sweep found
+seven more, and the two largest were not in CI at all.**
+
+### F1 — the trunk is no longer red by design
+
+`deploy` had a first step that asserted every deploy value was non-empty and exited 1. Since none of
+them has ever been set, that made **every push to `main` red for a setup gap** — verified against the
+provider, not inferred: run `33281385522` on `main` failed at *"Refuse an unconfigured deploy rather
+than silently skipping it"*.
+
+Replaced by a `preflight` job. `secrets` is unavailable in a job-level `if:`, so the presence test
+lives in a job that can read them and becomes a string output; `deploy` keys its `if:` on that. It
+prints `present` / `MISSING` per name, never a value, and writes a warning annotation plus a job
+summary naming every missing one. A skipped deploy now reads "not configured"; it used to read
+"broken", which was a lie.
+
+The old assertion is kept at the point of use, reworded: reaching it with a value missing means the
+value was deleted between the two jobs, which is a real fault.
+
+### F2 — the dead-man's switch is inverted, and so are three others
+
+| Control | Was | Is |
+|---|---|---|
+| Canary heartbeat, no `HEARTBEAT_URL` | notice, `exit 0` | **fails**, with the healthchecks.io fix in the job summary |
+| Canary report, no `BACKUP_CANARY_REPORT_SECRET` / `PRODUCTION_BASE_URL` | notice, `exit 0` | **fails**, checked in the same first step so one run names all three |
+| Keepalive, no `PRODUCTION_BASE_URL` | notice, `exit 0` | **fails** — a paused project is downtime no deploy caused |
+| Nightly backup, `BACKUP_UPLOAD` lost from the env block | writes to the runner's temp dir, exits 0, is destroyed with the runner | **reads the store back** with a one-hour freshness window |
+
+The canary's three checks run FIRST and do **not** exit there, so the freshness read still happens and
+a single run tells you both *"nothing is watching"* and *"the newest set is fine"*. A last step turns
+the unconfigured alarm into the red.
+
+### F3 — the seven the sweep found
+
+1. **`check-budgets.mjs` could measure nothing and pass.** A route that loaded zero chunks, or
+   redirected to `/login` on an expired cookie, reported `own ≈ 0 KB` — under budget. Now fails on
+   both.
+2. **`check-action-resilience.mjs` reported `bare = 0` for a scan that read no files.** Now fails
+   below a floor of 40 discovered call sites; 99 today.
+3. **`npm run degraded` skipped the bulkhead check without Chromium** and still said OK. Now fails
+   unless `DEGRADED_ALLOW_NO_CHROMIUM=1` is typed on purpose.
+4. **`check-backup-freshness.sh` accepted an EMPTY recovery set** — `databaseRows >= 0`. Floors of 1
+   row and 1 bucket, overridable. Proved by inversion: floors of 99999 and 9 both exit 1.
+5. **`sync-recovery-repo.sh --check` was in no gate.** It has reported drift since the recovery
+   repository existed, from nowhere. Now `npm run recovery:check`, in `gate.sh` and in `ci.yml`.
+6. **`guard_work_item_columns` and `guard_criteria_columns` were denylists.** The largest finding of
+   the pass, and it is in the database. See below.
+7. **The test that watched (6) had the same defect** and is replaced by a behavioural sweep.
+
+### The one that matters — an engineer could write `minutes_logged`
+
+`guard_work_item_columns` raised only for columns *named in a case expression*. Its message said "an
+engineer may change only status and order_index"; `work_items` has 27 columns and the list named 20.
+Measured on a clean isolated stack, as `engineer`, on an item assigned to them:
+
+```
+=== baseline: title must be REFUSED ===   ERROR 42501  (the guard, correctly)
+=== order_index: must be ALLOWED ===      UPDATE 1
+=== minutes_logged ===                    UPDATE 1        <- invariant 2's rollup
+=== closed_at ===                         UPDATE 1
+=== created_at ===                        UPDATE 1
+=== id ===                                refused — by a foreign key from `activity`, not by the guard
+```
+
+`minutes_logged` is the trigger-maintained rollup **invariant 2 exists to protect**. Every sprint
+total, earnings figure and payout is derived from it, and an engineer could set their own to any
+number.
+
+`20260830140000_column_guards_are_allowlists.sql` derives both guards from
+`information_schema.columns` and refuses everything outside the allowlist, so a column added tomorrow
+is locked by default. `pg_trigger_depth() > 1` exempts writes a trigger makes on the caller's behalf
+— `refresh_minutes_logged` is `security definer`, but `auth.uid()` reads a GUC that `security
+definer` does not reset, so without that escape **no engineer could log time at all**. There is a
+positive assertion for exactly that.
+
+After the migration the same six probes read: refused, `UPDATE 1`, refused, refused, refused,
+refused.
+
+**Not yet on hosted.** The migration is local only. `check-hosted-schema.mjs` fails closed on a
+missing migration, which is the system working; applying it is a hosted push and is listed with the
+other parked items.
+
+### Verification
+
+| Command | Result |
+|---|---|
+| `RECOVERY_REPO=… ./scripts/check-backup-freshness.sh` | exit 0 · `database_rows=1397` `storage_buckets=3` `storage_objects=135` |
+| same, `BACKUP_MIN_DATABASE_ROWS=99999` | exit 1 · *"holds 1397 database rows; the floor is 99999"* |
+| same, `BACKUP_MIN_STORAGE_BUCKETS=9` | exit 1 · *"holds 3 Storage buckets; the floor is 9"* |
+| `./scripts/sync-recovery-repo.sh --check` | exit 1, correctly — this pass changed four of the six synced files |
+| `npm run resilience` | `total 99` · `resilience: OK` |
+| `RESILIENCE_MIN_CALL_SITES=500 npm run resilience` | exit 1 — the floor fires |
+| age header assertions, four fixtures | one recipient → OK · two recipients → refused · plaintext → refused · truncated → refused |
+| `supabase/tests/column-guards.sql` after the migration | **9/9** |
+| the same file **before** the migration | **5 of 9 fail** — the test is capable of failing |
+| every pgTAP file against the migrated schema | 470 assertions, 0 failures (2 in `seed.sql` are row counts moved by the concurrent e2e run) |
+| `tests/fail-closed-controls.test.ts` | 9/9 · its detector finds exactly the three original instances in `b6328c5` and none after |
+
+---
+
+## 2026-08-30 · F4 — the failing specs, at five causes and then two more
+
+Run serially from a fresh isolated reset (`supabase db reset` on the
+`coditu-iso` stack, 545xx, proved disjoint from the shared one: the app's
+`/api/health/database` request added **one** line to `kong_coditu-iso` and
+**zero** to `kong_coditu`).
+
+### The baseline did not reproduce as seven
+
+`docs/06-PROGRESS.md` recorded **7 failed · 664 passed · 43 skipped · 24 did not
+run** at `b6328c5`. The same tree, run the same way, gave **5 failed · 673
+passed · 43 skipped · 18 did not run**. The five are named below; which two the
+earlier run also had is not recoverable, because that entry never named them.
+Recorded as measured rather than reconciled to a number.
+
+### Five specs, five different causes, and not one of them was the feature
+
+| Spec | What it reported | The actual cause |
+|---|---|---|
+| `push.spec.ts:113` | `data-state` was `not-configured`, expected `off` | **The harness had no VAPID keys.** Nothing to do with the control. CI had the same gap, so it would have failed there too; the browser job generates a keypair per run now |
+| `sprint-notes.spec.ts:46` | strict mode: `/please work…/` resolved to **4** elements | The earlier note said *"seeded notes not on the page"*. They are: the same request read as HTML carries them. `/notes` renders the panel **above the whole revision history**, and a restore diff quotes the notes back — two distinct elements, twice each for the streaming duplicate |
+| `sprint-notes.spec.ts` ×6 more | did not run | Every other test in the file still opened the **sprint table**, where the panel now sits inside a `<details>` that is closed on first load. A closed `<details>` renders into the DOM with no layout box, so `toBeVisible()` fails and `click()` times out on elements the page really contains |
+| `version-history.spec.ts:125` | 30 s timeout on `.locator("summary")` | `filter({ hasText: /Description · v1\b/ })` **can never match.** `hasText` tests the listitem's `textContent`, where the two spans abut: `Description · v1written outside the app · …`. `1` and `w` are both word characters, so there is no boundary for `\b`. The intent was "v1, not v10" — `(?!\d)` says that and works |
+| `earnings.spec.ts:312` | expected `$210.00`, got `$696.00` | A money literal left over from an earlier seed. The sibling test two above already reads its figures off the snapshot *"so they move with the seed instead of being re-typed after every re-import"*; this one did not, and neither did `earnings.spec.ts:352` |
+| `component-select-all.spec.ts:150` | 40 tagged components where 2 were selected | Passes alone. The picker sends a **second `setWorkItemComponents`** — the file's own comment records it as observed and unexplained — and it lands after the previous test's `afterEach` has deleted, so this test opened a picker with the whole registry already ticked. The first test now waits for the write count to stop moving, and every test cleans and **confirms** its own precondition rather than inheriting the last one's promise |
+
+### And two the first fixed run surfaced
+
+Both were latent, and neither was caused by the fixes above:
+
+- **`editable.spec.ts:27`** — `getByLabel("Title")` matches a **substring**, and the
+  pencil beside the field is labelled *"Edit the title"*. Both are on the page the
+  whole time the editor is open (the pencil is disabled, not unmounted), so this
+  locator has always resolved to two elements and only passed when the retry
+  caught the frame before the textarea mounted. `{ exact: true }`.
+- **`component-select-all.spec.ts:211`** — the new precondition check catching the
+  late write in the act: `evim-link-kachel, evim-themen-kachel` reappearing after
+  the filter test had finished and been cleaned up. The check cleans and
+  re-confirms across a pause now instead of asserting once.
+
+### Two that were the machine, and are recorded as such
+
+`marketing.spec.ts:200` and `navigation.spec.ts:354`, both `mobile-safari`, both
+`page.goto` timing out at 30 s with no assertion reached. `/` takes **13.3 s** to
+compile cold on this dev server; a unit run sharing the CPU is enough to push a
+cold route past the limit. The authoritative run below pre-compiles every route
+the suite visits before it starts. This is the same finding as 2026-08-28's
+*"the flakiness was largely the MACHINE"*, and it is why the number below is
+taken on an otherwise idle machine.
+
+### The number
+
+Serial, `--workers=1`, from a fresh `supabase db reset` on the isolated stack,
+every route the suite visits pre-compiled first, nothing else running:
+
+```
+npx playwright test --workers=1
+2 failed · 694 passed · 43 skipped · 0 did not run · 21.6m
+```
+
+Against the baseline on the same tree: **5 failed · 673 passed · 43 skipped ·
+18 did not run**. The eighteen were downstream of the five, as expected — six of
+them were `sprint-notes.spec.ts` alone.
+
+**The two are the machine, and it is measured rather than asserted.** Both are
+`page.goto` timing out at 30 s with no assertion reached — `marketing.spec.ts:200`
+and `navigation.spec.ts:354`, both `mobile-safari`, both deep into the third
+project. Host swap sat at **19.8 GB of 21.5 GB** for the whole run, with 70 MB of
+free physical memory, three Supabase stacks and two dev servers resident.
+
+The same tree, the same server, the same browser, run as its own project:
+
+```
+npx playwright test --workers=1 --project=mobile-safari
+101 passed
+```
+
+Both of them pass there. Whatever is wrong is position in the run, not the
+specs — the same conclusion as 2026-08-28's *"the flakiness was largely the
+MACHINE"*, reached the same way and worth stating again rather than carrying
+two rows forward as though they were findings.

@@ -333,7 +333,17 @@ test.describe("the earnings board", () => {
       await expect(card).toContainText("has changed since this was confirmed");
       await expect(card).toContainText("1.0 h added");
       // The confirmed figure has NOT moved. That is the whole point.
-      await expect(card).toContainText("$210.00");
+      //
+      // `confirmed.usd` and not a literal. `$210.00` was typed in when the seed
+      // had different minutes on it; the sprint now confirms at `$696.00`, so
+      // the assertion failed while the behaviour it names was perfectly
+      // correct. The sibling test two above already reads its figures off the
+      // snapshot for exactly this reason — *"they move with the seed instead of
+      // being re-typed after every re-import"* — and this one did not. Nothing
+      // is weakened: `confirmed` is the snapshot written BEFORE the hour was
+      // added, so quoting it back is still the claim that the hour did not
+      // move it.
+      await expect(card).toContainText(confirmed.usd);
     } finally {
       await query(`delete from public.time_entries where id = $1`, [entry.id]);
     }
@@ -351,7 +361,10 @@ test.describe("the earnings board", () => {
     // has one participant, so the pot and that person's share are the same
     // number. A bare `getByText` is a strict-mode violation on a screen that is
     // rendering exactly what it should.
-    await expect(page.getByText("$210.00").first()).toBeVisible();
+    // `confirmed.usd`, not `$210.00` — the second of the two literals this
+    // file had left over from an earlier seed. See the note in "a change to
+    // the minutes makes it stale".
+    await expect(page.getByText(confirmed.usd).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /^Confirm/ })).toHaveCount(0);
   });
 

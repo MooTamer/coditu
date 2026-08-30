@@ -1,6 +1,54 @@
-import { SEED_ENGINEER, SUPABASE_URL, auditA11y, expect, query, signIn, test } from "./fixtures";
+import { SEED_ENGINEER, SUPABASE_URL, auditA11y, expect, query, shell, signIn, test } from "./fixtures";
+
+import type { Page } from "@playwright/test";
 
 const SPRINT = "/app/projects/meinevim/sprints/17";
+
+/**
+ * Where the notes are a PAGE rather than a drawer.
+ *
+ * Every test in this file used to open the sprint table and work on the notes
+ * inline, which is where they were when it was written. They are still mounted
+ * there — `sprint-header.tsx` keeps the panel — but inside a `<details>` that
+ * is **closed on first load**, deliberately, so the table is not pushed below
+ * the fold. A closed `<details>` renders its contents into the DOM with no
+ * layout box, so `toBeVisible()` fails and `click()` times out on elements the
+ * page really does contain.
+ *
+ * The first test in this file was moved here when the route was built and the
+ * other six were not, because a `mode: "serial"` block stops at its first
+ * failure: they have not run since. Six of the run's "did not run" are these.
+ *
+ * Nothing is weakened by the move. `SprintNotes` is one component with one
+ * publish path — the route's own comment says a second copy would be a second
+ * place for "Publish to the team" to start meaning something else — so these
+ * assertions are about the same markup either way.
+ */
+const NOTES = `${SPRINT}/notes`;
+
+/**
+ * The notes prose itself, and nothing else on the page that quotes it.
+ *
+ * `/notes` renders the panel AND the whole revision history underneath it, and
+ * a restore diff reads `+ added: • please work this sprint on the issues…` —
+ * the same words. So `page.getByText(/please work…/)` matches the notes and the
+ * diff, twice each because of the streaming duplicate `shell()` documents, and
+ * a strict-mode violation reports four elements for a sentence the application
+ * shows once.
+ *
+ * The earlier diagnosis of this failure was "seeded notes not on the page".
+ * They are on the page: the same request, read as HTML, carries them inside
+ * this affordance. What changed under the spec was the history moving in
+ * beside them.
+ */
+function notesBody(page: Page) {
+  return shell(page).locator("[data-sprint-notes]");
+}
+
+/** The prose, which for a lead is also the control that opens the editor. */
+function notesProse(page: Page) {
+  return notesBody(page).locator('[title="Click to edit the sprint notes"]');
+}
 
 /** The seeded note, restored after every test so the suite is re-runnable. */
 let original: {
@@ -51,17 +99,17 @@ test.describe("sprint notes", () => {
     // says so in as many words. This used to open the sprint table and look for
     // the notes inline, which is where they were when it was written. The words
     // are still in the database and still render; they render *here*.
-    await page.goto(`${SPRINT}/notes`);
+    await page.goto(NOTES);
 
     // The seeded notes are the real Notion import — plain text, no document —
     // and they still read. Converted on the way out rather than by rewriting
     // fifteen sprints of history.
-    await expect(page.getByText(/please work this sprint on the issues/i)).toBeVisible();
+    await expect(notesBody(page).getByText(/please work this sprint on the issues/i)).toBeVisible();
 
     // The prose itself is the affordance — not a separate edit screen.
-    await page.getByTitle("Click to edit the sprint notes").click();
+    await notesProse(page).click();
 
-    const editor = page.getByRole("textbox", { name: "Sprint notes" });
+    const editor = shell(page).getByRole("textbox", { name: "Sprint notes" });
     await expect(editor).toBeVisible();
     // It opens holding exactly what was on screen a moment ago.
     await expect(editor).toContainText(/please work this sprint on the issues/i);
@@ -70,10 +118,12 @@ test.describe("sprint notes", () => {
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("Rewritten by the suite.");
 
-    await page.getByRole("button", { name: "Publish to the team" }).click();
+    await shell(page).getByRole("button", { name: "Publish to the team" }).click();
 
-    await expect(page.getByRole("textbox", { name: "Sprint notes" })).toHaveCount(0);
-    await expect(page.getByText("Rewritten by the suite.")).toBeVisible();
+    await expect(shell(page).getByRole("textbox", { name: "Sprint notes" })).toHaveCount(0);
+    // Scoped for the same reason as the assertion above: publishing adds a
+    // revision, and the history immediately below quotes the new words back.
+    await expect(notesBody(page).getByText("Rewritten by the suite.")).toBeVisible();
 
     const [row] = await query<{
       notes: string;
@@ -122,21 +172,21 @@ test.describe("sprint notes", () => {
     );
 
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(SPRINT);
+    await page.goto(NOTES);
 
-    const callout = page.locator("[data-callout]");
+    const callout = notesBody(page).locator("[data-callout]");
     await expect(callout).toBeVisible();
     await expect(callout).toContainText("Ask before touching the importer.");
     // The stars were the markup, not the words.
-    await expect(page.getByText("**Ask before")).toHaveCount(0);
+    await expect(notesBody(page).getByText("**Ask before")).toHaveCount(0);
   });
 
   test("the notes take a block the textarea could never hold", async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(SPRINT);
-    await page.getByTitle("Click to edit the sprint notes").click();
+    await page.goto(NOTES);
+    await notesProse(page).click();
 
-    const editor = page.getByRole("textbox", { name: "Sprint notes" });
+    const editor = shell(page).getByRole("textbox", { name: "Sprint notes" });
     await editor.click();
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("Order of play");
@@ -144,7 +194,7 @@ test.describe("sprint notes", () => {
     await page.keyboard.type("[ ] COD-140 first");
 
     await expect(editor.locator("input[type=checkbox]")).toHaveCount(1);
-    await page.getByRole("button", { name: "Publish to the team" }).click();
+    await shell(page).getByRole("button", { name: "Publish to the team" }).click();
 
     // Stored as a checklist and rendered back as one by the SERVER walker —
     // which is the same renderer the thread uses, so a callout written in a
@@ -161,7 +211,7 @@ test.describe("sprint notes", () => {
       })
       .toContain('"type":"taskItem"');
 
-    await expect(page.locator("input[type=checkbox]").first()).toBeDisabled();
+    await expect(notesBody(page).locator("input[type=checkbox]").first()).toBeDisabled();
   });
 
   test("a paragraph inside a paragraph never reaches the page as one", async ({
@@ -209,7 +259,7 @@ test.describe("sprint notes", () => {
       if (/cannot be a descendant of/i.test(message.text())) nesting.push(message.text());
     });
 
-    const response = await page.goto(SPRINT);
+    const response = await page.goto(NOTES);
     const html = (await response?.text()) ?? "";
 
     // `<p …><p` with no `</p>` between them — the one shape a parser cannot
@@ -222,24 +272,24 @@ test.describe("sprint notes", () => {
 
     // Fail closed, not fail silent. The illegal tag is dropped; the words the
     // document carried are still on the page.
-    await expect(page.getByText("bottom of the well")).toBeVisible();
+    await expect(notesBody(page).getByText("bottom of the well")).toBeVisible();
     expect(nesting).toEqual([]);
   });
 
   test("escape abandons the edit and keeps what was there", async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(SPRINT);
+    await page.goto(NOTES);
 
-    await page.getByTitle("Click to edit the sprint notes").click();
-    const editor = page.getByRole("textbox", { name: "Sprint notes" });
+    await notesProse(page).click();
+    const editor = shell(page).getByRole("textbox", { name: "Sprint notes" });
     // A contenteditable, not an input — `fill` cannot set it.
     await editor.click();
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("This must never reach the database.");
     await page.keyboard.press("Escape");
 
-    await expect(page.getByRole("textbox", { name: "Sprint notes" })).toHaveCount(0);
-    await expect(page.getByText(/please work this sprint on the issues/)).toBeVisible();
+    await expect(shell(page).getByRole("textbox", { name: "Sprint notes" })).toHaveCount(0);
+    await expect(notesBody(page).getByText(/please work this sprint on the issues/)).toBeVisible();
 
     const [row] = await query<{ notes: string }>(
       `select s.notes from sprints s join projects p on p.id = s.project_id
@@ -251,12 +301,12 @@ test.describe("sprint notes", () => {
   test("an engineer reads the notes and cannot edit them", async ({ page }) => {
     await signIn(page, SEED_ENGINEER);
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(SPRINT);
+    await page.goto(NOTES);
 
-    await expect(page.getByText(/please work this sprint on the issues/)).toBeVisible();
+    await expect(notesBody(page).getByText(/please work this sprint on the issues/)).toBeVisible();
     // No dead control to tab through, and no button that would fail.
-    await expect(page.getByTitle("Click to edit the sprint notes")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Edit the sprint notes" })).toHaveCount(0);
+    await expect(notesProse(page)).toHaveCount(0);
+    await expect(shell(page).getByRole("button", { name: "Edit the sprint notes" })).toHaveCount(0);
   });
 
   test("the database refuses an engineer's update even when the app is bypassed", async ({
@@ -265,7 +315,7 @@ test.describe("sprint notes", () => {
     const context = await browser.newContext();
     const page = await context.newPage();
     await signIn(page, SEED_ENGINEER);
-    await page.goto(SPRINT);
+    await page.goto(NOTES);
 
     const [sprint] = await query<{ id: string }>(
       `select s.id from sprints s join projects p on p.id = s.project_id
@@ -309,9 +359,9 @@ test.describe("sprint notes", () => {
 
   test("axe finds nothing while the notes are being edited", async ({ adminPage: page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(SPRINT);
-    await page.getByTitle("Click to edit the sprint notes").click();
-    await expect(page.getByRole("textbox", { name: "Sprint notes" })).toBeVisible();
+    await page.goto(NOTES);
+    await notesProse(page).click();
+    await expect(shell(page).getByRole("textbox", { name: "Sprint notes" })).toBeVisible();
     expect(await auditA11y(page)).toEqual([]);
   });
 });
