@@ -119,6 +119,41 @@ integrity_sidecar_bytes=$(jq -er '.bytes | select(type == "number" and . > 0 and
 [ "$(jq -er '.backupId' "$integrity_metadata")" = "$integrity_id" ] || fail "sidecar names a different set"
 [ "$(jq -er '.archive' "$integrity_metadata")" = "$integrity_archive_name" ] || fail "sidecar names a different archive"
 
+# ── What the ciphertext itself can be made to say, without the key ──────────
+#
+# Everything above compares one record of this set against another: the release
+# notes, the sidecar, the downloaded bytes. All three can agree perfectly about
+# a file that is not an age archive at all. A plaintext dump published by
+# mistake, an `age` invocation that silently produced nothing useful, or a
+# header truncated by a partial upload would checksum consistently and pass
+# every assertion in this script as written.
+#
+# The age v1 header is plaintext and needs no private key to read: one version
+# line, one recipient stanza per recipient, then a `--- ` MAC line. So this
+# asserts the shape — that it IS encrypted, that it is encrypted to EXACTLY ONE
+# recipient, and that the header is complete.
+#
+# It cannot assert WHICH recipient: an X25519 stanza carries an ephemeral share,
+# not the public key, by design. Nothing without the private half can. That is
+# the honest limit of an automated drill, and it is why `this_is_not_a_restore`
+# is printed below.
+#
+# `awk` stops at the terminator so nothing downstream ever sees the binary
+# payload — `grep` reports "binary file matches" instead of a count when it
+# does, which would make these assertions read as empty rather than as numbers.
+# `|| true` on the capture is for the SIGPIPE that early exit sends back up the
+# pipe; `pipefail` would otherwise end the script here.
+integrity_header=$(LC_ALL=C head -c 4096 "$integrity_archive" |
+  LC_ALL=C awk '{print} /^--- /{exit}' || true)
+printf '%s\n' "$integrity_header" | LC_ALL=C head -1 |
+  LC_ALL=C grep -qx 'age-encryption.org/v1' ||
+  fail "the monthly archive is not an age v1 file"
+integrity_recipients=$(printf '%s\n' "$integrity_header" | LC_ALL=C grep -c '^-> ' || true)
+[ "$integrity_recipients" = 1 ] ||
+  fail "the monthly archive names ${integrity_recipients:-no} age recipients; expected exactly 1"
+printf '%s\n' "$integrity_header" | LC_ALL=C grep -q '^--- ' ||
+  fail "the monthly archive has no age header terminator; it is truncated"
+
 integrity_tables=$(jq -er '.databaseTables | select(type == "number" and . > 0 and floor == .)' "$integrity_metadata")
 integrity_rows=$(jq -er '.databaseRows | select(type == "number" and . >= 0 and floor == .)' "$integrity_metadata")
 integrity_buckets=$(jq -er '.storageBuckets | select(type == "number" and . >= 0 and floor == .)' "$integrity_metadata")
@@ -131,4 +166,10 @@ printf 'database_tables=%s\n' "$integrity_tables"
 printf 'database_rows=%s\n' "$integrity_rows"
 printf 'storage_buckets=%s\n' "$integrity_buckets"
 printf 'storage_objects=%s\n' "$integrity_objects"
+printf 'age_recipients=%s\n' "$integrity_recipients"
+# Said in the output, not only in a comment. This job verifies that the stored
+# ciphertext is intact, complete and encrypted to one recipient. It does NOT
+# decrypt it and it does NOT restore it — the private key is deliberately not on
+# GitHub, so no scheduled job can. The restore drill is
+# `verify-backup-restore.sh`, it needs the key, and it runs where the key is.
 printf 'this_is_not_a_restore=true\n'

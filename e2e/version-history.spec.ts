@@ -143,9 +143,19 @@ test.describe("version history", () => {
     // to be oldest overall, which is not the row this test then asks to
     // "Restore version 1" on. Name the surface, the way the assertion three
     // tests up already does.
+    //
+    // `(?!\d)` rather than `\b`, and that is the whole of this fix.
+    //
+    // `hasText` with a regex matches the listitem's `textContent`, and this
+    // entry's two spans sit side by side with nothing between them, so the
+    // string is `Description · v1written outside the app · …`. `1` and `w` are
+    // both word characters, so there is no word boundary there and `\b` can
+    // never match — the filter selected nothing and `.last().locator("summary")`
+    // waited thirty seconds for an element that was on the page the whole time.
+    // The intent of `\b` was "v1, not v10", which is what the lookahead says.
     const oldest = panel
       .getByRole("listitem")
-      .filter({ hasText: /Description · v1\b/ })
+      .filter({ hasText: /Description · v1(?!\d)/ })
       .last();
     await oldest.locator("summary").click();
     await oldest.getByRole("button", { name: "Restore as a new version" }).click();

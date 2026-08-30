@@ -23,14 +23,36 @@ jobs:
     timeout-minutes: 5
 
     steps:
+      # ── The absence of the origin is a failure, not a skip ─────────────────
+      #
+      # This used to log a notice and exit 0 without it, which made an
+      # unconfigured keepalive look exactly like a working one: four green ticks
+      # a day, and a database drifting towards the seven-day pause with nothing
+      # said. The thing this workflow protects against — the project pausing —
+      # is downtime with no deploy involved and no other signal, so a keepalive
+      # that cannot reach anything must be as loud as one that reaches something
+      # broken. ADR 2026-08-30.
+      #
+      # It is `vars`, not `secrets`, and it is the public origin, so the error
+      # may name it.
       - name: Ask the database to prove it is awake
         env:
           PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
         run: |
           set -euo pipefail
           if [ -z "${PRODUCTION_BASE_URL:-}" ]; then
-            echo "::notice::PRODUCTION_BASE_URL is unset; the keepalive is NOT active"
-            exit 0
+            echo "::error title=The keepalive is not configured::PRODUCTION_BASE_URL is unset in MooTamer/coditu"
+            {
+              echo "### The keepalive is not keeping anything alive"
+              echo
+              echo "\`PRODUCTION_BASE_URL\` is unset, so this workflow pinged nothing."
+              echo
+              echo "Supabase pauses a free project after roughly seven days of low"
+              echo "activity, and a paused database is downtime that no deploy caused"
+              echo "and no other check would report. Set the repository variable to the"
+              echo "public production origin — see \`docs/13-DEPLOYMENT-RUNBOOK.md\` §1."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           fi
           answer=$(curl --fail --silent --show-error \
             --max-time 20 --retry 2 --retry-all-errors \

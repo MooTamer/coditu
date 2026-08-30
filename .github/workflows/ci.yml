@@ -161,6 +161,13 @@ jobs:
       # state. This was in the local gate but missing from the hosted one.
       - run: npm run resilience
 
+      # The copy of the backup tooling that `MooTamer/coditu-recovery` carries
+      # must still match this repository's. It compares digests and needs no
+      # network. `components:check` cannot run here — it reads a second checkout
+      # that is not on the runner — but this one can, and until today it ran
+      # nowhere at all.
+      - run: npm run recovery:check
+
       # Pauses the Supabase gateway and asserts the app degrades instead of
       # hanging: marketing untouched, /app failing fast and CLOSED, automatic
       # recovery. Last, because it takes the database away from everything.
@@ -194,6 +201,22 @@ jobs:
         run: |
           set -euo pipefail
           eval "$(supabase status -o env)"
+          # Web Push needs VAPID keys or the control renders `not-configured`,
+          # and `push.spec.ts` asserts `off` — the state a real person meets.
+          # Without them that spec fails here for a reason that has nothing to
+          # do with the application, which is how it read on an isolated stack
+          # before this line existed.
+          #
+          # Generated per run rather than committed. They are throwaway by
+          # construction — the only thing this private half can do is sign a
+          # push to a subscription created in this same job, which dies with the
+          # runner — and a private key in a repository is a habit worth not
+          # having even when the key is worthless.
+          eval "$(node -e '
+            const { generateVAPIDKeys } = require("web-push");
+            const k = generateVAPIDKeys();
+            process.stdout.write(`VAPID_PUBLIC=${k.publicKey}\nVAPID_PRIVATE=${k.privateKey}\n`);
+          ')"
           {
             echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
@@ -201,6 +224,9 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
             echo "REPORT_TOKEN_SECRET=ci-only-not-a-secret"
             echo "E2E_DATABASE_URL=$DB_URL"
+            echo "NEXT_PUBLIC_VAPID_PUBLIC_KEY=$VAPID_PUBLIC"
+            echo "VAPID_PRIVATE_KEY=$VAPID_PRIVATE"
+            echo "VAPID_SUBJECT=mailto:ci@coditu.local"
           } > .env.local
 
       - run: npx playwright install --with-deps chromium webkit
@@ -231,10 +257,99 @@ jobs:
         if: ${{ steps.development_e2e.outcome == 'failure' || steps.production_e2e.outcome == 'failure' }}
         run: exit 1
 
+  # ── Why this job exists, and why it is not an `if:` on the deploy job ───────
+  #
+  # The deploy job used to carry a first step that asserted every deploy value
+  # was non-empty and exited 1 otherwise. That is the right instinct — a deploy
+  # that cannot verify the hosted schema must not run — and the wrong colour.
+  # `VERCEL_TOKEN` and `HOSTED_SCHEMA_DB_URL` are not set yet, so EVERY push to
+  # `main` painted the trunk red for a condition that is a setup gap, not a
+  # broken build. A permanently-red trunk teaches people to stop reading red,
+  # and then the one that matters goes unnoticed.
+  #
+  # `secrets` is not available in a job-level `if:` — GitHub evaluates those
+  # before secrets are in scope — so the test cannot live there directly. The
+  # documented idiom is this: a job that CAN read secrets turns their presence
+  # into a plain string output, and the dependent job keys its `if:` on that.
+  #
+  # It reports presence only. No value is ever echoed, and `set -u` is not used
+  # around the indirect expansion because an unset name is the answer here, not
+  # an error.
+  #
+  # A skipped deploy reads "not configured". A failed deploy reads "broken".
+  # Only one of those is true, and the two must never look alike.
+  #
+  # ── This is deliberately the OPPOSITE of the canary ─────────────────────────
+  #
+  # `backup-canary.yml` now FAILS when `HEARTBEAT_URL` is absent. This one
+  # SKIPS. The rule that produces both: a DEPLOY that is not configured should
+  # be skipped, because not deploying is safe. An ALARM that is not configured
+  # must be loud, because not alarming is not safe. See ADR 2026-08-30.
+  #
+  # Skipping is not the same as being silent. The absence is a warning
+  # annotation on the run page and a line in the job summary that names every
+  # missing value, so "not configured" is something you read rather than
+  # something you infer from a job that did not appear.
+  preflight:
+    name: is the production deploy configured
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: Production
+    outputs:
+      configured: ${{ steps.probe.outputs.configured }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      HOSTED_SCHEMA_DB_URL: ${{ secrets.HOSTED_SCHEMA_DB_URL }}
+      PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+
+    steps:
+      - id: probe
+        name: Report which deploy values are present, by name only
+        run: |
+          set -uo pipefail
+          missing=""
+          for required in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN HOSTED_SCHEMA_DB_URL PRODUCTION_BASE_URL; do
+            if [ -n "${!required:-}" ]; then
+              printf '  present  %s\n' "$required"
+            else
+              printf '  MISSING  %s\n' "$required"
+              missing="$missing $required"
+            fi
+          done
+
+          if [ -z "$missing" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "the production deploy is configured" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "configured=false" >> "$GITHUB_OUTPUT"
+          echo "::warning title=Production deploy is not configured::missing:$missing"
+          {
+            echo "### Production deploy: NOT CONFIGURED"
+            echo
+            echo "This commit was **not deployed**. The deploy job was skipped, not failed."
+            echo "Nothing is broken; these values have never been set:"
+            echo
+            for required in $missing; do echo "- \`$required\`"; done
+            echo
+            echo "See \`docs/13-DEPLOYMENT-RUNBOOK.md\` §1. Until they are set, production"
+            echo "stays on whatever commit it is already serving."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   deploy:
     name: production deploy after blocking checks
-    needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [check, preflight]
+    # The branch test is repeated rather than inherited from `preflight`. It is
+    # inherited today — a skipped `needs` skips its dependents — but that is a
+    # property of the other job's `if:`, and this job's own guarantee should not
+    # be one edit away in a file somebody else is changing.
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && needs.preflight.outputs.configured == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: Production
@@ -256,11 +371,20 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Refuse an unconfigured deploy rather than silently skipping it
+      # `preflight` already answered this, so reaching here with a value missing
+      # means it was deleted between the two jobs. That is a real fault and this
+      # step is right to be red about it — unlike the version this replaces,
+      # which was red for a setup gap and painted the trunk red on every push.
+      # Kept because the gate is now a string passed between jobs, and a string
+      # is easier to get wrong than a `test -n`.
+      - name: Re-assert the deploy values at the point of use
         run: |
           set -euo pipefail
           for required in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN HOSTED_SCHEMA_DB_URL PRODUCTION_BASE_URL; do
-            test -n "${!required:-}"
+            if [ -z "${!required:-}" ]; then
+              echo "::error::$required was present at preflight and is empty now; refusing to deploy"
+              exit 1
+            fi
           done
 
       - run: npm ci

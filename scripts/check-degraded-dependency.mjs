@@ -234,7 +234,27 @@ async function main() {
   );
 
   if (missingChromium) {
-    console.log("  --    no Chromium on this machine; skipping the bulkhead check");
+    // Not a skip any more.
+    //
+    // This printed a dash and moved on, so `npm run degraded` said OK on a
+    // machine with no browser while never testing the bulkhead at all — the
+    // check that the report route refuses work rather than queueing four
+    // Chromium launches behind one another. The gate that names it would have
+    // stayed green through any regression in it.
+    //
+    // A missing browser is a setup gap and a setup gap is not a pass. The
+    // escape hatch is explicit and has to be typed, so a machine that
+    // genuinely cannot run one says so in the command rather than in silence.
+    const allowed = process.env.DEGRADED_ALLOW_NO_CHROMIUM === "1";
+    check(
+      allowed,
+      "the bulkhead check needs Chromium",
+      "install it (`npx playwright install chromium-headless-shell`), or set " +
+        "DEGRADED_ALLOW_NO_CHROMIUM=1 to state on purpose that this run does not cover it"
+    );
+    if (allowed) {
+      console.log("  --    DEGRADED_ALLOW_NO_CHROMIUM=1; the bulkhead is NOT covered by this run");
+    }
   } else {
     check(
       rendered.length <= 2,

@@ -47,10 +47,12 @@ test.describe("PF-7 — every component at once", () => {
   // lock for the same reason `components.spec.ts` does.
   test.use({ sprintTotals: "write" });
 
-  test.afterEach(async () => {
-    // Bounded to this item, and the seed is REPLAYED rather than assumed gone —
-    // the same restore `components.spec.ts` does, and the shape
-    // `inline-edit.spec.ts` and `reliable-writes.spec.ts` had to be fixed into.
+  /**
+   * Bounded to this item, and the seed is REPLAYED rather than assumed gone —
+   * the same restore `components.spec.ts` does, and the shape
+   * `inline-edit.spec.ts` and `reliable-writes.spec.ts` had to be fixed into.
+   */
+  async function restoreSeedAttribution() {
     await query(
       `delete from work_item_components wc using work_items w
         where w.id = wc.work_item_id and w.key = $1`,
@@ -58,7 +60,36 @@ test.describe("PF-7 — every component at once", () => {
     );
     await query(`update work_items set component_id = null where key = $1`, [KEY]);
     await query(ATTRIBUTION_SEED);
+  }
+
+  test.beforeEach(async () => {
+    // Each test owns its precondition rather than inheriting the last one's
+    // promise.
+    //
+    // The cleanup below is correct and is still lost sometimes: the picker
+    // sends a SECOND `setWorkItemComponents` — observed, tolerated by the
+    // assertion in the first test, and never explained — and it can land after
+    // `afterEach` has already deleted. The next test then opens a picker with
+    // rows it did not create and fails somewhere a long way from that cause.
+    // Measured: this loop caught `evim-link-kachel, evim-themen-kachel`
+    // reappearing after the filter test had finished and been cleaned up.
+    //
+    // So it cleans and CONFIRMS, repeatedly, until the table stays empty across
+    // a pause. The seed gives this item no components, so zero is the whole
+    // assertion.
+    await expect
+      .poll(
+        async () => {
+          await restoreSeedAttribution();
+          await new Promise((settle) => setTimeout(settle, 400));
+          return (await taggedSlugs()).length;
+        },
+        { timeout: 20_000 }
+      )
+      .toBe(0);
   });
+
+  test.afterEach(restoreSeedAttribution);
 
   test("Select all ticks the whole registry, and sends one write for all of it", async ({
     adminPage: page,
@@ -127,6 +158,35 @@ test.describe("PF-7 — every component at once", () => {
     await expect(page.getByLabel("Filter components")).toHaveCount(0);
 
     await expect.poll(async () => (await taggedSlugs()).length, { timeout: 15_000 }).toBe(live);
+
+    /**
+     * Wait for the panel to go QUIET, not merely for the rows to appear.
+     *
+     * The second call this test tolerates below is real, and it arrives late.
+     * It used to arrive after `afterEach` had deleted the forty rows, which
+     * re-created every one of them — so the NEXT test in this serial block
+     * opened a picker with the whole registry already ticked, added the two the
+     * filter showed, and read forty where it expected two. It failed as
+     * *"Select all follows the filter, not the registry"*, which is a sentence
+     * about a feature that was working.
+     *
+     * A count taken at a moment cannot tell "one write" from "one write so
+     * far". This waits until the number stops moving, which makes the assertion
+     * below a statement about the whole exchange AND leaves nothing in flight
+     * for the cleanup to race.
+     */
+    let quiet = 0;
+    await expect
+      .poll(
+        async () => {
+          const seen = writes;
+          await page.waitForTimeout(400);
+          quiet = writes === seen ? quiet + 1 : 0;
+          return quiet;
+        },
+        { timeout: 15_000 }
+      )
+      .toBeGreaterThanOrEqual(3);
 
     /**
      * The whole point. One Server Action call carried all forty, and the

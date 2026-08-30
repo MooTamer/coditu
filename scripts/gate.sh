@@ -49,6 +49,15 @@ fi
 
 step "components:check"; npm run components:check
 
+# The recovery repository carries its own copy of the backup tooling, because a
+# restore path whose first step is "check out the repository you are recovering"
+# is not a restore path. The cost is a copy that can drift, and `--check` has
+# reported that drift since the day it was written — from nowhere. It was in no
+# gate: not here, not in CI, not in `package.json`. Being one command away from
+# visible is the same as invisible, which is the lesson at the top of this file.
+# It needs no network: it stages the tree and compares digests.
+step "recovery:check";   npm run recovery:check
+
 # PF-4's second half, and it is on the list for the reason the header gives.
 # 54 Server Action call sites were awaited, had their result inspected, and had
 # nothing catching a rejected fetch — so a lost connection skipped the `!ok`

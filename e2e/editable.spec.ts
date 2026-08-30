@@ -34,7 +34,13 @@ test.describe("an item's own words", () => {
     try {
       await adminPage.goto(ITEM);
       await adminPage.getByRole("button", { name: "Edit the title" }).click();
-      const field = adminPage.getByLabel("Title");
+      // `exact`, because `getByLabel` matches a SUBSTRING by default and the
+      // pencil beside this field is labelled "Edit the title" — which contains
+      // "Title". Both are on the page the whole time the editor is open (the
+      // pencil is disabled, not unmounted), so this locator has always resolved
+      // to two elements and only passed when the retry happened to catch the
+      // frame before the textarea mounted.
+      const field = adminPage.getByLabel("Title", { exact: true });
       await field.fill("A title somebody fixed the morning after planning");
       await adminPage.getByRole("button", { name: "Save" }).first().click();
 

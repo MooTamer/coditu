@@ -123,7 +123,14 @@ export function SprintNotes({
   }
 
   return (
-    <div className="border-t border-[var(--hairline)] bg-[var(--canvas)]">
+    // `data-sprint-notes` is a test hook, and it is here rather than in the
+    // spec because the spec cannot express it. On `/notes` the panel sits above
+    // the whole revision history, and a restore diff quotes the notes back
+    // verbatim — so `getByText(/…/)` matches the words twice, and twice again
+    // for the streaming duplicate `shell()` documents. Scoping to the edit
+    // affordance worked for a lead and not for an engineer, who has no
+    // affordance to scope to. This element is the panel for both.
+    <div data-sprint-notes className="border-t border-[var(--hairline)] bg-[var(--canvas)]">
       <div className="flex items-center gap-[10px] px-6 py-[14px]">
         <button
           type="button"

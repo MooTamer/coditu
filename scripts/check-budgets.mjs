@@ -131,8 +131,13 @@ async function measure(browser, route) {
   await page.goto(`${BASE}${route.path}`, { waitUntil: "load" });
   await page.waitForLoadState("networkidle").catch(() => undefined);
   await page.waitForTimeout(2500);
+  // Where the browser actually ENDED UP. An expired session cookie redirects
+  // the authenticated route to `/login`, which loads the framework floor and
+  // nothing else — so its "own" cost measures as ~0 KB and the budget passes
+  // by never rendering the page it is supposed to be measuring.
+  const landed = new URL(page.url()).pathname;
   await context.close();
-  return scripts;
+  return { scripts, landed };
 }
 
 const kb = (bytes) => bytes / 1024;
@@ -144,14 +149,40 @@ async function main() {
   let failed = false;
 
   try {
-    const floorChunks = await measure(browser, FLOOR_ROUTE);
+    /**
+     * A route that measured nothing, or measured a different page.
+     *
+     * Zero chunks and a redirect both produce a small, plausible number that is
+     * under budget, and the run reads `ok`. That is the same defect as the
+     * content-hash note below — a check incapable of going red — and the same
+     * one that turned up in three CI controls on 2026-08-30: silence and
+     * success are indistinguishable unless the check says which it is.
+     */
+    function arrived(route, scripts, landed) {
+      if (scripts.size === 0) {
+        failed = true;
+        console.log(`FAIL  ${route.path} loaded ZERO JavaScript chunks — nothing was measured.`);
+        return false;
+      }
+      if (landed !== route.path) {
+        failed = true;
+        console.log(`FAIL  ${route.path} redirected to ${landed}; the budget measured the wrong page.`);
+        if (landed === "/login") console.log("        the session cookie did not authenticate — is the seed loaded?");
+        return false;
+      }
+      return true;
+    }
+
+    const { scripts: floorChunks, landed: floorLanded } = await measure(browser, FLOOR_ROUTE);
     const floor = [...floorChunks.values()].reduce((total, size) => total + size, 0);
+    arrived(FLOOR_ROUTE, floorChunks, floorLanded);
     console.log(
       `framework floor  ${fmt(kb(floor))} KB gz  (${FLOOR_ROUTE.path}, ${floorChunks.size} chunks)\n`
     );
 
     for (const route of ROUTES) {
-      const scripts = await measure(browser, route);
+      const { scripts, landed } = await measure(browser, route);
+      if (!arrived(route, scripts, landed)) continue;
       const total = [...scripts.values()].reduce((sum, size) => sum + size, 0);
       const own = Math.max(0, total - floor);
 

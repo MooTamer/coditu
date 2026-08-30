@@ -29,6 +29,70 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── Why this is the FIRST step, and why it does not exit here ───────────
+      #
+      # Both publishing paths used to be opt-in: an unset secret skipped its
+      # step with a notice and the job stayed green. That reasoning is right for
+      # a DEPLOY and wrong for an ALARM, and this is an alarm.
+      #
+      # A deploy that is not configured can be skipped, because not deploying is
+      # safe. An alarm that is not configured must be loud, because not alarming
+      # is not safe. An unconfigured dead-man's switch is green forever and is
+      # indistinguishable from a working one — the single worst property a
+      # control can have, and precisely the failure this canary exists to catch
+      # in the backup. ADR 2026-08-30.
+      #
+      # It runs first so the message names EVERY missing value in one run. It
+      # does not fail here, because the freshness evidence below is worth having
+      # in the same run — you want to know both "nothing is watching" and
+      # "the newest set is fine", not one of them at a time. The last step
+      # turns this into the red.
+      - id: alarm
+        name: The alarm must have somewhere to sound
+        env:
+          HEARTBEAT_URL: ${{ secrets.HEARTBEAT_URL }}
+          PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+          BACKUP_CANARY_REPORT_SECRET: ${{ secrets.BACKUP_CANARY_REPORT_SECRET }}
+        run: |
+          set -uo pipefail
+          alarm_missing=""
+          for alarm_required in HEARTBEAT_URL PRODUCTION_BASE_URL BACKUP_CANARY_REPORT_SECRET; do
+            if [ -n "${!alarm_required:-}" ]; then
+              printf '  present  %s\n' "$alarm_required"
+            else
+              printf '  MISSING  %s\n' "$alarm_required"
+              alarm_missing="$alarm_missing $alarm_required"
+            fi
+          done
+
+          if [ -z "$alarm_missing" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "configured=false" >> "$GITHUB_OUTPUT"
+          {
+            echo "### This canary is not alarming anybody"
+            echo
+            echo "Missing in **this** repository (\`MooTamer/coditu-recovery\`) — not the"
+            echo "application repository, which is where two of them were first documented:"
+            echo
+            for alarm_required in $alarm_missing; do echo "- \`$alarm_required\`"; done
+            echo
+            echo "\`HEARTBEAT_URL\` is the one that matters most. Without it nothing outside"
+            echo "GitHub Actions knows whether this canary still runs, so if the schedule"
+            echo "stops being dispatched — a spent minute allowance, a disabled workflow, a"
+            echo "repository quiet for 60 days — there is no red run to notice, because"
+            echo "there is no run. That is the failure a dead-man's switch exists to catch,"
+            echo "which is why its own absence is a failure."
+            echo
+            echo "The other two publish this canary's evidence to the application's Recovery"
+            echo "Centre. Without them that page keeps saying \"not verified by this app\","
+            echo "which is honest and is a page somebody has to remember to open."
+            echo
+            echo "See \`docs/12-RECOVERY-RUNBOOK.md\` and \`docs/13-DEPLOYMENT-RUNBOOK.md\` §10."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Read the newest off-site recovery set
         env:
           RECOVERY_REPO: ${{ github.repository }}
@@ -37,21 +101,14 @@ jobs:
           BACKUP_CANARY_OUTPUT: ${{ runner.temp }}/backup-canary.json
         run: ./scripts/check-backup-freshness.sh
 
-      # Both publishing steps are opt-in. An unset secret skips its step with a
-      # notice rather than failing the canary: a missing heartbeat URL is a
-      # setup gap, and turning it into a red run every three hours trains
-      # everyone to ignore the one colour that is supposed to mean something.
       - name: Publish only the evidence this canary read
+        if: steps.alarm.outputs.configured == 'true'
         env:
           PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
           BACKUP_CANARY_REPORT_SECRET: ${{ secrets.BACKUP_CANARY_REPORT_SECRET }}
           BACKUP_CANARY_OUTPUT: ${{ runner.temp }}/backup-canary.json
         run: |
           set -euo pipefail
-          if [ -z "${PRODUCTION_BASE_URL:-}" ] || [ -z "${BACKUP_CANARY_REPORT_SECRET:-}" ]; then
-            echo "::notice::no report target configured; the Recovery Centre will keep showing 'not verified by this app'"
-            exit 0
-          fi
           test -s "$BACKUP_CANARY_OUTPUT"
           curl --fail --silent --show-error \
             --max-time 20 --retry 2 --retry-all-errors \
@@ -60,12 +117,12 @@ jobs:
             --data-binary "@$BACKUP_CANARY_OUTPUT" \
             "$PRODUCTION_BASE_URL/api/backup-health"
 
-      # LAST, and on success only. `if: success()` is the default, but it is
-      # written out because the whole value of this step is *where* it sits: a
-      # ping that fires regardless of outcome proves the runner booted, not
-      # that the backup was verified — and a dead-man's switch that reports
-      # "alive" while the thing it watches is broken is worse than no switch,
-      # because it is believed.
+      # LAST of the publishing steps, and on success only. `success()` is the
+      # default, but it is written out because the whole value of this step is
+      # *where* it sits: a ping that fires regardless of outcome proves the
+      # runner booted, not that the backup was verified — and a dead-man's
+      # switch that reports "alive" while the thing it watches is broken is
+      # worse than no switch, because it is believed.
       #
       # The receiver is healthchecks.io, NOT UptimeRobot: UptimeRobot's
       # cron/heartbeat monitor type is paid ("Available only in Solo, Team and
@@ -74,15 +131,20 @@ jobs:
       # `HEARTBEAT_URL` is `https://hc-ping.com/<uuid>` — treat the path as a
       # credential, because possessing it can forge a successful check-in.
       - name: Tell the independent monitor this check passed
-        if: success()
+        if: success() && steps.alarm.outputs.configured == 'true'
         env:
           HEARTBEAT_URL: ${{ secrets.HEARTBEAT_URL }}
         run: |
           set -euo pipefail
-          if [ -z "${HEARTBEAT_URL:-}" ]; then
-            echo "::notice::HEARTBEAT_URL is not set; external alerting is NOT active. Nothing will tell anybody if this canary stops running."
-            exit 0
-          fi
           curl -fsS --max-time 15 --retry 2 --retry-connrefused \
             --output /dev/null "$HEARTBEAT_URL"
           echo "heartbeat sent"
+
+      # The red. It is last so that everything above has already reported: the
+      # freshness of the newest recovery set is in the log either way, and this
+      # step is about the alarm, not the backup.
+      - name: An alarm that is not configured is a failed alarm
+        if: always() && steps.alarm.outputs.configured != 'true'
+        run: |
+          echo "::error title=This canary is not alarming anybody::see the job summary for the missing names"
+          exit 1
