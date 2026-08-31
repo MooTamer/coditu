@@ -283,3 +283,58 @@ describe("the schema preflight decides its own transport", () => {
     expect(PREFLIGHT).toContain("HOSTED_SCHEMA_DB_CA");
   });
 });
+
+/**
+ * The rollback drill. It moves production twice, so its safety properties are
+ * asserted here rather than left to review.
+ *
+ * The one that matters most is the last: restoring runs on EVERY exit path. A
+ * drill that can leave production on the previous release is worse than no
+ * drill, and the way that happens is an early `exit` between the rollback and
+ * the roll-forward.
+ */
+describe("the rollback drill cannot leave production where it moved it", () => {
+  const DRILL = read("scripts/rollback-drill.sh");
+  const DRILL_WORKFLOW = read(".github/workflows/rollback-drill.yml");
+
+  it("is dispatch-only — never scheduled, never on a push", () => {
+    expect(DRILL_WORKFLOW).toMatch(/^on:\n {2}workflow_dispatch:\n/m);
+    expect(DRILL_WORKFLOW).not.toMatch(/^ {2}schedule:/m);
+    expect(DRILL_WORKFLOW).not.toMatch(/^ {2}push:/m);
+  });
+
+  it("cannot run at the same time as a deploy", () => {
+    // Same concurrency group as the deploy job, so one waits for the other
+    // instead of both moving the domains.
+    expect(DRILL_WORKFLOW).toMatch(/group: production-deploy/);
+    expect(CI).toMatch(/group: production-deploy/);
+  });
+
+  it("refuses to start when any value is missing, rather than skipping", () => {
+    // The opposite of the preflight, deliberately: not deploying is safe, but a
+    // drill that quietly does not run leaves you believing it did.
+    expect(DRILL_WORKFLOW).toMatch(/refusing to move production/);
+    expect(DRILL_WORKFLOW).toMatch(/exit 1/);
+  });
+
+  it("restores on every exit path, not just the happy one", () => {
+    expect(DRILL).toMatch(/trap restore EXIT/);
+    expect(DRILL).toMatch(/trap 'exit 130' INT/);
+    expect(DRILL).toMatch(/trap 'exit 143' TERM/);
+    expect(DRILL).toMatch(/drill_restore_needed=1[\s\S]*vercel_cli rollback "\$drill_previous_id"/);
+    // And it goes red if the restore did not take.
+    expect(DRILL).toContain("Production was NOT restored");
+  });
+
+  it("proves each move from the public origin, not from the provider", () => {
+    // A provider check taken too soon reported count: 0 for a deployment that
+    // already existed (2026-08-29). What the API says and what a browser gets
+    // are different questions, so this reads build-health.json over the wire.
+    expect(DRILL).toMatch(/curl[\s\S]*\$PRODUCTION_BASE_URL\/build-health\.json/);
+    expect(DRILL).toMatch(/\[ "\$drill_rolled_commit" != "\$drill_original_commit" \]/);
+  });
+
+  it("polls to a deadline instead of sleeping a guessed interval", () => {
+    expect(DRILL).toMatch(/drill_deadline=\$\(\(SECONDS \+ 180\)\)/);
+  });
+});

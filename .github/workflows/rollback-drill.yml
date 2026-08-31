@@ -1,0 +1,65 @@
+# Prove the rollback works before it is needed.
+#
+# ## What this drills, and what it deliberately does not
+#
+# `scripts/deploy-production.sh` recovers from a bad release in two steps: it
+# notices (the public smoke after promotion) and it recovers (`vercel rollback`
+# to the deployment that owned the domains before). A fake-provider harness has
+# exercised both halves against the real shell script since 2026-08-28, and that
+# is worth something — but a fake provider proves the script, not the provider.
+#
+# This drills the RECOVERY half against real production: roll the domains back
+# to the previous production deployment, prove from the public origin that they
+# actually moved, then roll forward and prove they moved back.
+#
+# It does NOT drill the NOTICING half against real production, and that is a
+# decision rather than an omission. Proving the trap fires on a genuine 5xx
+# means deliberately promoting a build that fails its own smoke — and the
+# failure mode of that test is an outage, recovered by the very mechanism under
+# test. The fake-provider harness covers it; this covers what the harness
+# cannot. See ADR 2026-08-31.
+#
+# ## Why dispatch-only, and never scheduled
+#
+# It moves production twice. A schedule would do that unattended, on a cadence
+# nobody chose, for a check whose whole value is being watched.
+name: Rollback drill
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    name: roll production back, and forward again
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: Production
+    concurrency:
+      group: production-deploy      # the deploy job's group: never both at once
+      cancel-in-progress: false
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refuse to start without every value this needs
+        run: |
+          set -euo pipefail
+          for required in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN PRODUCTION_BASE_URL; do
+            if [ -z "${!required:-}" ]; then
+              echo "::error::$required is not set; refusing to move production"
+              exit 1
+            fi
+          done
+
+      - run: npm install --global vercel@59.9.1
+
+      - name: Roll back, prove it moved, roll forward, prove it moved back
+        run: ./scripts/rollback-drill.sh

@@ -6239,3 +6239,35 @@ matched zero and reported "none missing", which looks exactly like a clean resul
 file now, and there is a floor under it: the same scan must find at least 40 `public` triggers —
 it finds 48, which is precisely the number the dump carries — or it fails on the grounds that a
 scan which cannot see the ones that are there cannot be believed about the ones that are not.
+
+---
+
+## 2026-08-31 · The rollback drill covers recovery against real production, and deliberately not noticing
+
+**Decision.** `.github/workflows/rollback-drill.yml` plus `scripts/rollback-drill.sh`:
+dispatch-only, sharing the deploy job's `production-deploy` concurrency group so the two can never
+move the domains at once. It rolls production to the previous READY production deployment, proves
+**from the public origin** that `/build-health.json` now reports a different commit, then rolls
+forward and proves it came back. Restoring runs on every exit path — `EXIT`, `INT`, `TERM` — and the
+job goes red if the restore did not take.
+
+**What is covered, and what is not.** `deploy-production.sh` recovers from a bad release in two
+steps: it **notices** (the public smoke after promotion) and it **recovers** (`vercel rollback` to
+the deployment that owned the domains). A fake-provider harness has exercised both halves against
+the real shell script since 2026-08-28, and it proves the script — not the provider. This drill
+covers the recovery half for real.
+
+**The noticing half is not drilled against production, and that is a decision.** Proving the trap
+fires on a genuine 5xx means deliberately promoting a build that fails its own smoke: breaking
+production on purpose and trusting the mechanism under test to undo it. The failure mode of that
+test is an outage. So it stays covered by the fake-provider harness, and this entry says so rather
+than letting "the rollback is tested" stand for more than it does.
+
+**Why the proof is read over the internet rather than from the API.** On 2026-08-29 a provider check
+taken too soon reported `count: 0` for a deployment that already existed. What the API says and what
+a browser gets are different questions, and only the second one is what a rollback is for. The drill
+polls `/build-health.json` to a 180-second deadline rather than sleeping a guessed interval — the
+same rule that check broke.
+
+**Why dispatch-only and never scheduled.** It moves production twice. A schedule would do that
+unattended, on a cadence nobody chose, for a check whose entire value is being watched while it runs.
