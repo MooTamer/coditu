@@ -6235,3 +6235,99 @@ in `tests/fail-closed-controls.test.ts` red.
 
 `npm run lint`, `npm run typecheck` clean. Unit **541 passed / 0 failed** (536 before; the five new
 ones are the row above).
+
+## 2026-08-31 · The deploy gate refuses, then passes; hosted reaches 40
+
+### The preflight earned its first pass by first refusing
+
+`check-hosted-schema.mjs` had never run in the deploy path. Its first run, on the merge of `6a26943`
+with all five values set, is the one below — a true negative on a real gap, not an assertion:
+
+```
+##[warning]connected as postgres, and the contract is coditu_backup. What bounds this is the
+read-only transaction, which is proved rather than trusted, not the role's own privileges.
+Narrowing it is owed — ADR 2026-08-31.
+  - database connection is not encrypted
+  - missing migration 20260830140000
+check-hosted-schema: 2 hosted schema requirement(s) failed
+##[error]Process completed with exit code 1.
+```
+
+Three things at once, and only one of them was expected. **`missing migration 20260830140000`** is
+the ordering rule working: local was at 40, hosted at 39, and the code that reads the new schema was
+refused a deploy. The **warning** confirms the role deviation is real and loud rather than assumed.
+And **`database connection is not encrypted`** was not expected at all — the secret's URL had no
+usable `sslmode`, so the deploy preflight was reading production in cleartext across the public
+internet. That assertion has existed for two days and this is the first time anything ran it.
+
+The preflight job itself, which is what G1 was about:
+
+```
+  present  VERCEL_ORG_ID
+  present  VERCEL_PROJECT_ID
+  present  VERCEL_TOKEN
+  present  HOSTED_SCHEMA_DB_URL
+  present  PRODUCTION_BASE_URL
+```
+
+Five of five, `configured=true`, job green in 2s.
+
+### Then it passed, for a true reason
+
+After the migration was applied to hosted:
+
+```
+$ node scripts/check-hosted-schema.mjs
+hosted_schema_verified=true
+migrations=40
+relations=38
+columns=334
+functions=32
+enums=12
+storage_buckets=3
+```
+
+`push-to-hosted.sh --verify-only` through the read-only role: **16 of 16 checks green**, on both
+sides of the apply. Hosted `40`, local `40`, migration files `40`; the two guard bodies on hosted
+are byte-identical to the ones the rehearsal ran (`md5 e712b802…`, `3bc06878…`).
+
+### The safe order, in full
+
+| step | what | evidence |
+|---|---|---|
+| (a) | fresh backup, **restored** rather than checked | `nightly-2026-08-31T061608Z`, `restore_verified=true`, 64 tables / 1,397 rows / 135 objects, sha `e49885e1…` matching the sidecar |
+| (b) | rehearsed on hosted's exact privilege shape | that archive restored into a throwaway stack — hosted's own roles, grants, schema and data at 39 |
+| (c) | applied; hosted == local == 40 | above |
+| (d) | fresh backup again, verified | `nightly-2026-08-31T064735Z`, 58s old, sha matches, and its `schema.sql` carries **both** allowlist guards — it genuinely postdates the change |
+| (e) | preflight passes | above |
+
+The rehearsal's before and after, on hosted's real data:
+
+| column | before (39) | after (40) |
+|---|---|---|
+| `order_index` | `UPDATE 1` | `UPDATE 1` |
+| `status` | `UPDATE 1` | `UPDATE 1` |
+| **`minutes_logged`** | **`UPDATE 1`** | refused `42501` |
+| `closed_at` | `UPDATE 1` | refused `42501` |
+| `created_at` | `UPDATE 1` | refused `42501` |
+| `title` | refused `42501` | refused `42501` |
+
+And the regression that would have hurt most does not happen: an engineer still logs time,
+`minutes_logged` moving 0 → 45 through `refresh_minutes_logged`.
+
+**Worth knowing:** on hosted this migration changes nothing for anybody today — all four profiles
+are `admin`, and the guard returns early for an admin or lead. It goes live the first time somebody
+is made an engineer. The rehearsal had to create one to see anything at all.
+
+### Three things found by running what had only been asserted
+
+1. **No backup carries the two triggers on `auth.users`.** 48 `CREATE OR REPLACE TRIGGER` in the
+   archive, all `public.*`, none managed. A restore comes back with no profile creation and **no
+   sign-up allowlist**. `12-RECOVERY-RUNBOOK.md` §2/§3 corrected; `verify-backup-restore.sh` now
+   refuses `restore_verified=true` while either is missing — red before the remedy, green after.
+2. **`push-to-hosted.sh` never parsed on this Mac.** A heredoc inside a command substitution is
+   bash 4; macOS ships 3.2. Broken since the commit that added it and claimed to have rehearsed it.
+3. **`Ahmed Yehia.is_developer` is `false` on hosted** and the seed names him. **Mohamed's call, no
+   row touched.** Not yet a money error — hosted holds 0 payouts and 0 shares — but his 5,040 logged
+   minutes would swell a pot he took no share of. The check that found it asserted a constant about
+   an admin-editable value and is fixed.

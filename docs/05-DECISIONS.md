@@ -6058,3 +6058,216 @@ client socket is encrypted and pins the issuer to `Supabase Inc` by name, and
 `HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1` still demands the strong form. Verified capable of failing:
 with no ssl parameter at all the connection is cleartext and the check says so —
 `database connection is not encrypted` — rather than passing.
+
+---
+
+## 2026-08-31 · The schema preflight establishes its own TLS; the connection string says only where
+
+**Supersedes the `sslmode=no-verify` half of the entry above.** That entry corrected the documented
+string. This one removes the string's authority over transport altogether, which is the fix the
+correction was standing in for.
+
+**What happened.** The first CI run with `HOSTED_SCHEMA_DB_URL` set refused, and one of its two
+findings was not the expected one:
+
+```
+##[warning]connected as postgres, and the contract is coditu_backup. …
+  - database connection is not encrypted
+  - missing migration 20260830140000
+check-hosted-schema: 2 hosted schema requirement(s) failed
+```
+
+The secret's URL carried no usable `sslmode`, so the deploy preflight was reading the production
+database **in cleartext across the public internet**. The assertion caught it and failed closed,
+which is the control working. The design around the assertion was the defect.
+
+**Decision.** `check-hosted-schema.mjs` decomposes the URL and passes host, port, user, password and
+database explicitly, dropping the query string, and supplies `ssl` itself. The URL says *where* to
+connect; the check says *how*.
+
+**Why not simply fix the secret.** Because the next person to set it can get it wrong the same way,
+and nobody would be able to tell by looking. A transport guarantee that lives inside an opaque
+secret is a guarantee that cannot be reviewed — the shape this repository has been removing all
+week, arriving in a new place. It also cannot be got right by one rule: `sslmode=require` means
+encrypt-and-do-not-verify to `psql` and **`verify-full`** to `pg` 8.23.0, so the string that is
+correct for the backup leg failed outright on this one.
+
+**Measured, because the obvious version was not enough.** Passing `ssl` beside `connectionString`
+does not work: node-postgres lets a `sslmode` in the string win. With that version, `require` still
+died with `SELF_SIGNED_CERT_IN_CHAIN` and `disable` still connected in cleartext. Only decomposing
+the URL closes both. Against the real project, all five of `(nothing)`, `require`, `no-verify`,
+`disable` and `verify-full&application_name=x` now reach the identical verdict — one missing
+migration.
+
+**Arranging and asserting are kept separate.** `transportFailures` still reads the client socket
+afterwards and still pins the issuer to `Supabase Inc` by name. Verified capable of failing: with
+the `ssl` option forced to `false`, the check still reports `database connection is not encrypted`.
+If the arranging half is ever wrong, the asserting half still says so.
+
+**Not weakened.** `HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1` still demands a verified chain, and now has
+somewhere to put the root: `HOSTED_SCHEMA_DB_CA`.
+
+---
+
+## 2026-08-31 · Hosted reaches 40; and `is_developer` on hosted is not what the seed says
+
+**Decision.** `20260830140000_column_guards_are_allowlists.sql` is applied to `hayfsvsepgfescojesbd`.
+Hosted, local and the rehearsal stack all read 40 migrations, and the two guard bodies are
+byte-identical across hosted and the rehearsal (`md5` `e712b802…` and `3bc06878…`).
+
+**Applied through the Management API, not `supabase db push`.** The `postgres` password is not on
+the delivery machine — `coditu_backup`'s is, and it is read-only by construction. The Management
+API's `database/query` runs SQL as `postgres` and is how `coditu_backup` itself was created on
+2026-08-29, so it is the established route rather than a new one. The guarded script still ran, on
+both sides of the apply, as `--verify-only` through the read-only role: 16 checks, all green.
+
+**The rehearsal was a real restore, not an approximation.** `nightly-2026-08-31T061608Z` was
+decrypted with the local key and restored into a throwaway stack —
+`restore_verified=true`, 64 tables, 1,397 rows, 135 Storage objects, matching the sidecar — which
+gave hosted's own schema, data, roles and grants at 39. The defect reproduced there before the
+migration and closed after it:
+
+| column | before (39) | after (40) |
+|---|---|---|
+| `order_index` | `UPDATE 1` | `UPDATE 1` |
+| `status` | `UPDATE 1` | `UPDATE 1` |
+| **`minutes_logged`** | **`UPDATE 1`** | refused `42501` |
+| `closed_at` | `UPDATE 1` | refused `42501` |
+| `created_at` | `UPDATE 1` | refused `42501` |
+| `title` | refused `42501` | refused `42501` |
+| `estimate_minutes` | refused `42501` | refused `42501` |
+
+And the regression that would have mattered most does not happen: after the migration an engineer
+still logs time, `minutes_logged` moving 0 → 45 through `refresh_minutes_logged`, because
+`pg_trigger_depth() > 1` exempts the write a trigger makes on the caller's behalf.
+
+**Worth knowing: on hosted this migration changes nothing for anybody today.** All four profiles
+are `admin`, and the guard returns early for an admin or lead. It becomes live the first time
+somebody is made an engineer. That lowers the risk of applying it and is the reason the rehearsal
+had to create an engineer to see anything at all.
+
+---
+
+**Found while verifying, NOT changed: `Ahmed Yehia.is_developer` is `false` on hosted.**
+
+`supabase/seeds/developers.sql` names three people — Mohamed Tamer, Abdelrahman Elkhateeb, Ahmed
+Yehia. Hosted has the first two as `true` and Ahmed as `false`; local has all three `true`. Since
+the seed sets all three in one statement and two of them took, the seed ran and **something turned
+Ahmed off afterwards** — which is exactly what the seed's own comment says an admin may do from
+`/app/settings`, and says the file is not consulted again after.
+
+**This is Mohamed's call and no production row was touched.** It is not yet a money error: hosted
+holds **0 `sprint_payouts` and 0 `sprint_payout_shares`**. It becomes one at the first payout —
+Ahmed has logged **12 entries, 5,040 minutes**, so his hours would swell the pot while he took no
+share of it, which is the treatment the seed reserves deliberately for Adam Nafie. Either he should
+be a developer, or he should not and the ledger should say why.
+
+**The check that found it was itself wrong, and is fixed.** `push-to-hosted.sh` asserted
+`count(*) = 3 from profiles where is_developer` — a constant, about a value the seed says an admin
+edits in the interface. It goes red the first time somebody exercises the control, which is not a
+fault. Same defect as the column guards and the three CI controls before them: a hand-maintained
+expectation about something designed to change. It now asserts what it can actually detect — that
+somebody takes a share, so a pot is not orphaned — and the roster is printed for a human to read.
+Adam Nafie's exclusion stays a check, because that one is a stated product rule.
+
+---
+
+## 2026-08-31 · `push-to-hosted.sh` never parsed on the delivery Mac
+
+**Found by running it.** The one script in this repository that writes to production dies before it
+does anything, on the machine it is documented for:
+
+```
+scripts/push-to-hosted.sh: line 124: unexpected EOF while looking for matching `)'
+```
+
+`IMAGE_PREDICATE=$(cat <<'SQL' … )` — a heredoc inside a command substitution — is a **bash 4**
+parser feature. macOS ships **bash 3.2.57**, and there is no other bash on this machine. It has
+been this way since `529d106`, the commit that added the script and whose message says it was
+rehearsed; that rehearsal was on a Linux runner, where it parses.
+
+**Decision.** Replaced with `read -r -d '' IMAGE_PREDICATE <<'SQL' || true`, which is bash 3.2 and
+keeps the heredoc verbatim. Verified: `/bin/bash -n` now parses the file, the predicate expands to
+the same SQL, and the script completes 16 of 16 checks against hosted.
+
+**Why this is worth an entry rather than a quiet fix.** The error names a paren and not the
+construct, on the script whose whole purpose is to be run at the moment somebody is anxious. And it
+is the second thing this pass found that had been *asserted* rather than *observed* — a rehearsal
+recorded as done, on a platform that is not the one in the runbook.
+
+---
+
+## 2026-08-31 · No backup of this project carries the two triggers on `auth.users`
+
+**Found by doing the restore rather than by reading about it.** The 2026-08-31 drill decrypted
+`nightly-2026-08-31T061608Z` into a throwaway and reported `restore_verified=true` — 64 tables,
+1,397 rows, 135 Storage objects, all matching. Then a query on the restored database returned
+nothing where the migrated one returns two rows:
+
+```
+RESTORED : (none)
+LOCAL    : enforce_email_allowlist, on_auth_user_created
+```
+
+`supabase db dump` writes the `public` schema; the managed schemas belong to the platform's own
+services. Counted in the archive: **48** `CREATE OR REPLACE TRIGGER` statements, **all** on
+`public.*`, **none** on `auth.*` or `storage.*`. The migrations attach exactly two to `auth.users`,
+both from `20260820120100_identity.sql`.
+
+**What that means in a recovered system.** `on_auth_user_created` gone: a new sign-up creates an
+`auth.users` row and no profile, so the person exists to GoTrue and not to the app.
+`enforce_email_allowlist` gone: **the no-public-sign-up gate is off**, and anybody reaching the
+endpoint gets an account. That second one is a security regression that a restore introduces
+quietly, in the middle of the worst day the project will ever have.
+
+**Decision.** The archive is left alone — it is not at fault, and a dump cannot carry what the
+platform owns. Two changes instead:
+
+1. `docs/12-RECOVERY-RUNBOOK.md` §2 states what the set does not contain, and §3 gains a step 5a:
+   re-apply the migrations over the restored database. A restore is not a recovery until it has run.
+2. `verify-backup-restore.sh` refuses to print `restore_verified=true` while either trigger is
+   absent, and names them and the remedy. Verified capable of both: red on the freshly restored
+   database, green after the two triggers are created.
+
+**The expected list is derived from the migrations, not written into the script.** A hand-kept list
+would be silent about the trigger somebody adds next — the defect this repository has now found in a
+database guard, in that guard's test, and in three CI controls.
+
+**And the first version of that scan was green because it read nothing.** `grep` is line-based;
+these statements span lines, with `create trigger x` and `on auth.users` never on the same one. It
+matched zero and reported "none missing", which looks exactly like a clean result. It slurps the
+file now, and there is a floor under it: the same scan must find at least 40 `public` triggers —
+it finds 48, which is precisely the number the dump carries — or it fails on the grounds that a
+scan which cannot see the ones that are there cannot be believed about the ones that are not.
+
+---
+
+## 2026-08-31 · The rollback drill covers recovery against real production, and deliberately not noticing
+
+**Decision.** `.github/workflows/rollback-drill.yml` plus `scripts/rollback-drill.sh`:
+dispatch-only, sharing the deploy job's `production-deploy` concurrency group so the two can never
+move the domains at once. It rolls production to the previous READY production deployment, proves
+**from the public origin** that `/build-health.json` now reports a different commit, then rolls
+forward and proves it came back. Restoring runs on every exit path — `EXIT`, `INT`, `TERM` — and the
+job goes red if the restore did not take.
+
+**What is covered, and what is not.** `deploy-production.sh` recovers from a bad release in two
+steps: it **notices** (the public smoke after promotion) and it **recovers** (`vercel rollback` to
+the deployment that owned the domains). A fake-provider harness has exercised both halves against
+the real shell script since 2026-08-28, and it proves the script — not the provider. This drill
+covers the recovery half for real.
+
+**The noticing half is not drilled against production, and that is a decision.** Proving the trap
+fires on a genuine 5xx means deliberately promoting a build that fails its own smoke: breaking
+production on purpose and trusting the mechanism under test to undo it. The failure mode of that
+test is an outage. So it stays covered by the fake-provider harness, and this entry says so rather
+than letting "the rollback is tested" stand for more than it does.
+
+**Why the proof is read over the internet rather than from the API.** On 2026-08-29 a provider check
+taken too soon reported `count: 0` for a deployment that already existed. What the API says and what
+a browser gets are different questions, and only the second one is what a rollback is for. The drill
+polls `/build-health.json` to a 180-second deadline rather than sleeping a guessed interval — the
+same rule that check broke.
+
+**Why dispatch-only and never scheduled.** It moves production twice. A schedule would do that
+unattended, on a cadence nobody chose, for a check whose entire value is being watched while it runs.

@@ -275,7 +275,48 @@ async function main() {
 
   const contract = parseGeneratedContract();
   const expectedMigrations = localMigrations();
-  const client = new Client({ connectionString, connectionTimeoutMillis: 15_000 });
+  // TLS is ESTABLISHED here. The connection string says WHERE to connect; it is
+  // deliberately given no say in HOW.
+  //
+  // The first CI run of this check refused with `database connection is not
+  // encrypted`, because `HOSTED_SCHEMA_DB_URL` carried no usable `sslmode`.
+  // The assertion was right and the design around it was wrong: a transport
+  // guarantee that depends on a query parameter inside an opaque secret is a
+  // guarantee nobody can review, and this driver does not even read `sslmode`
+  // the way `psql` does — `require` is `verify-full` here and merely "encrypt"
+  // there, so the string that is correct for the backup leg fails outright on
+  // this one.
+  //
+  // Supplying `ssl` beside `connectionString` is not enough: node-postgres lets
+  // a `sslmode` in the string win, so `require` still died and `disable` still
+  // connected in cleartext. Measured, not assumed. So the URL is decomposed and
+  // its query string dropped, and every field this client uses is passed
+  // explicitly. `sslmode=disable` in the secret can no longer produce a
+  // cleartext connection, and `sslmode=require` can no longer produce a
+  // failure that reads like a broken database.
+  //
+  // `transportFailures` still reads the socket afterwards. Arranging the
+  // guarantee and asserting it are different jobs and neither replaces the
+  // other — if this block is ever wrong, that one still says so.
+  const client = new Client({
+    host: parsedUrl.hostname,
+    port: parsedUrl.port ? Number(parsedUrl.port) : 5432,
+    user: decodeURIComponent(parsedUrl.username),
+    password: decodeURIComponent(parsedUrl.password),
+    database: decodeURIComponent(parsedUrl.pathname.replace(/^\//, "")) || "postgres",
+    connectionTimeoutMillis: 15_000,
+    ssl: localHost
+      ? false
+      : process.env.HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS === "1"
+        ? {
+            rejectUnauthorized: true,
+            ...(process.env.HOSTED_SCHEMA_DB_CA ? { ca: process.env.HOSTED_SCHEMA_DB_CA } : {}),
+          }
+        : // Encrypt without delegating verification, which is the posture
+          // `transportFailures` was written for: it pins the issuer to Supabase
+          // by name, because no public trust store carries their root.
+          { rejectUnauthorized: false },
+  });
   const failures = [];
 
   try {

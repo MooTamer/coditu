@@ -121,7 +121,16 @@ rule "Before — what the database has now"
 # the `\.` and `\d` in that regex as escape sequences, and what it does with an
 # unrecognised one is explicitly undefined; a predicate that quietly stops
 # matching would turn every check below into a pass.
-IMAGE_PREDICATE=$(cat <<'SQL'
+#
+# Read with `read -d ''` rather than `IMAGE_PREDICATE=$(cat <<'SQL' … )`. A
+# heredoc inside a command substitution is a bash 4 parser feature, and macOS
+# ships bash 3.2 — so the form this started life with made the ONE script in
+# this repository that writes to production fail to parse on the delivery Mac,
+# with `unexpected EOF while looking for matching ')'` and no clue which
+# construct it meant. It was written that way in the commit that added the
+# script and never ran here; the rehearsal it claims happened on a Linux
+# runner. `read` returns non-zero at EOF, hence the `|| true` under `set -e`.
+read -r -d '' IMAGE_PREDICATE <<'SQL' || true
 exists (
   select 1
   from jsonb_path_query(@COL@, '$.**.src') as node
@@ -130,7 +139,6 @@ exists (
         ~ '^[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}\.(png|jpg|webp|gif|avif)$'
 )
 SQL
-)
 image_predicate() { echo "${IMAGE_PREDICATE//@COL@/$1}"; }
 
 # `to_regclass` rather than an assumption: this script may be run against a
@@ -253,8 +261,19 @@ check "the component registry landed" \
       "(select count(*) >= 30 from public.components)"
 check "the imported work is attributed to it" \
       "(select count(*) > 0 from public.work_items where component_id is not null)"
-check "three people take a share of a sprint's pot" \
-      "(select count(*) = 3 from public.profiles where is_developer)"
+# Was `count(*) = 3`, and it went red against hosted on 2026-08-31 for a reason
+# that is not a fault: `is_developer` is a decision an admin makes in the
+# interface — `supabase/seeds/developers.sql` says so in as many words, and says
+# the seed is not consulted again afterwards. So a constant here asserts that
+# nobody has ever exercised the control, and goes red the first time somebody
+# does. Same defect as the column guards: a hand-maintained expectation about
+# something designed to change.
+#
+# What is left is the failure this can actually detect — the seed never having
+# run at all, leaving a pot with nobody to share it. The roster itself is
+# printed under "Numbers to read", where a human reads it and decides.
+check "somebody takes a share of a sprint's pot" \
+      "(select count(*) > 0 from public.profiles where is_developer)"
 check "Adam Nafie is not one of them — his hours count, his share does not" \
       "(select coalesce(bool_and(not is_developer), true) from public.profiles where full_name = 'Adam Nafie')"
 

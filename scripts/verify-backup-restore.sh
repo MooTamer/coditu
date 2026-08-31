@@ -167,6 +167,66 @@ if [ "$restore_storage_values" -eq 4 ]; then
   done
 fi
 
+restore_repo_root=$(CDPATH= cd -- "$restore_script_dir/.." && pwd)
+
+# ── The half a `pg_dump` of this project CANNOT carry ────────────────────────
+#
+# `supabase db dump` writes the `public` schema. Triggers this repository
+# attaches to MANAGED tables are not in it — measured on the 2026-08-31 drill:
+# `schema.sql` holds 48 `CREATE OR REPLACE TRIGGER` statements and every single
+# one targets `public.*`. Zero target `auth.*` or `storage.*`.
+#
+# Two of ours live on `auth.users`, both from `20260820120100_identity.sql`, and
+# a restore silently arrives without them:
+#
+#   `on_auth_user_created`     -> a new sign-up gets an auth row and NO profile.
+#   `enforce_email_allowlist`  -> the no-public-sign-up gate is OFF. Anybody who
+#                                 reaches the endpoint gets an account.
+#
+# The archive is not at fault and the row counts above are all true. The
+# PROCEDURE was incomplete, and the drill was green about a database that had
+# lost its sign-up gate — a restore is not a recovery until the migrations have
+# been re-applied over it.
+#
+# The expected list is DERIVED from the migrations rather than written here. A
+# hand-kept list would be silent about the trigger somebody adds next, which is
+# the defect this repository has now found in a guard, a test and three CI
+# controls.
+# Extracted with a slurping regex, not `grep`. These statements span lines —
+# `create trigger x` and `on auth.users` are never on the same one — so the
+# line-based version of this found NOTHING and reported "none missing", which
+# is the third time in two days a scan has been green because it read nothing.
+restore_trigger_scan() {
+  perl -0777 -ne 'while (/create\s+trigger\s+(\w+)\s+(?:before|after|instead\s+of)\b[^;]*?\bon\s+('"$1"')\.(\w+)/gis) { print "$1 $2.$3\n" }' \
+    "$restore_repo_root"/supabase/migrations/*.sql | sort -u
+}
+
+restore_managed_triggers=$(restore_trigger_scan 'auth|storage|realtime')
+
+# The floor. If the scan cannot see the public triggers either, then it read
+# nothing and an empty managed list means nothing. 48 in the migrations today,
+# which is exactly the count the dump carries.
+restore_public_seen=$(restore_trigger_scan 'public' | grep -c . | tr -d ' ')
+[ "$restore_public_seen" -ge 40 ] || fail \
+  "the trigger scan found only $restore_public_seen public triggers in the migrations; it is not reading them, so it cannot be trusted about the managed ones"
+
+restore_missing_triggers=""
+while read -r restore_trigger restore_table; do
+  [ -n "$restore_trigger" ] || continue
+  restore_present=$(psql -X -qAt "$RESTORE_DB_URL" -v ON_ERROR_STOP=1 -c \
+    "select count(*) from pg_trigger
+      where tgname = '$restore_trigger'
+        and tgrelid = to_regclass('$restore_table')
+        and not tgisinternal")
+  [ "$restore_present" = 1 ] || \
+    restore_missing_triggers="$restore_missing_triggers $restore_trigger on $restore_table;"
+done <<TRIGGERS
+$restore_managed_triggers
+TRIGGERS
+
+[ -z "$restore_missing_triggers" ] || fail \
+  "the data restored but the database is NOT usable: no dump of this project carries triggers on managed schemas, and these are absent:${restore_missing_triggers} Re-apply the migrations over the restored database (supabase db push) and run this again. See docs/12-RECOVERY-RUNBOOK.md."
+
 printf 'restore_verified=true\n'
 printf 'database_tables=%s\n' "$(grep -c . "$restore_payload/row-counts.tsv" | tr -d ' ')"
 printf 'target_only_empty_tables=%s\n' "${restore_extra:-none}"
