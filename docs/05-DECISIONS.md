@@ -6396,3 +6396,56 @@ incident.
 **Unchanged: the noticing half is still not drilled against production.** Proving the trap fires on
 a genuine 5xx means promoting a build that fails its own smoke, and the failure mode of that test is
 an outage.
+
+---
+
+## 2026-08-31 · R5 has happened: the Actions allowance ran out, and it took the backups with it
+
+**Not a decision — an observation, recorded because the risk register predicted it and nobody had
+seen it.** `docs/10-PRODUCT-FEEDBACK.md` R5, written 2026-08-29:
+
+> **GitHub Actions minutes are one pool.** CI, the nightly backup, the canary and the monthly drill
+> all draw on the same free monthly allowance. The failure mode: a busy week of CI exhausts the
+> minutes, the nightly backup silently stops, and the canary — also Actions — cannot run to say so.
+
+**Measured at 08:23–08:36Z on 2026-08-31.** Every job, in both repositories, across every workflow,
+now starts and completes in **two to three seconds with zero steps** — the signature of a job for
+which no runner is ever allocated:
+
+```
+is the production deploy configured   started=08:23:53Z completed=08:23:55Z steps=0 -> failure
+blocking release checks               started=08:23:53Z completed=08:23:55Z steps=0 -> failure
+what changed                          started=08:23:53Z completed=08:23:55Z steps=0 -> failure
+```
+
+Confirmed three ways rather than inferred from one red run: the CI push for `3fe7ab0`; the
+**8-second** `Database keepalive`, dispatched deliberately as the smallest possible test; and
+`Recovery copy freshness` in `MooTamer/coditu-recovery`, which establishes that this is **account-
+wide and not repository-specific**. Billing could not be read to name the exact cause — the token
+lacks the `user` scope — so this is recorded as the measured behaviour rather than as a confirmed
+quota figure.
+
+**What it costs, in order of seriousness.**
+
+1. **The nightly backup cannot run.** The newest set is `2026-08-31T070134Z`, taken at 07:01Z by the
+   last scheduled run before this started. Every hour from here widens the RPO and nothing will
+   widen it back.
+2. **The canary cannot run to say so — and would have looked identical if it had.** It is already
+   red on purpose, for the missing `HEARTBEAT_URL`. So the new and worse cause is wearing the old
+   one's clothes: a red canary meant "no alerting is configured" this morning and means "no backups
+   are being taken" this afternoon, and nothing in the signal distinguishes them. **A deliberate red
+   is a place a real red can hide.** That is a new finding and it is the sharpest thing here.
+3. **`main` is frozen.** The ruleset requires `blocking release checks`, and a check that cannot run
+   cannot pass. Nothing merges until the allowance resets.
+4. **The deploy of `3fe7ab0` did not happen.** Production is `d5f11a8`; `main` is one commit ahead of
+   what is live. That is the intended behaviour of the gate, arriving for an unintended reason.
+
+**Not worked around.** The obvious workarounds are all worse than the condition: deploying from a
+laptop bypasses the gate this pass exists to establish, and a self-hosted runner puts production
+credentials on a machine nobody has threat-modelled.
+
+**What this argues for, for whoever picks it up.** The heartbeat has to leave Actions — that is
+already the plan (healthchecks.io, ADR 2026-08-29) and this is the argument for doing it now rather
+than soon, because an alarm sharing a failure domain with the thing it watches is not an alarm. And
+the browser baseline is the largest line item in the pool; it ran on nine of this pass's runs and
+gates nothing.
