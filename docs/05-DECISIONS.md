@@ -6356,3 +6356,43 @@ passthrough section, so a trailing `--token` is consumed there and always was.
 place. It stages, smokes the staged deployment, and only then moves domains — so a broken smoke
 cost nothing: `staged production smoke failed; domains were not changed`, and production stayed on
 `707d03f`, verified from the public origin rather than from the API.
+
+---
+
+## 2026-08-31 · `vercel rollback` reaches exactly one step on this plan
+
+**Measured, on the first run of the drill:**
+
+```
+== rolling BACK ==
+Fetching deployment "dpl_CucN8sg2EN6rdivwKhe2dw9CjFxu"…
+Error: To rollback further than the previous production deployment, upgrade to pro. (402)
+```
+
+**On the Hobby plan `vercel rollback` reaches the deployment promoted immediately before the live
+one, and nothing further.** The drill had aimed at the newest READY *production-target* deployment
+that was not live — which is not the same thing, because a deployment can be built for production
+and never promoted, as `dpl_CucN8sg2` was when its staged smoke failed.
+
+**This is good news for the recovery design and it had never been written down.**
+`deploy-production.sh`'s trap rolls back to `release_previous_id` — the deployment that owned the
+domains when the script started, which is precisely the one step the plan allows. So the real
+recovery path is inside the free allowance. **And there is no second undo**: if a rollback lands on
+a release that is also bad, `rollback` cannot reach past it and the way home is `promote`.
+
+**Decision — the drill steps away with `promote` and comes back with `rollback`.** That is the
+direction that matters, it is the one step the plan permits, and it makes the return leg the thing
+under test rather than a convenience.
+
+**It verifies by deployment id, not by commit.** The two deployments can carry identical
+application code — in the safest case they do, which is why this drill is safe to run at all — so
+comparing commits would pass without the domain having moved.
+
+**It refuses to promote a deployment that is not serving**, and the restore path tries `rollback`
+first and falls back to `promote`, reporting loudly if it had to. If rollback cannot bring
+production home, that is the finding; the fallback is what stops the finding from also being an
+incident.
+
+**Unchanged: the noticing half is still not drilled against production.** Proving the trap fires on
+a genuine 5xx means promoting a build that fails its own smoke, and the failure mode of that test is
+an outage.
