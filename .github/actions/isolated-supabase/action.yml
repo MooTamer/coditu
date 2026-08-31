@@ -1,0 +1,52 @@
+name: Give CI a Supabase stack that cannot collide with the Mac's own
+description: >-
+  Move this checkout's Supabase project onto a project id and port block that
+  nothing else on the self-hosted runner holds. A no-op on a hosted runner.
+
+# ── The hazard this exists to remove ────────────────────────────────────────
+#
+# `supabase start` keys its containers off `project_id` in `config.toml`, not
+# off the directory it is run from. On a GitHub-hosted runner the machine is
+# empty, so two checkouts can never meet. This Mac is not empty: it carries the
+# developer's own `coditu` stack, and CI would attach to those exact containers.
+# The next line in the `check` job is `supabase db reset`, which would drop the
+# local database somebody is working in — and in `lighthouse`, the teardown
+# would stop their stack out from under them.
+#
+# It is the kind of defect that only ever surfaces the expensive way, because
+# the hosted runner it was written on cannot reproduce it.
+#
+# ## The port block, written down once
+#
+#   543xx  the Supabase CLI's default
+#   544xx  the shared development stack (`supabase/config.toml` as committed)
+#   545xx  the isolated e2e rehearsal        (docs/07-FIELD-NOTES.md)
+#   546xx  the nightly restore drill         (scripts/local-nightly.sh)
+#   547xx  CI on the self-hosted runner      (here)
+#
+# Nothing downstream is told these numbers. Every consumer reads
+# `supabase status -o env`, including `check-degraded-dependency.mjs`, which
+# picks the gateway container by its PUBLISHED PORT — which is what stops it
+# pausing a Kong belonging to somebody else's project.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      if: runner.environment == 'self-hosted'
+      run: |
+        set -euo pipefail
+        sed -i.bak \
+          -e 's/^project_id = .*/project_id = "codituci"/' \
+          -e 's/^port = 54421$/port = 54721/' \
+          -e 's/^port = 54422$/port = 54722/' \
+          -e 's/^shadow_port = 54320$/shadow_port = 54720/' \
+          -e 's/^port = 54429$/port = 54729/' \
+          -e 's/^port = 54423$/port = 54723/' \
+          -e 's/^port = 54424$/port = 54724/' \
+          -e 's/^port = 54427$/port = 54727/' \
+          supabase/config.toml
+        rm -f supabase/config.toml.bak
+        # Printed, because a rename that silently did nothing would leave CI
+        # pointed at the developer's stack with a green step above it.
+        grep -nE '^(project_id|port|shadow_port) =' supabase/config.toml
+        grep -q '^project_id = "codituci"$' supabase/config.toml
