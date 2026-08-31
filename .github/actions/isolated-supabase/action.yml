@@ -31,6 +31,37 @@ description: >-
 runs:
   using: composite
   steps:
+    # ── Say `colima start`, rather than making somebody work it out ─────────
+    #
+    # A hosted runner ships with a running Docker. This Mac runs Colima, and
+    # Colima stops: it stopped between two runs of this very change, and the
+    # required check went red with
+    #
+    #     failed to inspect service: Cannot connect to the Docker daemon at
+    #     unix:///Users/motamer/.colima/default/docker.sock
+    #
+    # which is decipherable and does not contain the remedy. `main` is frozen
+    # while that is red, so the minute this saves is not a convenience.
+    #
+    # It reports rather than starting Colima itself. A CI job that silently
+    # boots a 6 GiB VM on somebody's laptop is a surprise, and the case where
+    # the VM is deliberately down is real.
+    - shell: bash
+      if: runner.environment == 'self-hosted'
+      run: |
+        set -euo pipefail
+        if ! docker info >/dev/null 2>&1; then
+          {
+            printf '### The Docker daemon is not answering on this runner\n\n'
+            printf 'CI needs it for the Supabase stack. On this Mac that is Colima:\n\n'
+            printf '```bash\ncolima start\n```\n\n'
+            printf 'Then re-run this job. Nothing is wrong with the change.\n\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+          printf 'isolated-supabase: the Docker daemon is not answering; run `colima start` on %s\n' \
+            "$(hostname -s)" >&2
+          exit 1
+        fi
+
     - shell: bash
       if: runner.environment == 'self-hosted'
       run: |

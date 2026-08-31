@@ -6531,3 +6531,24 @@ naturally, `== 'self-hosted' && '' || 'npm'`, returns `npm` in **both** branches
 is falsy in a GitHub expression, so the `||` takes over and the condition does nothing. A test
 asserts the trap is not present, since a workflow that silently ignores its own condition is the
 fail-open shape again, wearing an expression.
+
+### The second thing the first runs found: CI on this Mac depends on Colima being up
+
+Run `33412967360` went red on `supabase start` with
+
+```
+failed to inspect service: Cannot connect to the Docker daemon at
+unix:///Users/motamer/.colima/default/docker.sock. Is the docker daemon running?
+```
+
+Colima had stopped between two runs of this very change. Nothing was wrong with the branch: the
+isolation step had already rewritten the ports to 547xx correctly, and every step before it passed.
+
+**A hosted runner ships with a running Docker; this one does not, and that is a new dependency the
+move introduced.** It is now in `docs/14-DEPENDENCY-LEDGER.md` as a row of its own, and the action
+checks `docker info` first and puts `colima start` in the job summary. The message the runner gave
+was true and did not contain the remedy — and `main` is frozen while the required check is red, so
+the minute that saves is not a convenience.
+
+It reports rather than starting Colima itself. A CI job that silently boots a 6 GiB virtual machine
+on somebody's laptop is a surprise, and "the VM is deliberately down" is a real state.

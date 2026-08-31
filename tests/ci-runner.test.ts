@@ -153,6 +153,16 @@ describe("CI's Supabase stack cannot collide with the Mac's own", () => {
     expect(isolate).toContain(`grep -q '^project_id = "codituci"$'`);
   });
 
+  it("names the remedy when the Mac's Docker is not running", () => {
+    // Colima stopped between two runs of the change that introduced this, and
+    // the required check went red on `Cannot connect to the Docker daemon` —
+    // true, and not a sentence containing the fix. `main` is frozen while that
+    // is red, so the minute this saves is not a convenience.
+    expect(isolate).toContain("docker info");
+    expect(isolate).toContain("colima start");
+    expect(isolate).toContain("$GITHUB_STEP_SUMMARY");
+  });
+
   it.each(stackJobs.map(([name]) => name))("%s tears its stack down even when red", (name) => {
     const body = ciJobs.get(name)!;
     expect(body).toContain("supabase stop --no-backup");
