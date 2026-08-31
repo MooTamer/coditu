@@ -1,6 +1,6 @@
 # Coditu — emergency card
 
-**Print this.** For the night something is gone and nobody remembers any of it.
+**Print this — one sheet, both sides.** For the night something is gone and nobody remembers any of it.
 
 Written 2026-08-31, and **verified by following it literally with the network off**. The first
 draft was wrong in three places; each is fixed below and recorded in `docs/06-PROGRESS.md`.
@@ -105,14 +105,21 @@ diff <(sort /tmp/coditu-restore/row-counts.tsv) ...           # per-table truth,
 **A file of the right size is not evidence:** a cloud folder can hold a placeholder with the right
 name, the right size and no bytes at all, which reads only when the network is up.
 
-## 7. How long it takes — measured, wifi off
+## 7. How long it takes — measured 2026-08-31 with the wifi **off**
+
+No default route; `api.github.com`, `registry.npmjs.org` and `google.com` all failed to resolve.
 
 | | |
 |---|---|
-| Verify every archive on disk reads back | *filled by the offline pass* |
-| Decrypt, extract, restore, count | *filled by the offline pass* |
+| Verify all 8 archives (155 MB) read back and hash | **under 1 s** |
+| §4 end to end — decrypt, extract, start Postgres, load all three files | **4 s** |
+| Result | `public` **35/35 tables, 1,184/1,184 rows**, and **135** Storage files |
 | Read the Storage files | immediate — they are files |
 | Stand the application up | 30–60 min (estimate) |
+
+**Nothing reached for the network.** `age`, `tar`, `psql` and `node` are local, and the Postgres
+image was already pulled. On a machine that has never pulled it, that image (~1 GB) is the **one**
+thing §4 needs a connection for — so pull it while things are calm, not during the emergency.
 
 ## 8. Where things are
 

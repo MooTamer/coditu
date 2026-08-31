@@ -51,6 +51,43 @@ says what it is made of.
 
 ## What the offline pass proved, and what it needed
 
+**2026-08-31.** Wifi off — `networksetup -setairportpower en0 off`. Verified down before anything
+was run: **no default route**, and `api.github.com`, `registry.npmjs.org` and `google.com` all
+returned `curl exit=6` (could not resolve host).
+
+| Step | Result |
+|---|---|
+| Read back all 8 archives on the primary (155 MB) and hash each against its sidecar | `materialised=true`, **under 1 s** |
+| Read back the same 8 at an off-site destination, through its own path | `materialised=true` |
+| Feed the same check a placeholder — right name, right size, no bytes | **refused**, exit 1, offline |
+| Follow `docs/15-EMERGENCY-CARD.md` §4 literally | decrypt, extract, Postgres up, all three SQL files loaded — **4 s** |
+| Row-for-row against `row-counts.tsv`, which travels inside the archive | `public` **35/35 tables, 1,184/1,184 rows** |
+| Storage files | **135**, matching the sidecar's `storageObjects` |
+| Wifi back on | GitHub API `200` |
+
+### What it needed
+
+`age`, `tar`, `psql`, `node`, `docker` — and **one Docker image that was already pulled**,
+`public.ecr.aws/supabase/postgres:17.6.1.155`.
+
+### What it did NOT need, having been asked
+
+**Nothing reached for the network. Not once.** No package fetch, no CLI update check, no image
+pull, no provider API, no GitHub, no Google. The restore path is `age | tar | psql` over a file on
+a local disk, and that is the whole of it.
+
+### The one dependency the offline pass DID surface
+
+**A machine that has never pulled `supabase/postgres` needs a connection to get it (~1 GB).** That
+is the single network reach anywhere in the recovery path, it is at the very start, and it is
+avoidable: pull the image while things are calm. It is on the emergency card as exactly that.
+
+It is also *why* the image is named: measured the same day, a plain `postgres:17` throws **545
+errors** loading `schema.sql`, because the dump refers to `auth`, `storage` and `extensions`
+schemas it does not have. The first draft of the card said "any machine with Docker and a plain
+Postgres", and following the card literally is what proved it wrong.
+
+
 
 ## The RTO, measured — and the half of it that is not fast
 
@@ -59,8 +96,8 @@ good answer.
 
 | Stage | Time | How it was obtained |
 |---|---|---|
-| **Decrypt and restore the database into a working Postgres** | see §Offline pass | Measured, unattended, **with the network off** |
-| **Have the application serving again** | **Estimate. See below.** | Not measured, and the components are named rather than hidden in a single figure |
+| **Decrypt and restore the database into a working Postgres** | **4 seconds** | Measured, unattended, **with the network off** — §Offline pass |
+| **Have the application serving again** | **30–60 min. Estimate.** | Not measured. The components are named rather than hidden in a single figure |
 
 **Why the second is an estimate and should stay one until it is drilled.** The application does not
 talk to Postgres. It talks to PostgREST, GoTrue and the Storage API, which is what a *Supabase
