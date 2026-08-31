@@ -2580,3 +2580,25 @@ supabase start && supabase db reset
 
 Local is deliberately not production data — which is exactly why it is the one place a mistake like
 this could be survived quietly, and why it is worth writing down rather than shrugging at.
+
+## Cancelling a run does not always stop it, and its queued jobs can still start
+
+Measured 2026-08-31, and it is the reason the afternoon's last merge took an extra half hour.
+
+`gh run cancel` returned `✓ Request to cancel workflow … submitted` and the run stayed
+`in_progress`. Seven minutes later the runner finished the job it was on and then **picked up the
+next queued job from that same cancelled run** — the 85-minute browser baseline — with a newer run
+for the same branch waiting behind it.
+
+Three things to take from it:
+
+- **A cancel is a request, not a state.** Read `.status` back; do not trust the tick.
+- **Cancellation lands at STEP boundaries.** A job inside a long step (`supabase start`, `npm ci`
+  on a slow link) keeps going until that step ends, and the queued jobs behind it are still live
+  until the run actually reaches `completed`.
+- With **one runner**, a cancel that does not take does not merely waste minutes — it hands the
+  runner to a job you tried to stop, ahead of the one you are waiting for.
+
+The way out is not more cancelling. It is the ordering already in `ci.yml`: `browser` and
+`lighthouse` `needs: [scope, check, deploy]`, so the jobs worth waiting for are never behind the
+jobs that gate nothing.
