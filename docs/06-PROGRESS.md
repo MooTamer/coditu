@@ -6462,3 +6462,35 @@ last change that can be made without finding some.
 - **The proposal threshold control is gone from Settings.** Nothing reads
   `payout_share_threshold_pct` any more. The column and its value stay; the control does not, because
   a control that writes a number nothing consults tells somebody they have decided something.
+
+### What only the browser said
+
+Three defects in the payout surfaces, all of them with `typecheck`, `lint`, `test`, `db:test`,
+`build` and `budgets` green. Found by signing in locally, pointing `payout_from_sprint_id` at
+Week 17 and looking:
+
+1. **"Your hours count toward the pot; you take nothing out of it"** shown to somebody on the share
+   basis, whenever no tracked sprint was running. `paid` is derived from `current`, so testing it
+   before testing `current` turned "there is no sprint" into a statement about the person — and the
+   wrong one. The absence check comes first now.
+2. **"People the pot pays — 4 of 2 who logged time."** `X of Y` was right while participants were a
+   subset of contributors. A share person who logged nothing is paid, so they are not, and it
+   rendered nonsense. Two facts, stated as two facts.
+3. **A `provisional` chip above the word `unpayable`.** The tag now reads `nothing to split`, which
+   is the fact the figure slot cannot carry.
+
+Verified rendering, on `/app/earnings` and `/app/settings/payouts`:
+
+| state | what the screen showed |
+|---|---|
+| payable | pot **$696.00** over 58.0 h; Ahmed listed `0.0 h · 0% · hourly`; **each $232.00**; `4 people, 3 sharing`; `Confirm $696.00` |
+| unpayable (Abdelrahman forced to hourly at $60/h) | *"Hourly pay on this selection comes to $1,830.00, which is $1,134.00 more than the $696.00 this sprint took in."* **No pot line, no per-person line, and no Confirm button** — a disabled button beside a plausible total is still a number |
+| unpayable, personal page | the figure slot reads **`unpayable`**, the chip reads `nothing to split`, the history row reads `unpayable` with **em dashes** in USD and EGP, and the calculation block is absent |
+| Settings | four selects reading `share / share / hourly / share`, one rate field, and the proposal threshold gone |
+
+**The local database was left as it was found** — `payout_from_sprint_id` back to null, Abdelrahman
+back on `share`, zero payouts. To see any of this again:
+
+```sql
+update public.app_settings set payout_from_sprint_id = '50000000-0000-4000-8000-000000000017' where id = 1;
+```

@@ -90,9 +90,10 @@ export default async function Page() {
         </div>
 
         <p className="mt-2 max-w-[72ch] text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">
-          A change to the rate or the threshold affects the <strong>next</strong> confirmation and
-          nothing that has already been agreed. Confirmed payouts carry their own copy of both, and
-          cannot be rewritten.
+          A change to the rate, or to how somebody is paid, affects the <strong>next</strong>{" "}
+          confirmation and nothing that has already been agreed. A confirmed payout carries its own
+          copy of the rate, the pot, the split and why each person was paid, and cannot be
+          rewritten.
         </p>
 
         <div className="mt-5">

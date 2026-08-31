@@ -58,7 +58,7 @@ export function MyEarnings({
       <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
         <Card
           label="This sprint"
-          tag={current ? "provisional" : "nothing open"}
+          tag={unpayable ? "nothing to split" : current ? "provisional" : "nothing open"}
           tone="amber"
           usdCents={paid && !unpayable ? current.cents : null}
           rateMicros={rate}
@@ -73,13 +73,18 @@ export function MyEarnings({
                 : undefined
           }
           note={
-            unpayable
-              ? `Hourly pay on ${current!.name} comes to ${usdFromCents(unpayable.hourlyPayCents)}, which is ${usdFromCents(unpayable.shortfallCents)} more than the ${usdFromCents(unpayable.potCents)} it took in. There is nothing to split and no figure here would be true.`
-              : !paid
-                ? "Your hours count toward the pot; you take nothing out of it."
-                : current
-                  ? `${current.name} · ${current.basis === "hourly" ? "your hours at your rate, paid out of the pot before the split" : "moves while hours are logged and the list is not final"}`
-                  : "No tracked sprint is running."
+            // "No sprint" is checked FIRST. `paid` is derived from `current`,
+            // so testing it first told somebody with no tracked sprint at all
+            // that they take nothing out of the pot — a statement about them
+            // rather than about the sprint, and the wrong one. Caught in the
+            // browser; every command was green.
+            !current
+              ? "No tracked sprint is running."
+              : unpayable
+                ? `Hourly pay on ${current.name} comes to ${usdFromCents(unpayable.hourlyPayCents)}, which is ${usdFromCents(unpayable.shortfallCents)} more than the ${usdFromCents(unpayable.potCents)} it took in. There is nothing to split and no figure here would be true.`
+                : !paid
+                  ? "Your hours count toward the pot; you take nothing out of it."
+                  : `${current.name} · ${current.basis === "hourly" ? "your hours at your rate, paid out of the pot before the split" : "moves while hours are logged and the list is not final"}`
           }
         />
 
@@ -142,7 +147,11 @@ export function MyEarnings({
             ) : null}
             <Line
               label="People the pot pays"
-              value={`${current.participantCount} of ${current.contributorCount} who logged time`}
+              value={
+                current.participantCount === current.contributorCount
+                  ? `${current.participantCount}`
+                  : `${current.participantCount} · ${current.contributorCount} logged time on it`
+              }
             />
             <Line
               label={current.basis === "hourly" ? "Your hours at your rate" : "Equal split · your share"}
