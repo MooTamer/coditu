@@ -8,9 +8,17 @@
 # exercised both halves against the real shell script since 2026-08-28, and that
 # is worth something — but a fake provider proves the script, not the provider.
 #
-# This drills the RECOVERY half against real production: roll the domains back
-# to the previous production deployment, prove from the public origin that they
-# actually moved, then roll forward and prove they moved back.
+# This drills the RECOVERY half against real production. It steps AWAY with
+# `promote` and comes BACK with `rollback`, verifying by deployment id at each
+# move, because the plan allows exactly one step of rollback — measured
+# 2026-08-31:
+#
+#     Error: To rollback further than the previous production deployment,
+#            upgrade to pro. (402)
+#
+# `deploy-production.sh`'s trap rolls back to exactly that one deployment, so
+# the real recovery path is inside the free allowance — and there is no second
+# undo. Nothing said so until this ran.
 #
 # It does NOT drill the NOTICING half against real production, and that is a
 # decision rather than an omission. Proving the trap fires on a genuine 5xx

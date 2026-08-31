@@ -304,15 +304,11 @@ describe("the rollback drill cannot leave production where it moved it", () => {
   });
 
   it("cannot run at the same time as a deploy", () => {
-    // Same concurrency group as the deploy job, so one waits for the other
-    // instead of both moving the domains.
     expect(DRILL_WORKFLOW).toMatch(/group: production-deploy/);
     expect(CI).toMatch(/group: production-deploy/);
   });
 
   it("refuses to start when any value is missing, rather than skipping", () => {
-    // The opposite of the preflight, deliberately: not deploying is safe, but a
-    // drill that quietly does not run leaves you believing it did.
     expect(DRILL_WORKFLOW).toMatch(/refusing to move production/);
     expect(DRILL_WORKFLOW).toMatch(/exit 1/);
   });
@@ -321,17 +317,31 @@ describe("the rollback drill cannot leave production where it moved it", () => {
     expect(DRILL).toMatch(/trap restore EXIT/);
     expect(DRILL).toMatch(/trap 'exit 130' INT/);
     expect(DRILL).toMatch(/trap 'exit 143' TERM/);
-    expect(DRILL).toMatch(/drill_restore_needed=1[\s\S]*vercel_cli rollback "\$drill_previous_id"/);
-    // And it goes red if the restore did not take.
+    expect(DRILL).toMatch(/drill_restore_needed=1\nvercel_cli promote/);
     expect(DRILL).toContain("Production was NOT restored");
   });
 
-  it("proves each move from the public origin, not from the provider", () => {
-    // A provider check taken too soon reported count: 0 for a deployment that
-    // already existed (2026-08-29). What the API says and what a browser gets
-    // are different questions, so this reads build-health.json over the wire.
-    expect(DRILL).toMatch(/curl[\s\S]*\$PRODUCTION_BASE_URL\/build-health\.json/);
-    expect(DRILL).toMatch(/\[ "\$drill_rolled_commit" != "\$drill_original_commit" \]/);
+  // The plan allows exactly one: `vercel rollback` refused with
+  //   To rollback further than the previous production deployment, upgrade to pro. (402)
+  // So the drill steps AWAY with promote and comes BACK with rollback, which is
+  // the direction the deploy script's trap actually uses.
+  it("steps away with promote and returns with rollback, which is the one step Hobby allows", () => {
+    expect(DRILL).toMatch(/vercel_cli promote "\$drill_step_url"/);
+    expect(DRILL).toMatch(/vercel_cli rollback "\$drill_live_id"/);
+    expect(DRILL).toContain("upgrade to pro");
+  });
+
+  it("verifies by deployment id, not by commit", () => {
+    // The two deployments can carry identical code — in the safest case they
+    // do — so a commit comparison would pass without the domain having moved.
+    expect(DRILL).toMatch(/domain_deployment_id\(\)/);
+    expect(DRILL).toMatch(/await_domain "\$drill_step_id" \|\| fail/);
+    expect(DRILL).toMatch(/await_domain "\$drill_live_id" \|\| fail/);
+  });
+
+  it("will not promote a deployment that is not serving", () => {
+    expect(DRILL).toContain("refusing to promote it");
+    expect(DRILL).toMatch(/vercel curl \/login --deployment "\$drill_step_url"/);
   });
 
   it("polls to a deadline instead of sleeping a guessed interval", () => {
