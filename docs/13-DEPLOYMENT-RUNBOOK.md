@@ -53,8 +53,24 @@ The required GitHub `Production` environment secrets are:
   carry what this check does. Port **5432** on the pooler is session mode and is the one that works.
 
   ```
-  postgresql://coditu_backup.hayfsvsepgfescojesbd:<password>@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require
+  postgresql://coditu_backup.hayfsvsepgfescojesbd:<password>@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=no-verify
   ```
+
+  **`sslmode=no-verify`, and this line used to say `require`, which does not work here.** Measured
+  2026-08-31 against the real project: `?sslmode=require` fails the check before it can read a
+  single table, with `SELF_SIGNED_CERT_IN_CHAIN`. This repository is on `pg` 8.23.0 /
+  `pg-connection-string` 2.14.0, which treat `prefer`, `require` and `verify-ca` as aliases for
+  **`verify-full`** — they say so in a runtime warning — and Supabase's chain ends at "Supabase
+  Root 2021 CA", which is in no public trust store. `no-verify` is the mode that matches what
+  `check-hosted-schema.mjs` actually does: it does not delegate verification, it asserts the socket
+  is encrypted itself and pins the issuer to `Supabase Inc` by name.
+
+  **The same string is correct in `docs/12-RECOVERY-RUNBOOK.md` and wrong here, and the difference
+  is the client, not the project.** The backup leg is `psql`/`pg_dump`, which is libpq, where
+  `require` means encrypt-and-do-not-verify. The preflight is `node-postgres`, where today it does
+  not. This line was copied from there. Two clients, one string, two meanings — and `pg` 9 will
+  adopt libpq semantics, so `require` will silently start working later, which is the worst way for
+  this to resolve.
 
   The username carries the project ref after a dot — that is Supavisor's tenant routing, not a
   typo. The only unknown is `<password>`: set it on `coditu_backup` out of band, and it is the same
@@ -379,25 +395,29 @@ Read back from the providers on 2026-08-30, not from this document. Both `Produc
 exist; **both are empty**. Nothing below was placed by an autonomous pass, because minting or
 placing a credential is not something one should do.
 
-### `MooTamer/coditu` → environment `Production` — blocks T1.5(d)
+### `MooTamer/coditu` — all five are set as of 2026-08-31
 
-`gh secret list -R MooTamer/coditu --env Production` returns **nothing**, and so does the repository
-level. All five are absent, and the deploy job refuses rather than skipping when they are.
+**Closed.** Read back with `gh secret list -R MooTamer/coditu` and `gh variable list` on
+2026-08-31, at the **repository** level rather than the `Production` environment — both
+environments are still empty, and that is fine: a job carrying `environment: Production` reads
+repository secrets too, and an environment secret would only shadow one of the same name.
 
-| Name | Kind | Value | Who can produce it |
-|---|---|---|---|
-| `VERCEL_TOKEN` | secret | — | **Mohamed only.** Mint in Vercel account settings, scope it to this project |
-| `HOSTED_SCHEMA_DB_URL` | secret | — | **Mohamed only.** Needs a password set on `coditu_backup` out of band; must name project `hayfsvsepgfescojesbd` and negotiate SSL |
-| `VERCEL_ORG_ID` | secret | `team_vJjCIjOpMU8pPsB45cWNnoNr` | **Not a credential** — a team identifier, read from the Vercel API. Paste it |
-| `VERCEL_PROJECT_ID` | secret | `prj_GOg3XIVdg7u6WPAzaHFJy2QnfBHu` | **Not a credential** — already in this ledger. Paste it |
-| `PRODUCTION_BASE_URL` | **variable** | `https://coditu-phi.vercel.app` | **Not a credential.** Confirm it is the origin users reach before setting it |
+| Name | Kind | Value | Set by | When |
+|---|---|---|---|---|
+| `VERCEL_TOKEN` | secret | — | Mohamed | 2026-08-31 05:45Z |
+| `HOSTED_SCHEMA_DB_URL` | secret | — | Mohamed | 2026-08-31 05:59Z |
+| `VERCEL_ORG_ID` | secret | `team_vJjCIjOpMU8pPsB45cWNnoNr` | this pass | 2026-08-31 06:07Z |
+| `VERCEL_PROJECT_ID` | secret | `prj_GOg3XIVdg7u6WPAzaHFJy2QnfBHu` | this pass | 2026-08-31 06:07Z |
+| `PRODUCTION_BASE_URL` | **variable** | `https://coditu-phi.vercel.app` | Mohamed | 2026-08-29 |
 
-The last three are written out because hunting for them is the part that makes this get postponed.
-They are identifiers, not secrets; GitHub stores the first four as secrets because that is what the
-workflow reads, not because all four are sensitive.
+The two ids were derived from the Vercel API for the `coditu` project linked to `MooTamer/coditu`,
+and they match the values this document had already written out — which is the corroboration worth
+having, since the earlier pass read them a different way. They are identifiers, not credentials, so
+placing them is not the thing an autonomous pass should decline; the token and the database URL are
+credentials and remain Mohamed's, unset by anyone else.
 
-**Only two of the five actually require Mohamed**, and both are genuinely his: a token that must be
-minted, and a database URL whose password must be chosen.
+**`HOSTED_SCHEMA_DB_URL` names the `postgres` role, not `coditu_backup`** — see the ADR of
+2026-08-31. Narrowing it is owed and is recorded as an open risk, not as done.
 
 ### `MooTamer/coditu-recovery` — blocks the backup alerting
 
