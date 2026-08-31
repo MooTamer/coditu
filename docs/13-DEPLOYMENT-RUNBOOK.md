@@ -56,21 +56,27 @@ The required GitHub `Production` environment secrets are:
   postgresql://coditu_backup.hayfsvsepgfescojesbd:<password>@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=no-verify
   ```
 
-  **`sslmode=no-verify`, and this line used to say `require`, which does not work here.** Measured
-  2026-08-31 against the real project: `?sslmode=require` fails the check before it can read a
-  single table, with `SELF_SIGNED_CERT_IN_CHAIN`. This repository is on `pg` 8.23.0 /
-  `pg-connection-string` 2.14.0, which treat `prefer`, `require` and `verify-ca` as aliases for
-  **`verify-full`** — they say so in a runtime warning — and Supabase's chain ends at "Supabase
-  Root 2021 CA", which is in no public trust store. `no-verify` is the mode that matches what
-  `check-hosted-schema.mjs` actually does: it does not delegate verification, it asserts the socket
-  is encrypted itself and pins the issuer to `Supabase Inc` by name.
+  **The `sslmode` in this string no longer decides anything, and that is deliberate.** As of
+  2026-08-31 `check-hosted-schema.mjs` decomposes the URL and supplies TLS itself: the string says
+  *where* to connect, the check says *how*. Any of `require`, `no-verify`, `disable` or nothing at
+  all reaches the same verdict. `no-verify` is written above because it is also correct for `psql`
+  if you paste this string there, not because the check needs it.
 
-  **The same string is correct in `docs/12-RECOVERY-RUNBOOK.md` and wrong here, and the difference
-  is the client, not the project.** The backup leg is `psql`/`pg_dump`, which is libpq, where
-  `require` means encrypt-and-do-not-verify. The preflight is `node-postgres`, where today it does
-  not. This line was copied from there. Two clients, one string, two meanings — and `pg` 9 will
-  adopt libpq semantics, so `require` will silently start working later, which is the worst way for
-  this to resolve.
+  **Why it was taken out of the string.** The first CI run with this secret set refused with
+  `database connection is not encrypted` — the URL carried no usable `sslmode` and the connection
+  was cleartext across the public internet. The assertion was right; depending on the query string
+  was the mistake. A transport guarantee inside an opaque secret is one nobody can review: the
+  person setting it cannot be shown to have got it right, and `sslmode` does not mean the same
+  thing to every client. To `psql` (libpq) `require` means encrypt-and-do-not-verify. To this
+  repository's `pg` 8.23.0 it means **`verify-full`**, and Supabase's chain ends at "Supabase Root
+  2021 CA", which is in no public trust store — so the string that is correct in
+  `docs/12-RECOVERY-RUNBOOK.md` used to fail outright here, with `SELF_SIGNED_CERT_IN_CHAIN`
+  before a single table was read. One string, two clients, two meanings.
+
+  Passing `ssl` beside `connectionString` was not enough — measured, not assumed: node-postgres
+  lets a `sslmode` in the string win, so `require` still died and `disable` still connected in
+  cleartext. The URL is therefore parsed and its query string dropped.
+
 
   The username carries the project ref after a dot — that is Supavisor's tenant routing, not a
   typo. The only unknown is `<password>`: set it on `coditu_backup` out of band, and it is the same

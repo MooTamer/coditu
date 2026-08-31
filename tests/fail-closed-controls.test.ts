@@ -241,3 +241,45 @@ describe("the schema preflight's role exception fails closed", () => {
     expect(PREFLIGHT).toMatch(/^\s*failures\.push\(\.\.\.\(await readOnlyFailures\(client\)\)\);$/m);
   });
 });
+
+/**
+ * The transport guarantee, after the first CI run refused with
+ * `database connection is not encrypted`.
+ *
+ * The secret's URL had no usable `sslmode`, so the deploy preflight was reading
+ * production in cleartext. The assertion caught it — the defect was that the
+ * guarantee lived in a query string inside an opaque secret, where nobody can
+ * review it and where `sslmode` does not even mean the same thing to `pg` as it
+ * does to `psql`.
+ *
+ * These assert the two halves stay separate: the check ARRANGES encryption and
+ * separately ASSERTS it. Either alone would have been enough to pass CI on the
+ * day; both together are what makes the guarantee survive an edit to one.
+ */
+describe("the schema preflight decides its own transport", () => {
+  const PREFLIGHT = read("scripts/check-hosted-schema.mjs");
+
+  it("does not hand the connection string to the client", () => {
+    // `connectionString` would let a `sslmode` in the secret win — measured:
+    // `require` died with SELF_SIGNED_CERT_IN_CHAIN and `disable` connected in
+    // cleartext, even with an explicit `ssl` option beside it.
+    expect(PREFLIGHT).not.toMatch(/new Client\(\{[^}]*connectionString/);
+    expect(PREFLIGHT).toMatch(/host: parsedUrl\.hostname/);
+    expect(PREFLIGHT).toMatch(/password: decodeURIComponent\(parsedUrl\.password\)/);
+  });
+
+  it("arranges encryption for every non-local target", () => {
+    expect(PREFLIGHT).toMatch(/ssl: localHost\s*\n\s*\? false/);
+    expect(PREFLIGHT).toContain("rejectUnauthorized: false");
+  });
+
+  it("still asserts the socket afterwards rather than trusting the arrangement", () => {
+    expect(PREFLIGHT).toContain("database connection is not encrypted");
+    expect(PREFLIGHT).toMatch(/failures\.push\(\.\.\.transportFailures\(client/);
+  });
+
+  it("keeps a way to demand a verified chain, with somewhere to put the root", () => {
+    expect(PREFLIGHT).toContain("HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS");
+    expect(PREFLIGHT).toContain("HOSTED_SCHEMA_DB_CA");
+  });
+});

@@ -6058,3 +6058,51 @@ client socket is encrypted and pins the issuer to `Supabase Inc` by name, and
 `HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1` still demands the strong form. Verified capable of failing:
 with no ssl parameter at all the connection is cleartext and the check says so —
 `database connection is not encrypted` — rather than passing.
+
+---
+
+## 2026-08-31 · The schema preflight establishes its own TLS; the connection string says only where
+
+**Supersedes the `sslmode=no-verify` half of the entry above.** That entry corrected the documented
+string. This one removes the string's authority over transport altogether, which is the fix the
+correction was standing in for.
+
+**What happened.** The first CI run with `HOSTED_SCHEMA_DB_URL` set refused, and one of its two
+findings was not the expected one:
+
+```
+##[warning]connected as postgres, and the contract is coditu_backup. …
+  - database connection is not encrypted
+  - missing migration 20260830140000
+check-hosted-schema: 2 hosted schema requirement(s) failed
+```
+
+The secret's URL carried no usable `sslmode`, so the deploy preflight was reading the production
+database **in cleartext across the public internet**. The assertion caught it and failed closed,
+which is the control working. The design around the assertion was the defect.
+
+**Decision.** `check-hosted-schema.mjs` decomposes the URL and passes host, port, user, password and
+database explicitly, dropping the query string, and supplies `ssl` itself. The URL says *where* to
+connect; the check says *how*.
+
+**Why not simply fix the secret.** Because the next person to set it can get it wrong the same way,
+and nobody would be able to tell by looking. A transport guarantee that lives inside an opaque
+secret is a guarantee that cannot be reviewed — the shape this repository has been removing all
+week, arriving in a new place. It also cannot be got right by one rule: `sslmode=require` means
+encrypt-and-do-not-verify to `psql` and **`verify-full`** to `pg` 8.23.0, so the string that is
+correct for the backup leg failed outright on this one.
+
+**Measured, because the obvious version was not enough.** Passing `ssl` beside `connectionString`
+does not work: node-postgres lets a `sslmode` in the string win. With that version, `require` still
+died with `SELF_SIGNED_CERT_IN_CHAIN` and `disable` still connected in cleartext. Only decomposing
+the URL closes both. Against the real project, all five of `(nothing)`, `require`, `no-verify`,
+`disable` and `verify-full&application_name=x` now reach the identical verdict — one missing
+migration.
+
+**Arranging and asserting are kept separate.** `transportFailures` still reads the client socket
+afterwards and still pins the issuer to `Supabase Inc` by name. Verified capable of failing: with
+the `ssl` option forced to `false`, the check still reports `database connection is not encrypted`.
+If the arranging half is ever wrong, the asserting half still says so.
+
+**Not weakened.** `HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1` still demands a verified chain, and now has
+somewhere to put the root: `HOSTED_SCHEMA_DB_CA`.
