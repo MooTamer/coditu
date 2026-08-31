@@ -6589,3 +6589,101 @@ when the pool is empty.
 
 **Not re-litigated here:** whether `browser` moves to a nightly schedule. It is still the largest
 single lever and still needs the determinism review beside it.
+
+---
+
+## 2026-08-31 · `is_developer` was two facts in one column, and Ahmed Yehia is the person it was wrong about
+
+**Decision, from Mohamed, implemented as `lib/payout.ts`:**
+
+```
+pot        = the sprint's total, struck at the team rate
+hourly_pay = SUM(rate x minutes_logged) for everybody on the HOURLY basis
+remainder  = pot - hourly_pay
+split      = remainder distributed among the SHARE people
+```
+
+**Hourly pay comes out of the pot, before the split. It is not a cost on top of it.**
+
+Ahmed Yehia is a **developer** who is paid **hourly**. Mohamed, Abdelrahman and Adam take the split.
+
+### The overload
+
+`20260825095000_earnings.sql` named the column `is_developer` and commented it *"whether this person
+takes a share of a sprint's pot"*. The name and the comment are two different questions, and for
+three of the four people on this team they coincide. Ahmed is the one they do not:
+
+| value | says he is an engineer | says he shares the pot |
+|---|---|---|
+| `true` | correct | **wrong** |
+| `false` | **wrong** | correct |
+
+On hosted it is `false`; the seed sets it `true`; the ledger recorded the disagreement on 2026-08-31
+as a thing to decide. It was never a disagreement about a fact. It was two facts sharing a column.
+
+**Split.** `is_developer` keeps its literal meaning and decides nothing about money.
+`profiles.payout_basis` — `share` / `hourly` / `none` — decides money.
+
+### Why it is cheap today and would not be tomorrow
+
+`sprint_payouts` and `sprint_payout_shares` hold **zero rows**, hosted and local, counted before the
+migration was written and again after. Every choice below is free while that is true and is a
+renegotiation with four people the moment one real payout exists. `sprint_payout_shares` gains a
+`basis` column for the same reason: back-filling *why* somebody was paid, against an agreement they
+were paid on, is guesswork with money on it.
+
+### Three things that are decisions, not arithmetic
+
+1. **A share person who logged nothing still takes their share.** It is a split, not a wage. This
+   **reverses** `app_settings.payout_share_threshold_pct`, which gated who was proposed. The column
+   survives; nothing reads it; the control that wrote it is gone from Settings, because a control
+   that writes a value nothing consults tells somebody they have made a decision they have not.
+2. **An hourly person who logged nothing is paid nothing and the pot is untouched.**
+3. **Hourly pay above the pot is refused, not clamped.** No zero, no negative share, no rendered
+   number — an unpayable sprint says what it is short by and names who is owed. The same rule the
+   Recovery Centre follows: a figure that cannot be computed honestly must not appear on a screen.
+   The Server Action refuses the write too, not only the screen.
+
+### `profiles.hourly_rate_cents`, and why it had to exist
+
+Without a per-person rate the refusal above is **unreachable**. With a single team rate an hourly
+person's minutes are a subset of the sprint's minutes, so their pay can never exceed a pot struck at
+that same rate, and "refuse when hourly pay exceeds the pot" would be a branch no input could enter —
+a test that cannot fail is not a test. A per-person rate is also the ordinary reason somebody is on
+the hourly basis at all: an agreed rate that is not the team's. Null means the team rate, so nothing
+changes for anybody until an admin sets one, and Ahmed's is deliberately left null.
+
+### Largest-remainder allocation, said out loud
+
+The cents an uneven split cannot divide are handed out one each to the largest fractional
+remainders, ties broken by profile id ascending. The comparison is `amount × wᵢ mod Σw` as an
+**integer** — comparing fractional parts as floats is the one place a rounding rule could itself
+round. With equal weights this is byte-for-byte what `splitEqually` did, which is why the change is
+safe; the general form is here because `sprint_payout_shares` carries `minutes_logged` and
+`share_cents` and **no weight column**, so the split is equal today and is one column from not being.
+
+`tests/payout.test.ts` asserts `sum(every line) === pot` **exactly** on thirds of odd amounts, on
+every remainder 0–6 among seven people, and with hourly pay in front of an awkward remainder. Shown
+capable of failing three ways: clamping instead of refusing turns 4 of 29 red; dropping the
+remainder turns 6 red; paying hourly on top of the pot instead of out of it turns 9 red.
+
+### The guard on `profiles` becomes an allowlist, and that is what made this safe to write
+
+`guard_profile_privilege_columns` was a **denylist** naming five columns. `payout_basis` and
+`hourly_rate_cents` would have arrived **writable by the person they pay**, and the only thing that
+would have caught it is somebody reading the migration. ADR 2026-08-30 inverted exactly this shape on
+`work_items` and `acceptance_criteria` after finding an engineer could write `minutes_logged`; it did
+not reach `profiles`. Now it has.
+
+It closed one that was already open: **`account_kind` was never in the denylist**, so a client contact
+could set their own row to `internal`. Nothing went looking for it — it fell out of writing down what
+a person may legitimately change about themselves, which is the argument for allowlists in a sentence.
+
+`supabase/tests/column-guards.sql` sweeps `profiles` the same way it sweeps the other two, and names
+the three money columns separately because the sweep writes NULL and skips a column that is already
+NULL — `hourly_rate_cents` is null for everybody, which is exactly the shape a sweep alone would miss.
+With the old denylist restored on a live database, four of those assertions go red.
+
+### Not done, deliberately
+
+The migration is **not on hosted**. Nothing was pushed this pass.

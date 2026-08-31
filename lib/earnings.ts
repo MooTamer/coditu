@@ -32,62 +32,21 @@ export function potCents({ totalMinutes, hourlyRateCents }: PotInput): number {
   return Math.floor((totalMinutes * hourlyRateCents) / 60);
 }
 
-export interface Participant {
-  profileId: string;
-  minutesLogged: number;
-}
-
-export interface Share extends Participant {
-  shareCents: number;
-}
-
 /**
- * Split a pot equally, to the cent, with the remainder distributed
- * deterministically.
+ * `splitEqually` and `meetsThreshold` lived here until 2026-08-31 and are gone.
  *
- * Equally — not proportionally. That is the team's rule (E1.3) and it is the
- * whole reason the confirmation screen exists: an equal split is a decision
- * about fairness, and a decision needs a human on it.
+ * The split moved to `lib/payout.ts`, because a sprint's pot is no longer
+ * divided in one step: hourly pay comes out of it first, and what is left is
+ * what gets split. Keeping a second function that divided the whole pot would
+ * have been a second calculation to keep agreeing with the first, and the
+ * failure mode of two money functions disagreeing is that nobody can say which
+ * one is right.
  *
- * The remainder is handed out one cent at a time in ascending `profileId`
- * order. Deterministic on purpose: the same pot and the same participants must
- * produce the same split every time it is computed, or a re-render disagrees
- * with a stored row and nobody can tell which is right.
- *
- * **`sum(shareCents) === potCents` exactly**, for every input, including a pot
- * of 0, a pot of 1 among 7, and 10001 among 3. That identity is asserted in
- * `tests/earnings.test.ts`.
+ * `meetsThreshold` went with it because the rule it enforced was reversed:
+ * a share is a split and not a wage, so somebody on the share basis takes their
+ * part whether or not they logged a minute. `app_settings.payout_share_threshold_pct`
+ * is still a column and is no longer read by anything.
  */
-export function splitEqually(potCents: number, participants: readonly Participant[]): Share[] {
-  if (participants.length === 0) return [];
-
-  const ordered = [...participants].sort((a, b) => (a.profileId < b.profileId ? -1 : 1));
-  const base = Math.floor(potCents / ordered.length);
-  let remainder = potCents - base * ordered.length;
-
-  return ordered.map((participant) => {
-    const extra = remainder > 0 ? 1 : 0;
-    remainder -= extra;
-    return { ...participant, shareCents: base + extra };
-  });
-}
-
-/**
- * Who the app *proposes*, given the threshold.
- *
- * At exactly the threshold they are in — `>=`, and the UI says "logged 25% or
- * more" so the boundary is never a surprise (E7). The comparison is done in
- * integer minutes rather than on a percentage float, because 1 minute in 4 is
- * exactly 25% and `0.25 >= 0.25` is only reliably true when nobody divided.
- */
-export function meetsThreshold(
-  minutesLogged: number,
-  totalMinutes: number,
-  thresholdPct: number
-): boolean {
-  if (totalMinutes <= 0) return false;
-  return minutesLogged * 100 >= totalMinutes * thresholdPct;
-}
 
 /**
  * A live exchange rate, or nothing.

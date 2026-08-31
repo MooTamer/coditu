@@ -12,7 +12,7 @@ import {
 /**
  * Every sprint, from your side of it.
  *
- * ## Four states, and a legend that says what each one means
+ * ## Five states, and a legend that says what each one means
  *
  * The states are the ones the board has always had, narrowed to one person.
  * The legend is not decoration: *provisional* and *not tracked* look alike in a
@@ -23,6 +23,11 @@ import {
  * about money; an em dash is the truth about a sprint from before the team
  * started logging time. That rule has been in this app since the earnings model
  * was built and it is why `cents` is nullable all the way up from the read.
+ *
+ * The fifth state, `unpayable`, follows the same rule for a different reason:
+ * hourly pay came to more than the sprint took in, so there is no honest figure
+ * to print. A zero there would claim the split was computed and came to
+ * nothing. ADR 2026-08-31.
  *
  * ## A Server Component, and the table scrolls inside its own card
  *
@@ -40,6 +45,10 @@ const STATE_TONE: Record<MyEarningsState, "amber" | "jade" | "slate"> = {
   // is the tone for "look at this"; the word is what separates the two.
   changed: "amber",
   "not tracked": "slate",
+  // Also amber, and for the same reason: the word carries the distinction. An
+  // unpayable sprint is emphatically not "confirmed" and not "not tracked" —
+  // it was counted, and the count does not work.
+  unpayable: "amber",
 };
 
 const STATE_LABEL: Record<MyEarningsState, string> = {
@@ -47,6 +56,7 @@ const STATE_LABEL: Record<MyEarningsState, string> = {
   confirmed: "confirmed",
   changed: "changed since confirmation",
   "not tracked": "not tracked",
+  unpayable: "unpayable",
 };
 
 const LEGEND: ReadonlyArray<{ state: MyEarningsState; body: string }> = [
@@ -65,6 +75,10 @@ const LEGEND: ReadonlyArray<{ state: MyEarningsState; body: string }> = [
   {
     state: "not tracked",
     body: "The sprint is before the one earnings are tracked from. Not zero — uncounted, and shown as uncounted.",
+  },
+  {
+    state: "unpayable",
+    body: "Hourly pay on the sprint comes to more than it took in. There is nothing to split, so no figure is shown rather than a misleading zero.",
   },
 ];
 

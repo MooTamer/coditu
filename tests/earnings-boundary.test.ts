@@ -110,7 +110,7 @@ const MONEY_FORMATTERS = ["usdFromCents", "egpFromPiastres", "piastresFromCents"
  * the number with its own template string would pass every other check in this
  * file. These three names are how a figure comes into existence.
  */
-const MONEY_ARITHMETIC = ["potCents", "splitEqually", "meetsThreshold"];
+const MONEY_ARITHMETIC = ["potCents", "computeSprintPayout", "hourlyPayCents"];
 
 /** The tables. A raw query would bypass the modules above. */
 const MONEY_TABLES = ["sprint_payouts", "sprint_payout_shares", "app_settings"];
@@ -274,6 +274,11 @@ const MONEY_TREE = ["app", "components", "lib"];
 const MONEY_SURFACES = [
   // The model. Pure arithmetic, the reads, the writes, the rate.
   "lib/earnings.ts",
+  // The pot, the hourly pay taken out of it, and the split of what is left.
+  // Pure and readable by anybody — it renders nothing and reads nothing, and
+  // it is imported by the board so the figure on the Confirm button and the
+  // figure the Server Action writes come from one function.
+  "lib/payout.ts",
   "lib/data/earnings.ts",
   "lib/actions/earnings.ts",
   "lib/exchange-rate.ts",

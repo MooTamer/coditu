@@ -11,7 +11,7 @@ import { ToneChip } from "@/components/coditu/status-chip";
 import { settle } from "@/lib/action-result";
 import { confirmSprintPayout } from "@/lib/actions/earnings";
 import type { NonParticipantNote, SprintEarnings } from "@/lib/data/earnings";
-import { splitEqually } from "@/lib/earnings";
+import { computeSprintPayout } from "@/lib/payout";
 import {
   dateRange,
   egpFromPiastres,
@@ -173,22 +173,36 @@ function SprintCard({
   const toast = useToast();
   const [pending, startTransition] = useTransition();
 
-  // Pre-ticked for anyone the app proposes, and every developer who logged
-  // anything is listed so an admin can add or remove them before confirming.
-  // The threshold is a suggestion engine; the confirmed set is the truth.
+  // Pre-ticked for everybody the pot pays. Anybody with a payout basis is
+  // listed so an admin can add or remove them before confirming; the confirmed
+  // set is the truth.
+  //
+  // `is_developer` is deliberately not consulted here. Since 2026-08-31 it
+  // means "is an engineer" and decides nothing about money — `payout_basis`
+  // does, and Ahmed Yehia is the person for whom the two differ.
   const [picked, setPicked] = useState<Set<string>>(
     () => new Set(sprint.participants.filter((p) => p.proposed).map((p) => p.profileId))
   );
 
-  const eligible = sprint.participants.filter((p) => p.isDeveloper);
-  const shares = splitEqually(
-    sprint.potCents,
-    eligible.filter((p) => picked.has(p.profileId)).map((p) => ({
-      profileId: p.profileId,
-      minutesLogged: p.minutesLogged,
-    }))
-  );
-  const perPerson = shares[0]?.shareCents ?? 0;
+  const eligible = sprint.participants.filter((p) => p.basis !== "none");
+  // The same function the Server Action re-runs before it writes, so the figure
+  // on the button and the figure in the record cannot disagree. Recomputed as
+  // the admin ticks, because unticking the hourly person changes what is left
+  // to split — the arithmetic is not separable and must not be faked here.
+  const preview = computeSprintPayout({
+    totalMinutes: sprint.totalMinutes,
+    hourlyRateCents: settings.hourlyRateCents,
+    people: eligible
+      .filter((p) => picked.has(p.profileId))
+      .map((p) => ({
+        profileId: p.profileId,
+        basis: p.basis,
+        minutesLogged: p.minutesLogged,
+        hourlyRateCents: p.hourlyRateCents,
+      })),
+  });
+  const shareLines = preview.payable ? preview.lines.filter((l) => l.basis === "share") : [];
+  const perPerson = shareLines[0]?.amountCents ?? 0;
 
   const confirmed = sprint.confirmed;
   const rateMicros = confirmed?.usdEgpRateMicros ?? settings.usdEgpRateMicros;
@@ -281,7 +295,7 @@ function SprintCard({
                     {share.fullName}
                   </span>
                   <Mono size="meta" className="shrink-0 text-[var(--ink-faint)]">
-                    {hoursLabel(share.minutesLogged)}
+                    {hoursLabel(share.minutesLogged)} · {share.basis}
                   </Mono>
                   <span className="shrink-0 text-[13.5px]">
                     <Money cents={share.shareCents} rateMicros={confirmed.usdEgpRateMicros} />
@@ -308,7 +322,7 @@ function SprintCard({
                     className={cn(
                       "min-w-0 flex-1 truncate text-[13.5px]",
                       person.profileId === meId && "font-semibold",
-                      !person.isDeveloper && "text-[var(--ink-muted)]"
+                      person.basis === "none" && "text-[var(--ink-muted)]"
                     )}
                   >
                     {person.fullName}
@@ -316,6 +330,7 @@ function SprintCard({
                   </span>
                   <Mono size="meta" className="shrink-0 text-[var(--ink-faint)]">
                     {hoursLabel(person.minutesLogged)} · {person.sharePct}%
+                    {person.basis === "hourly" ? " · hourly" : ""}
                   </Mono>
                 </li>
               ))}
@@ -344,7 +359,7 @@ function SprintCard({
 
           {eligible.length === 0 ? (
             <p className="mt-2 text-[13px] text-[var(--ink-muted)]">
-              Nobody who logged time on this sprint takes a share. Mark somebody a developer in
+              Nobody on this sprint is paid out of the pot. Give somebody a payout basis in
               Settings first.
             </p>
           ) : (
@@ -372,8 +387,8 @@ function SprintCard({
                           {person.fullName}
                         </span>
                         <Mono size="meta" className="shrink-0 text-[var(--ink-faint)]">
-                          {hoursLabel(person.minutesLogged)} · {person.sharePct}%
-                          {person.proposed ? " · proposed" : ""}
+                          {hoursLabel(person.minutesLogged)} · {person.sharePct}% ·{" "}
+                          {person.basis}
                         </Mono>
                       </label>
                     </li>
@@ -382,29 +397,68 @@ function SprintCard({
               </ul>
 
               <Mono size="meta" className="mt-2 block text-[var(--ink-faint)]">
-                pre-ticked for anyone who logged {settings.payoutShareThresholdPct}% or more · split
-                equally, not proportionally
+                hourly pay comes out of the pot first · what is left splits equally, not
+                proportionally, whether or not somebody logged anything
               </Mono>
 
               {/* Before the button, not after it. */}
-              <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--hairline)] pt-3">
-                <span className="text-[13px]">
-                  <Mono size="meta" className="mr-2 text-[var(--ink-faint)]">
-                    pot
+              {preview.payable ? (
+                <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--hairline)] pt-3">
+                  <span className="text-[13px]">
+                    <Mono size="meta" className="mr-2 text-[var(--ink-faint)]">
+                      pot
+                    </Mono>
+                    <Money cents={preview.potCents} rateMicros={settings.usdEgpRateMicros} />
+                  </span>
+                  {preview.hourlyPayCents > 0 ? (
+                    <span className="text-[13px]">
+                      <Mono size="meta" className="mr-2 text-[var(--ink-faint)]">
+                        hourly first
+                      </Mono>
+                      <Money
+                        cents={preview.hourlyPayCents}
+                        rateMicros={settings.usdEgpRateMicros}
+                      />
+                    </span>
+                  ) : null}
+                  <span className="text-[13px]">
+                    <Mono size="meta" className="mr-2 text-[var(--ink-faint)]">
+                      each
+                    </Mono>
+                    <Money cents={perPerson} rateMicros={settings.usdEgpRateMicros} />
+                  </span>
+                  <Mono size="meta" className="text-[var(--ink-faint)]">
+                    {picked.size} {picked.size === 1 ? "person" : "people"}
+                    {shareLines.length !== picked.size
+                      ? `, ${shareLines.length} sharing`
+                      : ""}
                   </Mono>
-                  <Money cents={sprint.potCents} rateMicros={settings.usdEgpRateMicros} />
-                </span>
-                <span className="text-[13px]">
-                  <Mono size="meta" className="mr-2 text-[var(--ink-faint)]">
-                    each
-                  </Mono>
-                  <Money cents={perPerson} rateMicros={settings.usdEgpRateMicros} />
-                </span>
-                <Mono size="meta" className="text-[var(--ink-faint)]">
-                  {picked.size} {picked.size === 1 ? "person" : "people"}
-                </Mono>
-              </div>
+                </div>
+              ) : (
+                /* Unpayable. No pot figure, no "each", no button — a number
+                   that cannot be computed honestly must not appear, and a
+                   disabled button beside a plausible total is a number. The
+                   same rule the Recovery Centre follows. */
+                <p
+                  data-unpayable
+                  className="mt-3 border-t border-[var(--hairline)] pt-3 text-[13px] leading-[1.55] text-[var(--ink-muted)]"
+                >
+                  <AlertTriangle
+                    size={13}
+                    strokeWidth={2.2}
+                    className="mr-1.5 inline align-[-2px] text-[var(--amber-text)]"
+                    aria-hidden
+                  />
+                  Hourly pay on this selection comes to{" "}
+                  {usdFromCents(preview.hourlyPayCents)}, which is{" "}
+                  {usdFromCents(preview.shortfallCents)} more than the{" "}
+                  {usdFromCents(preview.potCents)} this sprint took in. There is nothing to
+                  split, and no figure here would be true. Change the hours, the rates, or who
+                  is on the list.
+                </p>
+              )}
 
+              {preview.payable ? (
               <button
         {...control(pending ? "pending" : "idle")}
                 type="button"
@@ -422,14 +476,17 @@ function SprintCard({
                 ) : (
                   <Check size={14} strokeWidth={2.4} aria-hidden />
                 )}
-                {confirmed ? "Re-confirm" : "Confirm"} {usdFromCents(sprint.potCents)}
+                {confirmed ? "Re-confirm" : "Confirm"} {usdFromCents(preview.potCents)}
               </button>
+              ) : null}
 
-              <Mono size="meta" className="ml-3 text-[var(--ink-faint)]">
-                {confirmed
-                  ? "the previous confirmation stays in the record"
-                  : "this becomes a record and does not move again"}
-              </Mono>
+              {preview.payable ? (
+                <Mono size="meta" className="ml-3 text-[var(--ink-faint)]">
+                  {confirmed
+                    ? "the previous confirmation stays in the record"
+                    : "this becomes a record and does not move again"}
+                </Mono>
+              ) : null}
             </>
           )}
         </div>

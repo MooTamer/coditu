@@ -106,6 +106,8 @@ export default async function Page() {
               id: person.id,
               fullName: person.fullName,
               isDeveloper: person.isDeveloper,
+              basis: person.payoutBasis,
+              hourlyRateCents: person.hourlyRateCents,
               isActive: person.isActive,
             }))}
           />

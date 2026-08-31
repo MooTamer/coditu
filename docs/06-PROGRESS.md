@@ -6383,3 +6383,82 @@ times a day, and its low August total is that it was created on 29 August. The d
 conclusion is unchanged and its margin is worse — a 50% larger denominator is more than swallowed by
 a fifth of the pool spent elsewhere and a per-run cost a quarter above model. The backup is 47
 minutes, **1.4%** of the burn, and it is the thing that stops.
+
+---
+
+## 2026-08-31 · The payout model — `is_developer` split, and the money made refusable
+
+Mohamed's decision, implemented: `pot − hourly_pay = remainder`, split among the share people.
+**Ahmed Yehia is a developer paid hourly; his pay comes out of the pot, not on top of it.**
+
+### Before and after, the number that made this cheap
+
+| | `sprint_payouts` | `sprint_payout_shares` |
+|---|---|---|
+| hosted, before | **0** | **0** |
+| local, before | **0** | **0** |
+| local, after the migration | **0** | **0** |
+| hosted, after | **0** | **0** |
+
+Read with `select count(*)` over the read-only `coditu_backup` connection, and with `psql` against
+the local stack. Nothing was written; the migration is **not on hosted**.
+
+### The fixtures, with their numbers
+
+`npx vitest run tests/payout.test.ts` — **29 passed**.
+
+| case | input | asserted |
+|---|---|---|
+| ordinary | 6,000 min @ $12/h; Ahmed hourly 1,200 min; three on share | pot **120000**, hourly **24000**, remainder **96000**, each share **32000**, Σ = **120000** |
+| exceeds the pot | Ahmed 1,500 min @ **$60/h**, pot struck at $12/h | **refused** — pot 120000, hourly **150000**, shortfall **30000**; no `lines`, no `remainderCents`, no zero, no negative |
+| exactly equals the pot | Ahmed 1,200 min @ $60/h | **payable**; remainder **0**; shares render **0**; Σ = **120000** |
+| share person logged nothing | 3,000 min; one worked, one did not | both **30000**; Σ = **60000** |
+| hourly person logged nothing | 3,000 min; hourly 0 min | hourly pay **0**, remainder the whole **60000**, pot untouched |
+| basis `none` | +600 min from somebody who takes nothing | no line for them; pot still **120000**; Σ = **120000** |
+| thirds, 1¢ among 3 | pot **1** | `[1, 0, 0]` |
+| thirds, remainder 2 | pot **10001** among 3 | `[3334, 3334, 3333]` |
+| thirds, remainder 1 | pot **10000** among 3 | `[3334, 3333, 3333]` |
+| thirds, whole | pot **10002** among 3 | `[3334, 3334, 3334]` |
+| every remainder 0–6 | pot 700+n among **7** | exactly n people get the extra cent, Σ = pot each time |
+| hourly in front of an awkward remainder | pot 10001, hourly 1667 | `[1667, 2778, 2778, 2778]`, Σ = **10001** |
+| the real team | 8,040 min; Ahmed hourly 5,040 | Ahmed **100800**, each of three **20000**, Σ = **160800** |
+| the old model, same minutes | Ahmed on `share` | Ahmed **40200** — his 5,040 minutes swell a pot he takes a quarter of. The money error the overloaded column was one confirmation from making |
+
+**Shown capable of failing**, three ways, each restored afterwards:
+
+| break | red |
+|---|---|
+| clamp to zero instead of refusing | **4 of 29** |
+| drop the split's remainder | **6 of 29** |
+| pay hourly *on top of* the pot | **9 of 29** |
+
+### The guard, and that it can fail
+
+`supabase/tests/column-guards.sql` now sweeps `profiles` too: **14/14**. With the pre-migration
+denylist guard restored on the live local database, **four go red** — the sweep, the payout basis,
+the hourly rate, and `account_kind`, which had been writable by its own subject all along.
+
+### Every command
+
+| command | result |
+|---|---|
+| `npm run typecheck` | clean |
+| `npm run lint` | clean |
+| `npm run test` | **589 passed / 0 failed / 43 files** |
+| `npm run db:test` | **475 of 477**; the 2 are `seed.sql` 16–17 (134 vs 132 ticked criteria, 116 vs 114 attachments) and are **pre-existing** — they fail identically with this branch stashed |
+| `npm run build` | clean |
+| `npm run budgets` | **OK** — app shell own **78.4 / 110 KB**, total **218.3 / 220 KB** |
+
+**The budget is the thing to watch.** §5's binding total went 215.7 → **218.3**, so the headroom is
+**1.7 KB**. The board imports the payout module because the figure on the Confirm button and the
+figure the Server Action writes must come from one function; that is worth the bytes and it is the
+last change that can be made without finding some.
+
+### Removed, because they stopped being true
+
+- `splitEqually` and `meetsThreshold` are gone from `lib/earnings.ts`. The first divided the whole
+  pot, which is no longer what happens; keeping it would have been a second money function to keep
+  agreeing with the first. The second enforced a rule that is now reversed.
+- **The proposal threshold control is gone from Settings.** Nothing reads
+  `payout_share_threshold_pct` any more. The column and its value stay; the control does not, because
+  a control that writes a number nothing consults tells somebody they have decided something.

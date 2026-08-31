@@ -41,7 +41,8 @@ Defined once as a Postgres function and once in TypeScript. A test asserts the t
 `id uuid pk references auth.users on delete cascade`, `full_name`, `initials`, `avatar_url`,
 `role app_role default 'engineer'`, `weekly_capacity_minutes int default 2400`,
 `is_active bool default true`, `must_set_password bool not null default false`,
-`is_developer bool not null default false`, timestamps.
+`is_developer bool not null default false`, `payout_basis payout_basis not null default 'none'`,
+`hourly_rate_cents int check (null or > 0)`, timestamps.
 Populated by an `on auth.users` insert trigger.
 
 `weekly_capacity_minutes` is minutes, per invariant 2. 2400 = 40 hours.
@@ -53,12 +54,24 @@ switch off is not a forced change. **The default is `false` and has to stay `fal
 `true` and every account that already exists is locked out at once. There is no email recovery path
 in this application at all — see `05-DECISIONS.md`, 2026-08-22.
 
-`is_developer` decides whether somebody takes a share of a sprint's pot. It is the fifth column
-`guard_profile_privilege_columns` names, and the reason is the sharpest of the five: without the entry
-an engineer could decide they get paid. A non-developer's minutes still **count toward** the pot — the
-confirmation screen names them and says they take no share. Set by an admin on `/app/settings`, and
-**never by a name or an email in code**; `supabase/seeds/developers.sql` is the initial answer only,
-matched on `full_name` because production and local do not share email addresses.
+`is_developer` says whether somebody is an **engineer**. Literal, and it decides nothing about
+money. Until 2026-08-31 it decided both, and its own comment said the second thing while its name
+said the first — which made Ahmed Yehia's row wrong whichever value it held, because he is a
+developer who is paid hourly.
+
+`payout_basis` is what decides money: `hourly` (their minutes at their rate, taken **out of** the pot
+before anything is split), `share` (an equal part of what is left, whether or not they logged
+anything on the sprint), or `none` (their minutes still **count toward** the pot and they take none of
+it — the confirmation screen names them and says so). `hourly_rate_cents` is their agreed rate; null
+means `app_settings.hourly_rate_cents`. Both are set by an admin on `/app/settings`, and **never by a
+name or an email in code**; `supabase/seeds/developers.sql` is the initial answer only, matched on
+`full_name` because production and local do not share email addresses.
+
+`guard_profile_privilege_columns` is an **allowlist** as of `20260831120000`: a person may change
+their `full_name`, `initials`, `avatar_url` and `updated_at`, and an admin changes everything else. It
+was a denylist naming five columns, which would have let `payout_basis` and `hourly_rate_cents` arrive
+writable by the person they pay — and had already left `account_kind` open, so a client contact could
+have made themselves `internal`. Same inversion, and same reason, as `20260830140000` on `work_items`.
 
 `weekly_capacity_minutes` became editable on 2026-08-25 — it had driven the load bars on People and
 every `v_person_load` row since the first migration and was settable nowhere.
