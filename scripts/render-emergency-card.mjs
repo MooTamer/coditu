@@ -73,8 +73,15 @@ function render(markdown) {
         body.push(cell(lines[index]));
         index += 1;
       }
+      // A two-column key/value table is written `| | |` in Markdown. Emitting
+      // an empty <thead> for it prints a blank grey stripe, which reads as a
+      // rendering fault on a page whose whole job is to be trusted at 3am.
+      const titled = head.some((h) => h !== "");
       html.push(
-        `<table><thead><tr>${head.map((h) => `<th>${inline(h)}</th>`).join("")}</tr></thead>` +
+        "<table>" +
+          (titled
+            ? `<thead><tr>${head.map((h) => `<th>${inline(h)}</th>`).join("")}</tr></thead>`
+            : "") +
           `<tbody>${body
             .map((row) => `<tr>${row.map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`)
             .join("")}</tbody></table>`,

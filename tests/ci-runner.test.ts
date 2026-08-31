@@ -211,6 +211,27 @@ describe("the self-hosted runner is not asked to cache what it never loses", () 
   });
 });
 
+describe("a report-only job cannot get in front of the release", () => {
+  // One runner serialises every job in a run, and GitHub picks among ready
+  // jobs in no order you can rely on. Measured 2026-08-31: `lighthouse` took
+  // the runner while the production deploy waited behind it. This repository
+  // already learned that a report-only job must not decide what colour the
+  // trunk is; the single runner adds that it must not decide when it ships.
+  it.each(["browser", "lighthouse"])("%s waits for the deploy", (name) => {
+    const body = ciJobs.get(name)!;
+    expect(body).toMatch(/needs: \[scope, check, deploy\]/);
+  });
+
+  it.each(["browser", "lighthouse"])("%s still runs on a pull request, where deploy is skipped", (name) => {
+    // A skipped `needs` skips its dependents. `always()` is the only thing
+    // stopping this ordering from silently deleting both reports from every
+    // pull request — which is where they are actually read.
+    const body = ciJobs.get(name)!;
+    expect(body).toContain("always()");
+    expect(body).toContain("needs.check.result == 'success'");
+  });
+});
+
 describe("the jobs that stay metered stay metered on purpose", () => {
   // The rule: the metered runner is for the jobs whose whole reason to exist is
   // to work when this Mac does not. Keeping the hosted database awake, and

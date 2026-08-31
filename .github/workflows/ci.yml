@@ -276,8 +276,12 @@ jobs:
   # clean serial run of the same tree on a developer machine is 21.6 minutes.
   browser:
     name: browser baseline (report-only through the ten-run review)
-    needs: [scope, check]
-    if: needs.scope.outputs.code == 'true'
+    # `deploy` is in `needs` so the release is never queued behind an
+    # 85-minute report on the single self-hosted runner. See `lighthouse`.
+    needs: [scope, check, deploy]
+    if: >-
+      always() && needs.scope.outputs.code == 'true'
+      && needs.check.result == 'success'
     continue-on-error: true
     runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","coditu-mac"]') }}
     timeout-minutes: 85
@@ -591,8 +595,26 @@ jobs:
 
   lighthouse:
     name: lighthouse (marketing)
-    needs: scope
-    if: needs.scope.outputs.code == 'true'
+    # ── `deploy` is in `needs` so that it goes FIRST ──────────────────────────
+    #
+    # There is one self-hosted runner, so every job in a run is serialised, and
+    # GitHub picks among ready jobs in no order you can rely on. Measured
+    # 2026-08-31 on the merge of #10: `blocking release checks` went green, and
+    # then **`lighthouse` took the runner while the production deploy waited**.
+    # A report that gates nothing had got in front of the release.
+    #
+    # This repository already learned the neighbouring lesson — a report-only
+    # job must not decide what colour the trunk is. The single runner adds the
+    # other half: it must not decide *when the trunk ships*.
+    #
+    # `always()` is what keeps this from being a regression on pull requests,
+    # where `deploy` is skipped: a skipped `needs` normally skips its dependents,
+    # and `always()` stops that while `needs.check.result` keeps the real
+    # dependency.
+    needs: [scope, check, deploy]
+    if: >-
+      always() && needs.scope.outputs.code == 'true'
+      && needs.check.result == 'success'
     runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","coditu-mac"]') }}
     timeout-minutes: 20
     # Reports rather than gates. Accessibility, best practices, and SEO sit at
