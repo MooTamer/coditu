@@ -7098,3 +7098,14 @@ meaning anything. Putting it in Drive beside the backups would be worse than doi
 It is Mohamed's, it is one action, and it is in `docs/15-EMERGENCY-CARD.md` and
 `docs/14-DEPENDENCY-LEDGER.md` as the single load-bearing dependency in the design — the only one
 that is not a provider.
+
+### The card's PDF is committed, on purpose
+
+A generated binary in git is normally a smell, and this one is 110 KB that will churn whenever the
+Markdown changes. It is kept anyway, for the same reason the recovery repository carries its own
+copy of the tooling: **the card exists for the moment things are missing, and rendering it needs
+Node, Playwright and a Chromium download.** A card you can only read after `npm ci` is not an
+emergency card.
+
+`npm run docs:card` regenerates it from `docs/15-EMERGENCY-CARD.md`, which stays the source of
+truth. If the two ever disagree, the Markdown is right and somebody forgot to re-render.
