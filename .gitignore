@@ -82,3 +82,6 @@ next-env.d.ts
 
 # One-off browser diagnostics — verification only, never committed
 /e2e/*.local.spec.ts
+
+# Written by CI immediately before a production deploy; never committed.
+public/build-health.json

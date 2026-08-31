@@ -338,3 +338,63 @@ describe("the rollback drill cannot leave production where it moved it", () => {
     expect(DRILL).toMatch(/drill_deadline=\$\(\(SECONDS \+ 180\)\)/);
   });
 });
+
+/**
+ * The deploy builds on Vercel, and the evidence file has to reach it.
+ *
+ * `vercel pull` writes `[SENSITIVE]` for a Sensitive environment variable —
+ * they are write-only by design — so a build outside Vercel cannot have them,
+ * and the first real run of the CI build died on the application's own
+ * configuration check. The answer is not to downgrade four production variables
+ * to readable; it is to let Vercel build, which is what it has always done.
+ *
+ * The trap that creates: without `.vercelignore`, the CLI falls back to
+ * `.gitignore`, and `.gitignore` excludes `public/build-health.json` — the one
+ * file CI writes right before deploying, and the one both smokes read. The
+ * deploy would have uploaded everything except its own evidence.
+ */
+describe("the release stamps its commit and that stamp reaches Vercel", () => {
+  const DEPLOY = read("scripts/deploy-production.sh");
+  const STAMP = read("scripts/write-build-health.mjs");
+  const VERCELIGNORE = read(".vercelignore");
+  const GITIGNORE = read(".gitignore");
+
+  const rules = VERCELIGNORE.split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+
+  // Comments are stripped before asserting an ABSENCE. Both files explain at
+  // length why `--prebuilt` is gone, and a test that reads the explanation as
+  // the thing it forbids fails for the one reason that is not a defect.
+  const code = (text: string) =>
+    text
+      .split("\n")
+      .filter((line) => !/^\s*(#|\/\/)/.test(line))
+      .join("\n");
+
+  it("deploys from source, because a Sensitive variable cannot be pulled", () => {
+    expect(DEPLOY).toContain("vercel_cli deploy --prod --skip-domain --yes");
+    expect(code(DEPLOY)).not.toContain("--prebuilt");
+    expect(code(CI)).not.toMatch(/vercel build --prod/);
+    expect(code(CI)).not.toMatch(/vercel pull .*--environment=production/);
+  });
+
+  it("writes the stamp where an uploaded build will carry it", () => {
+    expect(STAMP).toContain('resolve(import.meta.dirname, "../public/build-health.json")');
+    expect(DEPLOY).toContain("$release_repo_root/public/build-health.json");
+  });
+
+  it("keeps the stamp out of git and INTO the upload", () => {
+    // Both are needed, and they pull in opposite directions — which is exactly
+    // why .vercelignore has to exist rather than being left to the fallback.
+    expect(GITIGNORE).toContain("public/build-health.json");
+    expect(rules.some((rule) => rule.includes("build-health"))).toBe(false);
+    expect(rules).toContain("node_modules");
+    expect(rules).toContain(".env*");
+  });
+
+  it("still refuses to deploy a stamp that is not this commit", () => {
+    expect(DEPLOY).toMatch(/fail "local build-health commit does not match GITHUB_SHA"/);
+    expect(DEPLOY).toContain(`[ "$(jq -er '.commit' "$release_health_file")" = "$GITHUB_SHA" ]`);
+  });
+});

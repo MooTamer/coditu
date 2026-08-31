@@ -6271,3 +6271,48 @@ same rule that check broke.
 
 **Why dispatch-only and never scheduled.** It moves production twice. A schedule would do that
 unattended, on a cadence nobody chose, for a check whose entire value is being watched while it runs.
+
+---
+
+## 2026-08-31 · Vercel builds the release; CI keeps the gate
+
+**Supersedes the build half of the CI deploy design.** The deploy job used to run `vercel pull`,
+`vercel build` and ship the result with `--prebuilt`. Its first real run, on `8063a8e`, got past the
+hosted-schema preflight — `hosted_schema_verified=true`, `migrations=40` — and then died:
+
+```
+! 4 Secret values cannot be pulled from the `production` Environment.
+  Wrote "[SENSITIVE]" as placeholders for the remaining values…
+Error: Supabase environment is not configured
+  (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY).
+Error: Command "npm run build" exited with 1
+```
+
+**A Sensitive environment variable on Vercel is write-only by design.** No token reads one back,
+which is the entire point of the setting. So a build that happens anywhere other than on Vercel
+cannot have those four values, and the CI-builds-then-ships-prebuilt design is not misconfigured —
+it is incompatible with the project's environment.
+
+**Rejected: downgrading the four variables to readable.** It would have made the original design
+work in about a minute, and it lowers a real security posture on the production project to suit a
+build arrangement. It is also a provider settings change, which is not an autonomous pass's to make.
+
+**Decision.** `vercel deploy --prod --skip-domain --yes` from source. Vercel builds — as it has for
+every production deploy this project has ever had — and the variables resolve where they are meant
+to. **Nothing about the gate moves:** the deploy job still runs only after the blocking checks and
+the hosted-schema preflight, on a commit already on `main` through a green pull request, and the
+stage → smoke → promote → roll-back-on-failure sequence is untouched.
+
+**`build-health.json` moves from the prebuilt output to `public/`.** It is still written by CI from
+`GITHUB_SHA` — the commit CI actually verified — rather than by the build reading
+`VERCEL_GIT_COMMIT_SHA`, which is a *system* variable and therefore empty when "Automatically Expose
+System Environment Variables" is off. That is the same fail-open trap the Ignored Build Step has,
+and it is avoided rather than re-entered.
+
+**And that move created a trap, closed before it fired.** `public/build-health.json` is in
+`.gitignore` — it must never be committed. Without a `.vercelignore` the CLI falls back to
+`.gitignore`, so the deploy would have uploaded everything **except its own evidence**, and the
+smoke would have failed on a file that was never sent rather than on anything wrong with the
+release. `.vercelignore` now exists and states the upload explicitly; a test asserts that
+`.gitignore` excludes the file and that no rule in `.vercelignore` does. The two pull in opposite
+directions, which is exactly why the answer could not be left to a fallback.

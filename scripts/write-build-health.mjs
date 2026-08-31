@@ -9,7 +9,20 @@ if (!commit || !/^[0-9a-f]{40}$/.test(commit)) {
   process.exit(1);
 }
 
-const destination = resolve(import.meta.dirname, "../.vercel/output/static/build-health.json");
+// `public/`, not `.vercel/output/static/`.
+//
+// This used to write into a prebuilt Vercel output because CI built the app and
+// deployed the result. That cannot work on this project: four of its production
+// environment variables are marked **Sensitive**, and a Sensitive variable is
+// write-only by design — `vercel pull` writes `[SENSITIVE]` in place of the
+// value and no token can read it back. The build then died on its own
+// configuration check. See ADR 2026-08-31.
+//
+// Vercel builds now, as it did for every production deploy this project has
+// ever had. `public/` is copied into the output verbatim, so CI still decides
+// what commit this file names — the one it verified — rather than the build
+// reading a system environment variable that may not be exposed.
+const destination = resolve(import.meta.dirname, "../public/build-health.json");
 mkdirSync(resolve(destination, ".."), { recursive: true });
 writeFileSync(destination, `${JSON.stringify({ status: "ok", commit })}\n`, {
   encoding: "utf8",

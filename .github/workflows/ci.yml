@@ -427,11 +427,24 @@ jobs:
           HOSTED_SCHEMA_PRIVILEGED_ROLE: postgres
         run: node scripts/check-hosted-schema.mjs
 
-      - name: Build the production output with Vercel's environment
+      # This step used to be `vercel pull` + `vercel build`, shipping the result
+      # with `--prebuilt`. It cannot work here and the first real run proved it:
+      #
+      #   ! 4 Secret values cannot be pulled from the `production` Environment.
+      #     Wrote "[SENSITIVE]" as placeholders …
+      #   Error: Supabase environment is not configured
+      #     (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY).
+      #
+      # A Sensitive environment variable on Vercel is WRITE-ONLY by design. No
+      # token can read one back, so a build outside Vercel cannot have them, and
+      # the answer is not to downgrade four production variables to readable.
+      # Vercel builds instead — as it has for every production deploy this
+      # project has ever had — and the gate is unmoved: this job still runs only
+      # after the blocking checks and the hosted-schema preflight, on a commit
+      # already on `main` through a green pull request. See ADR 2026-08-31.
+      - name: Stamp the commit this release claims to be
         run: |
           npm install --global vercel@59.9.1
-          vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
-          vercel build --prod --token "$VERCEL_TOKEN"
           node scripts/write-build-health.mjs
 
       - name: Stage, smoke and promote the checked commit
