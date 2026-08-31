@@ -6405,3 +6405,61 @@ cause (`user` scope).
 
 Not worked around. Deploying from a laptop bypasses the gate this pass built; a self-hosted runner
 puts production credentials on an unmodelled machine.
+---
+
+## 2026-08-31 · B5 — CI moves onto a runner on the Mac, and `main` can move again
+
+Out of the stated order, and for a reason: **B0 could not run.** The brief assumed the Actions
+billing period had rolled. It has not — today *is* the last day of it — and the only thing that can
+run a required check before September is a runner GitHub does not meter.
+
+### What was verified before anything was changed
+
+```bash
+git log --oneline -1                 # faca200
+docker ps                            # Colima up; two Supabase stacks, 544xx and the Baseeta one
+gh workflow run keepalive.yml --ref main
+gh api repos/MooTamer/coditu/actions/runs/33409952551/jobs
+#   started 15:42:10Z · completed 15:42:12Z · conclusion failure · steps 0
+```
+
+Two seconds, zero steps, dispatched live rather than read off an old run. The allowance is still
+out. Both PRs sit `MERGEABLE` behind one required check — `blocking release checks` — that cannot
+execute.
+
+### What was done
+
+| | |
+|---|---|
+| Runner | `coditu-mac`, `actions/runner` 2.337.0, osx-arm64, launchd agent |
+| Labels | `self-hosted`, `macOS`, `ARM64`, `coditu-mac` |
+| Status | `online`, `Listening for Jobs` at 15:45:07Z |
+| Jobs moved | all six in `ci.yml` |
+| Jobs deliberately left metered | `keepalive.yml`, `rollback-drill.yml` |
+
+```bash
+gh api repos/MooTamer/coditu/actions/runners --jq '.runners[]|{name,status}'
+# {"name":"coditu-mac","status":"online"}
+```
+
+### The bug the new test found before CI ever ran
+
+`supabase start` keys its containers off `project_id`, not off the directory it runs in. On a hosted
+runner the machine is empty; this Mac carries the developer's own stack on 544xx. The required job's
+second line is `supabase db reset`. **CI would have dropped the local database somebody was working
+in.**
+
+Isolation to `codituci` on 547xx covered `check` and `browser`. `tests/ci-runner.test.ts` then
+failed on **`lighthouse`**, which starts a stack without resetting one — so it does not read like a
+job that could hurt anybody, and its teardown would have stopped the developer's containers instead.
+
+```bash
+npx vitest run tests/ci-runner.test.ts   # 29 passed
+npm run lint && npm run typecheck        # clean
+npm test                                 # 42 files, 589 passed
+```
+
+### Owed
+
+`npm run recovery:check` is still red on the branches that changed backup tooling, by design —
+`npm run recovery:sync` follows the merge. Nothing in this step touches it.

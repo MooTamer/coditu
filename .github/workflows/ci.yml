@@ -8,6 +8,40 @@ on:
 permissions:
   contents: read
 
+# ── Where these jobs run, and why it is not `ubuntu-latest` ─────────────────
+#
+# On 2026-08-31 the account's Actions allowance ran out. Every job in both
+# repositories began finishing in two seconds with zero steps; `main` froze,
+# because the one required check could not run; and the nightly backup stopped.
+# The measured burn was 4.3x sustainable — ~234 runs against ~54 the 3,000
+# minutes support — so a bigger allowance does not fix it and a smaller CI
+# barely dents it.
+#
+# **Actions minutes meter GitHub-HOSTED runners only.** A self-hosted runner is
+# free and unmetered. This repository is private with a single writer, so the
+# reason self-hosted runners are normally dangerous — a fork PR executing an
+# attacker's code on your hardware — cannot arise here: a fork PR cannot run a
+# workflow at all without an approving write-access review, and there is nobody
+# to fork it. That is a property of this repository, not a general safe rule,
+# and it stops being true the day a second contributor arrives.
+#
+# `CI_RUNNER` is the escape hatch. Unset — the normal state — every job runs on
+# `coditu-mac`. Set it to `["ubuntu-latest"]` and the whole file goes back to
+# the metered pool for as long as it stays set.
+#
+# The fallback is deliberately MANUAL. An automatic one — try the Mac, fall
+# back when it is asleep — is precisely how the allowance went the first time:
+# it would spend minutes without anybody choosing to. A Mac that is off makes
+# these jobs QUEUE, which is visible on the pull request and costs nothing;
+# nothing merges until somebody either wakes the Mac or decides to pay. And
+# every job prints where it ran into the run summary, so a switch that was
+# flipped and forgotten is a line you read rather than a bill you discover.
+#
+# `keepalive.yml` and `rollback-drill.yml` stay on `ubuntu-latest` ON PURPOSE.
+# The line is: the metered runner is for the jobs whose whole reason to exist
+# is to work when this Mac does not. Keeping the database awake and rolling
+# production back are both of those. CI is not.
+
 jobs:
   # GitHub Actions minutes are ONE pool. CI, the nightly backup, the freshness
   # canary and the keepalive all draw on the same free monthly allowance, and
@@ -26,7 +60,7 @@ jobs:
   # `code=true` and everything runs.
   scope:
     name: what changed
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","coditu-mac"]') }}
     timeout-minutes: 5
     outputs:
       code: ${{ steps.classify.outputs.code }}
@@ -34,6 +68,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: ./.github/actions/runner-identity
 
       - id: classify
         env:
@@ -82,16 +117,34 @@ jobs:
 
   check:
     name: blocking release checks
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","coditu-mac"]') }}
     timeout-minutes: 35
 
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/runner-identity
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          # ── Not on the self-hosted runner, and this is measured ────────────
+          #
+          # `cache: npm` archives `~/.npm` and uploads it to GitHub's cache
+          # service, so that the NEXT ephemeral machine does not download the
+          # registry again. A self-hosted runner is not ephemeral: `~/.npm` is
+          # still there next run, having never been lost.
+          #
+          # So the whole exchange is a round trip to replace something that did
+          # not go anywhere — and on the first run of this change it cost more
+          # than everything it was helping. Lint, typecheck, 589 unit tests, the
+          # RLS suite, a production build, budgets, the degraded-dependency
+          # pause: **5 minutes**. `Post Run actions/setup-node@v4`, uploading
+          # the cache: **15 and still going.**
+          #
+          # Written the long way round on purpose. `x && '' || 'npm'` looks
+          # right and returns `npm` in both branches, because an empty string is
+          # falsy in a GitHub expression and the `||` takes over.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
 
       - run: npm ci
 
@@ -104,6 +157,7 @@ jobs:
           # backup and isolated 441-test rehearsal. `latest` already changed
           # grant behaviour underneath this repository once.
           version: 2.109.1
+      - uses: ./.github/actions/isolated-supabase
       - run: supabase start
       - run: supabase db reset
 
@@ -173,6 +227,15 @@ jobs:
       # recovery. Last, because it takes the database away from everything.
       - run: SKIP_BUILD=1 npm run degraded
 
+      # A hosted runner is deleted when the job ends. This Mac is not. Nine
+      # containers left behind after every run would fill a 6 GiB Colima VM in
+      # an afternoon and take the developer's own stack down with it — a CI job
+      # whose failure mode is somebody else's broken machine. `always()`, so a
+      # red suite still cleans up after itself.
+      - name: Tear the CI stack down
+        if: ${{ always() && runner.environment == 'self-hosted' }}
+        run: supabase stop --no-backup || true
+
   # ── The timeout belongs on the STEPS, and that is not a detail ─────────────
   #
   # A job that exceeds its own `timeout-minutes` is CANCELLED, and
@@ -198,22 +261,41 @@ jobs:
     needs: [scope, check]
     if: needs.scope.outputs.code == 'true'
     continue-on-error: true
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","coditu-mac"]') }}
     timeout-minutes: 85
 
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/runner-identity
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          # ── Not on the self-hosted runner, and this is measured ────────────
+          #
+          # `cache: npm` archives `~/.npm` and uploads it to GitHub's cache
+          # service, so that the NEXT ephemeral machine does not download the
+          # registry again. A self-hosted runner is not ephemeral: `~/.npm` is
+          # still there next run, having never been lost.
+          #
+          # So the whole exchange is a round trip to replace something that did
+          # not go anywhere — and on the first run of this change it cost more
+          # than everything it was helping. Lint, typecheck, 589 unit tests, the
+          # RLS suite, a production build, budgets, the degraded-dependency
+          # pause: **5 minutes**. `Post Run actions/setup-node@v4`, uploading
+          # the cache: **15 and still going.**
+          #
+          # Written the long way round on purpose. `x && '' || 'npm'` looks
+          # right and returns `npm` in both branches, because an empty string is
+          # falsy in a GitHub expression and the `||` takes over.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
 
       - run: npm ci
 
       - uses: supabase/setup-cli@v1
         with:
           version: 2.109.1
+      - uses: ./.github/actions/isolated-supabase
       - run: supabase start
       - run: supabase db reset
 
@@ -279,6 +361,15 @@ jobs:
         if: ${{ steps.development_e2e.outcome == 'failure' || steps.production_e2e.outcome == 'failure' }}
         run: exit 1
 
+      # A hosted runner is deleted when the job ends. This Mac is not. Nine
+      # containers left behind after every run would fill a 6 GiB Colima VM in
+      # an afternoon and take the developer's own stack down with it — a CI job
+      # whose failure mode is somebody else's broken machine. `always()`, so a
+      # red suite still cleans up after itself.
+      - name: Tear the CI stack down
+        if: ${{ always() && runner.environment == 'self-hosted' }}
+        run: supabase stop --no-backup || true
+
   # ── Why this job exists, and why it is not an `if:` on the deploy job ───────
   #
   # The deploy job used to carry a first step that asserted every deploy value
@@ -315,7 +406,7 @@ jobs:
   preflight:
     name: is the production deploy configured
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","coditu-mac"]') }}
     timeout-minutes: 5
     environment: Production
     outputs:
@@ -328,6 +419,13 @@ jobs:
       PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
 
     steps:
+      # This job needs no source of its own — it reads secrets and prints their
+      # names. It checks out anyway, because `runner-identity` is a local
+      # action and a job that will not say where it ran is the one place a
+      # silent return to the metered pool could hide.
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/runner-identity
+
       - id: probe
         name: Report which deploy values are present, by name only
         run: |
@@ -372,7 +470,7 @@ jobs:
     if: >-
       github.event_name == 'push' && github.ref == 'refs/heads/main'
       && needs.preflight.outputs.configured == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","coditu-mac"]') }}
     timeout-minutes: 30
     environment: Production
     concurrency:
@@ -387,11 +485,29 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/runner-identity
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          # ── Not on the self-hosted runner, and this is measured ────────────
+          #
+          # `cache: npm` archives `~/.npm` and uploads it to GitHub's cache
+          # service, so that the NEXT ephemeral machine does not download the
+          # registry again. A self-hosted runner is not ephemeral: `~/.npm` is
+          # still there next run, having never been lost.
+          #
+          # So the whole exchange is a round trip to replace something that did
+          # not go anywhere — and on the first run of this change it cost more
+          # than everything it was helping. Lint, typecheck, 589 unit tests, the
+          # RLS suite, a production build, budgets, the degraded-dependency
+          # pause: **5 minutes**. `Post Run actions/setup-node@v4`, uploading
+          # the cache: **15 and still going.**
+          #
+          # Written the long way round on purpose. `x && '' || 'npm'` looks
+          # right and returns `npm` in both branches, because an empty string is
+          # falsy in a GitHub expression and the `||` takes over.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
 
       # `preflight` already answered this, so reaching here with a value missing
       # means it was deleted between the two jobs. That is a real fault and this
@@ -459,7 +575,7 @@ jobs:
     name: lighthouse (marketing)
     needs: scope
     if: needs.scope.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","coditu-mac"]') }}
     timeout-minutes: 20
     # Reports rather than gates. Accessibility, best practices, and SEO sit at
     # 100; Performance sits at 93 against §5's 95, and the whole gap is
@@ -472,10 +588,28 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/runner-identity
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          # ── Not on the self-hosted runner, and this is measured ────────────
+          #
+          # `cache: npm` archives `~/.npm` and uploads it to GitHub's cache
+          # service, so that the NEXT ephemeral machine does not download the
+          # registry again. A self-hosted runner is not ephemeral: `~/.npm` is
+          # still there next run, having never been lost.
+          #
+          # So the whole exchange is a round trip to replace something that did
+          # not go anywhere — and on the first run of this change it cost more
+          # than everything it was helping. Lint, typecheck, 589 unit tests, the
+          # RLS suite, a production build, budgets, the degraded-dependency
+          # pause: **5 minutes**. `Post Run actions/setup-node@v4`, uploading
+          # the cache: **15 and still going.**
+          #
+          # Written the long way round on purpose. `x && '' || 'npm'` looks
+          # right and returns `npm` in both branches, because an empty string is
+          # falsy in a GitHub expression and the `||` takes over.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
       - run: npm ci
       # The marketing route is static, but `next build` still validates the
       # Supabase environment — and `with-prod-server.sh` refuses to start
@@ -484,6 +618,7 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.109.1
+      - uses: ./.github/actions/isolated-supabase
       - run: supabase start
       - name: Point the app at the local stack
         run: |
@@ -498,3 +633,12 @@ jobs:
           } > .env.local
       - run: npx playwright install --with-deps chromium
       - run: npm run lighthouse
+
+      # A hosted runner is deleted when the job ends. This Mac is not. Nine
+      # containers left behind after every run would fill a 6 GiB Colima VM in
+      # an afternoon and take the developer's own stack down with it — a CI job
+      # whose failure mode is somebody else's broken machine. `always()`, so a
+      # red suite still cleans up after itself.
+      - name: Tear the CI stack down
+        if: ${{ always() && runner.environment == 'self-hosted' }}
+        run: supabase stop --no-backup || true
