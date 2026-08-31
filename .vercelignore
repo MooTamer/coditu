@@ -1,0 +1,52 @@
+# What is uploaded when CI runs `vercel deploy --prod` from source.
+#
+# This file exists to make that answer deterministic. Without it the CLI falls
+# back to `.gitignore`, and `.gitignore` excludes `public/build-health.json` —
+# the one file CI writes immediately before deploying and the one the staged and
+# public smokes read to decide whether the release is the commit it claims to
+# be. The deploy would have uploaded everything except its own evidence, and the
+# smoke would have failed on a file that was never sent rather than on anything
+# wrong with the release.
+#
+# So: an explicit list, and `public/build-health.json` is deliberately not on it.
+# Everything here is either rebuilt on Vercel, local-only state, or something
+# that must never leave this machine.
+
+# Rebuilt on Vercel
+node_modules
+.next
+out
+build
+
+# Local state and tooling
+.git
+.vercel
+.claude
+.claude-flow
+.swarm
+.hive-mind
+supabase/.branches
+supabase/.temp
+
+# Verification artefacts
+coverage
+test-results
+playwright-report
+blob-report
+.playwright
+.lighthouseci
+
+# Recovery material — encrypted archives, keys and plaintext dumps
+.backups
+.db-gate
+*.agekey
+*.dump
+*.dump.age
+*.tar.gz.age
+
+# Secrets and machine files
+.env*
+*.pem
+.DS_Store
+._*
+*.tsbuildinfo

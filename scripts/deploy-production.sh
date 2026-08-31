@@ -35,12 +35,11 @@ printf '%s\n' "$PRODUCTION_BASE_URL" | grep -Eq '^https://[A-Za-z0-9.-]+(:[0-9]+
 
 release_script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 release_repo_root=$(CDPATH= cd -- "$release_script_dir/.." && pwd)
-release_health_file=$release_repo_root/.vercel/output/static/build-health.json
-[ -f "$release_health_file" ] || fail "build-health.json was not added to the Vercel prebuilt output"
+release_health_file=$release_repo_root/public/build-health.json
+[ -f "$release_health_file" ] || fail "public/build-health.json was not written before the deploy"
 [ "$(jq -er '.status' "$release_health_file")" = ok ] || fail "local build-health status is not ok"
 [ "$(jq -er '.commit' "$release_health_file")" = "$GITHUB_SHA" ] ||
   fail "local build-health commit does not match GITHUB_SHA"
-[ -d "$release_repo_root/.vercel/output" ] || fail "Vercel prebuilt output is missing"
 
 vercel_cli() {
   vercel "$@" --token "$VERCEL_TOKEN"
@@ -125,7 +124,22 @@ case "$release_previous_url" in
   *) release_previous_url=https://$release_previous_url ;;
 esac
 
-release_deploy_output=$(vercel_cli deploy --prebuilt --prod --skip-domain --yes)
+# Source, not `--prebuilt`, and this is the one line that matters most here.
+#
+# CI used to run `vercel pull` and `vercel build` and ship the result. That
+# cannot work on this project: four of its production environment variables are
+# marked **Sensitive**, which by design means write-only — `vercel pull` writes
+# `[SENSITIVE]` in their place and no token can read them back. The first real
+# run of this path died in `next build`, on the application's own check that its
+# Supabase configuration is present. See ADR 2026-08-31.
+#
+# So the build happens on Vercel, where those variables resolve, exactly as it
+# has for every production deploy this project has ever had. Nothing about the
+# GATE moves: this job still runs only after the blocking checks and the hosted
+# schema preflight, on a commit that is already on `main` through a green pull
+# request, and the stage → smoke → promote → roll-back-on-failure sequence below
+# is untouched. `public/build-health.json` still names the commit CI verified.
+release_deploy_output=$(vercel_cli deploy --prod --skip-domain --yes)
 release_staged_url=$(printf '%s\n' "$release_deploy_output" |
   grep -E '^https://[A-Za-z0-9.-]+\.vercel\.app/?$' | tail -n 1)
 [ -n "$release_staged_url" ] || fail "Vercel did not return a staged deployment URL"
