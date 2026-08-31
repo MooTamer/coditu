@@ -105,6 +105,27 @@ describe("the release store is kept and depended upon by nothing", () => {
   });
 });
 
+describe("the cloud workflows still name the store they read", () => {
+  // The default flipped from the release store to `local` on 2026-08-31. These
+  // two run in the cloud, where there is no local store — an unnamed default
+  // fails them on "BACKUP_LOCAL_DIR is required", which would be a backup
+  // canary broken by a change to where backups live.
+  const cloud = ["backup-canary.yml", "nightly-backup.yml"];
+
+  it.each(cloud)("%s pins BACKUP_STORE", (file) => {
+    const workflow = read(`ops/recovery-repo/workflows/${file}`);
+    expect(workflow).toContain("check-backup-freshness.sh");
+    expect(workflow).toContain("BACKUP_STORE: github-release");
+  });
+
+  it.each(cloud)("%s names it at every call site", (file) => {
+    const workflow = read(`ops/recovery-repo/workflows/${file}`);
+    const calls = (workflow.match(/check-backup-freshness\.sh/g) ?? []).length;
+    const pins = (workflow.match(/BACKUP_STORE: github-release/g) ?? []).length;
+    expect(pins).toBe(calls);
+  });
+});
+
 describe("the destination is proved by reading it back, never by a size", () => {
   it("the off-site copy hashes what it wrote, through the destination", () => {
     expect(code(offsite)).toContain("check-materialised.mjs");

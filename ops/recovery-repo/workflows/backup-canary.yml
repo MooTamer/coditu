@@ -95,6 +95,12 @@ jobs:
 
       - name: Read the newest off-site recovery set
         env:
+          # Named, not inherited. The freshness check defaults to the LOCAL
+          # store as of ADR 2026-08-31, and this job runs in the cloud where
+          # there is no local store — an unnamed default would fail it on
+          # "BACKUP_LOCAL_DIR is required", which is a backup canary broken by
+          # a change to where backups live.
+          BACKUP_STORE: github-release
           RECOVERY_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BACKUP_MAX_AGE_SECONDS: "93600"
