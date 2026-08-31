@@ -146,23 +146,23 @@ function render(markdown) {
 }
 
 const page = `<!doctype html><meta charset="utf-8"><style>
-  @page { size: A4; margin: 14mm 13mm; }
-  body { font: 10pt/1.42 -apple-system, "Helvetica Neue", Arial, sans-serif; color: #111; }
-  h1 { font-size: 19pt; margin: 0 0 2mm; letter-spacing: -0.3pt; }
-  h2 { font-size: 12pt; margin: 5mm 0 1.5mm; border-bottom: 0.6pt solid #bbb; padding-bottom: 1mm; }
+  @page { size: A4; margin: 11mm 11mm; }
+  body { font: 9.1pt/1.34 -apple-system, "Helvetica Neue", Arial, sans-serif; color: #111; }
+  h1 { font-size: 17pt; margin: 0 0 1.5mm; letter-spacing: -0.3pt; }
+  h2 { font-size: 11pt; margin: 3.6mm 0 1.2mm; border-bottom: 0.6pt solid #bbb; padding-bottom: 1mm; }
   h3 { font-size: 10.5pt; margin: 3mm 0 1mm; }
-  p { margin: 1.5mm 0; }
-  table { border-collapse: collapse; width: 100%; margin: 2mm 0; font-size: 8.8pt; }
-  th, td { border: 0.4pt solid #bbb; padding: 1.2mm 1.8mm; text-align: left; vertical-align: top; }
+  p { margin: 1.1mm 0; }
+  table { border-collapse: collapse; width: 100%; margin: 2mm 0; font-size: 8.2pt; }
+  th, td { border: 0.4pt solid #bbb; padding: 0.9mm 1.5mm; text-align: left; vertical-align: top; }
   th { background: #f2f2f2; }
-  code { font: 8.6pt "SF Mono", Menlo, Consolas, monospace; background: #f4f4f4; padding: 0 0.6mm; }
+  code { font: 8.0pt "SF Mono", Menlo, Consolas, monospace; background: #f4f4f4; padding: 0 0.6mm; }
   pre { background: #f4f4f4; border-left: 1.2pt solid #999; padding: 1.6mm 2.4mm; margin: 2mm 0;
         white-space: pre-wrap; word-break: break-word; }
-  pre code { background: none; padding: 0; font-size: 8.2pt; }
+  pre code { background: none; padding: 0; font-size: 7.7pt; }
   blockquote { border-left: 2pt solid #c00; background: #fff6f6; margin: 2.5mm 0;
                padding: 1.4mm 3mm; }
   blockquote p { margin: 1mm 0; }
-  hr { border: 0; border-top: 0.4pt solid #ddd; margin: 3mm 0; }
+  hr { border: 0; border-top: 0.4pt solid #ddd; margin: 2mm 0; }
   ul, ol { margin: 1.5mm 0; padding-left: 5mm; }
   li { margin: 0.8mm 0; }
   a { color: #111; text-decoration: none; }

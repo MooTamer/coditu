@@ -1,142 +1,123 @@
 # Coditu — emergency card
 
-**One page. Print it.** For the night something is gone and nobody remembers any of this.
+**Print this.** For the night something is gone and nobody remembers any of it.
 
-Written 2026-08-31. Verified by following it literally, changing nothing — see
-`docs/06-PROGRESS.md`.
-
----
-
-## 1. Read this first
-
-**Your data is not inside the application.** It is a nightly encrypted archive, ~19 MB, and there
-are several copies. The application being down and the data being gone are different problems, and
-only one of them has ever been likely.
-
-**The fastest useful thing you can do is get the rows back**, not get the site back. That takes
-minutes and needs no provider account.
+Written 2026-08-31, and **verified by following it literally with the network off**. The first
+draft was wrong in three places; each is fixed below and recorded in `docs/06-PROGRESS.md`.
 
 ---
+
+## 1. Your data is not inside the application
+
+It is a nightly encrypted archive, ~19 MB, and there are several copies. *The app is down* and *the
+data is gone* are different problems and only the first has ever been likely.
+
+**Getting the rows back takes about a minute and needs nobody's account.** Getting the site back is
+a separate, slower job — §5. Do the first one first.
 
 ## 2. Where the copies are
 
 | Copy | Where | Needs |
 |---|---|---|
-| **PRIMARY** | Mohamed's Mac: `~/Library/Application Support/coditu-backups/` | The Mac |
-| Off-site 1 | The Google Drive folder named in `~/.config/coditu/nightly.env` as `OFFSITE_drive_DIR` | A Google sign-in, or any machine where that Drive is synced |
-| Off-site 2 | An external disk with `.coditu-backup-volume` in its Coditu folder | The disk |
-| Older sets | `MooTamer/coditu-recovery` GitHub releases, up to 2026-08-31 only | A GitHub sign-in |
+| **PRIMARY** | Mohamed's Mac, `~/Library/Application Support/coditu-backups/` | The Mac |
+| Off-site 1 | The Google Drive folder named as `OFFSITE_drive_DIR` in `~/.config/coditu/nightly.env` | A Google sign-in, or any machine syncing that Drive |
+| Off-site 2 | An external disk holding `.coditu-backup-volume` | The disk |
+| Older sets | `MooTamer/coditu-recovery` releases — **up to 2026-08-31 only** | A GitHub sign-in |
 
-Each copy is the same pair of files per night:
-
-```
-<id>.tar.gz.age        the encrypted archive
-<id>.metadata.json     its checksum, row counts and bucket counts
-```
-
-`<id>` is `YYYY-MM-DDTHHMMSSZ`. **Newest is best; any of them works.**
-
----
+Each night is two files: `<id>.tar.gz.age` (encrypted) and `<id>.metadata.json` (its checksum and
+counts). `<id>` is `YYYY-MM-DDTHHMMSSZ`. **Sort by name, never by date — newest name wins.**
 
 ## 3. The key — read this before anything else fails
 
-The archives are encrypted with **age**. Without the private key they are noise, and there is no
-recovery, no escrow and no reset.
+Encrypted with **age**. Without the private key the archives are noise. There is no escrow, no
+recovery, no reset.
 
 | | |
 |---|---|
-| **Where the key is** | `~/.config/coditu/backup.agekey` on Mohamed's Mac, mode 0600 |
-| **Second copy** | ☐ *fill this in* — the safe, the wallet, the password manager entry, the sealed envelope |
+| Where it is | `~/.config/coditu/backup.agekey` on Mohamed's Mac, mode 0600 |
+| **Second copy** | ☐ *fill this in* — the safe, the wallet, the password-manager entry |
 | Public recipient (not secret) | `ops/backup-recipient.txt` in the repository |
 
-> **If there is no second copy and the Mac is gone, stop reading: every archive everywhere is
-> unreadable.** Make the second copy today, and **not** where the archives are — a key stored beside
-> its ciphertext is not a key. Paper in a different building. A password-manager entry. Anywhere the
-> Drive folder is not.
+> **If there is no second copy and the Mac is gone, every archive everywhere is unreadable.** Make
+> it today, and **not where the archives are** — a key beside its ciphertext is not a key. Paper in
+> another building. A password manager. Anywhere the Drive folder is not.
 
-**Never type the key into a chat, a ticket, a commit, or this card.**
+Never type the key into a chat, a ticket, a commit, or this card.
 
----
+## 4. Get the data back
 
-## 4. Get the data back — the short version
-
-On any Mac or Linux machine with Docker and `age`:
+Any machine with Docker and `age`. **No network is needed if the image is already pulled** — it is,
+on Mohamed's Mac.
 
 ```bash
-brew install age                          # or: apt install age
-docker run -d --name coditu-restore -e POSTGRES_PASSWORD=postgres -p 5599:5432 postgres:17
-age -d -i /path/to/backup.agekey <id>.tar.gz.age | tar -xz -C /tmp/coditu-restore
-psql 'postgresql://postgres:postgres@127.0.0.1:5599/postgres' -f /tmp/coditu-restore/database.sql
+brew install age                                   # or: apt install age
+ID=<newest id>                                     # e.g. 2026-08-31T070134Z
+mkdir -p /tmp/coditu-restore
+age -d -i /path/to/backup.agekey "$ID.tar.gz.age" | tar -xz -C /tmp/coditu-restore
 ```
 
-Then the data is queryable:
+Inside: `schema.sql`, `data.sql`, `roles.sql`, `row-counts.tsv`, `manifest.json`, and `storage/`.
+
+**The target must be Supabase's Postgres, not a plain one.** Measured: plain `postgres:17` throws
+545 errors — the dump refers to `auth`, `storage` and `extensions` schemas it does not have.
 
 ```bash
-psql 'postgresql://postgres:postgres@127.0.0.1:5599/postgres' \
-  -c 'select count(*) from public.work_items'
+docker run -d --name coditu-restore -e POSTGRES_PASSWORD=postgres -p 5599:5432 \
+  public.ecr.aws/supabase/postgres:17.6.1.155
+sleep 15
+U='postgresql://postgres:postgres@127.0.0.1:5599/postgres'
+psql -X -q "$U" -f /tmp/coditu-restore/roles.sql        # a few "role does not exist" — fine
+psql -X -q "$U" -f /tmp/coditu-restore/schema.sql       # clean
+psql -X -q "$U" -f /tmp/coditu-restore/data.sql         # see the note below
+psql -X -qAt "$U" -c 'select count(*) from public.work_items'
 ```
 
-**Measured, unattended, with the network off: see §7.**
+**What this gives you, measured rather than hoped:** every application table, row for row —
+`public` **35 of 35 tables, 1,184 of 1,184 rows**. What it does not give you is `auth` and
+`storage` *metadata*: the public image trails hosted, so `data.sql` errors on tables it lacks
+(`storage.vector_indexes` and similar) and the `auth.users` rows after it are skipped. Those need a
+target as new as hosted — the full procedure is `verify-backup-restore.sh` in
+`MooTamer/coditu-recovery`, and `docs/12-RECOVERY-RUNBOOK.md` §3.
 
-Storage files (avatars, attachments) are in the same archive under `storage/`, as ordinary files.
-They need no database and no tool — open them.
-
----
+**The Storage files — avatars and attachments — are already extracted under
+`/tmp/coditu-restore/storage/`.** They are ordinary files. They need no database and no tool.
 
 ## 5. Get the application back
 
-Only if you need the app, not just the data.
+Only if you need the app, not just the data. Estimate **30–60 minutes**, and
+`docs/14-DEPENDENCY-LEDGER.md` says what that is made of.
 
-1. Create a new Supabase project. Note its URL, anon key and service-role key.
-2. Restore as in §4, but against the new project's connection string.
+1. Create a new Supabase project; note its URL, anon key and service-role key.
+2. Restore as in §4, against the new project's connection string.
 3. **Reapply the two triggers no dump carries** — without them there is no profile creation and
-   **no sign-up gate**:
-   ```bash
-   scripts/reapply-managed-triggers.sh '<new project connection string>'
-   ```
-4. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-   on Vercel and redeploy, or run `npm run build && npm start` anywhere.
+   **no sign-up gate**: `scripts/reapply-managed-triggers.sh '<new connection string>'`
+4. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` on
+   Vercel and redeploy — or `npm run build && npm start` anywhere.
 
-Estimated 30–60 minutes. It is an estimate and `docs/14-DEPENDENCY-LEDGER.md` says what it is made
-of.
-
----
-
-## 6. Verify you actually got everything
+## 6. Check you really got it
 
 ```bash
-node scripts/check-materialised.mjs /path/to/the/archives
+node scripts/check-materialised.mjs /path/to/the/archives     # materialised=true
+diff <(sort /tmp/coditu-restore/row-counts.tsv) ...           # per-table truth, in the archive
 ```
 
-Prints `materialised=true` only when every archive read back byte-for-byte and matched its own
-sidecar. **A file that is the right size is not evidence** — a cloud folder can hold a placeholder
-with the right name, the right size and no bytes at all.
+`materialised=true` means every archive **read back byte-for-byte** and matched its own sidecar.
+**A file of the right size is not evidence:** a cloud folder can hold a placeholder with the right
+name, the right size and no bytes at all, which reads only when the network is up.
 
-Compare the restored counts to the sidecar:
-
-```bash
-cat <id>.metadata.json     # databaseTables, databaseRows, storageBuckets, storageObjects
-```
-
----
-
-## 7. How long it takes
-
-| Step | Time | Measured how |
-|---|---|---|
-| Decrypt and restore the database | *see `docs/06-PROGRESS.md`, offline pass* | Unattended, **wifi off** |
-| Read the Storage files | immediate | They are files |
-| Stand the application up again | 30–60 min | Estimate; components in the ledger |
-
----
-
-## 8. Who and what
+## 7. How long it takes — measured, wifi off
 
 | | |
 |---|---|
-| Repository | `MooTamer/coditu` (private) — every clone is a complete copy |
-| Recovery tooling | `MooTamer/coditu-recovery` — self-contained, so recovery never begins by checking out the thing that was lost |
-| Hosting | Vercel Hobby, project `coditu`, `https://coditu-phi.vercel.app` |
-| Database | Supabase Free, `hayfsvsepgfescojesbd`, eu-central-1 |
-| Longer runbook | `docs/12-RECOVERY-RUNBOOK.md` |
-| What each provider is worth | `docs/14-DEPENDENCY-LEDGER.md` |
+| Verify every archive on disk reads back | *filled by the offline pass* |
+| Decrypt, extract, restore, count | *filled by the offline pass* |
+| Read the Storage files | immediate — they are files |
+| Stand the application up | 30–60 min (estimate) |
+
+## 8. Where things are
+
+`MooTamer/coditu` (private; every clone is a whole copy) · `MooTamer/coditu-recovery` (self-contained
+recovery tooling, so recovery never starts by checking out the thing that was lost) ·
+Vercel Hobby `coditu`, `https://coditu-phi.vercel.app` · Supabase Free `hayfsvsepgfescojesbd`,
+eu-central-1 · longer runbook `docs/12-RECOVERY-RUNBOOK.md` · what each provider is worth
+`docs/14-DEPENDENCY-LEDGER.md`.

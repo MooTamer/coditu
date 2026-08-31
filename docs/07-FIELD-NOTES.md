@@ -2498,6 +2498,26 @@ report-only jobs to free it, and each cancellation risks this. And when a job is
 idle runner, **read the runner's log before believing GitHub's status**: `online` is the runner's
 connection, not its willingness.
 
+### And do NOT restart the service to interrupt a job it is running
+
+That was tried, on the same afternoon, to get a production deploy out from behind an 85-minute
+report. It is worse than cancelling:
+
+```
+√ Connected to GitHub
+
+A session for this runner already exists.
+```
+
+GitHub still holds the session of the listener that was killed, and refuses the new one. The
+listener retries in a loop; the job it was running stays `in_progress` on a runner that no longer
+exists; and **nothing** — not the queued deploy, not anything else — is picked up until GitHub
+times the old session out on its own schedule. Restarting is the right move for a **wedged idle**
+listener and the wrong one for a **busy** listener.
+
+The way to keep a release from queueing behind a report is not to intervene at all, it is to make
+the graph say so: `browser` and `lighthouse` now `needs: [scope, check, deploy]`.
+
 ## A pull request with a merge conflict schedules no CI at all
 
 Measured 2026-08-31, and it froze `main` for twenty minutes.
