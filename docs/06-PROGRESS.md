@@ -6332,6 +6332,79 @@ is made an engineer. The rehearsal had to create one to see anything at all.
    minutes would swell a pot he took no share of. The check that found it asserted a constant about
    an admin-editable value and is fixed.
 
+## 2026-08-31 · T1.5 closed — production deploys from CI, and the allowance ran out
+
+### The first deliberate production deployment
+
+**Read from the provider at 2026-08-31T08:10Z**, five minutes after the deploy job finished, and
+polled every 60 seconds from 08:03Z to 08:09Z rather than taken once — the 2026-08-29 rule.
+
+| | |
+|---|---|
+| deployment | `dpl_7bvDYmmdmFUMun32pZKZXeCF1Rff` |
+| commit | **`d5f11a86917e691167c77efc2dd7024be31708b9`** |
+| target | `production`, `readyState: READY` |
+| source | **`cli`** — deployed by CI, not by the git integration |
+| previous | `dpl_8dnEkDR9XgHT7bbULC8dPAV2NHHB` = `707d03f`, the accidental one |
+
+**Production is no longer `707d03f`.** Live verification at 08:10Z, all on the production origin:
+
+```
+/                       200  Portals, internal systems, and RAG assistants | Coditu
+/login                  200  Sign in | Coditu
+/api/health/database    200  coditu-database-awake
+/app                    200  -> /login?next=%2Fapp
+/app/settings/recovery  200  -> /login?next=%2Fapp%2Fsettings%2Frecovery
+/build-health.json      {"status":"ok","commit":"d5f11a86…"}
+```
+
+**Stated rather than glossed: the authenticated routes were verified as GUARDED, not as rendered.**
+Both redirect to `/login` on the production origin, which is the correct behaviour and is what the
+deploy's own smoke asserts. Verifying a signed-in render needs either a real password or the
+production service-role key to mint a session, and neither is something to spend on a smoke test.
+
+### It took three attempts, and each failure was a real defect
+
+| attempt | got as far as | stopped by |
+|---|---|---|
+| `8063a8e` | schema preflight green | `vercel pull` writes `[SENSITIVE]`; **a Sensitive env var is write-only**, so a build outside Vercel cannot have it |
+| `6f37fe2` | staged, READY, built | `curl: option --token: is unknown` — `vercel curl` forwards its own `--token` to curl. **Invisible unless the token is valid**, so every fake-provider rehearsal passed |
+| `d5f11a8` | promoted and smoked | — |
+
+The second one is the good news it looks like: `staged production smoke failed; domains were not
+changed`, and production stayed on `707d03f`, verified from the public origin. **The script refused
+at exactly the right place.**
+
+### The rollback drill — one finding, and then no runners
+
+`vercel rollback` on the Hobby plan reaches **exactly one step**:
+
+```
+Error: To rollback further than the previous production deployment, upgrade to pro. (402)
+```
+
+`deploy-production.sh`'s trap rolls back to precisely that deployment, so **the real recovery path
+is inside the free allowance** — and there is no second undo. Nothing said so before today. The
+drill was rewritten to step away with `promote` and return with `rollback`, verifying by deployment
+id, and **has not been run to completion**: see below.
+
+### R5 has happened
+
+Every job in both repositories now starts and finishes in 2–3 seconds with **zero steps**. Confirmed
+three ways: the CI push for `3fe7ab0`, the 8-second `Database keepalive`, and `Recovery copy
+freshness` in the recovery repository — so it is account-wide. Billing could not be read to name the
+cause (`user` scope).
+
+- Newest backup: **`2026-08-31T070134Z`**, taken 07:01Z, 19,401,140 bytes, 64 tables / 1,397 rows /
+  135 objects. **The nightly cannot run from here.**
+- The canary cannot run to say so — **and it is already red on purpose** for the missing
+  `HEARTBEAT_URL`, so the worse cause is wearing the old one's clothes. A deliberate red is a place a
+  real red can hide.
+- `main` is frozen: the ruleset requires a check that cannot run.
+- `3fe7ab0` is **not deployed**. Production is `d5f11a8`; `main` is one ahead.
+
+Not worked around. Deploying from a laptop bypasses the gate this pass built; a self-hosted runner
+puts production credentials on an unmodelled machine.
 ---
 
 ## 2026-08-31 · B5 — CI moves onto a runner on the Mac, and `main` can move again
