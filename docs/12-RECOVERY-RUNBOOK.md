@@ -5,16 +5,33 @@ provider statement into a fact. The current boundary is in `docs/09-BACKUP-PROPO
 
 ## 0. What exists right now — read this before the rest
 
-**The nightly runs, off-site, and has been restored end to end.** As of 2026-08-29:
+> **Superseded 2026-08-31 by the custody model. The store has changed, and the direction with
+> it.** Until today the primary copy was GitHub releases and the Mac held a pulled copy. It is
+> now the other way round: **the Mac holds the primary and the off-site copies are disposable.**
+> ADR 2026-08-31 has the reasoning; `docs/14-DEPENDENCY-LEDGER.md` has what each provider is
+> worth. The old direction is left below where it is still accurate about the release store.
 
 | | |
 |---|---|
-| Off-site store | GitHub releases in the private repository `MooTamer/coditu-recovery` |
-| Tags | `nightly-<id>`, `monthly-<id>`; assets `<id>.tar.gz.age` and `<id>.metadata.json` |
-| Newest proven set | `2026-08-29T181341Z` — 63 tables, 1,391 rows, 3 buckets, 135 Storage objects |
-| Local copy | `/Users/motamer/Library/Application Support/Coditu/Backups/` — 3 sets |
-| Private key | `/Users/motamer/.config/coditu/backup.agekey`, plus the offline copy Mohamed must make |
+| **PRIMARY store** | `~/Library/Application Support/coditu-backups/` on Mohamed's Mac |
+| Set shape | `<id>.tar.gz.age` and `<id>.metadata.json`, `<id>` = `YYYY-MM-DDTHHMMSSZ` |
+| Written by | `scripts/local-nightly.sh` on a launchd agent, which also runs the restore drill |
+| Read back by | `BACKUP_STORE=local scripts/check-backup-freshness.sh`, in the same run |
+| Off-site copies | `scripts/offsite-copy.sh`, once per `OFFSITE_DESTINATIONS` entry. Each is a directory. **None of them is needed to restore.** |
+| Retention | 30 nightly + 12 monthly, at the primary and at each destination independently |
+| GitHub releases | Still works via `BACKUP_STORE=github-release`. **Nothing depends on it.** |
+| Newest proven set | `2026-08-31T070134Z` — 64 tables, 1,397 rows, 3 buckets, 135 Storage objects |
+| Private key | `/Users/motamer/.config/coditu/backup.agekey` — **and nowhere else. See the warning below.** |
 | Backup role password | `/Users/motamer/.config/coditu/backup-db.env`, mode 0600, and nowhere else |
+
+> **The one thing that would make all of this worthless.** The age private key exists in exactly
+> one place: that file, on that Mac. age has no escrow and no recovery. Losing the Mac without a
+> second copy of the key makes **every** archive, at every destination, permanently unreadable —
+> three copies of a ciphertext nobody can decrypt is zero copies.
+>
+> The second copy must **not** live where the archives live. A key beside its ciphertext is not a
+> key. Paper in a different building, or a password manager, is the shape. This is Mohamed's, it
+> is one action, and `docs/15-EMERGENCY-CARD.md` is where it is written down.
 
 **Not yet true, and none of it should be described as if it were:** no alerting (no heartbeat
 URL), the Recovery Centre still shows `not verified by this app` (no report target, and the
@@ -170,6 +187,23 @@ an RTO: creating a hosted project, DNS/environment changes, decision time and pr
 were not measured. **RTO remains unset until the first hosted drill.**
 
 ## 4. Normal retention and local-copy checks
+
+> **2026-08-31.** Retention now runs in two independent places, and deliberately so.
+> `prune-backups.sh` (default `BACKUP_STORE=local`) prunes the primary on the Mac;
+> `offsite-copy.sh` prunes each destination's own copy. **Nothing prunes a destination on
+> another's behalf** — the same reason `sync-backup-local.sh` never deletes. Monthly is a
+> *selection* over what is present (the first set of each calendar month), not a second artefact,
+> so a monthly copy cannot rot separately from the nightly it is.
+>
+> At ~19.4 MB a set, 30 + 12 is at most ~815 MB. Against a 2 TB Drive that is 0.04%, which is why
+> the policy is not tighter: the cost of keeping a night is 19 MB and the cost of not having it is
+> the night you needed.
+>
+> **Every destination is verified by reading it back and hashing it, never by a size.** A cloud
+> folder can hold a file as a streamed placeholder — right name, right size, no bytes, and it
+> needs the network to read. `scripts/check-materialised.mjs` refuses that, and the nightly runs
+> it against each destination on every run.
+
 
 Every nightly publishes `nightly-<id>`. A run on day 01 also publishes the same encrypted set
 as `monthly-<id>`. `prune-backups.sh` sorts the timestamp ids and keeps exactly 30 and 12,

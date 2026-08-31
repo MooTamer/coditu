@@ -38,8 +38,32 @@ sha256_file() {
   fi
 }
 
-need_value RECOVERY_REPO
+# ── Which store is being read back ─────────────────────────────────────────
+#
+# `local` — the PRIMARY, a directory on the Mac. This is the default as of ADR
+# 2026-08-31: the recovery sets live on hardware Mohamed owns, and the off-site
+# copies are replaceable by design.
+#
+# `github-release` — kept, working, and depended upon by nothing.
+#
+# **The three-records rule survives the move, in a stronger form.** Against
+# releases the three independent records were the asset, the release notes and
+# the sidecar — three claims *about* one file, two of them written by the
+# uploader. Locally they become the bytes themselves (hashed here, now), the
+# sidecar written by the backup, and the off-site copies read back through
+# their own mounts by `offsite-copy.sh`. Two of those are no longer anybody's
+# claim about the file; they are the file.
+canary_store=${BACKUP_STORE:-local}
+case "$canary_store" in
+  local) need_value BACKUP_LOCAL_DIR ;;
+  github-release) need_value RECOVERY_REPO ;;
+  *) fail "unknown BACKUP_STORE: $canary_store" ;;
+esac
 canary_max_age=${BACKUP_MAX_AGE_SECONDS:-93600}
+case "$canary_store" in
+  local) canary_third_record="the archive's own bytes" ;;
+  *) canary_third_record="the release notes" ;;
+esac
 canary_future_skew=${BACKUP_MAX_FUTURE_SKEW_SECONDS:-300}
 # An EMPTY recovery set used to pass this check. The sidecar assertions below
 # accepted `databaseRows >= 0` and `storageObjects >= 0`, so a dump that
@@ -63,10 +87,48 @@ printf '%s\n' "$canary_min_rows" | grep -Eq '^[0-9]+$' ||
 printf '%s\n' "$canary_min_buckets" | grep -Eq '^[0-9]+$' ||
   fail "BACKUP_MIN_STORAGE_BUCKETS must be a non-negative integer"
 
-for canary_command in gh jq node; do
+canary_tools="jq node"
+[ "$canary_store" = local ] || canary_tools="gh $canary_tools"
+for canary_command in $canary_tools; do
   command -v "$canary_command" >/dev/null 2>&1 || fail "missing required command: $canary_command"
 done
 
+if [ "$canary_store" = local ]; then
+  # ── The local store, read back from the disk it is on ────────────────────
+  #
+  # No network is touched from here down, deliberately: this is the check that
+  # must still work in the situation the backups exist for. It was run with the
+  # wifi off on 2026-08-31 and that is recorded in `docs/06-PROGRESS.md`.
+  [ -d "$BACKUP_LOCAL_DIR" ] || fail "BACKUP_LOCAL_DIR does not exist: $BACKUP_LOCAL_DIR"
+  canary_id=$(find "$BACKUP_LOCAL_DIR" -maxdepth 1 -name '*.tar.gz.age' \
+    -exec basename {} .tar.gz.age \; | LC_ALL=C sort -r | head -1)
+  [ -n "$canary_id" ] || fail "no encrypted recovery set in $BACKUP_LOCAL_DIR"
+  printf '%s\n' "$canary_id" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z$' ||
+    fail "newest local set has an unexpected recovery-set id"
+
+  canary_archive_name=$canary_id.tar.gz.age
+  canary_metadata_name=$canary_id.metadata.json
+  canary_archive_path=$BACKUP_LOCAL_DIR/$canary_archive_name
+  canary_metadata=$BACKUP_LOCAL_DIR/$canary_metadata_name
+  [ -f "$canary_archive_path" ] || fail "newest set has no encrypted archive"
+  [ -f "$canary_metadata" ] || fail "newest set has no metadata sidecar"
+
+  canary_bytes=$(file_bytes "$canary_archive_path")
+  canary_metadata_bytes=$(file_bytes "$canary_metadata")
+
+  # The independent record, locally, is the FILE. Hashing the whole archive
+  # rather than reading a number somebody wrote about it is what makes this
+  # stronger than the release-notes comparison it replaces — and it is what
+  # catches a cloud placeholder, which has every byte count right and no bytes.
+  canary_notes_sha=$(sha256_file "$canary_archive_path")
+  canary_notes_bytes=$canary_bytes
+  canary_notes_id=$canary_id
+
+  # `date -r` on BSD, `date -r` on GNU means something else — so ask `stat`.
+  canary_mtime=$(stat -f '%m' "$canary_archive_path" 2>/dev/null || stat -c '%Y' "$canary_archive_path")
+  canary_uploaded_at=$(CANARY_EPOCH="$canary_mtime" node -e \
+    'process.stdout.write(new Date(Number(process.env.CANARY_EPOCH) * 1000).toISOString())')
+else
 canary_releases=$(gh release list --repo "$RECOVERY_REPO" --limit 400 --json tagName) ||
   fail "cannot list nightly recovery sets"
 canary_id=$(printf '%s' "$canary_releases" | jq -r \
@@ -102,9 +164,9 @@ canary_notes_id=$(printf '%s' "$canary_view" | jq -r '.body' | sed -n 's/^backup
 canary_notes_sha=$(printf '%s' "$canary_view" | jq -r '.body' | sed -n 's/^sha256=//p' | head -1)
 canary_notes_bytes=$(printf '%s' "$canary_view" | jq -r '.body' | sed -n 's/^bytes=//p' | head -1)
 printf '%s\n' "$canary_notes_sha" | grep -Eq '^[0-9a-f]{64}$' ||
-  fail "newest release notes carry no SHA-256"
-[ "$canary_notes_id" = "$canary_id" ] || fail "release notes name a different backup id"
-[ "$canary_notes_bytes" = "$canary_bytes" ] || fail "release notes disagree with the asset size"
+  fail "$canary_third_record carry no SHA-256"
+[ "$canary_notes_id" = "$canary_id" ] || fail "$canary_third_record name a different backup id"
+[ "$canary_notes_bytes" = "$canary_bytes" ] || fail "$canary_third_record disagree with the recorded size"
 
 canary_temp_root=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/coditu-canary.XXXXXX")
 trap 'rm -rf "$canary_temp_root"' EXIT INT TERM
@@ -115,6 +177,9 @@ canary_metadata=$canary_temp_root/$canary_metadata_name
 [ "$(file_bytes "$canary_metadata")" = "$canary_metadata_bytes" ] ||
   fail "newest recovery-set sidecar size changed while it was read"
 
+fi
+
+# ── From here down, both stores are asserted identically ───────────────────
 canary_sidecar_id=$(jq -er '.backupId' "$canary_metadata") || fail "sidecar has no backup id"
 canary_sidecar_archive=$(jq -er '.archive' "$canary_metadata") || fail "sidecar has no archive name"
 canary_sidecar_sha=$(jq -er '.sha256' "$canary_metadata") || fail "sidecar has no SHA-256"
@@ -133,7 +198,7 @@ canary_storage_objects=$(jq -er '.storageObjects | select(type == "number" and .
 [ "$canary_format" = 1 ] || fail "unsupported recovery-set format: $canary_format"
 [ "$canary_sidecar_id" = "$canary_id" ] || fail "sidecar backup id does not match its release"
 [ "$canary_sidecar_archive" = "$canary_archive_name" ] || fail "sidecar archive name does not match its release"
-[ "$canary_sidecar_sha" = "$canary_notes_sha" ] || fail "sidecar SHA-256 does not match the release notes"
+[ "$canary_sidecar_sha" = "$canary_notes_sha" ] || fail "the sidecar SHA-256 does not match $canary_third_record"
 [ "$canary_sidecar_bytes" = "$canary_bytes" ] || fail "sidecar byte size does not match the asset"
 
 [ "$canary_database_rows" -ge "$canary_min_rows" ] ||
@@ -164,6 +229,7 @@ if [ "$canary_age" -gt "$canary_max_age" ]; then
   fail "newest encrypted archive is ${canary_age}s old; limit is ${canary_max_age}s"
 fi
 
+printf 'store=%s\n' "$canary_store"
 printf 'backup_id=%s\n' "$canary_id"
 printf 'age_seconds=%s\n' "$canary_age"
 printf 'encrypted_bytes=%s\n' "$canary_bytes"

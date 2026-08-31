@@ -203,7 +203,11 @@ if [ "$nightly_drill_only" = 1 ]; then
   say "drill only: skipping the backup, the freshness check, the prune and the heartbeat"
 else
 say "building the recovery set"
-BACKUP_UPLOAD=1 \
+# `BACKUP_UPLOAD=0`: the set is written to this Mac and nowhere else by this
+# step. **The Mac is the primary copy now**, not a staging area on the way to
+# GitHub — see ADR 2026-08-31 "custody". The off-site copies happen in step 3a
+# and none of them is allowed to be load-bearing.
+BACKUP_UPLOAD=0 \
 BACKUP_DB_URL_CONTAINER="$BACKUP_DB_URL" \
 SOURCE_STORAGE_MODE=rest \
   "$nightly_root/scripts/backup.sh" || fail "backup.sh did not complete"
@@ -218,9 +222,74 @@ SOURCE_STORAGE_MODE=rest \
 # published.
 # --------------------------------------------------------------------------
 nightly_step="freshness"
-say "checking the published set is really in the store"
-BACKUP_MAX_AGE_SECONDS=3600 "$nightly_root/scripts/check-backup-freshness.sh" || \
-  fail "the set this run published is not in the recovery repository"
+say "checking the set this run wrote is really on this disk"
+BACKUP_STORE=local BACKUP_MAX_AGE_SECONDS=3600 \
+  "$nightly_root/scripts/check-backup-freshness.sh" || \
+  fail "the set this run wrote is not readable back from $BACKUP_LOCAL_DIR"
+
+# --------------------------------------------------------------------------
+# 3a. The off-site copies.
+#
+# ## Why a missing destination does not fail this job, and a broken one does
+#
+# The rest of this repository fails CLOSED, and that is right for an alarm: an
+# unconfigured dead-man's switch is worse than none. It is wrong here, and the
+# difference is worth stating rather than looking like an exception somebody
+# forgot to fix.
+#
+# The primary copy is on this Mac and it has already been written and read back
+# above. An off-site copy is by design **replaceable** — that is rule 2 of
+# `docs/14-DEPENDENCY-LEDGER.md`. Failing the night because a replaceable copy
+# is unconfigured would take down the copy that is not replaceable, to protest
+# about one that is. So:
+#
+#   unconfigured   -> loud in the summary, a macOS notification, run continues
+#   configured, and absent-but-allowed (an unplugged disk) -> reported with
+#                     how long since it was last seen; run continues
+#   configured and BROKEN -> fail
+#
+# The third is the one that must be red. A destination that was working and
+# silently stopped is exactly the failure this project keeps finding, and it is
+# the only one of the three that is a surprise.
+# --------------------------------------------------------------------------
+nightly_step="off-site"
+nightly_offsite_ok=0
+nightly_offsite_lines=""
+if [ -z "${OFFSITE_DESTINATIONS:-}" ]; then
+  say "WARNING: no off-site destination is configured. The only copy of tonight's"
+  say "         set is on this Mac. See docs/14-DEPENDENCY-LEDGER.md."
+  notify "no off-site destination configured; tonight's set exists only on this Mac"
+  nightly_offsite_lines="offsite=none-configured"
+else
+  for nightly_dest in $OFFSITE_DESTINATIONS; do
+    nightly_dir_name=OFFSITE_${nightly_dest}_DIR
+    nightly_marker_name=OFFSITE_${nightly_dest}_MARKER
+    nightly_required_name=OFFSITE_${nightly_dest}_REQUIRED
+    [ -n "${!nightly_dir_name:-}" ] || fail "$OFFSITE_DESTINATIONS names '$nightly_dest' and $nightly_dir_name is not set"
+
+    say "off-site: $nightly_dest"
+    nightly_offsite_out=$(
+      OFFSITE_NAME="$nightly_dest" \
+      OFFSITE_DIR="${!nightly_dir_name}" \
+      OFFSITE_MARKER="${!nightly_marker_name:-}" \
+      OFFSITE_REQUIRED="${!nightly_required_name:-1}" \
+      LOCAL_BACKUP_DIR="$BACKUP_LOCAL_DIR" \
+      "$nightly_root/scripts/offsite-copy.sh"
+    ) || fail "the '$nightly_dest' off-site copy is configured and did not work"
+    printf '%s\n' "$nightly_offsite_out" | sed 's/^/  /'
+    nightly_offsite_lines=$nightly_offsite_lines$(printf '%s\n' "$nightly_offsite_out" | grep -E '^offsite_' | tr '\n' ' ')
+    # An `if`, not `grep … && count++`. Under `set -e` a failing grep as the
+    # last command of a loop body takes the whole script down, and the case
+    # where it fails is the absent external disk — the one thing this design
+    # explicitly refuses to treat as a backup failure.
+    if printf '%s\n' "$nightly_offsite_out" | grep -q "^offsite_${nightly_dest}=present$"; then
+      nightly_offsite_ok=$((nightly_offsite_ok + 1))
+    else
+      say "  $nightly_dest was not there tonight; that is allowed and it is not a copy"
+    fi
+  done
+  say "off-site destinations reachable tonight: $nightly_offsite_ok"
+fi
 fi
 
 # --------------------------------------------------------------------------
@@ -317,8 +386,13 @@ if [ "$nightly_drill_only" = 1 ]; then
 fi
 
 nightly_step="prune"
-"$nightly_root/scripts/prune-backups.sh" || fail "pruning failed; the set is published and verified, the store is over-full"
+# The primary. Each off-site destination prunes its own copy, to its own policy,
+# inside `offsite-copy.sh` — a destination must never be pruned by a decision
+# taken somewhere else, which is the same reason `sync-backup-local.sh` never
+# deletes.
+BACKUP_STORE=local "$nightly_root/scripts/prune-backups.sh" ||
+  fail "pruning the local store failed; the set is written and verified, the store is over-full"
 
 nightly_step="done"
-ping_heartbeat "" "restored ${nightly_tables} tables / ${nightly_rows} rows / ${nightly_objects} objects from $(basename "$nightly_archive")"
+ping_heartbeat "" "restored ${nightly_tables} tables / ${nightly_rows} rows / ${nightly_objects} objects from $(basename "$nightly_archive") · ${nightly_offsite_lines:-offsite=none-configured}"
 say "verified and reported"

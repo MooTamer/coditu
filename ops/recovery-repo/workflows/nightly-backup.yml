@@ -79,6 +79,11 @@ jobs:
       # just published. It costs one `gh release view` and one sidecar download.
       - name: The set this run published is really in the store
         env:
+          # Named, not inherited — the check defaults to the LOCAL store as of
+          # ADR 2026-08-31 and this job runs in the cloud. This workflow is the
+          # dispatch-only fallback for a night the Mac cannot do it, so it must
+          # not be the thing that is quietly broken when it is finally needed.
+          BACKUP_STORE: github-release
           RECOVERY_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BACKUP_MAX_AGE_SECONDS: "3600"

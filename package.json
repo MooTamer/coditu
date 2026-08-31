@@ -27,6 +27,7 @@
     "e2e:prod": "./scripts/e2e-prod.sh",
     "e2e:bundle": "./scripts/with-prod-server.sh npx playwright test --project=chromium --grep @prod",
     "brand:assets": "node scripts/generate-brand-assets.mjs",
+    "docs:card": "node scripts/render-emergency-card.mjs",
     "budgets": "./scripts/with-prod-server.sh node scripts/check-budgets.mjs",
     "degraded": "node scripts/check-degraded-dependency.mjs",
     "resilience": "node scripts/check-action-resilience.mjs --check",

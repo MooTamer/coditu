@@ -6815,3 +6815,199 @@ one state the preflight would read as drift.
 
 The preflight only requires local ⊆ remote, so hosted standing one ahead of `main` between this and
 the merge is not drift and does not block a deploy.
+
+---
+
+## 2026-08-31 · B0–B6 — custody: the primary copy moves to hardware we own
+
+### B0 — what was parked, merged
+
+The brief said the Actions billing period had rolled. **It had not** — 2026-08-31 *is* the last day
+of it — and that was established before anything else, live rather than from the ledger:
+
+```bash
+gh workflow run keepalive.yml --ref main
+gh api repos/MooTamer/coditu/actions/runs/33409952551/jobs
+#   started 15:42:10Z · completed 15:42:12Z · conclusion failure · steps 0
+```
+
+Two seconds, zero steps. Re-confirmed at **16:46Z**, nine hours after the exhaustion, with the same
+result. So B0 could not run as written, and B5 became the first step instead: a runner GitHub does
+not meter is the only thing that can produce a required check before September.
+
+| PR | Merged as | Required check |
+|---|---|---|
+| **#11** (new — the runner) | `80d8cac` | success, `coditu-mac`, **3 m 30 s** |
+| **#9** | `dd782e3` | success, `coditu-mac` |
+| **#10** | `7bb0370` | success, `coditu-mac` |
+
+Three things blocked #10 that the brief did not know about, and each is recorded in full below:
+its migration was not on hosted, `recovery:check` made the stated sync ordering a deadlock, and a
+merge conflict stopped GitHub scheduling any run at all.
+
+### The deployed SHA, from the provider
+
+| | |
+|---|---|
+| Production commit | **`dd782e3`** |
+| Deployment | `dpl_9taY7AcV1GMzZj6wseMcmsrrnVze`, promoted and aliased |
+| Preflight | `hosted_schema_verified=true`, `migrations=40` |
+| Read back from | `https://coditu-phi.vercel.app/build-health.json`, the public origin |
+| Runner | `coditu-mac` — **production was deployed from the Mac, not from a metered runner** |
+
+**`7bb0370` was NOT deployed, and the reason is the defect this pass then fixed.** Its
+`blocking release checks` and `is the production deploy configured` both passed, and then
+`lighthouse` — a report-only job that gates nothing — took the single runner while the deploy
+waited behind it. With one runner every job serialises and GitHub picks among ready jobs in no
+order you can rely on. The run was cancelled to get the runner back, which took the queued deploy
+with it. `browser` and `lighthouse` now `needs: [scope, check, deploy]` so a report cannot get in
+front of a release again.
+
+### B5 — CI off the metered runner
+
+`coditu-mac`, `actions/runner` 2.337.0, osx-arm64, launchd agent, labels
+`self-hosted, macOS, ARM64, coditu-mac`. Every `ci.yml` job reads
+`runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","coditu-mac"]') }}` and prints its runner
+into the step summary from `runner.environment`. `keepalive.yml` and `rollback-drill.yml` stay
+hosted **on purpose** — the metered runner is for the jobs whose reason to exist is to work when
+this Mac does not.
+
+**It works with the allowance exhausted**, which is the whole point and was verified rather than
+assumed: `blocking release checks` ran **26 steps on `coditu-mac`** at 16:23Z while a
+`ubuntu-latest` keepalive dispatched at 16:46Z still returned **zero**.
+
+Four things the move found, each of which would have been a bad surprise later:
+
+| | |
+|---|---|
+| **CI would have dropped the developer's database** | `supabase start` keys containers off `project_id`, not the directory. On a hosted runner the machine is empty; this Mac carries the 544xx stack, and the required job's next line is `supabase db reset`. Isolated to `codituci` on 547xx. |
+| **`lighthouse` starts a stack too** | Found by `tests/ci-runner.test.ts` on its first run — it starts one without resetting one, so it does not read like a job that could hurt anybody. Its teardown would have stopped those containers. |
+| **`cache: npm` cost more than everything it helped** | 5 minutes of real work; **15 minutes and counting** uploading `~/.npm` to replace something a persistent runner never lost. Now hosted-only. Required check: **20 min → 3 m 30 s.** |
+| **CI depends on Colima being up** | It stopped mid-pass and the required check went red on a message that did not contain the remedy. The action checks `docker info` and prints `colima start`. |
+
+### B1 — the dependency ledger
+
+`docs/14-DEPENDENCY-LEDGER.md`. Eleven dependencies, no blank cells. The finding is not about any
+one provider:
+
+> **After this work, every exposure that is left is one we own** — one laptop, one Colima, an unset
+> heartbeat, and a key that exists once. None of them is a provider, which was the objective, and
+> is also why none of them is somebody else's job.
+
+**The one that matters most is not a provider and not a ceiling.** The age private key exists in
+exactly one place on Earth: `~/.config/coditu/backup.agekey`, mode 0600, no second copy anywhere on
+the machine. **Three off-site copies of a ciphertext nobody can decrypt is zero copies**, and age
+has no escrow. It is deliberately not fixed in code, because a copy of the key must not go where
+the archives are.
+
+### B2 — the Mac is the primary, proved with the network OFF
+
+```bash
+networksetup -setairportpower en0 off
+route -n get default            # no default route
+curl https://api.github.com     # exit 6 — could not resolve host
+```
+
+| | |
+|---|---|
+| Primary, 8 archives / 155 MB, each read and hashed against its sidecar | `materialised=true`, **under 1 s** |
+| Off-site destination, same 8, read back through its own path | `materialised=true` |
+| A placeholder — right name, right size, no bytes | **refused, offline**, exit 1 |
+| The emergency card §4 followed **literally** | **4 s**: decrypt, extract, Postgres up, all three SQL files |
+| Row-for-row against `row-counts.tsv` from inside the archive | `public` **35/35 tables, 1,184/1,184 rows** |
+| Storage files extracted | **135** — the sidecar says 135 |
+
+**Nothing reached for the network. Not once.** No package fetch, no CLI update check, no image
+pull, no provider API. The restore path is `age | tar | psql` over a file on a local disk.
+
+**The one network reach it surfaced, and it is at the start:** a machine that has never pulled
+`public.ecr.aws/supabase/postgres:17.6.1.155` needs a connection for it (~1 GB). Avoidable, and now
+named on the card.
+
+### B3 — Google Drive as the off-site store, and the honest part
+
+**Google Drive for desktop is NOT installed on this Mac.** Checked five ways: no
+`/Applications/Google Drive.app`, no process, no `~/Library/CloudStorage/GoogleDrive-*`, no
+`~/Library/Application Support/Google/DriveFS`, and no file-provider domain. The brief stated the
+mount as a given; it is not there. `scripts/offsite-copy.sh --find-drive` says so and prints the
+three-step activation, so the tool reports it rather than only this document.
+
+Everything else is built and exercised:
+
+- **(a)** A destination is a directory. No rclone, no OAuth, no token, no quota, nothing to rotate.
+- **(b)** The placeholder assertion is a **test**, not a runbook line. A sparse file is the same
+  shape at the `stat` level — right name, right size, zero blocks — so the detector is shown
+  *failing* rather than asserted to work, and it was run again with the network off.
+- **(c)** Every destination is read back **through its own path** and hashed. `cp`'s exit status is
+  never trusted.
+- **(d)** 30 nightly + 12 monthly, at the primary and at each destination independently. At ~19.4 MB
+  that is at most **~815 MB against 2 TB — 0.04%**, which is the argument for not pruning harder.
+- **(e)** GitHub releases removed as the store. `BACKUP_UPLOAD=0`; the freshness check and the
+  pruner default to `local`. `github-release` still works when named and **nothing depends on it**
+  — `tests/backup-custody.test.ts` asserts both halves.
+
+### B4 — a second medium, and it may be absent
+
+The same script with `OFFSITE_REQUIRED=0` and a marker file. Three states that must not look alike:
+**unconfigured** warns and continues, **absent-but-allowed** reports how many days since it was last
+seen, **configured and broken** fails. Installing one is `offsite-copy.sh --adopt <dir> disk` and
+three lines of config. Its only job is to survive losing the Google account, and the ADR says so.
+
+### B6 — the emergency card
+
+`docs/15-EMERGENCY-CARD.md`, rendered to `ops/emergency-card.pdf` — **one sheet, both sides**.
+Verified by following it literally with the network off, **which is how three defects in it were
+found**:
+
+| The first draft said | What running it showed |
+|---|---|
+| `psql -f database.sql` | **There is no `database.sql`.** The archive carries `roles.sql`, `schema.sql`, `data.sql`, `row-counts.tsv`, `manifest.json`, `checksums.sha256` and `storage/`. |
+| "any machine with Docker" + `postgres:17` | **545 errors.** The dump refers to `auth`, `storage` and `extensions` schemas a plain Postgres does not have. It needs `public.ecr.aws/supabase/postgres`. |
+| `tar -xz -C /tmp/coditu-restore` | The directory has to exist first. |
+
+**A card nobody has followed is a guess with formatting** — the same sentence this repository wrote
+about runbook step 5a on 2026-08-31, earned twice in one day.
+
+### And the nightly itself was run, not merely edited
+
+`local-nightly.sh` was changed substantially here — it stopped publishing, gained the off-site fan
+out, and had its freshness and prune calls repointed at the local store. A `bash -n` is not a run,
+so it was run:
+
+```bash
+CODITU_NIGHTLY_ENV=<scratch> scripts/local-nightly.sh --drill-only
+```
+
+```
+restore_verified=true
+database_tables=64
+database_rows=1397
+storage_objects=135
+managed_triggers_reapplied=2          # on_auth_user_created, enforce_email_allowlist
+target_only_empty_tables=storage.iceberg_namespaces,storage.iceberg_tables
+restore_target_widened=storage.buckets.versioning_status,storage.objects.archived_at,
+                       storage.objects.is_delete_marker,storage.objects.is_versioned
+drill_seconds=141
+```
+
+Unattended, and it tore its own throwaway stack down. `--drill-only` publishes nothing, prunes
+nothing and **sends no heartbeat**, so this proves the restore half and deliberately says nothing
+about the write half; the off-site half is covered by `tests/offsite-copy.test.ts` (11 behaviours,
+running the real script) plus a live copy of all eight sets to a real destination.
+
+### The unattributed loss, written down rather than shrugged at
+
+**The developer's local `coditu` stack and its `supabase_db_coditu` volume disappeared during this
+afternoon**, and it could not be pinned on a specific command. Every CI teardown in the logs is
+correctly scoped — `project_id = "codituci"`, `Stopped services: [supabase_..._codituci]` — Colima
+was stopped and restarted once, and several runs were cancelled mid-job.
+
+`supabase stop --no-backup` is the only thing that deletes volumes, and its own help says so:
+*"Deletes all data volumes after stopping."* Without `--project-id` it takes its target from
+`supabase/config.toml` in the working directory — so the blast radius of that line depends on a
+file having been edited correctly by an earlier step, and `always()` runs it even when that step
+did not. Every teardown now names `--project-id codituci`, and a test asserts it.
+
+**The cost was small by luck, not design.** Local is seeded rather than real data, so it comes back
+with `supabase start && supabase db reset`. That it was survivable is exactly why it is worth
+recording: it is the one place this class of mistake could have gone unnoticed.

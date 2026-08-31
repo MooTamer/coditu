@@ -4,6 +4,24 @@ on:
   push:
     branches: [main]
   pull_request:
+  # ── Because a pull request can stop producing runs entirely ───────────────
+  #
+  # Measured 2026-08-31. A push to a pull request branch produced **no workflow
+  # run at all** — no queued job, no failure, no `github-actions` check suite on
+  # the commit, while Vercel built the very same push. Close-and-reopen did not
+  # help either. It presents as "CI silently stopped", which is the worst shape
+  # a control can have, and it froze `main` for twenty minutes.
+  #
+  # The cause was ordinary and the symptom was not: the pull request had gone
+  # **DIRTY** — a merge conflict with `main`. GitHub runs `pull_request`
+  # workflows against `refs/pull/N/merge`, and a conflicting branch has no merge
+  # ref to build, so nothing is scheduled. Resolving the conflict produced a run
+  # within seconds. Nothing warns you; the checks list simply stays empty, which
+  # reads exactly like "CI has not started yet".
+  #
+  # `workflow_dispatch` is the way back in when that happens, and it is useful
+  # for its own sake: re-running the suite without inventing a commit.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -232,9 +250,24 @@ jobs:
       # an afternoon and take the developer's own stack down with it — a CI job
       # whose failure mode is somebody else's broken machine. `always()`, so a
       # red suite still cleans up after itself.
+      # ── `--project-id`, and it is not belt-and-braces ─────────────────────
+      #
+      # `--no-backup` means "delete all data volumes after stopping". Without
+      # `--project-id` the target is resolved from `supabase/config.toml` in
+      # the workspace — so the blast radius of this line depends on a file
+      # having been edited correctly by an earlier step, and `always()` means
+      # it runs even when that step did not.
+      #
+      # Naming the project makes the destructive flag unable to reach anything
+      # but CI's own stack, whatever state the config is in. On 2026-08-31 the
+      # developer's `coditu` stack and its data volume disappeared during this
+      # work and could not be attributed with certainty; the logs show every
+      # teardown correctly scoped to `codituci`. That uncertainty is the whole
+      # argument — a destructive command should not be one file edit away from
+      # a different target.
       - name: Tear the CI stack down
         if: ${{ always() && runner.environment == 'self-hosted' }}
-        run: supabase stop --no-backup || true
+        run: supabase stop --project-id codituci --no-backup || true
 
   # ── The timeout belongs on the STEPS, and that is not a detail ─────────────
   #
@@ -258,8 +291,12 @@ jobs:
   # clean serial run of the same tree on a developer machine is 21.6 minutes.
   browser:
     name: browser baseline (report-only through the ten-run review)
-    needs: [scope, check]
-    if: needs.scope.outputs.code == 'true'
+    # `deploy` is in `needs` so the release is never queued behind an
+    # 85-minute report on the single self-hosted runner. See `lighthouse`.
+    needs: [scope, check, deploy]
+    if: >-
+      always() && needs.scope.outputs.code == 'true'
+      && needs.check.result == 'success'
     continue-on-error: true
     runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","coditu-mac"]') }}
     timeout-minutes: 85
@@ -366,9 +403,24 @@ jobs:
       # an afternoon and take the developer's own stack down with it — a CI job
       # whose failure mode is somebody else's broken machine. `always()`, so a
       # red suite still cleans up after itself.
+      # ── `--project-id`, and it is not belt-and-braces ─────────────────────
+      #
+      # `--no-backup` means "delete all data volumes after stopping". Without
+      # `--project-id` the target is resolved from `supabase/config.toml` in
+      # the workspace — so the blast radius of this line depends on a file
+      # having been edited correctly by an earlier step, and `always()` means
+      # it runs even when that step did not.
+      #
+      # Naming the project makes the destructive flag unable to reach anything
+      # but CI's own stack, whatever state the config is in. On 2026-08-31 the
+      # developer's `coditu` stack and its data volume disappeared during this
+      # work and could not be attributed with certainty; the logs show every
+      # teardown correctly scoped to `codituci`. That uncertainty is the whole
+      # argument — a destructive command should not be one file edit away from
+      # a different target.
       - name: Tear the CI stack down
         if: ${{ always() && runner.environment == 'self-hosted' }}
-        run: supabase stop --no-backup || true
+        run: supabase stop --project-id codituci --no-backup || true
 
   # ── Why this job exists, and why it is not an `if:` on the deploy job ───────
   #
@@ -573,8 +625,26 @@ jobs:
 
   lighthouse:
     name: lighthouse (marketing)
-    needs: scope
-    if: needs.scope.outputs.code == 'true'
+    # ── `deploy` is in `needs` so that it goes FIRST ──────────────────────────
+    #
+    # There is one self-hosted runner, so every job in a run is serialised, and
+    # GitHub picks among ready jobs in no order you can rely on. Measured
+    # 2026-08-31 on the merge of #10: `blocking release checks` went green, and
+    # then **`lighthouse` took the runner while the production deploy waited**.
+    # A report that gates nothing had got in front of the release.
+    #
+    # This repository already learned the neighbouring lesson — a report-only
+    # job must not decide what colour the trunk is. The single runner adds the
+    # other half: it must not decide *when the trunk ships*.
+    #
+    # `always()` is what keeps this from being a regression on pull requests,
+    # where `deploy` is skipped: a skipped `needs` normally skips its dependents,
+    # and `always()` stops that while `needs.check.result` keeps the real
+    # dependency.
+    needs: [scope, check, deploy]
+    if: >-
+      always() && needs.scope.outputs.code == 'true'
+      && needs.check.result == 'success'
     runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","coditu-mac"]') }}
     timeout-minutes: 20
     # Reports rather than gates. Accessibility, best practices, and SEO sit at
@@ -639,6 +709,21 @@ jobs:
       # an afternoon and take the developer's own stack down with it — a CI job
       # whose failure mode is somebody else's broken machine. `always()`, so a
       # red suite still cleans up after itself.
+      # ── `--project-id`, and it is not belt-and-braces ─────────────────────
+      #
+      # `--no-backup` means "delete all data volumes after stopping". Without
+      # `--project-id` the target is resolved from `supabase/config.toml` in
+      # the workspace — so the blast radius of this line depends on a file
+      # having been edited correctly by an earlier step, and `always()` means
+      # it runs even when that step did not.
+      #
+      # Naming the project makes the destructive flag unable to reach anything
+      # but CI's own stack, whatever state the config is in. On 2026-08-31 the
+      # developer's `coditu` stack and its data volume disappeared during this
+      # work and could not be attributed with certainty; the logs show every
+      # teardown correctly scoped to `codituci`. That uncertainty is the whole
+      # argument — a destructive command should not be one file edit away from
+      # a different target.
       - name: Tear the CI stack down
         if: ${{ always() && runner.environment == 'self-hosted' }}
-        run: supabase stop --no-backup || true
+        run: supabase stop --project-id codituci --no-backup || true

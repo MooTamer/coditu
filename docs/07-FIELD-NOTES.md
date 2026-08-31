@@ -2462,3 +2462,143 @@ unattended run.**
 **And the smaller trap inside it:** `ls -t` picked the *oldest* archive of eight that had been
 downloaded within the same second. Sort recovery sets by **name** — the names are ISO-8601 — never
 by mtime.
+
+## A cancelled run can wedge the self-hosted listener, and it still reports itself online
+
+Measured 2026-08-31, four times in one afternoon, on `coditu-mac`.
+
+Cancel a workflow run while the runner is executing one of its jobs and the job ends correctly —
+`Job … completed with result: Canceled` in `~/Library/Logs/actions.runner.*/stdout.log`. What does
+not always follow is the next line, `Listening for Jobs`. Without it the runner takes nothing, and
+the queued work sits there.
+
+**The reason it costs time is that nothing looks wrong.** The API says:
+
+```
+gh api repos/MooTamer/coditu/actions/runners --jq '.runners[]|"\(.status) busy=\(.busy)"'
+online busy=false
+```
+
+Online. Not busy. And not working. Meanwhile the run says `queued`, which is the same word it uses
+when a runner is simply occupied — so the obvious reading is "something else is ahead of me", and
+the obvious response is to wait, which never resolves.
+
+**The tell is in the runner's own log, not in GitHub:** the last line is a job completing, and there
+is no `Listening for Jobs` after it. Two minutes of that is enough to be sure.
+
+```bash
+tail -2 ~/Library/Logs/actions.runner.MooTamer-coditu.coditu-mac/stdout.log
+cd ~/actions-runner-coditu && ./svc.sh stop && ./svc.sh start
+```
+
+It picked the queued job up **three seconds** after the restart.
+
+Two things follow. **Cancel sparingly** — with a single runner the temptation is to cancel
+report-only jobs to free it, and each cancellation risks this. And when a job is queued against an
+idle runner, **read the runner's log before believing GitHub's status**: `online` is the runner's
+connection, not its willingness.
+
+### And do NOT restart the service to interrupt a job it is running
+
+That was tried, on the same afternoon, to get a production deploy out from behind an 85-minute
+report. It is worse than cancelling:
+
+```
+√ Connected to GitHub
+
+A session for this runner already exists.
+```
+
+GitHub still holds the session of the listener that was killed, and refuses the new one. The
+listener retries in a loop; the job it was running stays `in_progress` on a runner that no longer
+exists; and **nothing** — not the queued deploy, not anything else — is picked up until GitHub
+times the old session out on its own schedule. Restarting is the right move for a **wedged idle**
+listener and the wrong one for a **busy** listener.
+
+The way to keep a release from queueing behind a report is not to intervene at all, it is to make
+the graph say so: `browser` and `lighthouse` now `needs: [scope, check, deploy]`.
+
+## A pull request with a merge conflict schedules no CI at all
+
+Measured 2026-08-31, and it froze `main` for twenty minutes.
+
+A push to a pull-request branch produced **no workflow run**: nothing queued, nothing failed, and no
+`github-actions` entry in the commit's check suites —
+
+```bash
+gh api repos/MooTamer/coditu/commits/<sha>/check-suites --jq '.check_suites[].app.slug'
+vercel
+claude
+supabase
+```
+
+— while Vercel built the same push, so the event plainly reached webhooks. Closing and reopening the
+pull request did not help. Force-pushing a fresh sha did not help.
+
+**The cause: the pull request had gone `DIRTY` — a merge conflict with `main`.** GitHub runs
+`pull_request` workflows against `refs/pull/N/merge`, and a conflicting branch has no merge ref to
+build, so nothing is scheduled. Merging `main` in and resolving produced a run within seconds.
+
+**Nothing tells you.** The checks list is simply empty, which is exactly what it looks like in the
+first ten seconds after a push. The distinguishing question is not *"why has CI not started?"* but:
+
+```bash
+gh pr view <n> --json mergeStateStatus --jq .mergeStateStatus
+```
+
+`DIRTY` means it will never start. `BLOCKED` and `UNSTABLE` mean it did.
+
+`workflow_dispatch` is on `ci.yml` now, as the way back in when the event path produces nothing.
+
+## `supabase stop --no-backup` deletes data volumes, and picks its target from a file
+
+`--no-backup` is not "skip a backup step". The CLI's own help says: **"Deletes all data volumes
+after stopping."** It is the destructive flag.
+
+And without `--project-id` the *target* is whatever `supabase/config.toml` in the working directory
+says. So the blast radius of that one line depends on a file having been edited correctly by an
+earlier step — and in CI the teardown carries `if: always()`, which means it runs even on the runs
+where the earlier step did not.
+
+That was the shape on 2026-08-31 while CI moved onto the Mac. **The developer's `coditu` stack and
+its `supabase_db_coditu` volume disappeared during that afternoon and could not be attributed with
+certainty**: every teardown in the logs is correctly scoped (`project_id = "codituci"`,
+`Stopped services: [supabase_..._codituci]`), Colima was stopped and restarted once, and several
+runs were cancelled mid-job. No single line can be pointed at.
+
+**The uncertainty is the argument.** A destructive command should not be one file edit away from a
+different target, and "we could not work out what did it" is the outcome that proves it. Every
+teardown now says `supabase stop --project-id codituci --no-backup`, which cannot reach another
+project whatever state the config is in, and `tests/ci-runner.test.ts` asserts the flag.
+
+The cost this time was small and that is luck rather than design: the local database is seeded, not
+real, so it comes back with
+
+```bash
+supabase start && supabase db reset
+```
+
+Local is deliberately not production data — which is exactly why it is the one place a mistake like
+this could be survived quietly, and why it is worth writing down rather than shrugging at.
+
+## Cancelling a run does not always stop it, and its queued jobs can still start
+
+Measured 2026-08-31, and it is the reason the afternoon's last merge took an extra half hour.
+
+`gh run cancel` returned `✓ Request to cancel workflow … submitted` and the run stayed
+`in_progress`. Seven minutes later the runner finished the job it was on and then **picked up the
+next queued job from that same cancelled run** — the 85-minute browser baseline — with a newer run
+for the same branch waiting behind it.
+
+Three things to take from it:
+
+- **A cancel is a request, not a state.** Read `.status` back; do not trust the tick.
+- **Cancellation lands at STEP boundaries.** A job inside a long step (`supabase start`, `npm ci`
+  on a slow link) keeps going until that step ends, and the queued jobs behind it are still live
+  until the run actually reaches `completed`.
+- With **one runner**, a cancel that does not take does not merely waste minutes — it hands the
+  runner to a job you tried to stop, ahead of the one you are waiting for.
+
+The way out is not more cancelling. It is the ordering already in `ci.yml`: `browser` and
+`lighthouse` `needs: [scope, check, deploy]`, so the jobs worth waiting for are never behind the
+jobs that gate nothing.

@@ -548,12 +548,30 @@ describe("the nightly runs on the Mac, and cannot run quietly", () => {
   });
 
   it("reads the store back rather than trusting the writer's exit status", () => {
-    // `BACKUP_UPLOAD` defaults to 0, so one dropped line turns this into a
-    // script that writes the whole workspace to a local directory, prints every
-    // count and exits 0. The same trapdoor the Actions job had, and the same
-    // one-hour window closing it.
-    expect(LOCAL_NIGHTLY).toContain("BACKUP_UPLOAD=1");
-    expect(LOCAL_NIGHTLY).toMatch(/BACKUP_MAX_AGE_SECONDS=3600/);
+    // The trapdoor this guards has moved but not closed. It used to be
+    // `BACKUP_UPLOAD` defaulting to 0 — one dropped line and the job wrote the
+    // workspace to a local directory, printed every count and exited 0 without
+    // publishing anything.
+    //
+    // Since ADR 2026-08-31 that local directory IS the primary copy, so writing
+    // to it is no longer the omission. The equivalent omission is not reading it
+    // back: a set that was written and never verified is a file with a hopeful
+    // name. Same one-hour window, because a check that would pass on last
+    // night's set proves nothing about tonight's.
+    expect(LOCAL_NIGHTLY).toContain("BACKUP_STORE=local BACKUP_MAX_AGE_SECONDS=3600");
+
+    const written = LOCAL_NIGHTLY.indexOf("backup.sh");
+    const readBack = LOCAL_NIGHTLY.indexOf("check-backup-freshness.sh");
+    expect(written).toBeGreaterThan(-1);
+    expect(readBack).toBeGreaterThan(written);
+  });
+
+  it("does not publish to a provider on the way to calling the night done", () => {
+    // Rule 1 of the custody model: the primary copy is on hardware Mohamed
+    // owns. `BACKUP_UPLOAD=1` here would quietly make this Mac a staging area
+    // for GitHub again, and nothing else would say so.
+    expect(LOCAL_NIGHTLY).toContain("BACKUP_UPLOAD=0");
+    expect(LOCAL_NIGHTLY).not.toContain("upload-backup.sh");
   });
 
   it("never lets a partial run look like a complete one", () => {

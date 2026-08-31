@@ -6965,3 +6965,164 @@ the minute that saves is not a convenience.
 
 It reports rather than starting Colima itself. A CI job that silently boots a 6 GiB virtual machine
 on somebody's laptop is a surprise, and "the VM is deliberately down" is a real state.
+
+---
+
+## 2026-08-31 · Custody: the primary copy is on hardware we own, and every off-site copy is disposable
+
+**Status: accepted.** Supersedes the GitHub-releases store of 2026-08-28 as the *primary*; keeps it
+as a destination nothing depends on.
+
+### The instruction, and why it cannot be met literally
+
+Mohamed asked to *"be able to use my data at any time"*, with nothing depending on a limited
+resource. Taken at face value that is unachievable. Every provider has a ceiling and an owner. So
+does a hard disk. A design that claims otherwise is lying about something.
+
+What he actually needs is **custody**, and the reframe is a single test:
+
+> The question is not **"is this free?"** but
+> **"if this provider vanished tonight, what would I lose, and how long until I am running again?"**
+
+"Free" is the wrong axis and it is worth saying why, because the wrong axis produces the wrong work.
+A free tier holding a replaceable copy is harmless. A **paid** tier holding the only copy is not.
+Optimising away free things would have moved this project's backups from GitHub to Google and
+changed nothing that matters.
+
+Three rules follow, and `tests/backup-custody.test.ts` asserts each one:
+
+1. **The PRIMARY copy lives on hardware Mohamed owns.** Not the fastest or most convenient — the
+   one that is definitive.
+2. **Off-site copies are replaceable. No single one is load-bearing.** If losing a particular
+   off-site copy would be a problem, it was never an off-site copy; it was the primary in disguise.
+3. **The restore path requires none of them.** A recovery that begins "log in to X" has a
+   dependency at the exact moment dependencies are unavailable.
+
+### What changed
+
+`local-nightly.sh` stops publishing. `BACKUP_UPLOAD=0`: the set is written to
+`~/Library/Application Support/coditu-backups`, and **that directory is now the primary copy**, not
+a staging area on the way to GitHub. It is read back immediately — `BACKUP_STORE=local
+BACKUP_MAX_AGE_SECONDS=3600` — because a set that was written and never verified is a file with a
+hopeful name, and the one-hour window means the check can only pass on tonight's.
+
+Then it fans out to `OFFSITE_DESTINATIONS`, each of which is **a directory and nothing else**.
+
+### Why a mounted folder, and not rclone
+
+The August plan reached Google Drive through rclone, and it was never activated, because
+`rclone config` opens a browser for an OAuth consent screen only Mohamed can click. Google Drive for
+desktop removes the whole problem: there is no token, no refresh, no scope, no API quota and
+nothing to rotate. **The backup writes a file to a path and Google's own client moves it.** It does
+not appear in the secrets inventory because it has no secret, and it cannot be the thing that
+expires.
+
+The same shape then serves any destination that is a path — an external disk, a NAS, a second Mac —
+which is why `offsite-copy.sh` takes `OFFSITE_*` as an interface rather than knowing about Drive.
+
+### The trap, and why it is a test rather than a line in a runbook
+
+**Drive can hold a file as a streamed placeholder.** Finder shows a name, a size, a modified date
+and an icon. `ls -l` shows a byte count. A check that asserts the file exists and is the right size
+passes. Reading it blocks on a download — and with no network, the read fails.
+
+**A backup that needs the internet to be read is not an off-site copy. It is a receipt.**
+
+This is one layer out from the defect this repository has spent the week removing. There the control
+was quiet when unconfigured. Here it would be **loud, green and wrong**, which is worse.
+
+`check-materialised.mjs` refuses it three ways, cheapest first, and only the last is proof:
+
+| Tell | What it catches | Why it is not enough alone |
+|---|---|---|
+| `st_blocks == 0` with `st_size > 0` | The file claims bytes and owns no disk | A placeholder may be allocated some blocks |
+| `SF_DATALESS` (`0x40000000`) | macOS's own mark on a file-provider placeholder | Absent on Linux; skipped rather than guessed |
+| **The whole file, read and hashed against its sidecar** | Everything above, plus a file that IS on disk and is the wrong bytes | — |
+
+**A sparse file has the same shape at the `stat` level** — right name, right size, zero blocks — and
+`dd seek=` produces one. That is how the detector is shown *failing* on a machine with no cloud
+client installed, rather than asserted to work. It differs from a real placeholder in the one way
+that makes the test weaker, and the test says so: a sparse file reads back as zeros where a
+placeholder with no network throws, so the checksum limb catches it and the error limb is
+constructed separately.
+
+Verified with the network off in the same pass — see `docs/06-PROGRESS.md`.
+
+### Three states an off-site copy can be in, and they must not look alike
+
+| State | What happens | Why |
+|---|---|---|
+| **Unconfigured** | Loud in the summary, a macOS notification, **the night continues** | Failing over a *replaceable* copy would take down the copy that is not replaceable, in protest about one that is |
+| **Configured, absent, allowed** (an unplugged disk) | Reported with how many days since it was last seen; **never a failure** | An unplugged disk is somebody's bag, not a broken backup. But absent must not read as fine, so the age is printed |
+| **Configured and broken** | **Fatal** | The only one of the three that is a surprise. A destination that was working and silently stopped is precisely the failure this project keeps finding |
+
+This is a deliberate departure from the rest of the repository, which fails closed. The distinction:
+**an unconfigured alarm must be loud, because not alarming is unsafe. An unconfigured replaceable
+copy must not take down the irreplaceable one.** The primary has already been written and read back
+before any of this runs.
+
+### Retention, and what it costs
+
+30 nightly and 12 monthly, at both the primary and each destination. Monthly is a *selection* over
+what is already there — the first set of each calendar month — not a second thing to write, so a
+monthly copy can never rot separately from the nightly it is.
+
+**At ~19.4 MB a set that is at most 42 × 19.4 ≈ 815 MB, against 2 TB. Four hundredths of one
+percent.** Which is the argument for not pruning harder: the cost of keeping a night is 19 MB, and
+the cost of not having it is the night you needed. The policy exists to bound growth, not to save
+space, and there is no version of this where storage is the binding constraint.
+
+Each destination prunes **its own** copy. Nothing prunes a destination on another's behalf — the
+same reason `sync-backup-local.sh` never deletes.
+
+### GitHub releases: kept, and depended upon by nothing
+
+`upload-backup.sh` still works. `BACKUP_STORE=github-release` still selects it in the freshness
+check and the pruner. Nothing calls it. Removing a dependency is not a reason to burn the road back
+to it, and a second destination that is already written is worth more than one that would have to
+be.
+
+`tests/backup-custody.test.ts` asserts both halves: that it still works when named, and that it is
+never the default.
+
+### What this does not fix, and it is the biggest thing on the page
+
+**The age private key exists in exactly one place on Earth** — `~/.config/coditu/backup.agekey`,
+mode 0600, on this Mac. Verified: no second copy anywhere on the machine.
+
+Three off-site copies of a ciphertext nobody can decrypt is **zero copies**. age has no escrow, no
+recovery and no second identity, so this is not a thing tooling can fix, and it is deliberately not
+fixed here: **a copy of the key must not go anywhere the archives are**, or the encryption stops
+meaning anything. Putting it in Drive beside the backups would be worse than doing nothing.
+
+It is Mohamed's, it is one action, and it is in `docs/15-EMERGENCY-CARD.md` and
+`docs/14-DEPENDENCY-LEDGER.md` as the single load-bearing dependency in the design — the only one
+that is not a provider.
+
+### The card's PDF is committed, on purpose
+
+A generated binary in git is normally a smell, and this one is 110 KB that will churn whenever the
+Markdown changes. It is kept anyway, for the same reason the recovery repository carries its own
+copy of the tooling: **the card exists for the moment things are missing, and rendering it needs
+Node, Playwright and a Chromium download.** A card you can only read after `npm ci` is not an
+emergency card.
+
+`npm run docs:card` regenerates it from `docs/15-EMERGENCY-CARD.md`, which stays the source of
+truth. If the two ever disagree, the Markdown is right and somebody forgot to re-render.
+
+### No `cancel-in-progress`, and it is a trade rather than an oversight
+
+With one runner, pushing twice to a branch queues two full runs and the first one is already
+superseded. The standard fix is a `concurrency` group with `cancel-in-progress: true` on
+`pull_request`. It is deliberately **not** enabled.
+
+The reason is the other thing measured on 2026-08-31: **cancelling a run can leave this runner's
+listener wedged** — `online busy=false` to the API, and taking no jobs until the service is
+restarted (`docs/07-FIELD-NOTES.md`). Auto-cancel does not avoid that failure, it schedules it. On
+a fleet of ephemeral runners the trade is obviously worth it; on one laptop that is the only runner
+the repository has, trading four wasted minutes for an occasional wedge that stops **everything**
+is the wrong direction.
+
+Revisit when either half changes: a second runner, or an understanding of the wedge good enough to
+prevent it. Until then the cost is visible, bounded, and paid in minutes rather than in a frozen
+trunk.
