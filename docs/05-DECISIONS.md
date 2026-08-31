@@ -5981,3 +5981,80 @@ anyway. `docs/13-DEPLOYMENT-RUNBOOK.md` §1 now carries the exact recipe for
 
 Making `HEARTBEAT_URL`'s absence loud is the correct state until it is set. That is the point of the
 rule, applied to itself.
+
+---
+
+## 2026-08-31 · The last two deploy values are placed; the preflight connects as `postgres`, not `coditu_backup`
+
+**Decision — the two identifiers are set by this pass, the two credentials are not.**
+`VERCEL_ORG_ID` (`team_vJjCIjOpMU8pPsB45cWNnoNr`) and `VERCEL_PROJECT_ID`
+(`prj_GOg3XIVdg7u6WPAzaHFJy2QnfBHu`) were read from the Vercel API for the `coditu` project linked
+to `MooTamer/coditu` and written with `gh secret set`. `VERCEL_TOKEN` and `HOSTED_SCHEMA_DB_URL`
+were set by Mohamed earlier the same morning. All five values the preflight names now exist.
+
+**Why placing these two is not the same act as placing the other two.** A team id and a project id
+are routing identifiers — they appear in `.vercel/project.json`, which is a file most repositories
+commit — and this document had already written both of them out in full. Nothing is disclosed by
+setting them and nothing is authorised by holding them. A token and a database password are
+different in kind, and neither was minted, chosen, read, or placed by this pass.
+
+**Decision — the schema preflight connects as `postgres` over the session pooler, and that is a
+recorded deviation rather than the design.** `HOSTED_SCHEMA_DB_URL` names `postgres` at
+`aws-0-eu-central-1.pooler.supabase.com:5432`, because the `coditu_backup` password was not
+reachable at the moment the secret was set. The direct host was not an option for an unrelated
+reason that keeps recurring: `db.hayfsvsepgfescojesbd.supabase.co` publishes only an AAAA record.
+
+**Why this is acceptable for now, stated as the property that carries it rather than as trust.**
+`check-hosted-schema.mjs` opens `begin read only`, reads catalogue tables, and rolls back. It has
+no write path. The exposure of the wider role is therefore bounded by the transaction, not by the
+role — which is exactly the sort of claim that should be measured rather than asserted, and the
+same-day change to the preflight measures it.
+
+**What is owed.** Narrowing `HOSTED_SCHEMA_DB_URL` back to `coditu_backup` — the role exists on
+hosted today, with `rolbypassrls`, `select` and no `insert` on `public.work_items`, verified
+2026-08-31. That is a password change and a secret update, so it is Mohamed's. Recorded as an open
+risk, not as done.
+
+**Rejected: setting it here.** The `coditu_backup` password is on the delivery Mac, so this pass
+*could* have written the narrower URL. Two reasons not to. Placing a password into a secret store
+is the class of action an autonomous pass should decline on principle, and it would have silently
+overwritten a value Mohamed had deliberately chosen an hour earlier. A control that an agent
+reconfigures behind the operator is worse than a control with a known, written-down gap.
+
+**Rejected: relaxing the role assertion to whatever connects.** That is the fail-open shape this
+repository spent 2026-08-30 removing — a check that is quiet exactly when it is not configured.
+The deviation is instead named in `ci.yml`, defaults to the strict contract when absent, and is
+loud on every run.
+
+---
+
+## 2026-08-31 · `sslmode=require` breaks the preflight; the same string is correct for the backup
+
+**Decision.** `docs/13-DEPLOYMENT-RUNBOOK.md` §1 now documents `?sslmode=no-verify` for
+`HOSTED_SCHEMA_DB_URL`. `docs/12-RECOVERY-RUNBOOK.md` keeps `?sslmode=require` and is not changed.
+
+**Why — measured, not reasoned.** Run against the real project on 2026-08-31, `?sslmode=require`
+never reaches a schema verdict:
+
+```
+check-hosted-schema: database preflight could not complete (SELF_SIGNED_CERT_IN_CHAIN):
+self-signed certificate in certificate chain
+```
+
+`pg` 8.23.0 with `pg-connection-string` 2.14.0 treats `prefer`, `require` and `verify-ca` as
+aliases for **`verify-full`**, and says so in a runtime warning. Supabase's chain ends at "Supabase
+Root 2021 CA", which is in no public trust store, so full verification cannot succeed without the
+root supplied out of band. With `?sslmode=no-verify` the same command reaches the real answer and
+refuses for the real reason — one missing migration.
+
+**Why the recovery runbook stays as it is.** Its leg is `psql` and `pg_dump`, which are libpq,
+where `require` has always meant encrypt-and-do-not-verify. **One string, two clients, two
+meanings** — and §1's copy came from there. This is worth naming because `pg` 9 adopts libpq
+semantics, so `require` will begin working on a future dependency bump. A wrong line that starts
+working on its own is the hardest kind to notice.
+
+**Not weakened by this.** The check never delegated verification to the driver. It asserts the
+client socket is encrypted and pins the issuer to `Supabase Inc` by name, and
+`HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1` still demands the strong form. Verified capable of failing:
+with no ssl parameter at all the connection is cleartext and the check says so —
+`database connection is not encrypted` — rather than passing.

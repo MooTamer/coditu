@@ -175,6 +175,85 @@ function transportFailures(client, pgStatSslSaysEncrypted) {
   return [];
 }
 
+// The role the deploy preflight is meant to connect as, and the one deliberate
+// exception to it.
+//
+// `coditu_backup` is the contract: BYPASSRLS so it sees every row, `select` on
+// the tables, and no `insert`. When `HOSTED_SCHEMA_PRIVILEGED_ROLE` names a
+// different role, that role — and only that role, spelled out — is accepted,
+// with the deviation printed on every run.
+//
+// Unset, the strict contract applies. An absent variable makes this check
+// HARDER to satisfy, not easier, which is the whole difference between a
+// deviation and a hole. See ADR 2026-08-31.
+const CONTRACT_ROLE = "coditu_backup";
+
+function roleFailures(role) {
+  if (!role) return ["connection role could not be read"];
+  if (!role.rolbypassrls) return [`${role.current_user} does not have BYPASSRLS`];
+
+  const permitted = process.env.HOSTED_SCHEMA_PRIVILEGED_ROLE?.trim();
+
+  if (!permitted) {
+    if (role.current_user === CONTRACT_ROLE && role.can_read && !role.can_write) return [];
+    return [
+      `connection role is not the read-only ${CONTRACT_ROLE} contract ` +
+        `(got ${role.current_user}, can_write=${role.can_write})`,
+    ];
+  }
+
+  if (role.current_user !== permitted) {
+    return [
+      `connection role is neither ${CONTRACT_ROLE} nor the permitted ` +
+        `${permitted} (got ${role.current_user})`,
+    ];
+  }
+  if (!role.can_read) return [`${permitted} cannot read public.work_items`];
+
+  process.stderr.write(
+    "::warning title=Schema preflight is not using the least-privilege role::" +
+      `connected as ${permitted}, and the contract is ${CONTRACT_ROLE}. ` +
+      "What bounds this is the read-only transaction, which is proved rather than trusted, " +
+      "not the role's own privileges. Narrowing it is owed — ADR 2026-08-31.\n",
+  );
+  return [];
+}
+
+// The property the role name is only a proxy for: this connection cannot write.
+//
+// Measured rather than assumed, because both of the things that currently
+// guarantee it are one edit away from being gone — the role name is a
+// hand-maintained string, and `begin read only` is a single line no test was
+// watching. `create temp table` is the probe: a read-only transaction refuses
+// it as DDL, and in the world where the transaction is NOT read-only it
+// creates nothing that outlives the connection. A probe that writes a real row
+// to prove it cannot write a real row is not a probe worth having.
+const READ_ONLY_SQL_TRANSACTION = "25006";
+
+async function readOnlyFailures(client) {
+  const failures = [];
+
+  const setting = await client.query("show transaction_read_only");
+  if (setting.rows[0]?.transaction_read_only !== "on") {
+    failures.push("the preflight transaction is not read only");
+  }
+
+  await client.query("savepoint write_probe");
+  try {
+    await client.query("create temp table hosted_schema_write_probe (probe int)");
+    failures.push("the preflight connection was able to write; it must not be able to");
+  } catch (error) {
+    if (error?.code !== READ_ONLY_SQL_TRANSACTION) {
+      failures.push(
+        `the write probe was refused, but for the wrong reason (${error?.code ?? "no code"})`,
+      );
+    }
+  }
+  await client.query("rollback to savepoint write_probe");
+
+  return failures;
+}
+
 async function main() {
   const connectionString = process.env.HOSTED_SCHEMA_DB_URL;
   if (!connectionString) fail("HOSTED_SCHEMA_DB_URL is required");
@@ -216,11 +295,15 @@ async function main() {
       where rolname = current_user
     `);
     const role = identity.rows[0];
-    if (!localHost &&
-        (!role || role.current_user !== "coditu_backup" || !role.rolbypassrls || !role.can_read || role.can_write)) {
-      failures.push("connection role is not the read-only coditu_backup contract");
+    if (!localHost) {
+      failures.push(...roleFailures(role));
+      failures.push(...transportFailures(client, role?.encrypted === true));
     }
-    if (!localHost) failures.push(...transportFailures(client, role?.encrypted === true));
+
+    // Runs against a local stack too. It asserts a property of this script
+    // rather than of the project it is pointed at, and the local path is the
+    // one a developer actually exercises.
+    failures.push(...(await readOnlyFailures(client)));
 
     const migrationRows = await client.query(
       "select version::text from supabase_migrations.schema_migrations order by version::text",

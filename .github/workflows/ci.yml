@@ -411,7 +411,20 @@ jobs:
 
       - run: npm ci
 
+      # `HOSTED_SCHEMA_DB_URL` names `postgres`, not `coditu_backup`, because the
+      # narrower role's password was not reachable when the secret was set. The
+      # preflight's contract is `coditu_backup`, so the deviation is named here
+      # rather than removed from the check: unset, the strict contract applies
+      # and this deploy stops. It is in this file, in git, so that narrowing the
+      # URL is a one-line deletion somebody can see in a diff — and so that the
+      # exception cannot outlive the reason for it unnoticed.
+      #
+      # What actually bounds the wider role is not this line. The check opens
+      # `begin read only` and PROVES it: it reads `transaction_read_only` and
+      # attempts a write that must be refused with 25006. See ADR 2026-08-31.
       - name: Prove the hosted schema can serve this commit
+        env:
+          HOSTED_SCHEMA_PRIVILEGED_ROLE: postgres
         run: node scripts/check-hosted-schema.mjs
 
       - name: Build the production output with Vercel's environment

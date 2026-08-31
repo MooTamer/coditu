@@ -6172,3 +6172,66 @@ measure next, not a thing to conclude from here.
 
 `tests/fail-closed-controls.test.ts` asserts the placement now, and is verified
 capable of failing: moving either timeout back onto the job alone turns it red.
+
+## 2026-08-31 · T1.5 — the last two deploy values, and the two things that would have blocked them
+
+`VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` are set. They are identifiers rather than credentials —
+`team_vJjCIjOpMU8pPsB45cWNnoNr` and `prj_GOg3XIVdg7u6WPAzaHFJy2QnfBHu`, read from the Vercel API for
+the `coditu` project linked to `MooTamer/coditu`, and matching the values §10 of the deployment
+runbook had already written out. With `VERCEL_TOKEN` and `HOSTED_SCHEMA_DB_URL` set by Mohamed
+earlier the same morning and `PRODUCTION_BASE_URL` already a variable, **all five values the
+preflight names now exist**:
+
+```
+$ gh secret list -R MooTamer/coditu
+HOSTED_SCHEMA_DB_URL    2026-08-31T05:59:51Z
+VERCEL_ORG_ID           2026-08-31T06:07:46Z
+VERCEL_PROJECT_ID       2026-08-31T06:07:48Z
+VERCEL_TOKEN            2026-08-31T05:45:56Z
+$ gh variable list -R MooTamer/coditu
+PRODUCTION_BASE_URL     https://coditu-phi.vercel.app
+```
+
+**Two things stood between that and a deploy, and both were found by running the check rather than
+by reading it.**
+
+**(1) The connection string the runbook gives does not work.** `?sslmode=require` never reaches a
+schema verdict — `pg` 8.23.0 aliases `require` to `verify-full`, and Supabase's chain ends at a root
+no public store carries:
+
+```
+$ node scripts/check-hosted-schema.mjs      # ?sslmode=require
+check-hosted-schema: database preflight could not complete (SELF_SIGNED_CERT_IN_CHAIN):
+self-signed certificate in certificate chain
+```
+
+`?sslmode=no-verify` is the mode that matches what the check actually does — it asserts the socket
+is encrypted itself and pins the issuer by name. Runbook §1 corrected. `12-RECOVERY-RUNBOOK.md`
+keeps `require` and is right to: its leg is libpq, where `require` means encrypt-and-do-not-verify.
+One string, two clients, two meanings.
+
+**(2) The preflight demands `coditu_backup`; the secret names `postgres`.** Left alone, the deploy
+could never pass. Relaxing the role assertion is the fail-open shape this repository spent
+2026-08-30 removing, so instead: the deviation is named in `ci.yml` beside the step it applies to,
+absent it the strict contract applies and the deploy stops, and **the property the role name was
+only a proxy for is now proved on every run** — `transaction_read_only` is read, and a write is
+attempted that must be refused with `25006`.
+
+Measured against hosted, all three role paths:
+
+| `HOSTED_SCHEMA_PRIVILEGED_ROLE` | connected as | result |
+|---|---|---|
+| unset | `coditu_backup` | strict contract satisfied; refuses only on the missing migration |
+| `postgres` | `coditu_backup` | **refuses** — `connection role is neither coditu_backup nor the permitted postgres` |
+| `coditu_backup` | `coditu_backup` | warns loudly, proceeds |
+
+The middle row is the one worth having: the exception admits **one named role**, not "not the
+contract role".
+
+**Verified capable of failing.** Changing `begin read only` to `begin` turns the preflight red with
+`the preflight transaction is not read only` and `the preflight connection was able to write`.
+Deleting the `ci.yml` env line or the unconditional proof call turns two of the five new assertions
+in `tests/fail-closed-controls.test.ts` red.
+
+`npm run lint`, `npm run typecheck` clean. Unit **541 passed / 0 failed** (536 before; the five new
+ones are the row above).

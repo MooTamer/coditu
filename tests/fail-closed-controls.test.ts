@@ -185,3 +185,59 @@ describe("the guards that were only reachable by remembering are in a gate", () 
     expect(CI).toContain("npm run recovery:check");
   });
 });
+
+/**
+ * The role deviation added on 2026-08-31, asserted as a SHAPE rather than as
+ * its current value.
+ *
+ * `HOSTED_SCHEMA_DB_URL` names `postgres` and the preflight's contract is
+ * `coditu_backup`. The tempting fix — relax the role assertion until whatever
+ * connects is acceptable — is the fail-open shape this file exists to catch,
+ * arriving as a convenience. So the deviation is named, it is in `ci.yml` where
+ * a diff shows it, and the check is HARDER to satisfy when it is absent.
+ *
+ * The assertion that matters most is the last one: what makes a wider role
+ * tolerable is not the name in the exception, it is that the connection is
+ * proved unable to write.
+ */
+describe("the schema preflight's role exception fails closed", () => {
+  const PREFLIGHT = read("scripts/check-hosted-schema.mjs");
+
+  it("falls back to the strict coditu_backup contract when nothing is named", () => {
+    // No deviation named => the branch that runs demands the contract role,
+    // BYPASSRLS, select, and NO insert. Unset must mean stricter, not looser.
+    expect(PREFLIGHT).toContain('const CONTRACT_ROLE = "coditu_backup"');
+    expect(PREFLIGHT).toMatch(
+      /if \(!permitted\) \{[\s\S]*?role\.current_user === CONTRACT_ROLE && role\.can_read && !role\.can_write/,
+    );
+  });
+
+  it("accepts only the exact role named, not any role that is not the contract", () => {
+    expect(PREFLIGHT).toMatch(/if \(role\.current_user !== permitted\)/);
+  });
+
+  it("says on every run that it is not using the least-privilege role", () => {
+    expect(PREFLIGHT).toContain(
+      "::warning title=Schema preflight is not using the least-privilege role::",
+    );
+  });
+
+  it("carries the deviation in the workflow, where a diff shows it", () => {
+    expect(CI).toMatch(/^ {10}HOSTED_SCHEMA_PRIVILEGED_ROLE: postgres$/m);
+    // Beside the step it applies to, not as a job-wide default that would
+    // silently widen anything added to the job later.
+    expect(CI).toMatch(
+      /HOSTED_SCHEMA_PRIVILEGED_ROLE: postgres\n\s+run: node scripts\/check-hosted-schema\.mjs/,
+    );
+  });
+
+  it("proves the connection cannot write instead of trusting the role name", () => {
+    expect(PREFLIGHT).toContain('await client.query("begin read only")');
+    expect(PREFLIGHT).toContain('const READ_ONLY_SQL_TRANSACTION = "25006"');
+    expect(PREFLIGHT).toContain('await client.query("show transaction_read_only")');
+    expect(PREFLIGHT).toMatch(/create temp table hosted_schema_write_probe/);
+    // Unconditional: the proof does not sit behind the same env var whose
+    // presence it is supposed to make safe.
+    expect(PREFLIGHT).toMatch(/^\s*failures\.push\(\.\.\.\(await readOnlyFailures\(client\)\)\);$/m);
+  });
+});
