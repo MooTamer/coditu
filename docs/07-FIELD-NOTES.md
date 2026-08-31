@@ -2382,3 +2382,41 @@ docker stop $(docker ps -q --filter "name=Baseeta")         # reversible; volume
 
 A run taken with one stack in the VM and a run taken with three are not comparable, and nothing in
 the Playwright output says which one you got.
+
+---
+
+## A second control can hide whether the first one still works
+
+**Symptom.** Nothing. That is the point. Everything is greener than it was, and one of your
+assertions has quietly become untestable.
+
+**What happened.** The deploy preflight refuses an unencrypted database connection. The way that
+refusal was known to still work was an experiment: force `ssl: false` in `check-hosted-schema.mjs`,
+point it at the real project, watch it print `database connection is not encrypted`. On 2026-08-31
+"Enforce SSL on incoming connections" was turned on at Supabase — correct, owed, and an unambiguous
+improvement. The experiment now dies one hop earlier:
+
+```
+XX000  (ESSLREQUIRED) SSL connection is required for user: coditu_backup
+```
+
+The provider refuses before the assertion is reached. The guard was never exercised again, and
+nothing anywhere would have said so.
+
+**The shape, stated so it is recognisable elsewhere.** Two controls in series, the outer one
+stronger. The inner one still runs, still passes, and no longer has any input that can make it fail.
+It has stopped being a control and become a comment — and unlike a deleted assertion, it leaves a
+green tick behind. This is the same family as *a deliberate red is a place a real red can hide*
+(2026-08-31): both are cases where a control's signal stops carrying information while still
+appearing to.
+
+**The question that finds it:** not *"does this control pass?"* but **"what input, that I can still
+produce, makes it fail?"** If the answer is "none, since we hardened the layer in front", the control
+needs a test that reaches it directly. `transportFailures` moved to `scripts/lib/transport-guard.mjs`
+and took `tests/transport-guard.test.ts` with it for exactly that reason.
+
+**And the omission that came with it.** The same check printed seven lines on success, none of them
+about the transport it had just verified. A passing run and a run with the assertion deleted were
+byte-identical. **A control that proves something should say what it proved** — otherwise its success
+and its absence look the same, which is the fail-open shape with no `exit 0` in sight. It now prints
+`tls=encrypted`, the protocol, the cipher and the issuer.

@@ -6331,3 +6331,35 @@ is made an engineer. The rehearsal had to create one to see anything at all.
    row touched.** Not yet a money error — hosted holds 0 payouts and 0 shares — but his 5,040 logged
    minutes would swell a pot he took no share of. The check that found it asserted a constant about
    an admin-editable value and is fixed.
+
+---
+
+## 2026-08-31 · Enforce SSL is on, and the preflight now says what it proved
+
+**Owed by Mohamed on 2026-08-31, done and verified on the provider.**
+
+| what | command | result |
+|---|---|---|
+| The connection is encrypted | `node scripts/check-hosted-schema.mjs` with `?sslmode=require` | `exit 0`, `tls=encrypted tls_protocol=TLSv1.3 tls_cipher=TLS_AES_256_GCM_SHA384 tls_issuer="Supabase Inc" tls_verified=false`, 40 migrations / 38 relations / 334 columns |
+| Removing `sslmode` cannot open it | same, query string removed | identical: `exit 0`, `tls=encrypted`, TLSv1.3 |
+| `sslmode=disable` cannot open it | same, `?sslmode=disable` | identical: `exit 0`, `tls=encrypted`, TLSv1.3 |
+| Enforce SSL is really on at Supabase | a `pg` client with `ssl: false`, as `coditu_backup` | refused: `XX000 (ESSLREQUIRED) SSL connection is required for user: coditu_backup` |
+| The guard can still fail | `npx vitest run tests/transport-guard.test.ts` | 11 passed; with the cleartext branch disabled, **2 failed / 9 passed** |
+| The contract role is accepted while a deviation is named | `HOSTED_SCHEMA_PRIVILEGED_ROLE=postgres node scripts/check-hosted-schema.mjs` | `exit 0` — the file at `3fe7ab0` exits 1 on the same posture: *"connection role is neither coditu_backup nor the permitted postgres (got coditu_backup)"* |
+| Nothing else moved | `npm run typecheck`, `npm run lint`, `npm run test` | clean, clean, **573 passed / 0 failed / 42 files** |
+
+Three things this changed, and one it found:
+
+1. **The preflight reports the transport.** It printed seven lines on success and none of them was
+   the encryption it had just verified — a passing run and a run with the assertion deleted were
+   byte-identical.
+2. **The guard moved to `scripts/lib/transport-guard.mjs`** because Enforce SSL took away the only
+   way to exercise it. The provider refuses cleartext before the assertion is reached, so the
+   experiment that used to prove it worked cannot run any more. Eleven unit cases replace it.
+3. **`pg_stat_ssl` now answers `true`** where it answered `false` on 2026-08-29. Both readings are
+   about the pooler-to-Postgres hop, so neither is evidence about ours; the comment that stated the
+   old reading as a fact now carries both dates.
+4. **Found: naming a role deviation REPLACED the contract instead of widening it.** With
+   `HOSTED_SCHEMA_PRIVILEGED_ROLE=postgres` — which `ci.yml` carries — a secret narrowed to
+   `coditu_backup` was refused. Narrowing that secret is an owed action; doing it would have failed
+   the deploy.

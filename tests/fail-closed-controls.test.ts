@@ -207,13 +207,37 @@ describe("the schema preflight's role exception fails closed", () => {
     // No deviation named => the branch that runs demands the contract role,
     // BYPASSRLS, select, and NO insert. Unset must mean stricter, not looser.
     expect(PREFLIGHT).toContain('const CONTRACT_ROLE = "coditu_backup"');
+    // The contract branch demands BYPASSRLS, select, and no insert, and it is
+    // reached whether or not a deviation is named. `!permitted` then has only
+    // one job left: refuse every other role.
     expect(PREFLIGHT).toMatch(
-      /if \(!permitted\) \{[\s\S]*?role\.current_user === CONTRACT_ROLE && role\.can_read && !role\.can_write/,
+      /if \(role\.current_user === CONTRACT_ROLE\) \{[\s\S]*?if \(role\.can_read && !role\.can_write\) return \[\];/,
+    );
+    expect(PREFLIGHT).toMatch(
+      /if \(!permitted\) \{[\s\S]*?connection role is not the read-only \$\{CONTRACT_ROLE\} contract/,
     );
   });
 
   it("accepts only the exact role named, not any role that is not the contract", () => {
     expect(PREFLIGHT).toMatch(/if \(role\.current_user !== permitted\)/);
+  });
+
+  it("still accepts the contract role while a deviation is named", () => {
+    // A deviation WIDENS what is accepted; it must not replace it. Before
+    // 2026-08-31 it replaced it, so `HOSTED_SCHEMA_PRIVILEGED_ROLE=postgres` —
+    // which `ci.yml` carries — refused a secret narrowed to `coditu_backup`
+    // with "neither coditu_backup nor the permitted postgres (got
+    // coditu_backup)". That is the deploy failing on the exact action the
+    // check's own warning asks somebody to take. Measured against the real
+    // project both ways; see the ADR of 2026-08-31.
+    expect(PREFLIGHT).toMatch(
+      /if \(role\.current_user === CONTRACT_ROLE\) \{\s*\n\s*if \(role\.can_read && !role\.can_write\) return \[\];/,
+    );
+    // And the contract branch comes BEFORE the deviation is consulted, so no
+    // value of the variable can turn the contract role into a failure.
+    expect(PREFLIGHT.indexOf("if (role.current_user === CONTRACT_ROLE)")).toBeLessThan(
+      PREFLIGHT.indexOf("if (role.current_user !== permitted)"),
+    );
   });
 
   it("says on every run that it is not using the least-privilege role", () => {
@@ -258,6 +282,7 @@ describe("the schema preflight's role exception fails closed", () => {
  */
 describe("the schema preflight decides its own transport", () => {
   const PREFLIGHT = read("scripts/check-hosted-schema.mjs");
+  const GUARD = read("scripts/lib/transport-guard.mjs");
 
   it("does not hand the connection string to the client", () => {
     // `connectionString` would let a `sslmode` in the secret win — measured:
@@ -274,8 +299,23 @@ describe("the schema preflight decides its own transport", () => {
   });
 
   it("still asserts the socket afterwards rather than trusting the arrangement", () => {
-    expect(PREFLIGHT).toContain("database connection is not encrypted");
-    expect(PREFLIGHT).toMatch(/failures\.push\(\.\.\.transportFailures\(client/);
+    // The refusal itself moved to `scripts/lib/transport-guard.mjs` so that a
+    // test can exercise it — Supabase's Enforce SSL now refuses a cleartext
+    // connection before the assertion is reached, which took away the only way
+    // this repository had of proving the assertion still worked. What is
+    // asserted here is that the check still CALLS it on the socket it holds;
+    // what it does when called is `tests/transport-guard.test.ts`.
+    expect(PREFLIGHT).toMatch(/from "\.\/lib\/transport-guard\.mjs"/);
+    expect(PREFLIGHT).toMatch(/socket: client\.connection\?\.stream/);
+    expect(GUARD).toContain("database connection is not encrypted");
+  });
+
+  it("reports the transport it proved, so a run that proved it reads differently", () => {
+    // Before this, a passing run and a run with the assertion deleted printed
+    // the identical seven lines. Success indistinguishable from absence is the
+    // fail-open shape arriving as an omission rather than as an `exit 0`.
+    expect(PREFLIGHT).toMatch(/tls=\$\{transport\.encrypted \? "encrypted" : "cleartext"\}/);
+    expect(PREFLIGHT).toMatch(/tls_issuer=/);
   });
 
   it("keeps a way to demand a verified chain, with somewhere to put the root", () => {

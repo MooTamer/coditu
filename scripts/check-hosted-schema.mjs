@@ -6,6 +6,8 @@ import { resolve } from "node:path";
 import { Client } from "pg";
 import ts from "typescript";
 
+import { describeTransport, transportFailures } from "./lib/transport-guard.mjs";
+
 const root = resolve(import.meta.dirname, "..");
 const typesPath = resolve(root, "lib/supabase/database.types.ts");
 const migrationsPath = resolve(root, "supabase/migrations");
@@ -118,62 +120,12 @@ function sameValues(left, right) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-// Whether the connection this process actually holds is encrypted.
-//
-// This used to be one line — `pg_stat_ssl.ssl` for our own backend pid — and
-// it was wrong in a way that only shows up against the real project. Supabase
-// reaches the database through **Supavisor**, which terminates TLS at the
-// pooler and opens its own plain connection to Postgres inside the VPC. So
-// `pg_stat_ssl` describes the pooler-to-Postgres hop, not ours, and reports
-// `false` on a session that is TLSv1.3 end to end from here. The direct host
-// (`db.<ref>.supabase.co`) has an AAAA record and no A record, so a machine or
-// runner without an IPv6 route cannot use the one path where `pg_stat_ssl`
-// would have answered about us. Measured 2026-08-29; see the ADR.
-//
-// The assertion therefore reads the client socket, which is the only place
-// that knows about the leg we are responsible for. `pg_stat_ssl` is kept as
-// corroboration when it is true, and explained rather than believed when it is
-// false.
-//
-// `authorized` is false against the pooler because the chain ends at
-// "Supabase Root 2021 CA", which is not in any public trust store, so full
-// verification needs that root supplied out of band. Until it is, the chain is
-// pinned by name instead: a downgrade to cleartext fails, and so does a
-// certificate that is not Supabase's.
-const SUPABASE_ISSUER_O = "Supabase Inc";
-
-function transportFailures(client, pgStatSslSaysEncrypted) {
-  const socket = client.connection?.stream;
-  if (socket?.encrypted !== true) {
-    return [
-      pgStatSslSaysEncrypted
-        ? "database connection is not encrypted on this leg (pg_stat_ssl disagrees; trust the socket)"
-        : "database connection is not encrypted",
-    ];
-  }
-
-  const certificate =
-    typeof socket.getPeerCertificate === "function" ? socket.getPeerCertificate(true) : null;
-
-  // Verified against a supplied root is the strong form. Ask for it explicitly
-  // rather than silently accepting the weaker one, so that turning it on is a
-  // deliberate act and turning it off cannot happen by accident.
-  if (process.env.HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS === "1" && socket.authorized !== true) {
-    return [
-      `database TLS certificate did not verify (${socket.authorizationError ?? "unknown"}); ` +
-        "supply the project CA and use sslmode=verify-full",
-    ];
-  }
-
-  if (socket.authorized !== true && certificate?.issuer?.O !== SUPABASE_ISSUER_O) {
-    return [
-      "database TLS certificate is neither publicly verified nor issued by " +
-        `${SUPABASE_ISSUER_O} (got ${certificate?.issuer?.O ?? "no certificate"})`,
-    ];
-  }
-
-  return [];
-}
+// The transport guard lives in `scripts/lib/transport-guard.mjs` and is
+// exercised by `tests/transport-guard.test.ts`. It moved there when Supabase's
+// "Enforce SSL on incoming connections" was turned on: the provider now refuses
+// a cleartext connection outright, so the experiment that used to prove this
+// assertion could fail — force `ssl: false` and watch it refuse — no longer
+// reaches the assertion at all. A guard nothing can exercise is a comment.
 
 // The role the deploy preflight is meant to connect as, and the one deliberate
 // exception to it.
@@ -194,8 +146,22 @@ function roleFailures(role) {
 
   const permitted = process.env.HOSTED_SCHEMA_PRIVILEGED_ROLE?.trim();
 
+  // The contract role is always acceptable, named deviation or not. Until
+  // 2026-08-31 it was not: with `HOSTED_SCHEMA_PRIVILEGED_ROLE=postgres` set —
+  // which is what `ci.yml` carries — a secret narrowed to `coditu_backup` was
+  // REFUSED, with the message "connection role is neither coditu_backup nor the
+  // permitted postgres (got coditu_backup)". Naming a deviation must widen what
+  // is accepted, never replace it; the version that replaced it would have
+  // failed the deploy on the exact action this file's own warning asks for.
+  if (role.current_user === CONTRACT_ROLE) {
+    if (role.can_read && !role.can_write) return [];
+    return [
+      `${CONTRACT_ROLE} is not read-only on this connection ` +
+        `(can_read=${role.can_read}, can_write=${role.can_write})`,
+    ];
+  }
+
   if (!permitted) {
-    if (role.current_user === CONTRACT_ROLE && role.can_read && !role.can_write) return [];
     return [
       `connection role is not the read-only ${CONTRACT_ROLE} contract ` +
         `(got ${role.current_user}, can_write=${role.can_write})`,
@@ -318,6 +284,9 @@ async function main() {
           { rejectUnauthorized: false },
   });
   const failures = [];
+  // Reported at the end, so a run that proved the encryption reads differently
+  // from a run in which the assertion was deleted.
+  let transport = { encrypted: false };
 
   try {
     await client.connect();
@@ -338,7 +307,14 @@ async function main() {
     const role = identity.rows[0];
     if (!localHost) {
       failures.push(...roleFailures(role));
-      failures.push(...transportFailures(client, role?.encrypted === true));
+      transport = describeTransport(client.connection?.stream);
+      failures.push(
+        ...transportFailures({
+          socket: client.connection?.stream,
+          pgStatSslSaysEncrypted: role?.encrypted === true,
+          requireVerified: process.env.HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS === "1",
+        }),
+      );
     }
 
     // Runs against a local stack too. It asserts a property of this script
@@ -472,6 +448,13 @@ async function main() {
   process.stdout.write(`functions=${contract.functions.size}\n`);
   process.stdout.write(`enums=${contract.enums.size}\n`);
   process.stdout.write("storage_buckets=3\n");
+  process.stdout.write(`tls=${transport.encrypted ? "encrypted" : "cleartext"}\n`);
+  if (transport.encrypted) {
+    process.stdout.write(`tls_protocol=${transport.protocol ?? "unknown"}\n`);
+    process.stdout.write(`tls_cipher=${transport.cipher ?? "unknown"}\n`);
+    process.stdout.write(`tls_issuer=${transport.issuer ?? "unknown"}\n`);
+    process.stdout.write(`tls_verified=${transport.verified}\n`);
+  }
 }
 
 main();

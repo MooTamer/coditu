@@ -6396,3 +6396,98 @@ incident.
 **Unchanged: the noticing half is still not drilled against production.** Proving the trap fires on
 a genuine 5xx means promoting a build that fails its own smoke, and the failure mode of that test is
 an outage.
+
+---
+
+## 2026-08-31 · Enforce SSL is on — and it took away the only proof the guard still worked
+
+**Owed and now done, by Mohamed:** "Enforce SSL on incoming connections" is ON for
+`hayfsvsepgfescojesbd`, and `HOSTED_SCHEMA_DB_URL` carries `sslmode=require`.
+
+**Verified on the provider, not from a screenshot.** A `pg` client with `ssl: false` against the
+session pooler, as `coditu_backup`:
+
+```
+XX000  (ESSLREQUIRED) SSL connection is required for user: coditu_backup
+```
+
+and the same client with TLS arranged:
+
+```
+socket_encrypted=true  protocol=TLSv1.3  cipher=TLS_AES_256_GCM_SHA384
+issuer_O="Supabase Inc"  subject_CN="*.pooler.supabase.com"  authorized=false
+```
+
+`pg_stat_ssl` now answers **true**, where on 2026-08-29 it answered **false** on a session that was
+TLSv1.3 end to end. Both readings describe the pooler-to-Postgres hop rather than ours, so neither
+is evidence about the leg this repository is responsible for. The socket still is. The comment that
+said `pg_stat_ssl` "reports false" was a measurement with a date on it and is now carrying both.
+
+### The `sslmode` in the secret has no authority, and that is the fail-closed property
+
+The 2026-08-31 entry above removed the connection string's say over transport. Re-measured today
+against the real project, with the query string set four ways:
+
+| `HOSTED_SCHEMA_DB_URL` query | preflight | socket |
+|---|---|---|
+| `?sslmode=require` | exit 0 | TLSv1.3, Supabase Inc |
+| *(removed entirely)* | exit 0 | TLSv1.3, Supabase Inc |
+| `?sslmode=disable` | exit 0 | TLSv1.3, Supabase Inc |
+| `?sslmode=verify-full` | exit 0 | TLSv1.3, Supabase Inc |
+
+So the answer to "does it still fail closed if the `sslmode` is removed" is stronger than the
+question: **it cannot fail open, because the string is not consulted.** Encryption is arranged by
+the check and now refused by the provider as well. Two independent layers, neither of which is a
+query parameter inside an opaque secret.
+
+### The problem the second layer created
+
+Until today the transport assertion's capacity to fail was proved by experiment — force `ssl: false`,
+point at the real project, watch it report `database connection is not encrypted`. That is how the
+entry above recorded it as *verified capable of failing*.
+
+**That experiment no longer reaches the assertion.** Supabase refuses the cleartext connection one
+hop earlier. The outer control is correct, and it conceals whether the inner one is alive. It is the
+canary problem in a new costume: on 2026-08-31 a canary held red for a known reason could no longer
+report an unknown one; here a guard nothing can exercise stops being a guard and becomes a comment.
+
+**Decision.** `transportFailures` moves to `scripts/lib/transport-guard.mjs`, takes a socket rather
+than a live client, and is exercised by `tests/transport-guard.test.ts` — eleven cases including
+every one the provider will not let us produce against the real database any more: cleartext, a
+missing socket, a foreign issuer, no certificate, a publicly-verified chain, and the strong form
+demanded and not supplied. Shown capable of failing: with the cleartext branch disabled, 2 of 11 go
+red.
+
+### The check now says what it proved
+
+`check-hosted-schema.mjs` printed seven lines on success and none of them was the transport. A run
+that verified the encryption and a run with the assertion deleted were **byte-identical**. That is
+the fail-open shape arriving as an omission rather than as an `exit 0`, and `docs/07-FIELD-NOTES.md`
+already names the family. It now prints:
+
+```
+tls=encrypted
+tls_protocol=TLSv1.3
+tls_cipher=TLS_AES_256_GCM_SHA384
+tls_issuer=Supabase Inc
+tls_verified=false
+```
+
+`tls_verified=false` is the honest reading: the chain ends at "Supabase Root 2021 CA", which no
+public trust store carries, so the issuer is pinned by name instead. `HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1`
+plus `HOSTED_SCHEMA_DB_CA` is still the way to demand the strong form.
+
+### A defect found while proving it: naming a deviation REPLACED the contract instead of widening it
+
+`ci.yml` carries `HOSTED_SCHEMA_PRIVILEGED_ROLE: postgres`, the named deviation. With it set, a
+secret narrowed to `coditu_backup` — the contract role, the thing the check's own warning asks
+somebody to move to — was **refused**:
+
+```
+- connection role is neither coditu_backup nor the permitted postgres (got coditu_backup)
+```
+
+The message contradicts itself, and the effect is that doing the owed thing fails the deploy. Fixed:
+the contract role is checked first and unconditionally, still demanding `select` and no `insert`; the
+deviation is consulted only for roles that are not it. Measured both ways against the real project —
+the old file exits 1 on that posture, the new one exits 0 and reports 40 migrations.
