@@ -6959,3 +6959,47 @@ found**:
 
 **A card nobody has followed is a guess with formatting** — the same sentence this repository wrote
 about runbook step 5a on 2026-08-31, earned twice in one day.
+
+### And the nightly itself was run, not merely edited
+
+`local-nightly.sh` was changed substantially here — it stopped publishing, gained the off-site fan
+out, and had its freshness and prune calls repointed at the local store. A `bash -n` is not a run,
+so it was run:
+
+```bash
+CODITU_NIGHTLY_ENV=<scratch> scripts/local-nightly.sh --drill-only
+```
+
+```
+restore_verified=true
+database_tables=64
+database_rows=1397
+storage_objects=135
+managed_triggers_reapplied=2          # on_auth_user_created, enforce_email_allowlist
+target_only_empty_tables=storage.iceberg_namespaces,storage.iceberg_tables
+restore_target_widened=storage.buckets.versioning_status,storage.objects.archived_at,
+                       storage.objects.is_delete_marker,storage.objects.is_versioned
+drill_seconds=141
+```
+
+Unattended, and it tore its own throwaway stack down. `--drill-only` publishes nothing, prunes
+nothing and **sends no heartbeat**, so this proves the restore half and deliberately says nothing
+about the write half; the off-site half is covered by `tests/offsite-copy.test.ts` (11 behaviours,
+running the real script) plus a live copy of all eight sets to a real destination.
+
+### The unattributed loss, written down rather than shrugged at
+
+**The developer's local `coditu` stack and its `supabase_db_coditu` volume disappeared during this
+afternoon**, and it could not be pinned on a specific command. Every CI teardown in the logs is
+correctly scoped — `project_id = "codituci"`, `Stopped services: [supabase_..._codituci]` — Colima
+was stopped and restarted once, and several runs were cancelled mid-job.
+
+`supabase stop --no-backup` is the only thing that deletes volumes, and its own help says so:
+*"Deletes all data volumes after stopping."* Without `--project-id` it takes its target from
+`supabase/config.toml` in the working directory — so the blast radius of that line depends on a
+file having been edited correctly by an earlier step, and `always()` runs it even when that step
+did not. Every teardown now names `--project-id codituci`, and a test asserts it.
+
+**The cost was small by luck, not design.** Local is seeded rather than real data, so it comes back
+with `supabase start && supabase db reset`. That it was survivable is exactly why it is worth
+recording: it is the one place this class of mistake could have gone unnoticed.
