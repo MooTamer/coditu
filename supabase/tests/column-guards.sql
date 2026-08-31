@@ -24,7 +24,7 @@
 create extension if not exists pgtap with schema extensions;
 
 begin;
-select plan(9);
+select plan(14);
 
 create or replace function pg_temp.act_as(uid uuid) returns void
 language plpgsql as $$
@@ -172,9 +172,71 @@ select throws_ok(
 );
 
 -- ---------------------------------------------------------------------------
+-- `profiles`, which 20260831120000 inverted for the same reason — and which is
+-- now the table that decides what somebody is paid.
+--
+-- Before that migration this guard was a denylist naming five columns, so
+-- `payout_basis` and `hourly_rate_cents` would have arrived writable by the
+-- person they pay. The sweep below is what makes that impossible to reintroduce
+-- by omission: a money column added tomorrow is in this loop the moment it
+-- exists, and nobody has to remember it.
+--
+-- It also closed one that was already open. `account_kind` was never in the
+-- denylist, so a client contact could set their own row to `internal`.
+-- ---------------------------------------------------------------------------
+select is(
+  pg_temp.engineer_can_change(
+    'profiles',
+    array['full_name', 'initials', 'avatar_url', 'updated_at'],
+    'a0000000-0000-4000-8000-000000000003'::uuid
+  ),
+  '{}'::text[],
+  'a person can change NO column of their own profile except their name, initials and picture'
+);
+
+-- Named as well as swept. The sweep writes NULL, so a column that is ALREADY
+-- null on the target row is skipped — `hourly_rate_cents` is null for
+-- everybody, which is exactly the shape of column a sweep alone would miss.
+-- Written as a CASE so the probe is always a real change. `is distinct from`
+-- is how the guard decides, so setting a column to the value it already holds
+-- raises nothing and the assertion would pass for the wrong reason — which is
+-- exactly what the first version of this test did.
+select throws_ok(
+  $$update public.profiles
+       set payout_basis = case when payout_basis = 'share' then 'hourly' else 'share' end::public.payout_basis
+     where id = 'a0000000-0000-4000-8000-000000000003'::uuid$$,
+  '42501',
+  null,
+  'nobody can change the basis they are paid on'
+);
+
+select throws_ok(
+  $$update public.profiles set hourly_rate_cents = 100000
+     where id = 'a0000000-0000-4000-8000-000000000003'::uuid$$,
+  '42501',
+  null,
+  'nobody can set their own hourly rate'
+);
+
+select throws_ok(
+  $$update public.profiles
+       set account_kind = case when account_kind = 'internal' then 'client' else 'internal' end::public.account_kind
+     where id = 'a0000000-0000-4000-8000-000000000003'::uuid$$,
+  '42501',
+  null,
+  'nobody can change their own account kind — open until the guard was inverted'
+);
+
+-- ---------------------------------------------------------------------------
 -- The positive cases. A guard that refuses everything passes every negative
 -- assertion above and is useless.
 -- ---------------------------------------------------------------------------
+
+select lives_ok(
+  $$update public.profiles set full_name = 'Renamed Themself'
+     where id = 'a0000000-0000-4000-8000-000000000003'::uuid$$,
+  'a person may still change their own name'
+);
 select lives_ok(
   format('update public.work_items set order_index = order_index + 1 where id = %L', (select id from probe_target)),
   'an engineer may still reorder their own item'

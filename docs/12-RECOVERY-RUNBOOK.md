@@ -133,11 +133,30 @@ before activation.
    compares the `COPY` column lists in `data.sql` against the target and refuses to start if the
    target is older. The command then fails if any table the backup describes is missing or
    short, or if a table only the target has is non-empty.
-5a. **Re-apply the migrations over the restored database** — `supabase db push` against the fresh
-   project. Nothing in the archive carries the two `auth.users` triggers (§2), and until this step
-   runs the recovered system has no profile creation and no sign-up allowlist. `verify-backup-restore.sh`
-   fails while either is missing and names them, so this step cannot be skipped silently — but it is
-   written here as well, because reading it in a runbook beats meeting it as a failure at 3am.
+5a. **Put the managed-schema triggers back** —
+   `scripts/reapply-managed-triggers.sh <db-url>`. Nothing in the archive carries the two
+   `auth.users` triggers (§2), and until this step runs the recovered system has no profile
+   creation and **no sign-up allowlist**. `verify-backup-restore.sh` fails while either is missing
+   and names them, so this cannot be skipped silently — but it is written here as well, because
+   reading it in a runbook beats meeting it as a failure at 3am.
+
+   > **Corrected 2026-08-31, by automating it.** This step used to say *"re-apply the migrations —
+   > `supabase db push`"*, and **that does not work**. The archive carries no `supabase_migrations`
+   > schema at all — `supabase db dump` writes `public` — so a restored database has a full schema
+   > and an **empty migration history**, and the CLI replays all forty migrations from the
+   > beginning and dies one statement in:
+   >
+   > ```
+   > Applying migration 20260820120000_enums.sql...
+   > LegacyMigrationApplyError … At statement: 0
+   >   create type app_role as enum ('admin','lead','engineer')
+   > ```
+   >
+   > The step only ever needed to restore the two triggers; everything else those migrations
+   > create is in `schema.sql` and is already back. `reapply-managed-triggers.sh` extracts them
+   > from the migrations with the same scan the verifier uses to decide which must exist, so the
+   > two halves cannot drift, and prefixes each with `drop trigger if exists` so it is replayable.
+   > **This step had never been executed.** It read correctly and stopped at the first statement.
 6. Force-upload Storage with recursive copy. Do **not** use `aws s3 sync` after restoring
    `storage.objects`: the metadata rows make sync believe absent bytes already exist.
 7. Re-run the object download and byte comparison, the SQL tests, and the hosted schema
@@ -180,6 +199,28 @@ Mohamed both when the off-site copy becomes stale and when GitHub stops dispatch
 itself. The monitor is a separate control plane; GitHub's own workflow status is not treated as
 the only alarm for GitHub scheduling. **That secret is not set yet**, so today the canary skips
 the ping with a notice and nothing alerts anybody.
+
+## 5b. The nightly and the drill run on the Mac — 2026-08-31
+
+`ops/recovery-repo/workflows/nightly-backup.yml` is **no longer scheduled**. `scripts/local-nightly.sh`
+on a launchd agent at 02:00 does the backup, the freshness read-back, the **real restore drill**
+and the prune, on the machine where the age private key already lives.
+
+Why it moved: the drill could never run in the cloud — `verify-backup-restore.sh` needs the private
+key and age has no decrypt-only identity — and on 2026-08-31 the account's Actions allowance ran
+out, which stopped the nightly and the canary at once. A backup must not compete for budget with a
+test suite.
+
+The drill is the **whole** of §3 steps 4, 5 and 5a, unattended, against a throwaway stack:
+
+| step | how the harness does it |
+|---|---|
+| bare target | a `supabase/config.toml` copy with **no migrations and no seed**, project `coditurestore`, ports 546xx. A target that already carries this schema stops on `role "coditu_backup" already exists` |
+| target new enough | `RESTORE_WIDEN_MANAGED_COLUMNS=1` — the CLI's images trail hosted's, and the missing managed columns are added as `text` and printed. **Never set this during a real recovery**; step 5 above is the real thing and its refusal is the point |
+| 5a, re-apply the migrations | `RESTORE_MIGRATE_CMD` runs `supabase migration up` after the row counts are compared and before the trigger check, so the counts measure the pure restore and the triggers see the recovery |
+| report | healthchecks.io, **after** the drill, never after the upload |
+
+Its failure mode is the Mac being off, and that is a missed heartbeat rather than silence.
 
 ## 6. Monthly integrity and quarterly restore drills
 

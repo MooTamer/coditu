@@ -82,7 +82,6 @@ export default async function EarningsPage() {
       {mine ? (
         <Reveal tier="section" delay={0.06}>
           <MyEarnings
-            isDeveloper={mine.isDeveloper}
             current={mine.current}
             lastConfirmed={mine.lastConfirmed}
             settings={mine.settings}

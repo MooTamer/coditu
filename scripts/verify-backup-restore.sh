@@ -90,6 +90,47 @@ having count(*) > 0;
 SQL
   done < "$restore_preflight"
 )
+# Bringing a throwaway target forward, and why it is opt-in.
+#
+# The refusal above is correct and stays the default: a target older than the
+# source loses rows silently partway through `data.sql`, and the 2026-08-29
+# drill found it the expensive way. But it also makes an AUTOMATED local drill
+# impossible, because the Supabase CLI's pinned images are routinely behind what
+# a hosted project runs — measured 2026-08-31, `storage-api` on this Mac has
+# none of `storage.buckets.versioning_status`, `storage.objects.archived_at`,
+# `is_delete_marker` or `is_versioned`, and hosted has all four. Mohamed added
+# them by hand that day. A drill that needs four hand-written statements is a
+# drill somebody has to remember, which is the thing being replaced.
+#
+# `RESTORE_WIDEN_MANAGED_COLUMNS=1` adds the missing MANAGED columns to the
+# throwaway target as nullable `text` and prints exactly which ones. `COPY`
+# parses per column type and `text` accepts every representation in the dump, so
+# every row still arrives and every count still matches — what is not proved is
+# that the column's TYPE round-trips, and the output says so rather than
+# implying otherwise.
+#
+# Off by default. An absent variable makes this script HARDER to satisfy, not
+# easier; turning it on is a deliberate act by a harness that owns a disposable
+# target, never something a recovery does. `docs/12-RECOVERY-RUNBOOK.md` step 4
+# is a real restore and must not set it.
+if [ -n "$restore_missing" ] && [ "${RESTORE_WIDEN_MANAGED_COLUMNS:-0}" = "1" ]; then
+  restore_widened=""
+  while IFS=$'\t' read -r restore_ns restore_rel restore_cols; do
+    [ -n "$restore_rel" ] || continue
+    for restore_col in ${restore_cols//,/ }; do
+      restore_has=$(psql -X -qAt "$RESTORE_DB_URL" -v ON_ERROR_STOP=1 -c \
+        "select 1 from information_schema.columns where table_schema='$restore_ns' and table_name='$restore_rel' and column_name='$restore_col'")
+      [ -z "$restore_has" ] || continue
+      [ -n "$(psql -X -qAt "$RESTORE_DB_URL" -v ON_ERROR_STOP=1 -c "select 1 where to_regclass('$restore_ns.$restore_rel') is not null")" ] || continue
+      psql -X -q "$RESTORE_DB_URL" -v ON_ERROR_STOP=1 -c \
+        "alter table $restore_ns.$restore_rel add column if not exists \"$restore_col\" text"
+      restore_widened="$restore_widened${restore_widened:+,}$restore_ns.$restore_rel.$restore_col"
+    done
+  done < "$restore_preflight"
+  [ -z "$restore_widened" ] || printf 'restore_target_widened=%s\n' "$restore_widened"
+  restore_missing=""
+fi
+
 [ -z "$restore_missing" ] || fail "the restore target is missing columns this backup carries, which means its Supabase service versions are older than the source's. Restore into a project at least as new as the one backed up. Missing: $restore_missing"
 
 
@@ -168,6 +209,32 @@ if [ "$restore_storage_values" -eq 4 ]; then
 fi
 
 restore_repo_root=$(CDPATH= cd -- "$restore_script_dir/.." && pwd)
+
+# Step 5a of the runbook, as a seam rather than as a sentence somebody reads.
+#
+# A restore is not a recovery until the migrations have been re-applied over it
+# — the two `auth.users` triggers below are the proof, and the assertion after
+# this block is what refuses to call an un-migrated database restored. That
+# assertion has always been correct and has always left the fixing to a person,
+# which is fine for a 3am recovery and useless for an unattended drill: the
+# drill would stop, every night, at the step the runbook says to take next.
+#
+# `RESTORE_MIGRATE_CMD` is that step. Unset — the default, and what a real
+# recovery uses — nothing runs here and the refusal below stands. Set, it runs
+# AFTER the row counts have been compared against the archive and BEFORE the
+# trigger check, so the counts are still measured against the pure restore and
+# only the triggers see the migrated database.
+#
+# It is deliberately a command rather than a path to migrations: this file also
+# lives in `MooTamer/coditu-recovery`, which carries no migrations on purpose —
+# a recovery whose first step is "check out the repository you are recovering"
+# is not a recovery path.
+if [ -n "${RESTORE_MIGRATE_CMD:-}" ]; then
+  printf 'restore_migrations_reapplied=running\n'
+  ( eval "$RESTORE_MIGRATE_CMD" ) >&2 || \
+    fail "RESTORE_MIGRATE_CMD failed; the data is restored and the database is not yet a recovery"
+  printf 'restore_migrations_reapplied=true\n'
+fi
 
 # ── The half a `pg_dump` of this project CANNOT carry ────────────────────────
 #

@@ -2,7 +2,13 @@ import "server-only";
 
 import { cache } from "react";
 
-import { meetsThreshold, potCents, splitEqually, type Share } from "@/lib/earnings";
+import { potCents } from "@/lib/earnings";
+import {
+  computeSprintPayout,
+  type PayoutBasis,
+  type PayoutLine,
+  type SprintPayout,
+} from "@/lib/payout";
 import { getAppSettings, type AppSettings } from "@/lib/settings";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 
@@ -42,12 +48,24 @@ export interface EarningsParticipant {
   fullName: string;
   initials: string;
   avatarUrl: string | null;
+  /** Literal: is this person an engineer. It decides nothing about money. */
   isDeveloper: boolean;
+  /** How they are paid out of the pot. This is what decides money. */
+  basis: PayoutBasis;
+  /** Their agreed rate when hourly; null means the team rate. */
+  hourlyRateCents: number | null;
   isActive: boolean;
   minutesLogged: number;
   /** Their share of the sprint's total minutes, 0–100, rounded for display. */
   sharePct: number;
-  /** True when the app proposes them: a developer at or above the threshold. */
+  /**
+   * True when the app proposes them — anybody the pot pays, on either basis.
+   *
+   * **No longer gated on `payoutShareThresholdPct`.** Mohamed's rule of
+   * 2026-08-31 is that a share is a split and not a wage: somebody on the share
+   * basis who logged nothing still takes their part. The threshold survives as
+   * a setting and no longer decides this. ADR 2026-08-31.
+   */
   proposed: boolean;
 }
 
@@ -58,6 +76,8 @@ export interface ConfirmedShare {
   avatarUrl: string | null;
   minutesLogged: number;
   shareCents: number;
+  /** Whether this was hourly pay taken out of the pot, or a part of the split. */
+  basis: "hourly" | "share";
 }
 
 export interface ConfirmedPayout {
@@ -88,8 +108,14 @@ export interface SprintEarnings {
   totalMinutes: number;
   potCents: number;
   participants: EarningsParticipant[];
-  /** The provisional split, if it were confirmed exactly as proposed. */
-  proposedShares: Share[];
+  /**
+   * The provisional distribution, if it were confirmed exactly as proposed —
+   * or a refusal, when hourly pay comes to more than the sprint took in.
+   * `lib/payout.ts` is the arithmetic; nothing here re-derives it.
+   */
+  proposed: SprintPayout;
+  /** The lines of that distribution, empty when it is unpayable. */
+  proposedShares: PayoutLine[];
   /** The live confirmation, if there is one. */
   confirmed: ConfirmedPayout | null;
   /**
@@ -136,11 +162,13 @@ export const listSprintEarnings = cache(async (): Promise<{
       supabase.from("v_sprint_minutes").select("sprint_id, profile_id, minutes_logged"),
       supabase
         .from("profiles")
-        .select("id, full_name, initials, avatar_url, is_developer, is_active"),
+        .select(
+          "id, full_name, initials, avatar_url, is_developer, is_active, payout_basis, hourly_rate_cents"
+        ),
       supabase
         .from("sprint_payouts")
         .select(
-          "id, sprint_id, confirmed_at, confirmed_by, total_minutes, hourly_rate_cents, pot_cents, usd_egp_rate_micros, usd_egp_source, superseded_at, sprint_payout_shares ( profile_id, minutes_logged, share_cents )"
+          "id, sprint_id, confirmed_at, confirmed_by, total_minutes, hourly_rate_cents, pot_cents, usd_egp_rate_micros, usd_egp_source, superseded_at, sprint_payout_shares ( profile_id, minutes_logged, share_cents, basis )"
         )
         .is("superseded_at", null),
     ]);
@@ -171,27 +199,41 @@ export const listSprintEarnings = cache(async (): Promise<{
     );
     const totalMinutes = forSprint.reduce((sum, m) => sum + (m.minutes_logged ?? 0), 0);
 
-    const participants: EarningsParticipant[] = forSprint
-      .map((m) => {
-        const p = person.get(m.profile_id);
-        const minutesLogged = m.minutes_logged ?? 0;
+    // Everybody the pot pays, whether or not they logged a minute on this
+    // sprint. A share is a split: `v_sprint_minutes` only has rows for people
+    // who logged something, so a share person with nothing logged has to be
+    // added back or they silently drop out of their own money.
+    const loggedIds = new Set(forSprint.map((m) => m.profile_id));
+    const silent = (profiles ?? []).filter(
+      (p) => p.payout_basis !== "none" && p.is_active && !loggedIds.has(p.id)
+    );
+
+    const participants: EarningsParticipant[] = [
+      ...forSprint.map((m) => ({ id: m.profile_id, minutesLogged: m.minutes_logged ?? 0 })),
+      ...silent.map((p) => ({ id: p.id, minutesLogged: 0 })),
+    ]
+      .map(({ id, minutesLogged }) => {
+        const p = person.get(id);
+        const basis: PayoutBasis = p?.payout_basis ?? "none";
         return {
-          profileId: m.profile_id,
+          profileId: id,
           fullName: p?.full_name ?? "somebody who has left",
           initials: p?.initials ?? "—",
           avatarUrl: p?.avatar_url ?? null,
           isDeveloper: Boolean(p?.is_developer),
+          basis,
+          hourlyRateCents: p?.hourly_rate_cents ?? null,
           isActive: Boolean(p?.is_active),
           minutesLogged,
           sharePct: pct(minutesLogged, totalMinutes),
-          proposed:
-            Boolean(p?.is_developer) &&
-            meetsThreshold(minutesLogged, totalMinutes, settings.payoutShareThresholdPct),
+          // Anybody the pot pays. The 25% threshold no longer gates this —
+          // see the interface above and the ADR of 2026-08-31.
+          proposed: basis !== "none",
         };
       })
       .sort((a, b) => b.minutesLogged - a.minutesLogged);
 
-    const others = participants.filter((p) => !p.isDeveloper && p.minutesLogged > 0);
+    const others = participants.filter((p) => p.basis === "none" && p.minutesLogged > 0);
     if (others.length) {
       nonParticipants.set(
         sprint.id,
@@ -200,13 +242,17 @@ export const listSprintEarnings = cache(async (): Promise<{
     }
 
     const pot = potCents({ totalMinutes, hourlyRateCents: settings.hourlyRateCents });
-    const proposedShares = splitEqually(
-      pot,
-      participants.filter((p) => p.proposed).map((p) => ({
+    const proposed = computeSprintPayout({
+      totalMinutes,
+      hourlyRateCents: settings.hourlyRateCents,
+      people: participants.map((p) => ({
         profileId: p.profileId,
+        basis: p.basis,
         minutesLogged: p.minutesLogged,
-      }))
-    );
+        hourlyRateCents: p.hourlyRateCents,
+      })),
+    });
+    const proposedShares = proposed.payable ? proposed.lines : [];
 
     const payout = byPayout.get(sprint.id) ?? null;
     const confirmed: ConfirmedPayout | null = payout
@@ -232,6 +278,7 @@ export const listSprintEarnings = cache(async (): Promise<{
                 avatarUrl: p?.avatar_url ?? null,
                 minutesLogged: share.minutes_logged,
                 shareCents: share.share_cents,
+                basis: (share.basis === "hourly" ? "hourly" : "share") as "hourly" | "share",
               };
             })
             .sort((a, b) => b.shareCents - a.shareCents || a.fullName.localeCompare(b.fullName)),
@@ -254,6 +301,7 @@ export const listSprintEarnings = cache(async (): Promise<{
       totalMinutes,
       potCents: pot,
       participants,
+      proposed,
       proposedShares,
       confirmed,
       // Loudly, not silently. A confirmation whose minutes have moved keeps
@@ -272,24 +320,36 @@ export const listSprintEarnings = cache(async (): Promise<{
 export interface MyCurrentSprint {
   name: string;
   /**
-   * What the equal split would hand you if it were confirmed as proposed.
+   * What this sprint would hand you if it were confirmed as proposed.
    *
-   * **Null when you take no share, never zero.** A non-developer, or a
-   * developer below the threshold, is not in `proposedShares` at all — and
-   * `$0.00` claims the split was computed for you and came to nothing, which is
-   * a different statement from "you are not in it". Same rule as `tracked`
-   * further up this file, and the same rule the history rows follow.
+   * **Null when you take nothing, never zero.** Somebody whose basis is `none`
+   * is not in the distribution at all, and `$0.00` claims the split was
+   * computed for them and came to nothing, which is a different statement from
+   * "you are not in it". Same rule as `tracked` further up this file, and the
+   * same rule the history rows follow.
+   *
+   * **Also null when the sprint is unpayable** — see `unpayable` below. A
+   * figure that cannot be computed honestly must not appear on a screen.
    */
   cents: number | null;
+  /** How this amount was arrived at, so the screen never implies the wrong one. */
+  basis: PayoutBasis;
   /** Your own minutes on it, and the team's. */
   minutesLogged: number;
   totalMinutes: number;
   /** Your share of the team's minutes, 0-100, as `listSprintEarnings` rounds it. */
   sharePct: number;
-  /** Whether the app proposes you — a developer at or above the threshold. */
+  /** Whether the app proposes you — anybody the pot pays, on either basis. */
   proposed: boolean;
-  /** The pot, before it is divided. */
+  /** The pot, before anything comes out of it. */
   potCents: number;
+  /** What the hourly people are paid first, out of the pot. */
+  hourlyPayCents: number;
+  /**
+   * Set when hourly pay comes to more than the sprint took in. The screen shows
+   * this instead of a number — not a zero, and not a clamped share.
+   */
+  unpayable: { hourlyPayCents: number; potCents: number; shortfallCents: number } | null;
   /**
    * How many the pot would be divided among, and how many people logged
    * anything at all.
@@ -332,8 +392,9 @@ export const getMyEarnings = cache(async () => {
   const tracked = sprints.filter((s) => s.tracked);
 
   const current = tracked.find((s) => s.status === "active") ?? tracked[0] ?? null;
-  const mine = current?.proposedShares.find((s) => s.profileId === profile.id) ?? null;
+  const mine = current?.proposedShares.find((l) => l.profileId === profile.id) ?? null;
   const meOnCurrent = current?.participants.find((p) => p.profileId === profile.id) ?? null;
+  const refusal = current && !current.proposed.payable ? current.proposed : null;
 
   const lastConfirmed = tracked.find((s) => s.confirmed) ?? null;
   const lastMine =
@@ -345,12 +406,21 @@ export const getMyEarnings = cache(async () => {
     current: current
       ? ({
           name: current.name,
-          cents: mine?.shareCents ?? null,
+          cents: refusal ? null : (mine?.amountCents ?? null),
+          basis: meOnCurrent?.basis ?? "none",
           minutesLogged: meOnCurrent?.minutesLogged ?? 0,
           totalMinutes: current.totalMinutes,
           sharePct: meOnCurrent?.sharePct ?? 0,
           proposed: Boolean(meOnCurrent?.proposed),
           potCents: current.potCents,
+          hourlyPayCents: current.proposed.hourlyPayCents,
+          unpayable: refusal
+            ? {
+                hourlyPayCents: refusal.hourlyPayCents,
+                potCents: refusal.potCents,
+                shortfallCents: refusal.shortfallCents,
+              }
+            : null,
           participantCount: current.proposedShares.length,
           contributorCount: current.participants.filter((p) => p.minutesLogged > 0).length,
         } satisfies MyCurrentSprint)
@@ -367,7 +437,12 @@ export const getMyEarnings = cache(async () => {
   };
 });
 
-export type MyEarningsState = "provisional" | "confirmed" | "changed" | "not tracked";
+export type MyEarningsState =
+  | "provisional"
+  | "confirmed"
+  | "changed"
+  | "not tracked"
+  | "unpayable";
 
 export interface MyEarningsRow {
   sprintId: string;
@@ -427,7 +502,9 @@ export const listMyEarningsHistory = cache(async (): Promise<MyEarningsRow[]> =>
       ? sprint.staleByMinutes !== null
         ? "changed"
         : "confirmed"
-      : "provisional";
+      : sprint.proposed.payable
+        ? "provisional"
+        : "unpayable";
 
     return {
       sprintId: sprint.sprintId,
@@ -436,7 +513,9 @@ export const listMyEarningsHistory = cache(async (): Promise<MyEarningsRow[]> =>
       minutesLogged: mine?.minutesLogged ?? 0,
       cents: sprint.confirmed
         ? (confirmedShare?.shareCents ?? null)
-        : (provisional?.shareCents ?? null),
+        : // An unpayable sprint has no lines, so this is null and the row reads
+          // "unpayable" rather than presenting a figure nobody can stand behind.
+          (provisional?.amountCents ?? null),
       confirmedAt: sprint.confirmed?.confirmedAt ?? null,
       confirmedByName: sprint.confirmed?.confirmedByName ?? null,
     };

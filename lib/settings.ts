@@ -34,6 +34,16 @@ import { createClient } from "@/lib/supabase/server";
 
 export interface AppSettings {
   hourlyRateCents: number;
+  /**
+   * Read, stored, and **consulted by nothing** since 2026-08-31.
+   *
+   * It gated who was proposed for a share. Mohamed's rule reversed that: a
+   * share is a split, so somebody on the share basis takes their part whether
+   * or not they logged a minute. The column and the value survive so the
+   * decision can be revisited without losing what was set; the control that
+   * wrote it is gone from Settings, because a control that changes nothing
+   * tells somebody they have made a decision they have not.
+   */
   payoutShareThresholdPct: number;
   payoutFromSprintId: string | null;
   usdEgpRateMicros: number | null;

@@ -7,7 +7,7 @@ import { Loader2, RefreshCcw } from "lucide-react";
 import { useToast } from "@/components/app/toast.client";
 import { Mono } from "@/components/coditu/mono";
 import { settle } from "@/lib/action-result";
-import { setIsDeveloper, updateAppSettings } from "@/lib/actions/earnings";
+import { setPayoutBasis, updateAppSettings } from "@/lib/actions/earnings";
 import { hours, rateFromMicros, timestamp, usdFromCents } from "@/lib/format";
 import type { AppSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
@@ -24,7 +24,10 @@ export interface SprintOption {
 export interface DeveloperOption {
   id: string;
   fullName: string;
+  /** Literal: an engineer. Shown, and deliberately not the thing that pays. */
   isDeveloper: boolean;
+  basis: "share" | "hourly" | "none";
+  hourlyRateCents: number | null;
   isActive: boolean;
 }
 
@@ -77,17 +80,13 @@ export function AdminSettings({
           onSave={(n) => ({ hourlyRateCents: Math.round(n * 100) })}
         />
 
-        <NumberSetting
-          label="Proposal threshold"
-          suffix="% of a sprint's minutes"
-          affects="Who is pre-ticked on the confirmation screen. A suggestion engine — the confirmed set is whatever an admin agrees, and somebody at exactly this number is in."
-          value={settings.payoutShareThresholdPct}
-          step={1}
-          min={0}
-          max={100}
-          format={(n) => `${Math.round(n)}%`}
-          onSave={(n) => ({ payoutShareThresholdPct: Math.round(n) })}
-        />
+        {/* The proposal threshold was here until 2026-08-31 and is gone. Nothing
+            reads `payout_share_threshold_pct` any more: a share is a split, so
+            somebody on the share basis takes their part whether or not they
+            logged a minute. A control that writes a number nothing consults is
+            a screen telling somebody they have made a decision they have not,
+            which is worse than the control being absent. The column stays; the
+            stored value is not lost. ADR 2026-08-31. */}
 
         <NumberSetting
           label="Image upload cap"
@@ -408,10 +407,16 @@ function Developers({ developers }: { developers: DeveloperOption[] }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
 
-  function toggle(person: DeveloperOption) {
+  function set(person: DeveloperOption, patch: Partial<Pick<DeveloperOption, "basis" | "hourlyRateCents">>) {
     startTransition(async () => {
       const result = await settle(
-        () => setIsDeveloper({ profileId: person.id, isDeveloper: !person.isDeveloper }),
+        () =>
+          setPayoutBasis({
+            profileId: person.id,
+            basis: patch.basis ?? person.basis,
+            hourlyRateCents:
+              patch.hourlyRateCents === undefined ? person.hourlyRateCents : patch.hourlyRateCents,
+          }),
         "That change did not save — check your connection."
       );
       if (result.ok) router.refresh();
@@ -425,30 +430,72 @@ function Developers({ developers }: { developers: DeveloperOption[] }) {
       className="rounded-control border border-[var(--hairline)] bg-[var(--canvas)] p-4"
     >
       <h3 id="developers" className="text-[14px] font-semibold">
-        Who takes a share
+        How each person is paid
       </h3>
       <p className="mt-1 max-w-[72ch] text-[12.5px] leading-[1.5] text-[var(--ink-faint)]">
-        A sprint&rsquo;s pot is split equally between the people ticked here who logged time on it.
-        Everyone else&rsquo;s hours still count toward the pot — the confirmation screen names them
-        and says so.
+        <strong>Hourly</strong> is paid first, out of the pot — their hours at their rate, not a
+        cost on top. <strong>Share</strong> splits what is left equally, whether or not they logged
+        anything on the sprint. <strong>Nothing</strong> means their hours still count toward the
+        pot and they take none of it; the confirmation screen names them and says so.
+      </p>
+      <p className="mt-2 max-w-[72ch] text-[12.5px] leading-[1.5] text-[var(--ink-faint)]">
+        Separate from whether somebody is an engineer, which is on the People screen and decides
+        nothing about money. One column used to answer both, and that is why a developer paid
+        hourly looked wrong whichever way it was set.
       </p>
 
       <ul className="mt-3 flex flex-col gap-1">
         {developers.map((person) => (
-          <li key={person.id}>
-            <label className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-control px-1 hover:bg-[var(--raised)]">
-              <input
-                type="checkbox"
-                checked={person.isDeveloper}
+          <li
+            key={person.id}
+            className="flex min-h-[44px] flex-wrap items-center gap-x-3 gap-y-2 rounded-control px-1 py-1"
+          >
+            <span className="min-w-[9rem] flex-1 truncate text-[13.5px]">
+              {person.fullName}
+              {person.isActive ? "" : " (deactivated)"}
+            </span>
+
+            <label className="flex items-center gap-2">
+              <span className="sr-only">How {person.fullName} is paid</span>
+              <select
+                className={FIELD}
+                value={person.basis}
                 disabled={pending}
-                onChange={() => toggle(person)}
-                className="size-[18px] accent-[var(--accent)]"
-              />
-              <span className="min-w-0 flex-1 truncate text-[13.5px]">
-                {person.fullName}
-                {person.isActive ? "" : " (deactivated)"}
-              </span>
+                onChange={(event) =>
+                  set(person, { basis: event.target.value as DeveloperOption["basis"] })
+                }
+              >
+                <option value="share">share of the pot</option>
+                <option value="hourly">hourly, out of the pot</option>
+                <option value="none">nothing</option>
+              </select>
             </label>
+
+            {person.basis === "hourly" ? (
+              <label className="flex items-center gap-2">
+                <Mono size="meta" className="text-[var(--ink-faint)]">
+                  USD/h
+                </Mono>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  className={`${FIELD} w-[7.5rem]`}
+                  disabled={pending}
+                  defaultValue={
+                    person.hourlyRateCents === null ? "" : (person.hourlyRateCents / 100).toFixed(2)
+                  }
+                  placeholder="team rate"
+                  onBlur={(event) => {
+                    const raw = event.target.value.trim();
+                    const cents = raw === "" ? null : Math.round(Number(raw) * 100);
+                    if (cents !== null && (!Number.isFinite(cents) || cents <= 0)) return;
+                    if (cents === person.hourlyRateCents) return;
+                    set(person, { hourlyRateCents: cents });
+                  }}
+                />
+              </label>
+            ) : null}
           </li>
         ))}
       </ul>

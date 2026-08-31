@@ -23,3 +23,33 @@ where full_name in ('Mohamed Tamer', 'Abdelrahman Elkhateeb', 'Ahmed Yehia')
 -- Adam Nafie is not on that list, and that is the point rather than an
 -- omission: his hours count toward a sprint's pot — the confirmation screen
 -- names him and says so — and he takes no share of it.
+
+-- ---------------------------------------------------------------------------
+-- 2026-08-31 — how each person is paid, now that it is its own column.
+--
+-- `is_developer` above still means "is an engineer" and is left where it is.
+-- `payout_basis` is the money, and Mohamed's decision is:
+--
+--   Ahmed Yehia                          hourly — his hours, out of the pot first
+--   Mohamed Tamer, Abdelrahman, Adam     share  — the remainder, split equally
+--
+-- Adam is on the share list and is not on the `is_developer` list above, and
+-- that is the whole point of splitting them: the two facts are independent now.
+--
+-- Same rules as the block above. A seed, not a migration; matched on
+-- `full_name` because the two databases do not share addresses; and it only
+-- ever moves somebody off the default, so an admin's later change stands.
+-- `hourly_rate_cents` is deliberately left null — Ahmed is paid at the team
+-- rate until somebody agrees a different one, and a rate invented here would
+-- be a number nobody chose.
+-- ---------------------------------------------------------------------------
+
+update public.profiles
+set payout_basis = 'hourly'
+where full_name = 'Ahmed Yehia'
+  and payout_basis <> 'hourly';
+
+update public.profiles
+set payout_basis = 'share'
+where full_name in ('Mohamed Tamer', 'Abdelrahman Elkhateeb', 'Adam Nafie')
+  and payout_basis = 'none';

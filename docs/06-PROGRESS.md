@@ -6407,6 +6407,294 @@ Not worked around. Deploying from a laptop bypasses the gate this pass built; a 
 puts production credentials on an unmodelled machine.
 ---
 
+## 2026-08-31 · Enforce SSL is on, and the preflight now says what it proved
+
+**Owed by Mohamed on 2026-08-31, done and verified on the provider.**
+
+| what | command | result |
+|---|---|---|
+| The connection is encrypted | `node scripts/check-hosted-schema.mjs` with `?sslmode=require` | `exit 0`, `tls=encrypted tls_protocol=TLSv1.3 tls_cipher=TLS_AES_256_GCM_SHA384 tls_issuer="Supabase Inc" tls_verified=false`, 40 migrations / 38 relations / 334 columns |
+| Removing `sslmode` cannot open it | same, query string removed | identical: `exit 0`, `tls=encrypted`, TLSv1.3 |
+| `sslmode=disable` cannot open it | same, `?sslmode=disable` | identical: `exit 0`, `tls=encrypted`, TLSv1.3 |
+| Enforce SSL is really on at Supabase | a `pg` client with `ssl: false`, as `coditu_backup` | refused: `XX000 (ESSLREQUIRED) SSL connection is required for user: coditu_backup` |
+| The guard can still fail | `npx vitest run tests/transport-guard.test.ts` | 11 passed; with the cleartext branch disabled, **2 failed / 9 passed** |
+| The contract role is accepted while a deviation is named | `HOSTED_SCHEMA_PRIVILEGED_ROLE=postgres node scripts/check-hosted-schema.mjs` | `exit 0` — the file at `3fe7ab0` exits 1 on the same posture: *"connection role is neither coditu_backup nor the permitted postgres (got coditu_backup)"* |
+| Nothing else moved | `npm run typecheck`, `npm run lint`, `npm run test` | clean, clean, **573 passed / 0 failed / 42 files** |
+
+Three things this changed, and one it found:
+
+1. **The preflight reports the transport.** It printed seven lines on success and none of them was
+   the encryption it had just verified — a passing run and a run with the assertion deleted were
+   byte-identical.
+2. **The guard moved to `scripts/lib/transport-guard.mjs`** because Enforce SSL took away the only
+   way to exercise it. The provider refuses cleartext before the assertion is reached, so the
+   experiment that used to prove it worked cannot run any more. Eleven unit cases replace it.
+3. **`pg_stat_ssl` now answers `true`** where it answered `false` on 2026-08-29. Both readings are
+   about the pooler-to-Postgres hop, so neither is evidence about ours; the comment that stated the
+   old reading as a fact now carries both dates.
+4. **Found: naming a role deviation REPLACED the contract instead of widening it.** With
+   `HOSTED_SCHEMA_PRIVILEGED_ROLE=postgres` — which `ci.yml` carries — a secret narrowed to
+   `coditu_backup` was refused. Narrowing that secret is an owed action; doing it would have failed
+   the deploy.
+
+---
+
+## 2026-08-31 · R5's ceiling re-derived — it is 3,000, and the burn is 4.3× it
+
+| what | how | result |
+|---|---|---|
+| The plan | the PRO badge on `github.com/MooTamer`'s public profile | **GitHub Pro** (Student pack) — 3,000 Actions minutes/month for private repos, not Free's 2,000 |
+| The ceiling, by observation | every August job in all 7 repos, `started_at`→`completed_at`, rounded up per job (449 jobs) | 2,000 crossed **08-29 23:16Z**; 3,000 crossed **08-31 08:20Z**; first zero-step run **08-31 08:23:52Z** |
+| 2,000 falsified | jobs billing ≥2 min after each mark | **70** further such jobs ran after the 2,000 mark, over 33 hours. After 3,000: 8, all already in flight |
+| Reconciled with the billing page | counting all jobs vs excluding cancelled | $24.50 / $17.10 gross — Mohamed's **$19.60** sits between. coditu: $19.06 / $11.90 — his **$13.70** sits between |
+| The unbudgeted consumer | per-repo totals | **`taseel-academy` 601 min (17.6%)**, 1–19 Aug, before coditu's first run of the month. R5 modelled the pool as coditu + coditu-recovery only |
+| Per-run cost | 79 CI runs / 2,664 min | **33.7 min per run**, against R5's blended 27.3 — 23% low |
+| Corrected headroom | 3,000 − 500 scheduled − 682 elsewhere | **1,818 min → ~54 CI runs/month.** Observed 7.8 runs/day ≈ 234/month, i.e. **4.3× over** |
+
+R5's fixed-cost table is verified rather than corrected: the freshness canary really does fire 7.9
+times a day, and its low August total is that it was created on 29 August. The direction of R5's
+conclusion is unchanged and its margin is worse — a 50% larger denominator is more than swallowed by
+a fifth of the pool spent elsewhere and a per-run cost a quarter above model. The backup is 47
+minutes, **1.4%** of the burn, and it is the thing that stops.
+
+---
+
+## 2026-08-31 · The payout model — `is_developer` split, and the money made refusable
+
+Mohamed's decision, implemented: `pot − hourly_pay = remainder`, split among the share people.
+**Ahmed Yehia is a developer paid hourly; his pay comes out of the pot, not on top of it.**
+
+### Before and after, the number that made this cheap
+
+| | `sprint_payouts` | `sprint_payout_shares` |
+|---|---|---|
+| hosted, before | **0** | **0** |
+| local, before | **0** | **0** |
+| local, after the migration | **0** | **0** |
+| hosted, after | **0** | **0** |
+
+Read with `select count(*)` over the read-only `coditu_backup` connection, and with `psql` against
+the local stack. Nothing was written; the migration is **not on hosted**.
+
+### The fixtures, with their numbers
+
+`npx vitest run tests/payout.test.ts` — **29 passed**.
+
+| case | input | asserted |
+|---|---|---|
+| ordinary | 6,000 min @ $12/h; Ahmed hourly 1,200 min; three on share | pot **120000**, hourly **24000**, remainder **96000**, each share **32000**, Σ = **120000** |
+| exceeds the pot | Ahmed 1,500 min @ **$60/h**, pot struck at $12/h | **refused** — pot 120000, hourly **150000**, shortfall **30000**; no `lines`, no `remainderCents`, no zero, no negative |
+| exactly equals the pot | Ahmed 1,200 min @ $60/h | **payable**; remainder **0**; shares render **0**; Σ = **120000** |
+| share person logged nothing | 3,000 min; one worked, one did not | both **30000**; Σ = **60000** |
+| hourly person logged nothing | 3,000 min; hourly 0 min | hourly pay **0**, remainder the whole **60000**, pot untouched |
+| basis `none` | +600 min from somebody who takes nothing | no line for them; pot still **120000**; Σ = **120000** |
+| thirds, 1¢ among 3 | pot **1** | `[1, 0, 0]` |
+| thirds, remainder 2 | pot **10001** among 3 | `[3334, 3334, 3333]` |
+| thirds, remainder 1 | pot **10000** among 3 | `[3334, 3333, 3333]` |
+| thirds, whole | pot **10002** among 3 | `[3334, 3334, 3334]` |
+| every remainder 0–6 | pot 700+n among **7** | exactly n people get the extra cent, Σ = pot each time |
+| hourly in front of an awkward remainder | pot 10001, hourly 1667 | `[1667, 2778, 2778, 2778]`, Σ = **10001** |
+| the real team | 8,040 min; Ahmed hourly 5,040 | Ahmed **100800**, each of three **20000**, Σ = **160800** |
+| the old model, same minutes | Ahmed on `share` | Ahmed **40200** — his 5,040 minutes swell a pot he takes a quarter of. The money error the overloaded column was one confirmation from making |
+
+**Shown capable of failing**, three ways, each restored afterwards:
+
+| break | red |
+|---|---|
+| clamp to zero instead of refusing | **4 of 29** |
+| drop the split's remainder | **6 of 29** |
+| pay hourly *on top of* the pot | **9 of 29** |
+
+### The guard, and that it can fail
+
+`supabase/tests/column-guards.sql` now sweeps `profiles` too: **14/14**. With the pre-migration
+denylist guard restored on the live local database, **four go red** — the sweep, the payout basis,
+the hourly rate, and `account_kind`, which had been writable by its own subject all along.
+
+### Every command
+
+| command | result |
+|---|---|
+| `npm run typecheck` | clean |
+| `npm run lint` | clean |
+| `npm run test` | **589 passed / 0 failed / 43 files** |
+| `npm run db:test` | **475 of 477**; the 2 are `seed.sql` 16–17 (134 vs 132 ticked criteria, 116 vs 114 attachments) and are **pre-existing** — they fail identically with this branch stashed |
+| `npm run build` | clean |
+| `npm run budgets` | **OK** — app shell own **78.4 / 110 KB**, total **218.3 / 220 KB** |
+
+**The budget is the thing to watch.** §5's binding total went 215.7 → **218.3**, so the headroom is
+**1.7 KB**. The board imports the payout module because the figure on the Confirm button and the
+figure the Server Action writes must come from one function; that is worth the bytes and it is the
+last change that can be made without finding some.
+
+### Removed, because they stopped being true
+
+- `splitEqually` and `meetsThreshold` are gone from `lib/earnings.ts`. The first divided the whole
+  pot, which is no longer what happens; keeping it would have been a second money function to keep
+  agreeing with the first. The second enforced a rule that is now reversed.
+- **The proposal threshold control is gone from Settings.** Nothing reads
+  `payout_share_threshold_pct` any more. The column and its value stay; the control does not, because
+  a control that writes a number nothing consults tells somebody they have decided something.
+
+### What only the browser said
+
+Three defects in the payout surfaces, all of them with `typecheck`, `lint`, `test`, `db:test`,
+`build` and `budgets` green. Found by signing in locally, pointing `payout_from_sprint_id` at
+Week 17 and looking:
+
+1. **"Your hours count toward the pot; you take nothing out of it"** shown to somebody on the share
+   basis, whenever no tracked sprint was running. `paid` is derived from `current`, so testing it
+   before testing `current` turned "there is no sprint" into a statement about the person — and the
+   wrong one. The absence check comes first now.
+2. **"People the pot pays — 4 of 2 who logged time."** `X of Y` was right while participants were a
+   subset of contributors. A share person who logged nothing is paid, so they are not, and it
+   rendered nonsense. Two facts, stated as two facts.
+3. **A `provisional` chip above the word `unpayable`.** The tag now reads `nothing to split`, which
+   is the fact the figure slot cannot carry.
+
+Verified rendering, on `/app/earnings` and `/app/settings/payouts`:
+
+| state | what the screen showed |
+|---|---|
+| payable | pot **$696.00** over 58.0 h; Ahmed listed `0.0 h · 0% · hourly`; **each $232.00**; `4 people, 3 sharing`; `Confirm $696.00` |
+| unpayable (Abdelrahman forced to hourly at $60/h) | *"Hourly pay on this selection comes to $1,830.00, which is $1,134.00 more than the $696.00 this sprint took in."* **No pot line, no per-person line, and no Confirm button** — a disabled button beside a plausible total is still a number |
+| unpayable, personal page | the figure slot reads **`unpayable`**, the chip reads `nothing to split`, the history row reads `unpayable` with **em dashes** in USD and EGP, and the calculation block is absent |
+| Settings | four selects reading `share / share / hourly / share`, one rate field, and the proposal threshold gone |
+
+**The local database was left as it was found** — `payout_from_sprint_id` back to null, Abdelrahman
+back on `share`, zero payouts. To see any of this again:
+
+```sql
+update public.app_settings set payout_from_sprint_id = '50000000-0000-4000-8000-000000000017' where id = 1;
+```
+
+---
+
+## 2026-08-31 · The nightly and the restore drill run on the Mac now
+
+`scripts/local-nightly.sh` + `scripts/install-nightly-agent.sh` (launchd agent, 02:00 local).
+`ops/recovery-repo/workflows/nightly-backup.yml` loses `schedule:` and keeps `workflow_dispatch:`.
+
+### Fail-closed, proved by running it
+
+| what was withheld | command | result |
+|---|---|---|
+| the configuration file | `CODITU_NIGHTLY_ENV=/nonexistent ... --dry-run` | **exit 1** — *"…does not exist. See the header of this script."* |
+| `HEARTBEAT_URL` | a config with the other three set | **exit 1** — *"missing…: HEARTBEAT_URL"* plus *"the one that matters most. Without it this job is the only thing that knows whether the backup ran, and it runs at 02:00."* |
+| nothing, but mode 0644 | a world-readable secrets file | **exit 1** — *"is mode 644; it must be 600"* |
+| nothing | the real configuration on this Mac | **exit 0** — repo, archive directory and key all resolved |
+
+Every refusal also raises a macOS notification, because on this machine there is no CI to be red.
+
+### The drill, run for real
+
+`scripts/sync-backup-local.sh` pulled **8 sets** (`downloaded=8`, `sets_on_disk=8`) onto the Mac, and
+`local-nightly.sh --drill-only` restored the newest into a throwaway `coditurestore` stack on
+546xx — disjoint from both the shared 544xx development stack and the 545xx isolated e2e one.
+
+**It took seven runs, and every failure was a real defect in something that had never been
+executed.** That is the argument for automating a drill, in one table:
+
+| run | it stopped on | what was actually wrong |
+|---|---|---|
+| 1 | `the restore target is missing columns this backup carries` | the CLI's pinned images trail hosted's — four `storage` columns. Fixed by an **opt-in** `RESTORE_WIDEN_MANAGED_COLUMNS=1` |
+| 2 | `role "coditu_backup" already exists` | the harness copied the whole `supabase/` directory, so `supabase start` applied this application's migrations and the target was **not a restore target**. Fixed: `config.toml` only, no migrations, `[db.seed] enabled = false` — section-scoped, because a bare `enabled = true` substitution would have switched off auth, storage and realtime too |
+| — | it restored the **oldest** archive | `ls -t` on eight files `sync-backup-local.sh` had just written in the same second. Sorted by name now; the names are ISO-8601 |
+| 3 | `the data restored but the database is NOT usable … enforce_email_allowlist, on_auth_user_created` | the verifier's own 2026-08-31 refusal, working. Runbook step 5a is the answer |
+| 4 | `RESTORE_MIGRATE_CMD failed` and nothing else | the reason was being sent to `/dev/null`. A hidden cause in a backup job |
+| 5 | `PgClient: Failed to connect` | the CLI negotiates TLS against `--db-url`; a local container has none |
+| 6 | `LegacyMigrationApplyError … create type app_role` | **runbook step 5a does not work.** See below |
+| 7 | — | `restore_verified=true` |
+
+### Step 5a of the recovery runbook was wrong, and only running it found that
+
+It said *"re-apply the migrations over the restored database — `supabase db push`"*. The archive
+carries **no `supabase_migrations` schema at all** — `supabase db dump` writes `public` — so a
+restored database has a full schema and an empty history. The CLI replays all forty migrations from
+the beginning and dies on the first statement of the first one:
+
+```
+Applying migration 20260820120000_enums.sql...
+LegacyMigrationApplyError … At statement: 0
+  create type app_role as enum ('admin','lead','engineer')
+```
+
+**A documented recovery step that stops one statement in, and had never been executed.** The step
+only ever needed the two `auth.users` triggers back; everything else is in `schema.sql` and already
+restored. `scripts/reapply-managed-triggers.sh` does exactly that, extracting them from the
+migrations with the same slurping scan the verifier uses to decide which must exist — so the two
+cannot drift — and prefixing `drop trigger if exists` so it is replayable. §5a is corrected.
+
+### The drill, green
+
+```
+restore_target_widened=storage.buckets.versioning_status,storage.objects.archived_at,
+                       storage.objects.is_delete_marker,storage.objects.is_versioned
+managed_triggers_reapplied=2
+restore_migrations_reapplied=true
+restore_verified=true
+database_tables=64        database_rows=1397        storage_objects=135
+target_only_empty_tables=storage.iceberg_namespaces,storage.iceberg_tables
+```
+
+**96 seconds**, on `nightly-2026-08-31T070134Z`, unattended. Teardown confirmed: zero
+`*coditurestore*` containers, zero volumes, nothing listening on 546xx, no temporary directory left.
+
+### The heartbeat contract, proved against a stub
+
+A run whose source database was deliberately unreachable, with `HEARTBEAT_URL` pointed at a local
+listener:
+
+```
+POST /ping/stub/start :: local-nightly 2026-08-31T102023Z on Mac
+POST /ping/stub/fail  :: backup: backup.sh did not complete
+```
+
+The start ping opens the window, and the failure carries **which step** — not just that something
+broke.
+
+**The original first failure, kept because it is the more general lesson:**
+
+```
+verify-backup-restore: the restore target is missing columns this backup carries …
+Missing: storage.buckets: versioning_status
+         storage.objects: archived_at, is_delete_marker, is_versioned
+```
+
+The Supabase CLI's pinned images trail what hosted runs — exactly what `12-RECOVERY-RUNBOOK.md`
+predicted, and what Mohamed fixed by hand with four `alter table` statements on 2026-08-29. **A
+drill that needs four hand-written statements is a drill somebody has to remember**, which is the
+thing this change exists to stop. So `verify-backup-restore.sh` gained an **opt-in**
+`RESTORE_WIDEN_MANAGED_COLUMNS=1`: it adds the missing *managed* columns as nullable `text` and
+prints `restore_target_widened=…`. Off by default; a recovery never sets it; the runbook does not.
+
+### What is owed, and it is one thing
+
+**The healthchecks.io check does not exist.** Creating it needs an account. Until `HEARTBEAT_URL` is
+in `~/.config/coditu/nightly.env`, `install-nightly-agent.sh` refuses to install and the job refuses
+to run — which is the design, not a gap. The agent is written, tested and **not installed**.
+
+```bash
+scripts/install-nightly-agent.sh          # after the check exists
+scripts/install-nightly-agent.sh --status
+```
+
+### The one thing this pass did NOT do, and it is deliberate
+
+`npm run recovery:check` is **red on this branch**:
+
+```
+sync-recovery-repo: the recovery repository tree has drifted:
+  staged c8ccccc8…, recorded b8bdb737…
+```
+
+That is correct and expected: `verify-backup-restore.sh` gained the two opt-ins and
+`nightly-backup.yml` lost its schedule, and neither has been pushed to `MooTamer/coditu-recovery`.
+**`npm run recovery:sync` is the step that follows the merge, not one that precedes it** — pushing
+live backup infrastructure from a laptop, ahead of a PR that may not merge, would leave the recovery
+repository running ahead of `main`. `reapply-managed-triggers.sh` is deliberately **not** on the
+sync list: it reads `supabase/migrations/`, and the recovery repository carries no migrations on
+purpose.
 ## 2026-08-31 · B5 — CI moves onto a runner on the Mac, and `main` can move again
 
 Out of the stated order, and for a reason: **B0 could not run.** The brief assumed the Actions
@@ -6463,3 +6751,67 @@ npm test                                 # 42 files, 589 passed
 
 `npm run recovery:check` is still red on the branches that changed backup tooling, by design —
 `npm run recovery:sync` follows the merge. Nothing in this step touches it.
+
+### The sync had to precede the merge, and the note that said otherwise was a deadlock
+
+The entry above says `npm run recovery:sync` "is the step that follows the merge, not one that
+precedes it". **That ordering cannot be executed**, and the first run of CI on this branch is what
+showed it:
+
+```
+blocking release checks · step 21 · npm run recovery:check
+sync-recovery-repo: the recovery repository tree has drifted:
+  staged c7219cf8…, recorded b8bdb737…
+```
+
+`recovery:check` is inside `blocking release checks`, which is the **one required check** on the
+`main` ruleset. So a pull request that changes backup tooling cannot go green until the recovery
+repository is synced — and the note asked for the sync to happen only after the merge that the
+check will not allow. It is a circular wait, and it is the same family this repository has been
+cataloguing all week, arriving from a third side: not a control that is silent, nor one that cannot
+be made to fail, but **one whose only remedy is on the far side of itself**.
+
+Nothing about the original reasoning was wrong — pushing live backup infrastructure ahead of a pull
+request that may not merge really would leave the recovery repository running ahead of `main`. It
+was a rule written without checking whether the gate it had to pass through would allow it. The
+precedent was already there: PR #5 synced mid-branch and said so in its commit message.
+
+**Revised: the sync immediately PRECEDES the merge, once the pull request is otherwise green.** The
+exposure that remains is a window of minutes in which the recovery repository carries tooling
+`main` does not, and it is self-correcting — an abandoned branch leaves `recovery:check` red on
+`main`, which is exactly the signal that would be wanted.
+
+What was pushed, and it is two files that only make the restore path stricter:
+
+| File | Change |
+|---|---|
+| `ops/recovery-repo/workflows/nightly-backup.yml` | Loses its schedule, keeps `workflow_dispatch`. The nightly runs on the Mac. |
+| `scripts/verify-backup-restore.sh` | +67 lines, no deletions: the two opt-ins and the refusal to call a restore verified while the `auth.users` triggers are missing. |
+
+```
+recovery_repo=MooTamer/coditu-recovery
+head=b0f6e0c4385967095cb2d80ff476f8ed6717eec6
+digest=9ea9b2df269cedfa1191c41ee974a38c76fc8d7459ade747980e19da19a2979d
+recovery_repo_tree=in_sync
+```
+
+### And the migration reached hosted first, as the rule says it must
+
+`20260831120000_a_payout_basis_of_its_own.sql` was **not** on hosted when this branch was ready to
+merge — hosted stood at 40 and `profiles.payout_basis` did not exist, while this branch's code reads
+it. Merging first would have put `main` in the state the 2026-08-21 outage came from.
+
+Applied through the Management API as one request, so every statement lands or none does — the
+`schema_migrations` row included, because "the schema changed and the ledger says it did not" is the
+one state the preflight would read as drift.
+
+| | before | after |
+|---|---|---|
+| migrations | 40, newest `20260830140000` | **41**, newest `20260831120000` |
+| `payout_basis` / `hourly_rate_cents` / `shares.basis` | absent | present |
+| backfill | — | `is_developer=true → share` (2), `false → none` (2) — today's money, row for row |
+| `sprint_payouts` / `sprint_payout_shares` | 0 / 0 | **0 / 0** |
+| `guard_profile_privilege_columns` | denylist | **allowlist** — which also closes `account_kind` |
+
+The preflight only requires local ⊆ remote, so hosted standing one ahead of `main` between this and
+the merge is not drift and does not block a deploy.

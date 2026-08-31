@@ -6399,6 +6399,369 @@ an outage.
 
 ---
 
+## 2026-08-31 · Enforce SSL is on — and it took away the only proof the guard still worked
+
+**Owed and now done, by Mohamed:** "Enforce SSL on incoming connections" is ON for
+`hayfsvsepgfescojesbd`, and `HOSTED_SCHEMA_DB_URL` carries `sslmode=require`.
+
+**Verified on the provider, not from a screenshot.** A `pg` client with `ssl: false` against the
+session pooler, as `coditu_backup`:
+
+```
+XX000  (ESSLREQUIRED) SSL connection is required for user: coditu_backup
+```
+
+and the same client with TLS arranged:
+
+```
+socket_encrypted=true  protocol=TLSv1.3  cipher=TLS_AES_256_GCM_SHA384
+issuer_O="Supabase Inc"  subject_CN="*.pooler.supabase.com"  authorized=false
+```
+
+`pg_stat_ssl` now answers **true**, where on 2026-08-29 it answered **false** on a session that was
+TLSv1.3 end to end. Both readings describe the pooler-to-Postgres hop rather than ours, so neither
+is evidence about the leg this repository is responsible for. The socket still is. The comment that
+said `pg_stat_ssl` "reports false" was a measurement with a date on it and is now carrying both.
+
+### The `sslmode` in the secret has no authority, and that is the fail-closed property
+
+The 2026-08-31 entry above removed the connection string's say over transport. Re-measured today
+against the real project, with the query string set four ways:
+
+| `HOSTED_SCHEMA_DB_URL` query | preflight | socket |
+|---|---|---|
+| `?sslmode=require` | exit 0 | TLSv1.3, Supabase Inc |
+| *(removed entirely)* | exit 0 | TLSv1.3, Supabase Inc |
+| `?sslmode=disable` | exit 0 | TLSv1.3, Supabase Inc |
+| `?sslmode=verify-full` | exit 0 | TLSv1.3, Supabase Inc |
+
+So the answer to "does it still fail closed if the `sslmode` is removed" is stronger than the
+question: **it cannot fail open, because the string is not consulted.** Encryption is arranged by
+the check and now refused by the provider as well. Two independent layers, neither of which is a
+query parameter inside an opaque secret.
+
+### The problem the second layer created
+
+Until today the transport assertion's capacity to fail was proved by experiment — force `ssl: false`,
+point at the real project, watch it report `database connection is not encrypted`. That is how the
+entry above recorded it as *verified capable of failing*.
+
+**That experiment no longer reaches the assertion.** Supabase refuses the cleartext connection one
+hop earlier. The outer control is correct, and it conceals whether the inner one is alive. It is the
+canary problem in a new costume: on 2026-08-31 a canary held red for a known reason could no longer
+report an unknown one; here a guard nothing can exercise stops being a guard and becomes a comment.
+
+**Decision.** `transportFailures` moves to `scripts/lib/transport-guard.mjs`, takes a socket rather
+than a live client, and is exercised by `tests/transport-guard.test.ts` — eleven cases including
+every one the provider will not let us produce against the real database any more: cleartext, a
+missing socket, a foreign issuer, no certificate, a publicly-verified chain, and the strong form
+demanded and not supplied. Shown capable of failing: with the cleartext branch disabled, 2 of 11 go
+red.
+
+### The check now says what it proved
+
+`check-hosted-schema.mjs` printed seven lines on success and none of them was the transport. A run
+that verified the encryption and a run with the assertion deleted were **byte-identical**. That is
+the fail-open shape arriving as an omission rather than as an `exit 0`, and `docs/07-FIELD-NOTES.md`
+already names the family. It now prints:
+
+```
+tls=encrypted
+tls_protocol=TLSv1.3
+tls_cipher=TLS_AES_256_GCM_SHA384
+tls_issuer=Supabase Inc
+tls_verified=false
+```
+
+`tls_verified=false` is the honest reading: the chain ends at "Supabase Root 2021 CA", which no
+public trust store carries, so the issuer is pinned by name instead. `HOSTED_SCHEMA_REQUIRE_VERIFIED_TLS=1`
+plus `HOSTED_SCHEMA_DB_CA` is still the way to demand the strong form.
+
+### A defect found while proving it: naming a deviation REPLACED the contract instead of widening it
+
+`ci.yml` carries `HOSTED_SCHEMA_PRIVILEGED_ROLE: postgres`, the named deviation. With it set, a
+secret narrowed to `coditu_backup` — the contract role, the thing the check's own warning asks
+somebody to move to — was **refused**:
+
+```
+- connection role is neither coditu_backup nor the permitted postgres (got coditu_backup)
+```
+
+The message contradicts itself, and the effect is that doing the owed thing fails the deploy. Fixed:
+the contract role is checked first and unconditionally, still demanding `select` and no `insert`; the
+deviation is consulted only for roles that are not it. Measured both ways against the real project —
+the old file exits 1 on that posture, the new one exits 0 and reports 40 migrations.
+
+---
+
+## 2026-08-31 · R5's denominator was wrong: the allowance is 3,000, and it still ran out
+
+**Corrects the 2026-08-30 entry "R5 — the Actions minutes are one pool, and the arithmetic says the
+backup loses."** Its measured burn stands. Its ceiling does not, and neither does its idea of who is
+drawing on the pool.
+
+### The plan is Pro, not Free
+
+`github.com/MooTamer` carries a **PRO** badge — GitHub Pro, through the Student Developer Pack. A Pro
+personal account includes **3,000** Actions minutes a month for private repositories, not the 2,000
+the R5 entry assumed throughout. The denominator was **50% too small**.
+
+### Verified by observation, not by reading the plan page
+
+The billing page needs the `user` scope this machine's `gh` token does not carry, and Chrome is not
+signed in, so the ceiling was derived from the runs themselves: every job in every repository on the
+account for August 2026, `started_at` to `completed_at`, **rounded up per job** the way GitHub bills.
+449 jobs.
+
+```
+cumulative 2000 min crossed  2026-08-29 23:16Z
+cumulative 2500 min crossed  2026-08-30 20:50Z
+cumulative 3000 min crossed  2026-08-31 08:20Z
+first zero-step run          2026-08-31 08:23:52Z
+```
+
+**2,000 is falsified outright: 70 further jobs each billing two minutes or more ran after that mark,
+over the following 33 hours.** 3,000 is matched to within four minutes of wall clock. The eight jobs
+that finish after it are the ones already in flight, which is exactly the shape of a stopped
+allowance — in-flight work completes, new work gets zero steps.
+
+Reconciling with the billing page Mohamed read — **$19.60 gross, $13.70 of it coditu**: counting
+every job gives $24.50 / $19.06, and excluding cancelled jobs entirely gives $17.10 / $11.90. His
+figures sit inside both brackets, which is what should happen when a cancelled job bills for part of
+its time. The reconstruction is consistent with the page; the minutes are the sharper instrument.
+
+### The pool has a consumer the entry never counted
+
+R5 modelled the pool as `coditu` plus `coditu-recovery`. Measured across the whole account:
+
+| repository | minutes | share | window |
+|---|---:|---:|---|
+| `MooTamer/coditu` | 2,681 | 78.6% | 21–31 Aug |
+| **`MooTamer/taseel-academy`** | **601** | **17.6%** | **1–19 Aug** |
+| `MooTamer/Baseeta` | 79 | 2.3% | 30–31 Aug |
+| `MooTamer/coditu-recovery` | 47 | 1.4% | 29–31 Aug |
+| four others | 5 | 0.1% | |
+| | **3,413** | | |
+
+**`taseel-academy` spent a fifth of the month's allowance before coditu's first CI run of the month.**
+That is not a criticism of it — it is the point R5 was making, arriving from a direction R5 did not
+look. The pool is the *account*, and the account has other work in it.
+
+### The fixed cost R5 modelled is right; the per-push cost is 23% low
+
+The scheduled jobs were all created on 29 August, so their August totals are age rather than
+throttling. Extrapolated from their own observed cadence they land where R5 put them:
+
+| scheduled job | R5's model | observed | projected |
+|---|---:|---:|---:|
+| Recovery copy freshness (3-hourly) | 240/mo | 7.9 runs/day | ~237/mo |
+| Database keepalive (6-hourly) | 120/mo | on schedule | ~120/mo |
+| Nightly recovery copy (daily) | 150/mo | 4.25 min/run | ~128/mo |
+
+The variable half does not. R5 blended a **27.3-minute** average push. Measured: **79 CI runs, 2,664
+minutes, 33.7 minutes per run** — 23% above model, because `browser` and `lighthouse` run on more
+pushes than the docs-skip estimate allowed for.
+
+### The corrected arithmetic, and why it is worse rather than better
+
+```
+ceiling                                3,000     (Pro, was modelled as 2,000)
+less scheduled jobs                    - 500
+less the rest of the account           - 682     (taseel-academy, Baseeta, misc)
+                                       -----
+available to coditu CI                 1,818     (R5 said 1,488)
+÷ measured 33.7 min per CI run         =  54 runs a month
+
+observed                               7.8 CI runs a day  =  ~234 a month
+```
+
+**A 50% larger denominator is more than eaten by the 23% the entry never counted and the 23% the
+per-run cost was under-estimated by.** R5's headline was "~27 changes a month with the skip, ~11
+without". The corrected figure is **~54 CI runs a month, and the repository did 79 in ten days** —
+running at roughly **4.3×** what the allowance supports. Every conclusion R5 drew stands and each is
+sharper: the backup is the smallest line on the list (47 minutes, 1.4%) and it is the thing that
+stops.
+
+**Unchanged and now quantified: moving the backup off Actions removes it from the contended pool
+entirely** for the price of the Mac being on. 47 measured minutes is not the reason — the reason is
+that a backup must not fail because CI was busy, and 1.4% of a pool you are 4.3× over is still zero
+when the pool is empty.
+
+**Not re-litigated here:** whether `browser` moves to a nightly schedule. It is still the largest
+single lever and still needs the determinism review beside it.
+
+---
+
+## 2026-08-31 · `is_developer` was two facts in one column, and Ahmed Yehia is the person it was wrong about
+
+**Decision, from Mohamed, implemented as `lib/payout.ts`:**
+
+```
+pot        = the sprint's total, struck at the team rate
+hourly_pay = SUM(rate x minutes_logged) for everybody on the HOURLY basis
+remainder  = pot - hourly_pay
+split      = remainder distributed among the SHARE people
+```
+
+**Hourly pay comes out of the pot, before the split. It is not a cost on top of it.**
+
+Ahmed Yehia is a **developer** who is paid **hourly**. Mohamed, Abdelrahman and Adam take the split.
+
+### The overload
+
+`20260825095000_earnings.sql` named the column `is_developer` and commented it *"whether this person
+takes a share of a sprint's pot"*. The name and the comment are two different questions, and for
+three of the four people on this team they coincide. Ahmed is the one they do not:
+
+| value | says he is an engineer | says he shares the pot |
+|---|---|---|
+| `true` | correct | **wrong** |
+| `false` | **wrong** | correct |
+
+On hosted it is `false`; the seed sets it `true`; the ledger recorded the disagreement on 2026-08-31
+as a thing to decide. It was never a disagreement about a fact. It was two facts sharing a column.
+
+**Split.** `is_developer` keeps its literal meaning and decides nothing about money.
+`profiles.payout_basis` — `share` / `hourly` / `none` — decides money.
+
+### Why it is cheap today and would not be tomorrow
+
+`sprint_payouts` and `sprint_payout_shares` hold **zero rows**, hosted and local, counted before the
+migration was written and again after. Every choice below is free while that is true and is a
+renegotiation with four people the moment one real payout exists. `sprint_payout_shares` gains a
+`basis` column for the same reason: back-filling *why* somebody was paid, against an agreement they
+were paid on, is guesswork with money on it.
+
+### Three things that are decisions, not arithmetic
+
+1. **A share person who logged nothing still takes their share.** It is a split, not a wage. This
+   **reverses** `app_settings.payout_share_threshold_pct`, which gated who was proposed. The column
+   survives; nothing reads it; the control that wrote it is gone from Settings, because a control
+   that writes a value nothing consults tells somebody they have made a decision they have not.
+2. **An hourly person who logged nothing is paid nothing and the pot is untouched.**
+3. **Hourly pay above the pot is refused, not clamped.** No zero, no negative share, no rendered
+   number — an unpayable sprint says what it is short by and names who is owed. The same rule the
+   Recovery Centre follows: a figure that cannot be computed honestly must not appear on a screen.
+   The Server Action refuses the write too, not only the screen.
+
+### `profiles.hourly_rate_cents`, and why it had to exist
+
+Without a per-person rate the refusal above is **unreachable**. With a single team rate an hourly
+person's minutes are a subset of the sprint's minutes, so their pay can never exceed a pot struck at
+that same rate, and "refuse when hourly pay exceeds the pot" would be a branch no input could enter —
+a test that cannot fail is not a test. A per-person rate is also the ordinary reason somebody is on
+the hourly basis at all: an agreed rate that is not the team's. Null means the team rate, so nothing
+changes for anybody until an admin sets one, and Ahmed's is deliberately left null.
+
+### Largest-remainder allocation, said out loud
+
+The cents an uneven split cannot divide are handed out one each to the largest fractional
+remainders, ties broken by profile id ascending. The comparison is `amount × wᵢ mod Σw` as an
+**integer** — comparing fractional parts as floats is the one place a rounding rule could itself
+round. With equal weights this is byte-for-byte what `splitEqually` did, which is why the change is
+safe; the general form is here because `sprint_payout_shares` carries `minutes_logged` and
+`share_cents` and **no weight column**, so the split is equal today and is one column from not being.
+
+`tests/payout.test.ts` asserts `sum(every line) === pot` **exactly** on thirds of odd amounts, on
+every remainder 0–6 among seven people, and with hourly pay in front of an awkward remainder. Shown
+capable of failing three ways: clamping instead of refusing turns 4 of 29 red; dropping the
+remainder turns 6 red; paying hourly on top of the pot instead of out of it turns 9 red.
+
+### The guard on `profiles` becomes an allowlist, and that is what made this safe to write
+
+`guard_profile_privilege_columns` was a **denylist** naming five columns. `payout_basis` and
+`hourly_rate_cents` would have arrived **writable by the person they pay**, and the only thing that
+would have caught it is somebody reading the migration. ADR 2026-08-30 inverted exactly this shape on
+`work_items` and `acceptance_criteria` after finding an engineer could write `minutes_logged`; it did
+not reach `profiles`. Now it has.
+
+It closed one that was already open: **`account_kind` was never in the denylist**, so a client contact
+could set their own row to `internal`. Nothing went looking for it — it fell out of writing down what
+a person may legitimately change about themselves, which is the argument for allowlists in a sentence.
+
+`supabase/tests/column-guards.sql` sweeps `profiles` the same way it sweeps the other two, and names
+the three money columns separately because the sweep writes NULL and skips a column that is already
+NULL — `hourly_rate_cents` is null for everybody, which is exactly the shape a sweep alone would miss.
+With the old denylist restored on a live database, four of those assertions go red.
+
+### Not done, deliberately
+
+The migration is **not on hosted**. Nothing was pushed this pass.
+
+---
+
+## 2026-08-31 · The nightly and the drill move to the Mac; Actions keeps CI
+
+**Implements the 2026-08-30 revision of the drill decision, and closes R5's actual failure.**
+
+Three problems, one move.
+
+1. **The drill could never run in the cloud.** `verify-backup-restore.sh` needs the age *private*
+   key; the key is deliberately not on GitHub and age has no decrypt-only identity. The 2026-08-28
+   answer — *"the drill is automated monthly"* — was withdrawn on 2026-08-30 as unimplementable.
+2. **The backup and the test suite drew on one budget.** Actions minutes belong to the account. On
+   2026-08-31 the allowance ran out at 08:20Z and every job in both repositories began returning zero
+   steps. The nightly stopped. **The backup was 47 of the month's 3,000 minutes — 1.4% of the burn,
+   and the first thing to die.**
+3. **The canary that should have said so is also Actions.**
+
+**Decision.** `scripts/local-nightly.sh` on a launchd agent at 02:00 does the backup, the freshness
+read-back, the real restore drill and the prune. `ops/recovery-repo/workflows/nightly-backup.yml`
+loses its `schedule:` and keeps `workflow_dispatch:` — moved, not duplicated, because two nightlies
+writing to one release store is twice the chance of a half-published set. It stays dispatchable
+because the Mac is one machine.
+
+### The new failure mode is the point
+
+A laptop can be asleep. That is worse availability and **better observability**, which is the trade
+being made deliberately:
+
+| | a missed GitHub schedule | a missed local run |
+|---|---|---|
+| what happens | nothing | healthchecks.io grace period expires, email |
+| who finds out | nobody | Mohamed |
+
+`StartCalendarInterval` rather than `StartInterval`, because launchd runs a missed calendar job on
+the next wake: a Mac closed at 02:00 and opened at 09:00 backs up at 09:00. That halves the exposure
+without hiding it.
+
+**The success ping is downstream of the restore, not of the upload.** A copy that was written and
+never restored is a file, not a backup. `--drill-only` — which proves a set restores and nothing
+about a set being written — cannot send it at all.
+
+### Fail closed, on a machine with no CI to be red
+
+`HEARTBEAT_URL` unset does not mean "run without alerting". The job refuses, exits non-zero, and puts
+a macOS notification on the screen of the machine that is meant to be doing this. It also refuses a
+configuration file that is not mode 0600 — it holds a database password and a service-role key — and
+`install-nightly-agent.sh` refuses to schedule a job whose `--dry-run` does not pass, because an
+agent installed against a broken configuration is how a backup becomes automated and absent at once.
+
+### `RESTORE_WIDEN_MANAGED_COLUMNS`, and what it costs
+
+The drill hit the blocker the runbook already predicted: the CLI's pinned service images trail what
+hosted runs. Measured this pass — hosted has `storage.buckets.versioning_status` and
+`storage.objects.archived_at`, `is_delete_marker`, `is_versioned`; `storage-api` on this Mac has none
+of them, and the verifier refuses, correctly. On 2026-08-29 Mohamed added them by hand. **A drill
+that needs four hand-written `alter table` statements is a drill somebody has to remember**, which is
+what this whole change exists to stop.
+
+So the verifier gains an **opt-in**: `RESTORE_WIDEN_MANAGED_COLUMNS=1` adds the missing *managed*
+columns to the target as nullable `text` and prints `restore_target_widened=…`. `COPY` parses per
+column type and `text` accepts every representation in the dump, so every row arrives and every
+count still matches.
+
+**What it does not prove, stated rather than buried: the widened columns' TYPES.** Four Storage
+columns restore as text on a throwaway target. That is a real reduction in what the drill asserts,
+it is limited to columns the local image does not have at all, it is printed on every run, and it is
+**off by default** — a recovery must never set it, and `12-RECOVERY-RUNBOOK.md` step 4 does not. The
+alternative was no automated drill.
+
+### Owed, and Mohamed's
+
+**The healthchecks.io check does not exist yet.** Creating it needs an account, which is not
+something this pass can do. Until `HEARTBEAT_URL` is in `~/.config/coditu/nightly.env` the agent
+refuses to install and the job refuses to run — deliberately, and visibly, rather than running blind.
 ## 2026-08-31 · R5 has happened: the Actions allowance ran out, and it took the backups with it
 
 **Not a decision — an observation, recorded because the risk register predicted it and nobody had

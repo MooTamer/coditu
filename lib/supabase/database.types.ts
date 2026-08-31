@@ -1297,11 +1297,13 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           full_name: string
+          hourly_rate_cents: number | null
           id: string
           initials: string
           is_active: boolean
           is_developer: boolean
           must_set_password: boolean
+          payout_basis: Database["public"]["Enums"]["payout_basis"]
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
           weekly_capacity_minutes: number
@@ -1311,11 +1313,13 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           full_name: string
+          hourly_rate_cents?: number | null
           id: string
           initials: string
           is_active?: boolean
           is_developer?: boolean
           must_set_password?: boolean
+          payout_basis?: Database["public"]["Enums"]["payout_basis"]
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           weekly_capacity_minutes?: number
@@ -1325,11 +1329,13 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           full_name?: string
+          hourly_rate_cents?: number | null
           id?: string
           initials?: string
           is_active?: boolean
           is_developer?: boolean
           must_set_password?: boolean
+          payout_basis?: Database["public"]["Enums"]["payout_basis"]
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           weekly_capacity_minutes?: number
@@ -1634,18 +1640,21 @@ export type Database = {
       }
       sprint_payout_shares: {
         Row: {
+          basis: Database["public"]["Enums"]["payout_basis"]
           minutes_logged: number
           payout_id: string
           profile_id: string
           share_cents: number
         }
         Insert: {
+          basis?: Database["public"]["Enums"]["payout_basis"]
           minutes_logged: number
           payout_id: string
           profile_id: string
           share_cents: number
         }
         Update: {
+          basis?: Database["public"]["Enums"]["payout_basis"]
           minutes_logged?: number
           payout_id?: string
           profile_id?: string
@@ -2395,6 +2404,7 @@ export type Database = {
       client_contact_status: "invited" | "active" | "revoked"
       client_thread_state: "waiting_client" | "waiting_coditu" | "resolved"
       component_kind: "react" | "spfx"
+      payout_basis: "share" | "hourly" | "none"
       recovery_run_status: "passed" | "failed"
       revision_surface:
         | "work_item_description"
@@ -2567,6 +2577,7 @@ export const Constants = {
       client_contact_status: ["invited", "active", "revoked"],
       client_thread_state: ["waiting_client", "waiting_coditu", "resolved"],
       component_kind: ["react", "spfx"],
+      payout_basis: ["share", "hourly", "none"],
       recovery_run_status: ["passed", "failed"],
       revision_surface: [
         "work_item_description",

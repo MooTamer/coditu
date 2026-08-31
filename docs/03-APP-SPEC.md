@@ -519,16 +519,23 @@ legible without zooming.
   they stand.
 - **Confirmed** shows the snapshot — the pot, each share, the rate per hour and the FX rate it was
   confirmed at — and never moves again.
-- **The pot is `minutes × rate ÷ 60`** with the division last. The split is **equal, not
-  proportional**: the person with 40 hours and the person with 12 take the same amount.
+- **The pot is `minutes × rate ÷ 60`** with the division last. Anybody on the **hourly** basis is
+  paid first, out of the pot — their minutes at their rate, not a cost on top of it. What is left is
+  split **equally, not proportionally**, among the people on the **share** basis: the person with 40
+  hours and the person with 12 take the same amount, and so does the person with none, because a
+  share is a split and not a wage.
+- **Unpayable**, never a number, when hourly pay comes to more than the sprint took in. The screen
+  says what it is short by and who is owed, and the Confirm button is not there — a disabled button
+  beside a plausible total is still a number. The Server Action refuses the write as well.
 - **Not tracked**, never `$0.00`, for a sprint before `app_settings.payout_from_sprint_id`. Zero is a
   claim about money that was never counted.
 
-**The confirmation panel** is an admin's. Every developer who logged anything is listed with their
-minutes and their share of the total, pre-ticked at or above the threshold — the threshold is a
-suggestion engine and the confirmed set is the truth. The pot, the per-person amount in USD and EGP,
-and the rate being used are shown **before** the button. A non-developer who logged time is named
-explicitly: *"Includes 2.0 h logged by Adam Nafie, who takes no share."*
+**The confirmation panel** is an admin's. Everybody the pot pays is listed with their minutes, their
+share of the total and their basis, pre-ticked — the confirmed set is whatever the admin agrees. The
+pot, the hourly pay taken out of it, the per-person amount in USD and EGP, and the rate being used are
+shown **before** the button, and recomputed as the admin ticks, because unticking the hourly person
+changes what is left to split. Somebody who logged time and takes nothing is named explicitly:
+*"Includes 2.0 h logged by Adam Nafie, who takes no share."*
 
 **When the minutes change after a confirmation** a banner says so by name and by amount, and the
 confirmed figures keep being shown. An admin re-confirms, which supersedes the previous row and leaves
@@ -540,9 +547,11 @@ between is a no-op, not a second row.
 ## Settings · what an admin sets up
 
 Below the profile sections, for an admin only: **every tunable in Coditu**, each with its current
-value, what it affects, and who may change it — the hourly rate, the proposal threshold, the
-effective-from sprint, the image upload cap, how many images one paste may carry, the default weekly
-capacity, the exchange rate and its source, and who takes a share.
+value, what it affects, and who may change it — the hourly rate, the effective-from sprint, the image
+upload cap, how many images one paste may carry, the default weekly capacity, the exchange rate and
+its source, and **how each person is paid**: hourly at their own rate, an equal share of what is left,
+or nothing. The proposal threshold was here until 2026-08-31 and is gone, because nothing reads it any
+more.
 
 Each field saves on blur. None of these numbers exists as a constant anywhere in the source: a rate
 that needs a deploy to change is a rate nobody changes.

@@ -48,7 +48,12 @@ export interface TeamMember extends ProfileRef {
   weeklyCapacityMinutes: number;
   /** Whether they take a share of a sprint's pot. An admin decides; a
    *  non-developer's minutes still count toward it. */
+  /** Literal: is this person an engineer. It decides nothing about money. */
   isDeveloper: boolean;
+  /** How the pot pays them: `hourly`, `share`, or `none`. */
+  payoutBasis: "share" | "hourly" | "none";
+  /** Their agreed hourly rate in cents when the basis is `hourly`; null = team rate. */
+  hourlyRateCents: number | null;
 }
 
 /**
@@ -68,7 +73,9 @@ export const listTeam = cache(async (): Promise<TeamMember[]> => {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, initials, avatar_url, role, is_active, weekly_capacity_minutes, is_developer")
+    .select(
+      "id, full_name, initials, avatar_url, role, is_active, weekly_capacity_minutes, is_developer, payout_basis, hourly_rate_cents"
+    )
     .order("is_active", { ascending: false })
     .order("full_name");
 
@@ -83,5 +90,7 @@ export const listTeam = cache(async (): Promise<TeamMember[]> => {
     isActive: row.is_active,
     weeklyCapacityMinutes: row.weekly_capacity_minutes,
     isDeveloper: row.is_developer,
+    payoutBasis: row.payout_basis,
+    hourlyRateCents: row.hourly_rate_cents,
   }));
 });

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { potCents, splitEqually } from "@/lib/earnings";
+import { computeSprintPayout } from "@/lib/payout";
 import { isStale, refreshStoredRate } from "@/lib/exchange-rate";
 import { getAppSettings } from "@/lib/settings";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
@@ -75,34 +75,58 @@ export async function confirmSprintPayout(input: unknown): Promise<EarningsResul
     return { ok: false, error: `No time has been logged against ${sprint.name} yet.` };
   }
 
-  // Only a developer may take a share, and it is re-checked against the column
-  // rather than trusted from the payload — the screen already filters, and a
-  // crafted request must not be able to add somebody the team never made one.
+  // Only somebody the pot pays may be on the list, and the basis is re-read
+  // from the column rather than trusted from the payload — the screen already
+  // filters, and a crafted request must not be able to add somebody the team
+  // never put on a basis. `is_developer` is deliberately NOT consulted: since
+  // 2026-08-31 it says whether somebody is an engineer and nothing about money.
   const wanted = new Set(parsed.data.participantIds);
-  const { data: developers } = await supabase
+  const { data: paid } = await supabase
     .from("profiles")
-    .select("id")
-    .eq("is_developer", true)
+    .select("id, payout_basis, hourly_rate_cents")
+    .neq("payout_basis", "none")
     .in("id", [...wanted].length ? [...wanted] : ["00000000-0000-0000-0000-000000000000"]);
 
-  const eligible = new Set((developers ?? []).map((d) => d.id));
+  const eligible = new Map((paid ?? []).map((p) => [p.id, p]));
   const refused = [...wanted].filter((id) => !eligible.has(id));
   if (refused.length > 0) {
     return {
       ok: false,
-      error: "Somebody on that list does not take a share. Mark them a developer in Settings first.",
+      error:
+        "Somebody on that list takes nothing from the pot. Give them a payout basis in Settings first.",
     };
   }
   if (eligible.size === 0) {
-    return { ok: false, error: "Pick at least one person to share this between." };
+    return { ok: false, error: "Pick at least one person this pot pays." };
   }
 
   const byProfile = new Map(rows.map((m) => [m.profile_id!, m.minutes_logged ?? 0]));
-  const pot = potCents({ totalMinutes, hourlyRateCents: settings.hourlyRateCents });
-  const shares = splitEqually(
-    pot,
-    [...eligible].map((id) => ({ profileId: id, minutesLogged: byProfile.get(id) ?? 0 }))
-  );
+  const payout = computeSprintPayout({
+    totalMinutes,
+    hourlyRateCents: settings.hourlyRateCents,
+    people: [...eligible.values()].map((p) => ({
+      profileId: p.id,
+      basis: p.payout_basis,
+      minutesLogged: byProfile.get(p.id) ?? 0,
+      hourlyRateCents: p.hourly_rate_cents,
+    })),
+  });
+
+  // Refuse rather than write. An unpayable sprint has no honest distribution,
+  // and a confirmation is a record of an agreement — there is nothing here to
+  // agree to. The same rule the screen follows, enforced where it counts.
+  if (!payout.payable) {
+    return {
+      ok: false,
+      error:
+        `Hourly pay on ${sprint.name} comes to more than it took in, by ` +
+        `${(payout.shortfallCents / 100).toFixed(2)} USD. Nothing can be confirmed until the ` +
+        "hours, the rates or the pot change.",
+    };
+  }
+
+  const pot = payout.potCents;
+  const shares = payout.lines;
 
   const { data: existing } = await supabase
     .from("sprint_payouts")
@@ -124,7 +148,7 @@ export async function confirmSprintPayout(input: unknown): Promise<EarningsResul
       (sameShares ?? []).length === shares.length &&
       shares.every((share) =>
         (sameShares ?? []).some(
-          (row) => row.profile_id === share.profileId && row.share_cents === share.shareCents
+          (row) => row.profile_id === share.profileId && row.share_cents === share.amountCents
         )
       );
     if (unchanged) return { ok: true };
@@ -165,7 +189,10 @@ export async function confirmSprintPayout(input: unknown): Promise<EarningsResul
       payout_id: created.id,
       profile_id: share.profileId,
       minutes_logged: share.minutesLogged,
-      share_cents: share.shareCents,
+      share_cents: share.amountCents,
+      // WHY somebody was paid, not only how much. A confirmed payout is a
+      // record of an agreement and "hourly, at their rate" is part of it.
+      basis: share.basis,
     }))
   );
 
@@ -253,30 +280,54 @@ export async function updateAppSettings(input: unknown): Promise<EarningsResult>
 
 /* -------------------------------------------------------------------------- */
 
-const developerInput = z.object({ profileId: uuid, isDeveloper: z.boolean() });
+const payoutInput = z.object({
+  profileId: uuid,
+  basis: z.enum(["share", "hourly", "none"]),
+  /**
+   * Their agreed rate, in cents. Null means the team rate.
+   *
+   * Capped at USD 10,000/h — not because anybody would set it, but because an
+   * unbounded rate is the one input that can make a sprint unpayable by
+   * accident, and a fat finger on a money field should be refused rather than
+   * rendered.
+   */
+  hourlyRateCents: z.number().int().positive().max(1_000_000).nullable().optional(),
+});
 
 /**
- * Who takes a share.
+ * How somebody is paid out of a sprint's pot.
  *
  * A column an admin sets, and never a name or an email in code. The brief is
  * explicit about that, and the reason is obvious the first time somebody joins
  * or leaves: a list of names in a source file is a deploy, and this team
  * deploys their own tool.
+ *
+ * **Replaces `setIsDeveloper`.** Until 2026-08-31 one boolean answered both
+ * "is this person an engineer" and "does this person share the pot", and Ahmed
+ * Yehia — a developer who is paid hourly — is the person for whom those answers
+ * differ. `is_developer` still exists and still means the first thing; this
+ * writes the second.
  */
-export async function setIsDeveloper(input: unknown): Promise<EarningsResult> {
-  const parsed = developerInput.safeParse(input);
+export async function setPayoutBasis(input: unknown): Promise<EarningsResult> {
+  const parsed = payoutInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: "That request did not make sense." };
 
   const profile = await getCurrentProfile();
   if (!profile) return { ok: false, error: "You are not signed in." };
   if (profile.role !== "admin") {
-    return { ok: false, error: "Only an admin can decide who takes a share." };
+    return { ok: false, error: "Only an admin can decide how somebody is paid." };
   }
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("profiles")
-    .update({ is_developer: parsed.data.isDeveloper })
+    .update({
+      payout_basis: parsed.data.basis,
+      // Cleared when they come off the hourly basis, so a rate can never sit
+      // dormant on a profile and surprise somebody the next time it is set.
+      hourly_rate_cents:
+        parsed.data.basis === "hourly" ? (parsed.data.hourlyRateCents ?? null) : null,
+    })
     .eq("id", parsed.data.profileId);
 
   if (error) return { ok: false, error: "That change did not save. Nothing was lost — try again." };
