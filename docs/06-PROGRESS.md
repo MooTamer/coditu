@@ -6678,3 +6678,67 @@ npm test                                 # 42 files, 589 passed
 
 `npm run recovery:check` is still red on the branches that changed backup tooling, by design —
 `npm run recovery:sync` follows the merge. Nothing in this step touches it.
+
+### The sync had to precede the merge, and the note that said otherwise was a deadlock
+
+The entry above says `npm run recovery:sync` "is the step that follows the merge, not one that
+precedes it". **That ordering cannot be executed**, and the first run of CI on this branch is what
+showed it:
+
+```
+blocking release checks · step 21 · npm run recovery:check
+sync-recovery-repo: the recovery repository tree has drifted:
+  staged c7219cf8…, recorded b8bdb737…
+```
+
+`recovery:check` is inside `blocking release checks`, which is the **one required check** on the
+`main` ruleset. So a pull request that changes backup tooling cannot go green until the recovery
+repository is synced — and the note asked for the sync to happen only after the merge that the
+check will not allow. It is a circular wait, and it is the same family this repository has been
+cataloguing all week, arriving from a third side: not a control that is silent, nor one that cannot
+be made to fail, but **one whose only remedy is on the far side of itself**.
+
+Nothing about the original reasoning was wrong — pushing live backup infrastructure ahead of a pull
+request that may not merge really would leave the recovery repository running ahead of `main`. It
+was a rule written without checking whether the gate it had to pass through would allow it. The
+precedent was already there: PR #5 synced mid-branch and said so in its commit message.
+
+**Revised: the sync immediately PRECEDES the merge, once the pull request is otherwise green.** The
+exposure that remains is a window of minutes in which the recovery repository carries tooling
+`main` does not, and it is self-correcting — an abandoned branch leaves `recovery:check` red on
+`main`, which is exactly the signal that would be wanted.
+
+What was pushed, and it is two files that only make the restore path stricter:
+
+| File | Change |
+|---|---|
+| `ops/recovery-repo/workflows/nightly-backup.yml` | Loses its schedule, keeps `workflow_dispatch`. The nightly runs on the Mac. |
+| `scripts/verify-backup-restore.sh` | +67 lines, no deletions: the two opt-ins and the refusal to call a restore verified while the `auth.users` triggers are missing. |
+
+```
+recovery_repo=MooTamer/coditu-recovery
+head=b0f6e0c4385967095cb2d80ff476f8ed6717eec6
+digest=9ea9b2df269cedfa1191c41ee974a38c76fc8d7459ade747980e19da19a2979d
+recovery_repo_tree=in_sync
+```
+
+### And the migration reached hosted first, as the rule says it must
+
+`20260831120000_a_payout_basis_of_its_own.sql` was **not** on hosted when this branch was ready to
+merge — hosted stood at 40 and `profiles.payout_basis` did not exist, while this branch's code reads
+it. Merging first would have put `main` in the state the 2026-08-21 outage came from.
+
+Applied through the Management API as one request, so every statement lands or none does — the
+`schema_migrations` row included, because "the schema changed and the ledger says it did not" is the
+one state the preflight would read as drift.
+
+| | before | after |
+|---|---|---|
+| migrations | 40, newest `20260830140000` | **41**, newest `20260831120000` |
+| `payout_basis` / `hourly_rate_cents` / `shares.basis` | absent | present |
+| backfill | — | `is_developer=true → share` (2), `false → none` (2) — today's money, row for row |
+| `sprint_payouts` / `sprint_payout_shares` | 0 / 0 | **0 / 0** |
+| `guard_profile_privilege_columns` | denylist | **allowlist** — which also closes `account_kind` |
+
+The preflight only requires local ⊆ remote, so hosted standing one ahead of `main` between this and
+the merge is not drift and does not block a deploy.
