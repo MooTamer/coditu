@@ -2549,3 +2549,34 @@ gh pr view <n> --json mergeStateStatus --jq .mergeStateStatus
 `DIRTY` means it will never start. `BLOCKED` and `UNSTABLE` mean it did.
 
 `workflow_dispatch` is on `ci.yml` now, as the way back in when the event path produces nothing.
+
+## `supabase stop --no-backup` deletes data volumes, and picks its target from a file
+
+`--no-backup` is not "skip a backup step". The CLI's own help says: **"Deletes all data volumes
+after stopping."** It is the destructive flag.
+
+And without `--project-id` the *target* is whatever `supabase/config.toml` in the working directory
+says. So the blast radius of that one line depends on a file having been edited correctly by an
+earlier step — and in CI the teardown carries `if: always()`, which means it runs even on the runs
+where the earlier step did not.
+
+That was the shape on 2026-08-31 while CI moved onto the Mac. **The developer's `coditu` stack and
+its `supabase_db_coditu` volume disappeared during that afternoon and could not be attributed with
+certainty**: every teardown in the logs is correctly scoped (`project_id = "codituci"`,
+`Stopped services: [supabase_..._codituci]`), Colima was stopped and restarted once, and several
+runs were cancelled mid-job. No single line can be pointed at.
+
+**The uncertainty is the argument.** A destructive command should not be one file edit away from a
+different target, and "we could not work out what did it" is the outcome that proves it. Every
+teardown now says `supabase stop --project-id codituci --no-backup`, which cannot reach another
+project whatever state the config is in, and `tests/ci-runner.test.ts` asserts the flag.
+
+The cost this time was small and that is luck rather than design: the local database is seeded, not
+real, so it comes back with
+
+```bash
+supabase start && supabase db reset
+```
+
+Local is deliberately not production data — which is exactly why it is the one place a mistake like
+this could be survived quietly, and why it is worth writing down rather than shrugging at.

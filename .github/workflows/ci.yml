@@ -250,9 +250,24 @@ jobs:
       # an afternoon and take the developer's own stack down with it — a CI job
       # whose failure mode is somebody else's broken machine. `always()`, so a
       # red suite still cleans up after itself.
+      # ── `--project-id`, and it is not belt-and-braces ─────────────────────
+      #
+      # `--no-backup` means "delete all data volumes after stopping". Without
+      # `--project-id` the target is resolved from `supabase/config.toml` in
+      # the workspace — so the blast radius of this line depends on a file
+      # having been edited correctly by an earlier step, and `always()` means
+      # it runs even when that step did not.
+      #
+      # Naming the project makes the destructive flag unable to reach anything
+      # but CI's own stack, whatever state the config is in. On 2026-08-31 the
+      # developer's `coditu` stack and its data volume disappeared during this
+      # work and could not be attributed with certainty; the logs show every
+      # teardown correctly scoped to `codituci`. That uncertainty is the whole
+      # argument — a destructive command should not be one file edit away from
+      # a different target.
       - name: Tear the CI stack down
         if: ${{ always() && runner.environment == 'self-hosted' }}
-        run: supabase stop --no-backup || true
+        run: supabase stop --project-id codituci --no-backup || true
 
   # ── The timeout belongs on the STEPS, and that is not a detail ─────────────
   #
@@ -388,9 +403,24 @@ jobs:
       # an afternoon and take the developer's own stack down with it — a CI job
       # whose failure mode is somebody else's broken machine. `always()`, so a
       # red suite still cleans up after itself.
+      # ── `--project-id`, and it is not belt-and-braces ─────────────────────
+      #
+      # `--no-backup` means "delete all data volumes after stopping". Without
+      # `--project-id` the target is resolved from `supabase/config.toml` in
+      # the workspace — so the blast radius of this line depends on a file
+      # having been edited correctly by an earlier step, and `always()` means
+      # it runs even when that step did not.
+      #
+      # Naming the project makes the destructive flag unable to reach anything
+      # but CI's own stack, whatever state the config is in. On 2026-08-31 the
+      # developer's `coditu` stack and its data volume disappeared during this
+      # work and could not be attributed with certainty; the logs show every
+      # teardown correctly scoped to `codituci`. That uncertainty is the whole
+      # argument — a destructive command should not be one file edit away from
+      # a different target.
       - name: Tear the CI stack down
         if: ${{ always() && runner.environment == 'self-hosted' }}
-        run: supabase stop --no-backup || true
+        run: supabase stop --project-id codituci --no-backup || true
 
   # ── Why this job exists, and why it is not an `if:` on the deploy job ───────
   #
@@ -679,6 +709,21 @@ jobs:
       # an afternoon and take the developer's own stack down with it — a CI job
       # whose failure mode is somebody else's broken machine. `always()`, so a
       # red suite still cleans up after itself.
+      # ── `--project-id`, and it is not belt-and-braces ─────────────────────
+      #
+      # `--no-backup` means "delete all data volumes after stopping". Without
+      # `--project-id` the target is resolved from `supabase/config.toml` in
+      # the workspace — so the blast radius of this line depends on a file
+      # having been edited correctly by an earlier step, and `always()` means
+      # it runs even when that step did not.
+      #
+      # Naming the project makes the destructive flag unable to reach anything
+      # but CI's own stack, whatever state the config is in. On 2026-08-31 the
+      # developer's `coditu` stack and its data volume disappeared during this
+      # work and could not be attributed with certainty; the logs show every
+      # teardown correctly scoped to `codituci`. That uncertainty is the whole
+      # argument — a destructive command should not be one file edit away from
+      # a different target.
       - name: Tear the CI stack down
         if: ${{ always() && runner.environment == 'self-hosted' }}
-        run: supabase stop --no-backup || true
+        run: supabase stop --project-id codituci --no-backup || true

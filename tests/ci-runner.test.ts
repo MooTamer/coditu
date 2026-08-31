@@ -176,7 +176,10 @@ describe("CI's Supabase stack cannot collide with the Mac's own", () => {
 
   it.each(stackJobs.map(([name]) => name))("%s tears its stack down even when red", (name) => {
     const body = ciJobs.get(name)!;
-    expect(body).toContain("supabase stop --no-backup");
+    // `--project-id`, always: `--no-backup` deletes data volumes, and without
+    // it the target comes from a config file an earlier step was supposed to
+    // have edited — while `always()` runs this even when that step did not.
+    expect(body).toContain("supabase stop --project-id codituci --no-backup");
     // `always()`: a hosted runner is deleted when the job ends and this Mac is
     // not, so a failed suite that skips cleanup fills a 6 GiB VM with the
     // developer's stack still in it.
