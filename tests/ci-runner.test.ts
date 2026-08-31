@@ -163,6 +163,33 @@ describe("CI's Supabase stack cannot collide with the Mac's own", () => {
   });
 });
 
+describe("the self-hosted runner is not asked to cache what it never loses", () => {
+  // `~/.npm` survives between jobs on a persistent runner, so `cache: npm`
+  // uploads a cache to replace something that did not go anywhere. Measured on
+  // the first run of this change: 5 minutes of real work, 15 minutes of Post
+  // Run actions/setup-node still uploading.
+  // Directives only. This file explains itself at length, and the word
+  // `cache:` appears in the prose above every one of them.
+  const directives = ci
+    .split("\n")
+    .filter((line) => !/^\s*#/.test(line))
+    .filter((line) => /^\s*cache:/.test(line))
+    .map((line) => line.trim());
+
+  it("asks for the npm cache only on a hosted runner", () => {
+    expect(directives.length).toBe(4);
+    for (const line of directives) {
+      expect(line).toBe("cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}");
+    }
+  });
+
+  it("does not write the ternary that returns the same branch twice", () => {
+    // `x && '' || 'npm'` reads as "empty when self-hosted" and is `npm` in both
+    // cases: an empty string is falsy in a GitHub expression, so `||` wins.
+    for (const line of directives) expect(line).not.toMatch(/&& '' \|\|/);
+  });
+});
+
 describe("the jobs that stay metered stay metered on purpose", () => {
   // The rule: the metered runner is for the jobs whose whole reason to exist is
   // to work when this Mac does not. Keeping the hosted database awake, and

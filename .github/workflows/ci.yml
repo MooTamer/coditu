@@ -127,7 +127,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          # ── Not on the self-hosted runner, and this is measured ────────────
+          #
+          # `cache: npm` archives `~/.npm` and uploads it to GitHub's cache
+          # service, so that the NEXT ephemeral machine does not download the
+          # registry again. A self-hosted runner is not ephemeral: `~/.npm` is
+          # still there next run, having never been lost.
+          #
+          # So the whole exchange is a round trip to replace something that did
+          # not go anywhere — and on the first run of this change it cost more
+          # than everything it was helping. Lint, typecheck, 589 unit tests, the
+          # RLS suite, a production build, budgets, the degraded-dependency
+          # pause: **5 minutes**. `Post Run actions/setup-node@v4`, uploading
+          # the cache: **15 and still going.**
+          #
+          # Written the long way round on purpose. `x && '' || 'npm'` looks
+          # right and returns `npm` in both branches, because an empty string is
+          # falsy in a GitHub expression and the `||` takes over.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
 
       - run: npm ci
 
@@ -254,7 +271,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          # ── Not on the self-hosted runner, and this is measured ────────────
+          #
+          # `cache: npm` archives `~/.npm` and uploads it to GitHub's cache
+          # service, so that the NEXT ephemeral machine does not download the
+          # registry again. A self-hosted runner is not ephemeral: `~/.npm` is
+          # still there next run, having never been lost.
+          #
+          # So the whole exchange is a round trip to replace something that did
+          # not go anywhere — and on the first run of this change it cost more
+          # than everything it was helping. Lint, typecheck, 589 unit tests, the
+          # RLS suite, a production build, budgets, the degraded-dependency
+          # pause: **5 minutes**. `Post Run actions/setup-node@v4`, uploading
+          # the cache: **15 and still going.**
+          #
+          # Written the long way round on purpose. `x && '' || 'npm'` looks
+          # right and returns `npm` in both branches, because an empty string is
+          # falsy in a GitHub expression and the `||` takes over.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
 
       - run: npm ci
 
@@ -456,7 +490,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          # ── Not on the self-hosted runner, and this is measured ────────────
+          #
+          # `cache: npm` archives `~/.npm` and uploads it to GitHub's cache
+          # service, so that the NEXT ephemeral machine does not download the
+          # registry again. A self-hosted runner is not ephemeral: `~/.npm` is
+          # still there next run, having never been lost.
+          #
+          # So the whole exchange is a round trip to replace something that did
+          # not go anywhere — and on the first run of this change it cost more
+          # than everything it was helping. Lint, typecheck, 589 unit tests, the
+          # RLS suite, a production build, budgets, the degraded-dependency
+          # pause: **5 minutes**. `Post Run actions/setup-node@v4`, uploading
+          # the cache: **15 and still going.**
+          #
+          # Written the long way round on purpose. `x && '' || 'npm'` looks
+          # right and returns `npm` in both branches, because an empty string is
+          # falsy in a GitHub expression and the `||` takes over.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
 
       # `preflight` already answered this, so reaching here with a value missing
       # means it was deleted between the two jobs. That is a real fault and this
@@ -541,7 +592,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          # ── Not on the self-hosted runner, and this is measured ────────────
+          #
+          # `cache: npm` archives `~/.npm` and uploads it to GitHub's cache
+          # service, so that the NEXT ephemeral machine does not download the
+          # registry again. A self-hosted runner is not ephemeral: `~/.npm` is
+          # still there next run, having never been lost.
+          #
+          # So the whole exchange is a round trip to replace something that did
+          # not go anywhere — and on the first run of this change it cost more
+          # than everything it was helping. Lint, typecheck, 589 unit tests, the
+          # RLS suite, a production build, budgets, the degraded-dependency
+          # pause: **5 minutes**. `Post Run actions/setup-node@v4`, uploading
+          # the cache: **15 and still going.**
+          #
+          # Written the long way round on purpose. `x && '' || 'npm'` looks
+          # right and returns `npm` in both branches, because an empty string is
+          # falsy in a GitHub expression and the `||` takes over.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
       - run: npm ci
       # The marketing route is static, but `next build` still validates the
       # Supabase environment — and `with-prod-server.sh` refuses to start

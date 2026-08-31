@@ -6511,3 +6511,23 @@ written only in a comment is one refactor from being reversed by accident.
 The Mac is now a single point for CI, and it is a laptop. A closed lid is a queued pull request.
 That is a real reduction in availability, accepted because the alternative — measured, not
 supposed — is a repository that cannot merge at all for the last nine days of every month.
+
+### The measured cost the first run found: caching what a persistent machine never lost
+
+`actions/setup-node`'s `cache: npm` archives `~/.npm` and uploads it to GitHub, so the **next**
+ephemeral machine does not download the registry again. A self-hosted runner is not ephemeral.
+`~/.npm` is still there next run, having never gone anywhere.
+
+Measured on the first run of this change, run `33410996124`:
+
+| | |
+|---|---|
+| Lint, typecheck, 589 unit tests, RLS suite, production build, budgets, resilience, `recovery:check`, degraded-dependency pause | **5 min** (15:53:19Z → 15:58) |
+| `Post Run actions/setup-node@v4`, uploading the cache | **15 min and still going** at 16:12:41Z, when it was cancelled |
+
+So the cache is asked for only on a hosted runner. It is written the long way round —
+`runner.environment == 'github-hosted' && 'npm' || ''` — because the shape that reads more
+naturally, `== 'self-hosted' && '' || 'npm'`, returns `npm` in **both** branches: an empty string
+is falsy in a GitHub expression, so the `||` takes over and the condition does nothing. A test
+asserts the trap is not present, since a workflow that silently ignores its own condition is the
+fail-open shape again, wearing an expression.
