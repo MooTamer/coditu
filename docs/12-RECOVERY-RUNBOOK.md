@@ -98,6 +98,22 @@ LOCAL_BACKUP_DIR='/Users/motamer/Library/Application Support/Coditu/Backups' \
 - `storage/<bucket>/<object>` — the bytes absent from every database backup;
 - `row-counts.tsv`, `manifest.json`, `checksums.sha256` — the evidence used by a restore.
 
+**What it does NOT contain, measured on 2026-08-31: any trigger on a managed schema.**
+`schema.sql` holds **48** `CREATE OR REPLACE TRIGGER` statements and every one of them targets
+`public.*`. Zero target `auth.*` or `storage.*` — `supabase db dump` writes the `public` schema and
+the managed ones belong to the platform's own services. This repository attaches two triggers to
+`auth.users`, both from `20260820120100_identity.sql`, and **a restore arrives without them**:
+
+| trigger | what its absence means in the recovered system |
+|---|---|
+| `on_auth_user_created` | a new sign-up gets an `auth.users` row and **no profile**. The person exists to GoTrue and not to the app |
+| `enforce_email_allowlist` | **the no-public-sign-up gate is off.** Anybody who reaches the endpoint gets an account |
+
+The archive is not at fault and its row counts are all true. **A restore is not a recovery until
+the migrations have been re-applied over it** — step 5a below. `verify-backup-restore.sh` now
+refuses to print `restore_verified=true` while either trigger is absent, and derives the list it
+checks from the migrations rather than from a list somebody has to remember to update.
+
 The set is encrypted to `ops/backup-recipient.txt` before upload. GitHub can write it and
 cannot read it. The only private key is
 `/Users/motamer/.config/coditu/backup.agekey`, plus the offline copy Mohamed must make
@@ -117,6 +133,11 @@ before activation.
    compares the `COPY` column lists in `data.sql` against the target and refuses to start if the
    target is older. The command then fails if any table the backup describes is missing or
    short, or if a table only the target has is non-empty.
+5a. **Re-apply the migrations over the restored database** — `supabase db push` against the fresh
+   project. Nothing in the archive carries the two `auth.users` triggers (§2), and until this step
+   runs the recovered system has no profile creation and no sign-up allowlist. `verify-backup-restore.sh`
+   fails while either is missing and names them, so this step cannot be skipped silently — but it is
+   written here as well, because reading it in a runbook beats meeting it as a failure at 3am.
 6. Force-upload Storage with recursive copy. Do **not** use `aws s3 sync` after restoring
    `storage.objects`: the metadata rows make sync believe absent bytes already exist.
 7. Re-run the object download and byte comparison, the SQL tests, and the hosted schema
