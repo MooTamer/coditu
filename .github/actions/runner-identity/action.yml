@@ -1,0 +1,46 @@
+name: Which runner executed this job
+description: >-
+  Write the executing runner's identity into the run summary, and say plainly
+  when it was a metered one.
+
+# ── Why a job needs to announce where it ran ────────────────────────────────
+#
+# On 2026-08-31 this account's GitHub Actions allowance ran out mid-month and
+# every job in both repositories began finishing in two seconds with zero
+# steps. The burn was 4.3x sustainable, and the nightly backup — 1.4% of it —
+# was the first thing to stop.
+#
+# The fix is a self-hosted runner, which is free because Actions meters only
+# GitHub-HOSTED runners. But that fix has a failure mode of its own: if the
+# Mac is off and somebody flips the fallback, or a job's `runs-on` is edited
+# back, CI quietly returns to the metered pool and the allowance goes again —
+# and nothing on the run page would say so. A green run tells you the code is
+# fine. It does not tell you what it cost.
+#
+# So every job says where it ran, on every run, in the summary. A silent
+# fallback to the metered runner becomes a line you cannot miss.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        # `runner.environment` is GitHub's own answer, not an inference from a
+        # label: it is `self-hosted` or `github-hosted` and nothing else.
+        if [ "$RUNNER_ENVIRONMENT" = "self-hosted" ]; then
+          printf '`%s` ran on **%s** (`%s`, %s/%s) — free, no Actions minutes.\n\n' \
+            "$JOB_ID" "$RUNNER_ENVIRONMENT" "$RUNNER_NAME" "$RUNNER_OS" "$RUNNER_ARCH"
+        else
+          printf '`%s` ran on **%s** (`%s`, %s/%s).\n\n' \
+            "$JOB_ID" "$RUNNER_ENVIRONMENT" "$RUNNER_NAME" "$RUNNER_OS" "$RUNNER_ARCH"
+          printf '> **This job consumed the Actions allowance.** The allowance is 3,000 minutes\n'
+          printf '> a month across the whole account and it ran out on 2026-08-31, which stopped\n'
+          printf '> the nightly backup. If this was not deliberate, unset the `CI_RUNNER`\n'
+          printf '> repository variable so jobs go back to `coditu-mac`.\n\n'
+        fi >> "$GITHUB_STEP_SUMMARY"
+      env:
+        JOB_ID: ${{ github.job }}
+        RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        RUNNER_NAME: ${{ runner.name }}
+        RUNNER_OS: ${{ runner.os }}
+        RUNNER_ARCH: ${{ runner.arch }}
