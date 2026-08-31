@@ -21,9 +21,12 @@ need_value() {
   [ -n "$release_present" ] || fail "$release_name is required"
 }
 
+# VERCEL_TOKEN is required in the ENVIRONMENT and not merely as a value this
+# script passes on: `smoke_staged` relies on the CLI reading it from there.
 for release_required in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID PRODUCTION_BASE_URL GITHUB_SHA; do
   need_value "$release_required"
 done
+export VERCEL_TOKEN
 for release_command in curl jq node vercel; do
   command -v "$release_command" >/dev/null 2>&1 || fail "missing required command: $release_command"
 done
@@ -45,17 +48,31 @@ vercel_cli() {
   vercel "$@" --token "$VERCEL_TOKEN"
 }
 
+# `vercel curl` is authenticated by VERCEL_TOKEN in the ENVIRONMENT, and is
+# deliberately given no `--token` flag.
+#
+# It used to carry one, and it cost this project its first deliberate deploy.
+# Vercel CLI 59.9.1 reads `--token` for authentication and then FORWARDS it to
+# curl along with everything else, so the staged smoke died on:
+#
+#     curl: option --token: is unknown
+#     deploy-production: staged production smoke failed; domains were not changed
+#
+# The leak is invisible unless the token is VALID — with a bad one the CLI
+# rejects it and never reaches curl, which is why every rehearsal passed. That
+# is the whole failure mode of a harness with a fake provider: it proves the
+# script and not the tool. Measured against the real CLI at 59.9.1:
+# `--token` after the path leaks; `VERCEL_TOKEN` in the environment does not,
+# and the CLI names it by that variable when it is wrong.
 smoke_staged() {
   release_target=$1
-  release_body=$(vercel curl /build-health.json --deployment "$release_target" \
-    --token "$VERCEL_TOKEN" -- \
+  release_body=$(vercel curl /build-health.json --deployment "$release_target" -- \
     --silent --show-error --fail --location) || return 1
   [ "$(printf '%s' "$release_body" | jq -er '.status')" = ok ] || return 1
   [ "$(printf '%s' "$release_body" | jq -er '.commit')" = "$GITHUB_SHA" ] || return 1
 
   for release_path in / /login /app/settings/recovery; do
-    vercel curl "$release_path" --deployment "$release_target" \
-      --token "$VERCEL_TOKEN" -- \
+    vercel curl "$release_path" --deployment "$release_target" -- \
       --silent --show-error --fail --location --output /dev/null || return 1
   done
 }
