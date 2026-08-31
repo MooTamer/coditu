@@ -6849,11 +6849,19 @@ merge conflict stopped GitHub scheduling any run at all.
 
 | | |
 |---|---|
-| Production commit | **`dd782e3`** → then `7bb0370` |
+| Production commit | **`dd782e3`** |
 | Deployment | `dpl_9taY7AcV1GMzZj6wseMcmsrrnVze`, promoted and aliased |
 | Preflight | `hosted_schema_verified=true`, `migrations=40` |
 | Read back from | `https://coditu-phi.vercel.app/build-health.json`, the public origin |
 | Runner | `coditu-mac` — **production was deployed from the Mac, not from a metered runner** |
+
+**`7bb0370` was NOT deployed, and the reason is the defect this pass then fixed.** Its
+`blocking release checks` and `is the production deploy configured` both passed, and then
+`lighthouse` — a report-only job that gates nothing — took the single runner while the deploy
+waited behind it. With one runner every job serialises and GitHub picks among ready jobs in no
+order you can rely on. The run was cancelled to get the runner back, which took the queued deploy
+with it. `browser` and `lighthouse` now `needs: [scope, check, deploy]` so a report cannot get in
+front of a release again.
 
 ### B5 — CI off the metered runner
 
