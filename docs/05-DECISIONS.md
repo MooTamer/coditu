@@ -6396,3 +6396,159 @@ incident.
 **Unchanged: the noticing half is still not drilled against production.** Proving the trap fires on
 a genuine 5xx means promoting a build that fails its own smoke, and the failure mode of that test is
 an outage.
+
+---
+
+## 2026-08-31 · CI moves to a runner on the Mac; two jobs stay metered on purpose
+
+**Status: accepted.** Supersedes nothing; it is the structural fix R5 asked for on the same day.
+
+### The measurement that forces it
+
+The allowance did not "run low". It ran **out**, account-wide, at 08:20Z on 2026-08-31, and the
+state it left behind was not a slow CI — it was a repository that could not move:
+
+| | |
+|---|---|
+| Ceiling | **3,000** min/month (GitHub Pro via the Student pack) |
+| Observed burn | ~234 runs × 33.7 min ≈ **7,900 min** — **4.3x** sustainable |
+| `taseel-academy`'s share | **601 min** consumed before coditu's first August run |
+| The nightly backup's share | **47 min — 1.4% of the burn, and the first thing to stop** |
+| `main` | frozen: the one required check is Actions, and Actions returns zero steps |
+
+Re-verified before this change, live rather than from the ledger: a workflow dispatched at
+**2026-08-31T15:42:08Z** produced one job that started at 15:42:10Z, finished at 15:42:12Z and ran
+**zero steps**. The reset is the 1st, not "the billing period has rolled".
+
+**A larger allowance does not fix a 4.3x overshoot, and a smaller CI barely dents it.** Cutting the
+40-minute browser job entirely would still leave the burn over the ceiling.
+
+### The decision
+
+**GitHub Actions meters GitHub-*hosted* runners only.** A self-hosted runner costs nothing and is
+not subject to the spending limit — which is also why it can run *right now*, with the allowance
+still exhausted, and is the only thing that can unfreeze `main` before September.
+
+So `coditu-mac` is registered against `MooTamer/coditu` — an `osx-arm64` runner installed as a
+launchd **agent** under Mohamed's account, the same shape and for the same reasons as the nightly
+(`~/Library/LaunchAgents`, user session, reads `~/.config`, can put a notification on a screen).
+
+### Why the usual objection does not apply here, said out loud rather than implied
+
+Self-hosted runners are dangerous **because a pull request from a fork executes that fork's workflow
+on your hardware**, with your filesystem and your network. That is a real and well-documented
+hazard, and it is why the general advice is "never use self-hosted runners on a public repository".
+
+It cannot arise here, for two independent reasons:
+
+1. **`MooTamer/coditu` is private.** A repository nobody can fork cannot receive a fork PR.
+2. **It has a single writer.** Even made public tomorrow, GitHub requires an approving review from
+   someone with write access before a first-time contributor's workflow runs at all.
+
+**This is a property of this repository, not a safe general rule, and it expires the day a second
+contributor arrives.** Written here so the person who adds one has to read it.
+
+### The fallback is manual, and that is the decision
+
+`runs-on: ${{ fromJSON(vars.CI_RUNNER || '["self-hosted","coditu-mac"]') }}`. Unset — the normal
+state — every job runs on the Mac. Set `CI_RUNNER` to `["ubuntu-latest"]` and the file returns to
+the metered pool for as long as it stays set.
+
+GitHub has no native "try self-hosted, fall back to hosted"; runner-group fallback is Enterprise.
+It could be *simulated*, and it is deliberately not, because **an automatic fallback to the metered
+runner is exactly how the allowance went the first time**: it would spend minutes without anybody
+choosing to, at the moment the Mac happened to be shut.
+
+What an absent Mac does instead is make the job **queue**. That is visible on the pull request, it
+costs nothing, and nothing merges until somebody either wakes the Mac or decides to pay. A queued
+job is a decision waiting for a person; a silent hosted run is a bill waiting for a month end.
+
+### Every job says where it ran
+
+`./.github/actions/runner-identity` writes into `$GITHUB_STEP_SUMMARY` on every job, reading
+`runner.environment` — GitHub's own answer, `self-hosted` or `github-hosted`, not an inference from
+a label we could mislabel. A metered run additionally prints what it cost and how to undo it.
+
+This is the counterpart to the fallback being manual: a switch that was flipped and forgotten is a
+line you read, rather than an allowance you discover is gone. `tests/ci-runner.test.ts` asserts
+every job carries it, and that the step sits *after* the checkout — a local composite action that
+runs before its own source is on disk is a job that silently stops announcing anything.
+
+### The defect this change nearly shipped, and what found it
+
+`supabase start` keys its containers off `project_id`, **not off the directory it runs in**. On a
+hosted runner the machine is empty and two checkouts can never meet. This Mac carries the
+developer's own `coditu` stack on 544xx — so CI would have attached to *those containers*, and the
+next line of the required job is `supabase db reset`.
+
+**CI would have dropped the local database somebody was working in**, and only ever on the machine
+where nobody would think to look for it. So `./.github/actions/isolated-supabase` moves CI to
+`codituci` on **547xx** — 543xx CLI default, 544xx development, 545xx isolated e2e, 546xx restore
+drill — and every job that starts a stack now stops it under `always()`, because a hosted runner is
+deleted when the job ends and this one is not.
+
+The first version of that change covered `check` and `browser`. **`tests/ci-runner.test.ts` found
+`lighthouse`**, which starts a stack without resetting one and so does not read like a job that
+could hurt anybody — it would have stopped the developer's containers on teardown instead. The test
+was written to stop the drift back to metered runners and caught a data-loss bug on its first run.
+
+### Two jobs stay on `ubuntu-latest`, deliberately
+
+`keepalive.yml` and `rollback-drill.yml`. The rule that produces both:
+
+> **The metered runner is for the jobs whose whole reason to exist is to work when this Mac does
+> not.**
+
+The keepalive stops a free Supabase project being paused for inactivity — its entire value is in the
+week nobody is at the machine. The rollback drill exists for the moment production is broken, which
+is not a moment to discover recovery needs a laptop to be awake. Between them they are roughly 120
+of 3,000 minutes a month: 4% of the ceiling to keep the two controls that must not depend on the
+Mac independent of it. `tests/ci-runner.test.ts` asserts both stay hosted, because an intention
+written only in a comment is one refactor from being reversed by accident.
+
+### What this does not fix
+
+The Mac is now a single point for CI, and it is a laptop. A closed lid is a queued pull request.
+That is a real reduction in availability, accepted because the alternative — measured, not
+supposed — is a repository that cannot merge at all for the last nine days of every month.
+
+### The measured cost the first run found: caching what a persistent machine never lost
+
+`actions/setup-node`'s `cache: npm` archives `~/.npm` and uploads it to GitHub, so the **next**
+ephemeral machine does not download the registry again. A self-hosted runner is not ephemeral.
+`~/.npm` is still there next run, having never gone anywhere.
+
+Measured on the first run of this change, run `33410996124`:
+
+| | |
+|---|---|
+| Lint, typecheck, 589 unit tests, RLS suite, production build, budgets, resilience, `recovery:check`, degraded-dependency pause | **5 min** (15:53:19Z → 15:58) |
+| `Post Run actions/setup-node@v4`, uploading the cache | **15 min and still going** at 16:12:41Z, when it was cancelled |
+
+So the cache is asked for only on a hosted runner. It is written the long way round —
+`runner.environment == 'github-hosted' && 'npm' || ''` — because the shape that reads more
+naturally, `== 'self-hosted' && '' || 'npm'`, returns `npm` in **both** branches: an empty string
+is falsy in a GitHub expression, so the `||` takes over and the condition does nothing. A test
+asserts the trap is not present, since a workflow that silently ignores its own condition is the
+fail-open shape again, wearing an expression.
+
+### The second thing the first runs found: CI on this Mac depends on Colima being up
+
+Run `33412967360` went red on `supabase start` with
+
+```
+failed to inspect service: Cannot connect to the Docker daemon at
+unix:///Users/motamer/.colima/default/docker.sock. Is the docker daemon running?
+```
+
+Colima had stopped between two runs of this very change. Nothing was wrong with the branch: the
+isolation step had already rewritten the ports to 547xx correctly, and every step before it passed.
+
+**A hosted runner ships with a running Docker; this one does not, and that is a new dependency the
+move introduced.** It is now in `docs/14-DEPENDENCY-LEDGER.md` as a row of its own, and the action
+checks `docker info` first and puts `colima start` in the job summary. The message the runner gave
+was true and did not contain the remedy — and `main` is frozen while the required check is red, so
+the minute that saves is not a convenience.
+
+It reports rather than starting Colima itself. A CI job that silently boots a 6 GiB virtual machine
+on somebody's laptop is a surprise, and "the VM is deliberately down" is a real state.
