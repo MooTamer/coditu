@@ -2462,3 +2462,70 @@ unattended run.**
 **And the smaller trap inside it:** `ls -t` picked the *oldest* archive of eight that had been
 downloaded within the same second. Sort recovery sets by **name** — the names are ISO-8601 — never
 by mtime.
+
+## A cancelled run can wedge the self-hosted listener, and it still reports itself online
+
+Measured 2026-08-31, four times in one afternoon, on `coditu-mac`.
+
+Cancel a workflow run while the runner is executing one of its jobs and the job ends correctly —
+`Job … completed with result: Canceled` in `~/Library/Logs/actions.runner.*/stdout.log`. What does
+not always follow is the next line, `Listening for Jobs`. Without it the runner takes nothing, and
+the queued work sits there.
+
+**The reason it costs time is that nothing looks wrong.** The API says:
+
+```
+gh api repos/MooTamer/coditu/actions/runners --jq '.runners[]|"\(.status) busy=\(.busy)"'
+online busy=false
+```
+
+Online. Not busy. And not working. Meanwhile the run says `queued`, which is the same word it uses
+when a runner is simply occupied — so the obvious reading is "something else is ahead of me", and
+the obvious response is to wait, which never resolves.
+
+**The tell is in the runner's own log, not in GitHub:** the last line is a job completing, and there
+is no `Listening for Jobs` after it. Two minutes of that is enough to be sure.
+
+```bash
+tail -2 ~/Library/Logs/actions.runner.MooTamer-coditu.coditu-mac/stdout.log
+cd ~/actions-runner-coditu && ./svc.sh stop && ./svc.sh start
+```
+
+It picked the queued job up **three seconds** after the restart.
+
+Two things follow. **Cancel sparingly** — with a single runner the temptation is to cancel
+report-only jobs to free it, and each cancellation risks this. And when a job is queued against an
+idle runner, **read the runner's log before believing GitHub's status**: `online` is the runner's
+connection, not its willingness.
+
+## A pull request with a merge conflict schedules no CI at all
+
+Measured 2026-08-31, and it froze `main` for twenty minutes.
+
+A push to a pull-request branch produced **no workflow run**: nothing queued, nothing failed, and no
+`github-actions` entry in the commit's check suites —
+
+```bash
+gh api repos/MooTamer/coditu/commits/<sha>/check-suites --jq '.check_suites[].app.slug'
+vercel
+claude
+supabase
+```
+
+— while Vercel built the same push, so the event plainly reached webhooks. Closing and reopening the
+pull request did not help. Force-pushing a fresh sha did not help.
+
+**The cause: the pull request had gone `DIRTY` — a merge conflict with `main`.** GitHub runs
+`pull_request` workflows against `refs/pull/N/merge`, and a conflicting branch has no merge ref to
+build, so nothing is scheduled. Merging `main` in and resolving produced a run within seconds.
+
+**Nothing tells you.** The checks list is simply empty, which is exactly what it looks like in the
+first ten seconds after a push. The distinguishing question is not *"why has CI not started?"* but:
+
+```bash
+gh pr view <n> --json mergeStateStatus --jq .mergeStateStatus
+```
+
+`DIRTY` means it will never start. `BLOCKED` and `UNSTABLE` mean it did.
+
+`workflow_dispatch` is on `ci.yml` now, as the way back in when the event path produces nothing.
