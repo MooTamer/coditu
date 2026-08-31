@@ -6316,3 +6316,43 @@ smoke would have failed on a file that was never sent rather than on anything wr
 release. `.vercelignore` now exists and states the upload explicitly; a test asserts that
 `.gitignore` excludes the file and that no rule in `.vercelignore` does. The two pull in opposite
 directions, which is exactly why the answer could not be left to a fallback.
+
+---
+
+## 2026-08-31 · `vercel curl` leaks its own `--token` into curl, and only a real token shows it
+
+**What happened.** With the build moved to Vercel, the deploy job got all the way to a staged
+production deployment — built, READY — and then:
+
+```
+> You require a deployment protection bypass token to access this deployment... Generating one now...
+> Successfully generated deployment protection bypass token for project ***
+curl: option --token: is unknown
+deploy-production: staged production smoke failed; domains were not changed
+```
+
+Vercel CLI 59.9.1 reads `--token` for authentication — the bypass line above proves it did — and
+then **forwards it to curl** with the rest of the arguments. `smoke_staged` had passed it that way
+since the script was written.
+
+**The important part is why nothing caught it.** The leak is invisible with an INVALID token: the
+CLI rejects it and never reaches curl. Reproduced at 59.9.1 to be sure of the mechanism rather than
+the symptom — `--token` after the path, and `--token` before the subcommand, both give
+*"The token provided via `--token` argument is not valid"* when the token is junk, and only the
+valid-token path gets far enough to hand it to curl. So every rehearsal passed, and the
+fake-provider harness could never have found it: **it proves the script, not the tool.** Third time
+in this pass that something recorded as rehearsed had never been observed against the real thing.
+
+**Decision.** No `--token` flag on `vercel curl` at all. The CLI reads `VERCEL_TOKEN` from the
+environment — verified: with a junk value it answers *"The token provided via VERCEL_TOKEN
+environment variable is not valid"*, naming the variable — and the deploy job already exports it.
+A flag that is not passed cannot leak. `deploy-production.sh` now `export`s it explicitly rather
+than relying on the workflow's `env:` continuing to do so.
+
+**Unchanged: the `vercel_cli` wrapper.** `deploy`, `inspect`, `promote` and `rollback` have no
+passthrough section, so a trailing `--token` is consumed there and always was.
+
+**What the failure demonstrated, and it is the good news.** The script refused at exactly the right
+place. It stages, smokes the staged deployment, and only then moves domains — so a broken smoke
+cost nothing: `staged production smoke failed; domains were not changed`, and production stayed on
+`707d03f`, verified from the public origin rather than from the API.

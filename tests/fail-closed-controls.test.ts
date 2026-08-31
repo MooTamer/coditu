@@ -398,3 +398,44 @@ describe("the release stamps its commit and that stamp reaches Vercel", () => {
     expect(DEPLOY).toContain(`[ "$(jq -er '.commit' "$release_health_file")" = "$GITHUB_SHA" ]`);
   });
 });
+
+/**
+ * `vercel curl` and the flag it leaks.
+ *
+ * Vercel CLI 59.9.1 reads `--token` for authentication and then forwards it to
+ * curl with everything else, so the staged smoke died on `curl: option
+ * --token: is unknown` and the first deliberate deploy never promoted. The leak
+ * is INVISIBLE with an invalid token — the CLI rejects that before reaching
+ * curl — which is exactly why every rehearsal against a fake provider passed.
+ *
+ * Measured against the real CLI: `--token` after the path leaks; `VERCEL_TOKEN`
+ * in the environment does not, and the CLI names it by that variable when it is
+ * wrong.
+ */
+describe("the staged smoke does not hand curl a flag it cannot read", () => {
+  const DEPLOY = read("scripts/deploy-production.sh");
+
+  it("gives vercel curl no --token flag at all", () => {
+    // Comments stripped first. The block above explains the leak at length and
+    // names the flag; a test that reads its own explanation as the defect
+    // fails for the one reason that is not one.
+    const code = DEPLOY.split("\n")
+      .filter((line) => !/^\s*#/.test(line))
+      .join("\n");
+    const calls = code.match(/vercel curl[\s\S]*?\n\s*--silent[^\n]*/g) ?? [];
+    expect(calls.length).toBe(2);
+    for (const call of calls) expect(call).not.toContain("--token");
+  });
+
+  it("exports the token instead, because the CLI reads it from there", () => {
+    expect(DEPLOY).toMatch(/^export VERCEL_TOKEN$/m);
+    // And still refuses to start without it.
+    expect(DEPLOY).toMatch(/for release_required in VERCEL_TOKEN /);
+  });
+
+  it("leaves the other CLI calls using the wrapper, which is unaffected", () => {
+    // `deploy`, `inspect`, `promote` and `rollback` have no passthrough section,
+    // so a trailing --token is consumed there and always was.
+    expect(DEPLOY).toContain('vercel "$@" --token "$VERCEL_TOKEN"');
+  });
+});
