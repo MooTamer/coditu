@@ -7109,3 +7109,20 @@ emergency card.
 
 `npm run docs:card` regenerates it from `docs/15-EMERGENCY-CARD.md`, which stays the source of
 truth. If the two ever disagree, the Markdown is right and somebody forgot to re-render.
+
+### No `cancel-in-progress`, and it is a trade rather than an oversight
+
+With one runner, pushing twice to a branch queues two full runs and the first one is already
+superseded. The standard fix is a `concurrency` group with `cancel-in-progress: true` on
+`pull_request`. It is deliberately **not** enabled.
+
+The reason is the other thing measured on 2026-08-31: **cancelling a run can leave this runner's
+listener wedged** — `online busy=false` to the API, and taking no jobs until the service is
+restarted (`docs/07-FIELD-NOTES.md`). Auto-cancel does not avoid that failure, it schedules it. On
+a fleet of ephemeral runners the trade is obviously worth it; on one laptop that is the only runner
+the repository has, trading four wasted minutes for an occasional wedge that stops **everything**
+is the wrong direction.
+
+Revisit when either half changes: a second runner, or an understanding of the wedge good enough to
+prevent it. Until then the cost is visible, bounded, and paid in minutes rather than in a frozen
+trunk.
