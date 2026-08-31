@@ -6491,3 +6491,101 @@ The message contradicts itself, and the effect is that doing the owed thing fail
 the contract role is checked first and unconditionally, still demanding `select` and no `insert`; the
 deviation is consulted only for roles that are not it. Measured both ways against the real project —
 the old file exits 1 on that posture, the new one exits 0 and reports 40 migrations.
+
+---
+
+## 2026-08-31 · R5's denominator was wrong: the allowance is 3,000, and it still ran out
+
+**Corrects the 2026-08-30 entry "R5 — the Actions minutes are one pool, and the arithmetic says the
+backup loses."** Its measured burn stands. Its ceiling does not, and neither does its idea of who is
+drawing on the pool.
+
+### The plan is Pro, not Free
+
+`github.com/MooTamer` carries a **PRO** badge — GitHub Pro, through the Student Developer Pack. A Pro
+personal account includes **3,000** Actions minutes a month for private repositories, not the 2,000
+the R5 entry assumed throughout. The denominator was **50% too small**.
+
+### Verified by observation, not by reading the plan page
+
+The billing page needs the `user` scope this machine's `gh` token does not carry, and Chrome is not
+signed in, so the ceiling was derived from the runs themselves: every job in every repository on the
+account for August 2026, `started_at` to `completed_at`, **rounded up per job** the way GitHub bills.
+449 jobs.
+
+```
+cumulative 2000 min crossed  2026-08-29 23:16Z
+cumulative 2500 min crossed  2026-08-30 20:50Z
+cumulative 3000 min crossed  2026-08-31 08:20Z
+first zero-step run          2026-08-31 08:23:52Z
+```
+
+**2,000 is falsified outright: 70 further jobs each billing two minutes or more ran after that mark,
+over the following 33 hours.** 3,000 is matched to within four minutes of wall clock. The eight jobs
+that finish after it are the ones already in flight, which is exactly the shape of a stopped
+allowance — in-flight work completes, new work gets zero steps.
+
+Reconciling with the billing page Mohamed read — **$19.60 gross, $13.70 of it coditu**: counting
+every job gives $24.50 / $19.06, and excluding cancelled jobs entirely gives $17.10 / $11.90. His
+figures sit inside both brackets, which is what should happen when a cancelled job bills for part of
+its time. The reconstruction is consistent with the page; the minutes are the sharper instrument.
+
+### The pool has a consumer the entry never counted
+
+R5 modelled the pool as `coditu` plus `coditu-recovery`. Measured across the whole account:
+
+| repository | minutes | share | window |
+|---|---:|---:|---|
+| `MooTamer/coditu` | 2,681 | 78.6% | 21–31 Aug |
+| **`MooTamer/taseel-academy`** | **601** | **17.6%** | **1–19 Aug** |
+| `MooTamer/Baseeta` | 79 | 2.3% | 30–31 Aug |
+| `MooTamer/coditu-recovery` | 47 | 1.4% | 29–31 Aug |
+| four others | 5 | 0.1% | |
+| | **3,413** | | |
+
+**`taseel-academy` spent a fifth of the month's allowance before coditu's first CI run of the month.**
+That is not a criticism of it — it is the point R5 was making, arriving from a direction R5 did not
+look. The pool is the *account*, and the account has other work in it.
+
+### The fixed cost R5 modelled is right; the per-push cost is 23% low
+
+The scheduled jobs were all created on 29 August, so their August totals are age rather than
+throttling. Extrapolated from their own observed cadence they land where R5 put them:
+
+| scheduled job | R5's model | observed | projected |
+|---|---:|---:|---:|
+| Recovery copy freshness (3-hourly) | 240/mo | 7.9 runs/day | ~237/mo |
+| Database keepalive (6-hourly) | 120/mo | on schedule | ~120/mo |
+| Nightly recovery copy (daily) | 150/mo | 4.25 min/run | ~128/mo |
+
+The variable half does not. R5 blended a **27.3-minute** average push. Measured: **79 CI runs, 2,664
+minutes, 33.7 minutes per run** — 23% above model, because `browser` and `lighthouse` run on more
+pushes than the docs-skip estimate allowed for.
+
+### The corrected arithmetic, and why it is worse rather than better
+
+```
+ceiling                                3,000     (Pro, was modelled as 2,000)
+less scheduled jobs                    - 500
+less the rest of the account           - 682     (taseel-academy, Baseeta, misc)
+                                       -----
+available to coditu CI                 1,818     (R5 said 1,488)
+÷ measured 33.7 min per CI run         =  54 runs a month
+
+observed                               7.8 CI runs a day  =  ~234 a month
+```
+
+**A 50% larger denominator is more than eaten by the 23% the entry never counted and the 23% the
+per-run cost was under-estimated by.** R5's headline was "~27 changes a month with the skip, ~11
+without". The corrected figure is **~54 CI runs a month, and the repository did 79 in ten days** —
+running at roughly **4.3×** what the allowance supports. Every conclusion R5 drew stands and each is
+sharper: the backup is the smallest line on the list (47 minutes, 1.4%) and it is the thing that
+stops.
+
+**Unchanged and now quantified: moving the backup off Actions removes it from the contended pool
+entirely** for the price of the Mac being on. 47 measured minutes is not the reason — the reason is
+that a backup must not fail because CI was busy, and 1.4% of a pool you are 4.3× over is still zero
+when the pool is empty.
+
+**Not re-litigated here:** whether `browser` moves to a nightly schedule. It is still the largest
+single lever and still needs the determinism review beside it.

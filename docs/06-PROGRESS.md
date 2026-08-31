@@ -6363,3 +6363,23 @@ Three things this changed, and one it found:
    `HOSTED_SCHEMA_PRIVILEGED_ROLE=postgres` — which `ci.yml` carries — a secret narrowed to
    `coditu_backup` was refused. Narrowing that secret is an owed action; doing it would have failed
    the deploy.
+
+---
+
+## 2026-08-31 · R5's ceiling re-derived — it is 3,000, and the burn is 4.3× it
+
+| what | how | result |
+|---|---|---|
+| The plan | the PRO badge on `github.com/MooTamer`'s public profile | **GitHub Pro** (Student pack) — 3,000 Actions minutes/month for private repos, not Free's 2,000 |
+| The ceiling, by observation | every August job in all 7 repos, `started_at`→`completed_at`, rounded up per job (449 jobs) | 2,000 crossed **08-29 23:16Z**; 3,000 crossed **08-31 08:20Z**; first zero-step run **08-31 08:23:52Z** |
+| 2,000 falsified | jobs billing ≥2 min after each mark | **70** further such jobs ran after the 2,000 mark, over 33 hours. After 3,000: 8, all already in flight |
+| Reconciled with the billing page | counting all jobs vs excluding cancelled | $24.50 / $17.10 gross — Mohamed's **$19.60** sits between. coditu: $19.06 / $11.90 — his **$13.70** sits between |
+| The unbudgeted consumer | per-repo totals | **`taseel-academy` 601 min (17.6%)**, 1–19 Aug, before coditu's first run of the month. R5 modelled the pool as coditu + coditu-recovery only |
+| Per-run cost | 79 CI runs / 2,664 min | **33.7 min per run**, against R5's blended 27.3 — 23% low |
+| Corrected headroom | 3,000 − 500 scheduled − 682 elsewhere | **1,818 min → ~54 CI runs/month.** Observed 7.8 runs/day ≈ 234/month, i.e. **4.3× over** |
+
+R5's fixed-cost table is verified rather than corrected: the freshness canary really does fire 7.9
+times a day, and its low August total is that it was created on 29 August. The direction of R5's
+conclusion is unchanged and its margin is worse — a 50% larger denominator is more than swallowed by
+a fifth of the pool spent elsewhere and a per-run cost a quarter above model. The backup is 47
+minutes, **1.4%** of the burn, and it is the thing that stops.
