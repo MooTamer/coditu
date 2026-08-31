@@ -6332,6 +6332,79 @@ is made an engineer. The rehearsal had to create one to see anything at all.
    minutes would swell a pot he took no share of. The check that found it asserted a constant about
    an admin-editable value and is fixed.
 
+## 2026-08-31 · T1.5 closed — production deploys from CI, and the allowance ran out
+
+### The first deliberate production deployment
+
+**Read from the provider at 2026-08-31T08:10Z**, five minutes after the deploy job finished, and
+polled every 60 seconds from 08:03Z to 08:09Z rather than taken once — the 2026-08-29 rule.
+
+| | |
+|---|---|
+| deployment | `dpl_7bvDYmmdmFUMun32pZKZXeCF1Rff` |
+| commit | **`d5f11a86917e691167c77efc2dd7024be31708b9`** |
+| target | `production`, `readyState: READY` |
+| source | **`cli`** — deployed by CI, not by the git integration |
+| previous | `dpl_8dnEkDR9XgHT7bbULC8dPAV2NHHB` = `707d03f`, the accidental one |
+
+**Production is no longer `707d03f`.** Live verification at 08:10Z, all on the production origin:
+
+```
+/                       200  Portals, internal systems, and RAG assistants | Coditu
+/login                  200  Sign in | Coditu
+/api/health/database    200  coditu-database-awake
+/app                    200  -> /login?next=%2Fapp
+/app/settings/recovery  200  -> /login?next=%2Fapp%2Fsettings%2Frecovery
+/build-health.json      {"status":"ok","commit":"d5f11a86…"}
+```
+
+**Stated rather than glossed: the authenticated routes were verified as GUARDED, not as rendered.**
+Both redirect to `/login` on the production origin, which is the correct behaviour and is what the
+deploy's own smoke asserts. Verifying a signed-in render needs either a real password or the
+production service-role key to mint a session, and neither is something to spend on a smoke test.
+
+### It took three attempts, and each failure was a real defect
+
+| attempt | got as far as | stopped by |
+|---|---|---|
+| `8063a8e` | schema preflight green | `vercel pull` writes `[SENSITIVE]`; **a Sensitive env var is write-only**, so a build outside Vercel cannot have it |
+| `6f37fe2` | staged, READY, built | `curl: option --token: is unknown` — `vercel curl` forwards its own `--token` to curl. **Invisible unless the token is valid**, so every fake-provider rehearsal passed |
+| `d5f11a8` | promoted and smoked | — |
+
+The second one is the good news it looks like: `staged production smoke failed; domains were not
+changed`, and production stayed on `707d03f`, verified from the public origin. **The script refused
+at exactly the right place.**
+
+### The rollback drill — one finding, and then no runners
+
+`vercel rollback` on the Hobby plan reaches **exactly one step**:
+
+```
+Error: To rollback further than the previous production deployment, upgrade to pro. (402)
+```
+
+`deploy-production.sh`'s trap rolls back to precisely that deployment, so **the real recovery path
+is inside the free allowance** — and there is no second undo. Nothing said so before today. The
+drill was rewritten to step away with `promote` and return with `rollback`, verifying by deployment
+id, and **has not been run to completion**: see below.
+
+### R5 has happened
+
+Every job in both repositories now starts and finishes in 2–3 seconds with **zero steps**. Confirmed
+three ways: the CI push for `3fe7ab0`, the 8-second `Database keepalive`, and `Recovery copy
+freshness` in the recovery repository — so it is account-wide. Billing could not be read to name the
+cause (`user` scope).
+
+- Newest backup: **`2026-08-31T070134Z`**, taken 07:01Z, 19,401,140 bytes, 64 tables / 1,397 rows /
+  135 objects. **The nightly cannot run from here.**
+- The canary cannot run to say so — **and it is already red on purpose** for the missing
+  `HEARTBEAT_URL`, so the worse cause is wearing the old one's clothes. A deliberate red is a place a
+  real red can hide.
+- `main` is frozen: the ruleset requires a check that cannot run.
+- `3fe7ab0` is **not deployed**. Production is `d5f11a8`; `main` is one ahead.
+
+Not worked around. Deploying from a laptop bypasses the gate this pass built; a self-hosted runner
+puts production credentials on an unmodelled machine.
 ---
 
 ## 2026-08-31 · Enforce SSL is on, and the preflight now says what it proved
@@ -6678,3 +6751,67 @@ npm test                                 # 42 files, 589 passed
 
 `npm run recovery:check` is still red on the branches that changed backup tooling, by design —
 `npm run recovery:sync` follows the merge. Nothing in this step touches it.
+
+### The sync had to precede the merge, and the note that said otherwise was a deadlock
+
+The entry above says `npm run recovery:sync` "is the step that follows the merge, not one that
+precedes it". **That ordering cannot be executed**, and the first run of CI on this branch is what
+showed it:
+
+```
+blocking release checks · step 21 · npm run recovery:check
+sync-recovery-repo: the recovery repository tree has drifted:
+  staged c7219cf8…, recorded b8bdb737…
+```
+
+`recovery:check` is inside `blocking release checks`, which is the **one required check** on the
+`main` ruleset. So a pull request that changes backup tooling cannot go green until the recovery
+repository is synced — and the note asked for the sync to happen only after the merge that the
+check will not allow. It is a circular wait, and it is the same family this repository has been
+cataloguing all week, arriving from a third side: not a control that is silent, nor one that cannot
+be made to fail, but **one whose only remedy is on the far side of itself**.
+
+Nothing about the original reasoning was wrong — pushing live backup infrastructure ahead of a pull
+request that may not merge really would leave the recovery repository running ahead of `main`. It
+was a rule written without checking whether the gate it had to pass through would allow it. The
+precedent was already there: PR #5 synced mid-branch and said so in its commit message.
+
+**Revised: the sync immediately PRECEDES the merge, once the pull request is otherwise green.** The
+exposure that remains is a window of minutes in which the recovery repository carries tooling
+`main` does not, and it is self-correcting — an abandoned branch leaves `recovery:check` red on
+`main`, which is exactly the signal that would be wanted.
+
+What was pushed, and it is two files that only make the restore path stricter:
+
+| File | Change |
+|---|---|
+| `ops/recovery-repo/workflows/nightly-backup.yml` | Loses its schedule, keeps `workflow_dispatch`. The nightly runs on the Mac. |
+| `scripts/verify-backup-restore.sh` | +67 lines, no deletions: the two opt-ins and the refusal to call a restore verified while the `auth.users` triggers are missing. |
+
+```
+recovery_repo=MooTamer/coditu-recovery
+head=b0f6e0c4385967095cb2d80ff476f8ed6717eec6
+digest=9ea9b2df269cedfa1191c41ee974a38c76fc8d7459ade747980e19da19a2979d
+recovery_repo_tree=in_sync
+```
+
+### And the migration reached hosted first, as the rule says it must
+
+`20260831120000_a_payout_basis_of_its_own.sql` was **not** on hosted when this branch was ready to
+merge — hosted stood at 40 and `profiles.payout_basis` did not exist, while this branch's code reads
+it. Merging first would have put `main` in the state the 2026-08-21 outage came from.
+
+Applied through the Management API as one request, so every statement lands or none does — the
+`schema_migrations` row included, because "the schema changed and the ledger says it did not" is the
+one state the preflight would read as drift.
+
+| | before | after |
+|---|---|---|
+| migrations | 40, newest `20260830140000` | **41**, newest `20260831120000` |
+| `payout_basis` / `hourly_rate_cents` / `shares.basis` | absent | present |
+| backfill | — | `is_developer=true → share` (2), `false → none` (2) — today's money, row for row |
+| `sprint_payouts` / `sprint_payout_shares` | 0 / 0 | **0 / 0** |
+| `guard_profile_privilege_columns` | denylist | **allowlist** — which also closes `account_kind` |
+
+The preflight only requires local ⊆ remote, so hosted standing one ahead of `main` between this and
+the merge is not drift and does not block a deploy.
