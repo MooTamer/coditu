@@ -85,7 +85,14 @@ if [ "${1:-}" = "--find-drive" ]; then
     [ -d "$find_root" ] || continue
     find_any=1
     printf 'found=%s\n' "$find_root"
-    printf '\n  OFFSITE_drive_DIR=%s/My Drive/Coditu/Backups\n' "$find_root"
+    printf '\nAdopt the folder first — the nightly never creates a directory, because a\n'
+    printf 'mount point that exists with nothing mounted on it looks exactly like a\n'
+    printf 'destination and fills the boot disk instead:\n\n'
+    printf '  scripts/offsite-copy.sh --adopt "%s/My Drive/Coditu/Backups" drive\n\n' "$find_root"
+    printf 'Then add to ~/.config/coditu/nightly.env:\n\n'
+    printf '  OFFSITE_DESTINATIONS="drive"\n'
+    printf '  OFFSITE_drive_DIR=%s/My Drive/Coditu/Backups\n' "$find_root"
+    printf '  OFFSITE_drive_MARKER=.coditu-backup-volume\n'
     printf '  OFFSITE_drive_REQUIRED=1\n\n'
   done
   if [ "$find_any" = 0 ]; then

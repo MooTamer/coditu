@@ -101,6 +101,17 @@ describe("every CI job runs where we chose, and says so", () => {
   });
 });
 
+describe("CI can be started by hand", () => {
+  it("accepts workflow_dispatch", () => {
+    // On 2026-08-31 a push to a pull-request branch produced no run at all —
+    // no job, no failure, no `github-actions` check suite — because the branch
+    // had gone DIRTY and `refs/pull/N/merge` cannot be built for a conflicting
+    // pull request. The checks list stays empty, which reads as "not started
+    // yet" rather than as "will never start".
+    expect(ci).toMatch(/^ {2}workflow_dispatch:$/m);
+  });
+});
+
 describe("the runner identity reaches the summary, and names the cost", () => {
   it("writes to the step summary rather than only the log", () => {
     expect(identity).toContain('>> "$GITHUB_STEP_SUMMARY"');

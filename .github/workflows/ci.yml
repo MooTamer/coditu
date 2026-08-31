@@ -4,6 +4,24 @@ on:
   push:
     branches: [main]
   pull_request:
+  # ── Because a pull request can stop producing runs entirely ───────────────
+  #
+  # Measured 2026-08-31. A push to a pull request branch produced **no workflow
+  # run at all** — no queued job, no failure, no `github-actions` check suite on
+  # the commit, while Vercel built the very same push. Close-and-reopen did not
+  # help either. It presents as "CI silently stopped", which is the worst shape
+  # a control can have, and it froze `main` for twenty minutes.
+  #
+  # The cause was ordinary and the symptom was not: the pull request had gone
+  # **DIRTY** — a merge conflict with `main`. GitHub runs `pull_request`
+  # workflows against `refs/pull/N/merge`, and a conflicting branch has no merge
+  # ref to build, so nothing is scheduled. Resolving the conflict produced a run
+  # within seconds. Nothing warns you; the checks list simply stays empty, which
+  # reads exactly like "CI has not started yet".
+  #
+  # `workflow_dispatch` is the way back in when that happens, and it is useful
+  # for its own sake: re-running the suite without inventing a commit.
+  workflow_dispatch:
 
 permissions:
   contents: read
