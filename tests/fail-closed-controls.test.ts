@@ -43,6 +43,10 @@ const CI = read(".github/workflows/ci.yml");
 const KEEPALIVE = read(".github/workflows/keepalive.yml");
 const CANARY = read("ops/recovery-repo/workflows/backup-canary.yml");
 const NIGHTLY = read("ops/recovery-repo/workflows/nightly-backup.yml");
+const LOCAL_NIGHTLY = read("scripts/local-nightly.sh");
+const AGENT = read("scripts/install-nightly-agent.sh");
+const TRIGGERS = read("scripts/reapply-managed-triggers.sh");
+const VERIFIER = read("scripts/verify-backup-restore.sh");
 
 /**
  * The fail-open shape: an emptiness test whose branch ends in `exit 0`.
@@ -487,5 +491,154 @@ describe("the staged smoke does not hand curl a flag it cannot read", () => {
     // `deploy`, `inspect`, `promote` and `rollback` have no passthrough section,
     // so a trailing --token is consumed there and always was.
     expect(DEPLOY).toContain('vercel "$@" --token "$VERCEL_TOKEN"');
+  });
+});
+
+
+/**
+ * The nightly moved to the Mac on 2026-08-31, and it took the restore drill
+ * with it.
+ *
+ * Two reasons it had to. The drill needs the age **private** key, which is
+ * deliberately not on GitHub and which age gives no decrypt-only form of, so no
+ * scheduled cloud job could ever run it. And Actions minutes belong to the
+ * account rather than the repository, so CI and the backup drew on one pool —
+ * which ran out at 08:20Z that morning, took every job in both repositories to
+ * zero steps, and stopped the nightly. The backup was 47 of the month's
+ * minutes. 1.4% of the burn, and the first thing to die.
+ *
+ * A local job trades one failure mode for another on purpose: the Mac can be
+ * asleep. The whole design is that the new failure mode is **visible** — a
+ * missed heartbeat at healthchecks.io — where a GitHub run that never happened
+ * is nothing at all. These assertions are about keeping it that way.
+ */
+describe("the nightly runs on the Mac, and cannot run quietly", () => {
+  it("is no longer on a schedule in Actions, and still dispatchable", () => {
+    // Moved, not duplicated. Two nightlies writing to one release store is two
+    // things to keep in step and twice the chance of a half-published set.
+    expect(NIGHTLY).not.toMatch(/^\s*schedule:/m);
+    expect(NIGHTLY).toMatch(/^\s*workflow_dispatch:/m);
+  });
+
+  it("refuses to run at all without the heartbeat", () => {
+    // The one that matters. Unconfigured alerting must not mean "run without
+    // alerting" — a 02:00 job with no outside observer is a job whose success
+    // and whose absence look identical.
+    expect(LOCAL_NIGHTLY).toMatch(/nightly_required="[^"]*HEARTBEAT_URL/);
+    expect(LOCAL_NIGHTLY).toMatch(/\[ -z "\$nightly_missing" \] \|\| \{[\s\S]*?exit 1/);
+    // And it is loud where a person can see it, not only in a log file.
+    expect(LOCAL_NIGHTLY).toContain("display notification");
+  });
+
+  it("refuses a secrets file anybody can read", () => {
+    expect(LOCAL_NIGHTLY).toMatch(/it must be 600/);
+    expect(LOCAL_NIGHTLY).toMatch(/\[ "\$nightly_mode" = "600" \] \|\|/);
+  });
+
+  it("pings success only AFTER the restore has verified", () => {
+    // A copy that was written and never restored is a file, not a backup. The
+    // success ping must be downstream of the drill, so a night that published
+    // and could not restore reads as a failure rather than as a green tick.
+    const drill = LOCAL_NIGHTLY.indexOf("verify-backup-restore.sh");
+    const success = LOCAL_NIGHTLY.lastIndexOf('ping_heartbeat ""');
+    expect(drill).toBeGreaterThan(-1);
+    expect(success).toBeGreaterThan(drill);
+    // And exit 0 from the verifier is not enough on its own.
+    expect(LOCAL_NIGHTLY).toContain("restore_verified=true");
+  });
+
+  it("reads the store back rather than trusting the writer's exit status", () => {
+    // `BACKUP_UPLOAD` defaults to 0, so one dropped line turns this into a
+    // script that writes the whole workspace to a local directory, prints every
+    // count and exits 0. The same trapdoor the Actions job had, and the same
+    // one-hour window closing it.
+    expect(LOCAL_NIGHTLY).toContain("BACKUP_UPLOAD=1");
+    expect(LOCAL_NIGHTLY).toMatch(/BACKUP_MAX_AGE_SECONDS=3600/);
+  });
+
+  it("never lets a partial run look like a complete one", () => {
+    // `--drill-only` proves a set restores and proves nothing about a set being
+    // written, so it must not be able to send the ping that says both.
+    expect(LOCAL_NIGHTLY).toMatch(
+      /ping_heartbeat\(\) \{\s*\n\s*\[ "\$nightly_drill_only" = 0 \] \|\| return 0/,
+    );
+  });
+
+  it("refuses to install a schedule for a job that cannot run", () => {
+    // An agent installed against a broken configuration is how a backup ends up
+    // automated and absent at the same time.
+    expect(AGENT).toMatch(/local-nightly\.sh" --dry-run \|\|/);
+    expect(AGENT).toContain("StartCalendarInterval");
+    // `StartInterval` drifts and skips; a calendar interval fires on the next
+    // wake after a missed slot, which is most of what a laptop needs. Matched
+    // as a plist key, because the header explains why it is not used and a bare
+    // substring match reads that explanation as the thing it warns against.
+    expect(AGENT).not.toMatch(/<key>StartInterval<\/key>/);
+    // Installing must not itself write a release.
+    expect(AGENT).not.toMatch(/<key>RunAtLoad<\/key>\s*<true\/>/);
+  });
+});
+
+
+/**
+ * The half a dump of this project cannot carry, and the two opt-ins that let an
+ * unattended drill do the whole runbook rather than a subset of it.
+ *
+ * Both default OFF. An absent variable makes `verify-backup-restore.sh` HARDER
+ * to satisfy, never easier — the same rule as the schema preflight's role
+ * exception, and the reason is the same: a recovery at 3am must meet the strict
+ * version, and only a harness that owns a disposable target may relax it.
+ */
+describe("the drill does the whole recovery, and the relaxations are opt-in", () => {
+  it("keeps both relaxations off unless something asks for them", () => {
+    expect(VERIFIER).toMatch(/\$\{RESTORE_WIDEN_MANAGED_COLUMNS:-0\}" = "1"/);
+    expect(VERIFIER).toMatch(/if \[ -n "\$\{RESTORE_MIGRATE_CMD:-\}" \]/);
+    // Still refuses by default when the target is older than the backup.
+    expect(VERIFIER).toContain("the restore target is missing columns this backup carries");
+    // And still refuses to call an un-migrated database restored.
+    expect(VERIFIER).toContain("the data restored but the database is NOT usable");
+  });
+
+  it("says on every run what it had to widen", () => {
+    // A relaxation nobody can see is a relaxation nobody revisits.
+    expect(VERIFIER).toContain("restore_target_widened=");
+    expect(LOCAL_NIGHTLY).toContain("target widened to accept");
+  });
+
+  it("compares the row counts BEFORE re-applying anything", () => {
+    // Otherwise the counts measure the migrated database rather than the
+    // restore, and a migration that inserted a row would make the drill green
+    // about an archive that was short.
+    expect(VERIFIER.indexOf("RESTORE_MIGRATE_CMD")).toBeGreaterThan(
+      VERIFIER.indexOf("restore_missing_rows"),
+    );
+  });
+
+  it("derives the managed triggers from the migrations rather than listing them", () => {
+    // A hand-kept list is silent about the trigger somebody adds next — the
+    // defect this repository has now found in a guard, a test and three CI
+    // controls.
+    expect(TRIGGERS).toMatch(/supabase\/migrations\/\*\.sql/);
+    expect(TRIGGERS).not.toMatch(/enforce_email_allowlist|on_auth_user_created/);
+    // Slurped, not line-based: `create trigger x` and `on auth.users` are never
+    // on the same line, and the line-based version of this scan found nothing
+    // and reported success.
+    expect(TRIGGERS).toContain("perl -0777");
+    expect(TRIGGERS).toContain("drop trigger if exists");
+  });
+
+  it("refuses to report success when the scan finds nothing", () => {
+    expect(TRIGGERS).toMatch(/\[ -n "\$triggers_sql" \] \|\|/);
+    expect(TRIGGERS).toContain("this scan has gone blind");
+  });
+
+  it("does not tell anybody to run `supabase db push` over a restore", () => {
+    // It does not work: the archive carries no `supabase_migrations`, so the
+    // CLI replays all forty migrations over a full schema and dies on
+    // `create type app_role`. Measured 2026-08-31.
+    expect(read("docs/12-RECOVERY-RUNBOOK.md")).not.toMatch(
+      /5a\.[\s\S]{0,200}supabase db push/,
+    );
+    expect(LOCAL_NIGHTLY).toContain("reapply-managed-triggers.sh");
   });
 });

@@ -1,8 +1,24 @@
 name: Nightly recovery copy
 
+# ── NOT SCHEDULED ANY MORE. The nightly moved to the Mac on 2026-08-31. ───────
+#
+# `scripts/local-nightly.sh`, on a launchd agent, does this AND the restore
+# drill, which is the half that could never run here: `verify-backup-restore.sh`
+# needs the age private key, the key is deliberately not on GitHub, and age has
+# no decrypt-only identity.
+#
+# The reason it moved is the one recorded as R5 and then materialised on
+# 2026-08-31: Actions minutes belong to the ACCOUNT, so CI and the backup draw
+# on one pool. The pool ran out at 08:20Z, every job in both repositories began
+# returning zero steps, and the nightly stopped. **The backup was 47 of the
+# month's minutes — 1.4% — and it was the first thing to die.** A backup must
+# not compete for budget with a test suite.
+#
+# It is kept, and kept working, as `workflow_dispatch` only: the Mac is one
+# machine, and one command from a browser is a cheap thing to still have on the
+# night somebody needs a copy and cannot get to it. It is a fallback that a
+# person chooses, not a schedule that competes.
 on:
-  schedule:
-    - cron: "17 1 * * *"
   workflow_dispatch:
 
 # The write is to this repository's own releases, with this run's own token.

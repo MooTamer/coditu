@@ -565,3 +565,40 @@ The page renders no backup id, age, size, count or 24-hour claim while that row 
 after two hours without a new report, or once the newest object crosses 24 hours, the card
 turns amber by elapsed time alone. There is currently no hosted row because R2 is still
 card-blocked and the migration has not been applied.
+
+---
+
+## 2026-08-31 · Layer 1 moves off GitHub Actions and onto the Mac
+
+**This changes §4.6 and the operating half of §2.** Nothing about the encryption, the recipient key
+or the release store changes; what changes is *what runs the job*.
+
+The nightly recovery copy and the restore drill now run from `scripts/local-nightly.sh` on a launchd
+agent at 02:00 local. `ops/recovery-repo/workflows/nightly-backup.yml` keeps `workflow_dispatch:`
+and loses `schedule:`.
+
+**Three problems solved by one move:**
+
+1. The drill could never run in the cloud. `verify-backup-restore.sh` needs the age private key, the
+   key is deliberately not on GitHub, and age has no decrypt-only identity. The 2026-08-28 answer
+   *"automated monthly"* was withdrawn on 2026-08-30 as unimplementable; this is the replacement.
+2. Actions minutes belong to the **account**, so CI and the backup drew on one pool. It ran out on
+   2026-08-31 at 08:20Z. The backup was **47 of the month's 3,000 minutes — 1.4% — and the first
+   thing to stop.**
+3. The canary that should have reported it is also Actions.
+
+**Cost:** zero. It replaces ~410 Actions minutes a month with a job on a machine that is already on.
+
+**New risk, named:** the Mac can be asleep. `StartCalendarInterval` runs a missed job on the next
+wake, so a laptop closed at 02:00 and opened at 09:00 still backs up. Beyond that, a missed night is
+a **missed heartbeat at healthchecks.io** — which is strictly more visible than a GitHub schedule
+that silently does not fire, and is the whole argument for the move.
+
+**RPO/RTO are unchanged.** What changes is that the RTO figure is now measured every night by a real
+decrypt-restore rather than asserted from a monthly integrity check that explicitly prints
+`this_is_not_a_restore=true`.
+
+**Still owed, and it is the last thing standing between this and working: the healthchecks.io check
+does not exist.** Creating it needs an account. Until `HEARTBEAT_URL` is in
+`~/.config/coditu/nightly.env` the installer refuses to install the agent and the job refuses to
+run — visibly, on the screen — rather than running unobserved.

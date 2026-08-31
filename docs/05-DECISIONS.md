@@ -6687,3 +6687,78 @@ With the old denylist restored on a live database, four of those assertions go r
 ### Not done, deliberately
 
 The migration is **not on hosted**. Nothing was pushed this pass.
+
+---
+
+## 2026-08-31 · The nightly and the drill move to the Mac; Actions keeps CI
+
+**Implements the 2026-08-30 revision of the drill decision, and closes R5's actual failure.**
+
+Three problems, one move.
+
+1. **The drill could never run in the cloud.** `verify-backup-restore.sh` needs the age *private*
+   key; the key is deliberately not on GitHub and age has no decrypt-only identity. The 2026-08-28
+   answer — *"the drill is automated monthly"* — was withdrawn on 2026-08-30 as unimplementable.
+2. **The backup and the test suite drew on one budget.** Actions minutes belong to the account. On
+   2026-08-31 the allowance ran out at 08:20Z and every job in both repositories began returning zero
+   steps. The nightly stopped. **The backup was 47 of the month's 3,000 minutes — 1.4% of the burn,
+   and the first thing to die.**
+3. **The canary that should have said so is also Actions.**
+
+**Decision.** `scripts/local-nightly.sh` on a launchd agent at 02:00 does the backup, the freshness
+read-back, the real restore drill and the prune. `ops/recovery-repo/workflows/nightly-backup.yml`
+loses its `schedule:` and keeps `workflow_dispatch:` — moved, not duplicated, because two nightlies
+writing to one release store is twice the chance of a half-published set. It stays dispatchable
+because the Mac is one machine.
+
+### The new failure mode is the point
+
+A laptop can be asleep. That is worse availability and **better observability**, which is the trade
+being made deliberately:
+
+| | a missed GitHub schedule | a missed local run |
+|---|---|---|
+| what happens | nothing | healthchecks.io grace period expires, email |
+| who finds out | nobody | Mohamed |
+
+`StartCalendarInterval` rather than `StartInterval`, because launchd runs a missed calendar job on
+the next wake: a Mac closed at 02:00 and opened at 09:00 backs up at 09:00. That halves the exposure
+without hiding it.
+
+**The success ping is downstream of the restore, not of the upload.** A copy that was written and
+never restored is a file, not a backup. `--drill-only` — which proves a set restores and nothing
+about a set being written — cannot send it at all.
+
+### Fail closed, on a machine with no CI to be red
+
+`HEARTBEAT_URL` unset does not mean "run without alerting". The job refuses, exits non-zero, and puts
+a macOS notification on the screen of the machine that is meant to be doing this. It also refuses a
+configuration file that is not mode 0600 — it holds a database password and a service-role key — and
+`install-nightly-agent.sh` refuses to schedule a job whose `--dry-run` does not pass, because an
+agent installed against a broken configuration is how a backup becomes automated and absent at once.
+
+### `RESTORE_WIDEN_MANAGED_COLUMNS`, and what it costs
+
+The drill hit the blocker the runbook already predicted: the CLI's pinned service images trail what
+hosted runs. Measured this pass — hosted has `storage.buckets.versioning_status` and
+`storage.objects.archived_at`, `is_delete_marker`, `is_versioned`; `storage-api` on this Mac has none
+of them, and the verifier refuses, correctly. On 2026-08-29 Mohamed added them by hand. **A drill
+that needs four hand-written `alter table` statements is a drill somebody has to remember**, which is
+what this whole change exists to stop.
+
+So the verifier gains an **opt-in**: `RESTORE_WIDEN_MANAGED_COLUMNS=1` adds the missing *managed*
+columns to the target as nullable `text` and prints `restore_target_widened=…`. `COPY` parses per
+column type and `text` accepts every representation in the dump, so every row arrives and every
+count still matches.
+
+**What it does not prove, stated rather than buried: the widened columns' TYPES.** Four Storage
+columns restore as text on a throwaway target. That is a real reduction in what the drill asserts,
+it is limited to columns the local image does not have at all, it is printed on every run, and it is
+**off by default** — a recovery must never set it, and `12-RECOVERY-RUNBOOK.md` step 4 does not. The
+alternative was no automated drill.
+
+### Owed, and Mohamed's
+
+**The healthchecks.io check does not exist yet.** Creating it needs an account, which is not
+something this pass can do. Until `HEARTBEAT_URL` is in `~/.config/coditu/nightly.env` the agent
+refuses to install and the job refuses to run — deliberately, and visibly, rather than running blind.

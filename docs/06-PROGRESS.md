@@ -6494,3 +6494,131 @@ back on `share`, zero payouts. To see any of this again:
 ```sql
 update public.app_settings set payout_from_sprint_id = '50000000-0000-4000-8000-000000000017' where id = 1;
 ```
+
+---
+
+## 2026-08-31 · The nightly and the restore drill run on the Mac now
+
+`scripts/local-nightly.sh` + `scripts/install-nightly-agent.sh` (launchd agent, 02:00 local).
+`ops/recovery-repo/workflows/nightly-backup.yml` loses `schedule:` and keeps `workflow_dispatch:`.
+
+### Fail-closed, proved by running it
+
+| what was withheld | command | result |
+|---|---|---|
+| the configuration file | `CODITU_NIGHTLY_ENV=/nonexistent ... --dry-run` | **exit 1** — *"…does not exist. See the header of this script."* |
+| `HEARTBEAT_URL` | a config with the other three set | **exit 1** — *"missing…: HEARTBEAT_URL"* plus *"the one that matters most. Without it this job is the only thing that knows whether the backup ran, and it runs at 02:00."* |
+| nothing, but mode 0644 | a world-readable secrets file | **exit 1** — *"is mode 644; it must be 600"* |
+| nothing | the real configuration on this Mac | **exit 0** — repo, archive directory and key all resolved |
+
+Every refusal also raises a macOS notification, because on this machine there is no CI to be red.
+
+### The drill, run for real
+
+`scripts/sync-backup-local.sh` pulled **8 sets** (`downloaded=8`, `sets_on_disk=8`) onto the Mac, and
+`local-nightly.sh --drill-only` restored the newest into a throwaway `coditurestore` stack on
+546xx — disjoint from both the shared 544xx development stack and the 545xx isolated e2e one.
+
+**It took seven runs, and every failure was a real defect in something that had never been
+executed.** That is the argument for automating a drill, in one table:
+
+| run | it stopped on | what was actually wrong |
+|---|---|---|
+| 1 | `the restore target is missing columns this backup carries` | the CLI's pinned images trail hosted's — four `storage` columns. Fixed by an **opt-in** `RESTORE_WIDEN_MANAGED_COLUMNS=1` |
+| 2 | `role "coditu_backup" already exists` | the harness copied the whole `supabase/` directory, so `supabase start` applied this application's migrations and the target was **not a restore target**. Fixed: `config.toml` only, no migrations, `[db.seed] enabled = false` — section-scoped, because a bare `enabled = true` substitution would have switched off auth, storage and realtime too |
+| — | it restored the **oldest** archive | `ls -t` on eight files `sync-backup-local.sh` had just written in the same second. Sorted by name now; the names are ISO-8601 |
+| 3 | `the data restored but the database is NOT usable … enforce_email_allowlist, on_auth_user_created` | the verifier's own 2026-08-31 refusal, working. Runbook step 5a is the answer |
+| 4 | `RESTORE_MIGRATE_CMD failed` and nothing else | the reason was being sent to `/dev/null`. A hidden cause in a backup job |
+| 5 | `PgClient: Failed to connect` | the CLI negotiates TLS against `--db-url`; a local container has none |
+| 6 | `LegacyMigrationApplyError … create type app_role` | **runbook step 5a does not work.** See below |
+| 7 | — | `restore_verified=true` |
+
+### Step 5a of the recovery runbook was wrong, and only running it found that
+
+It said *"re-apply the migrations over the restored database — `supabase db push`"*. The archive
+carries **no `supabase_migrations` schema at all** — `supabase db dump` writes `public` — so a
+restored database has a full schema and an empty history. The CLI replays all forty migrations from
+the beginning and dies on the first statement of the first one:
+
+```
+Applying migration 20260820120000_enums.sql...
+LegacyMigrationApplyError … At statement: 0
+  create type app_role as enum ('admin','lead','engineer')
+```
+
+**A documented recovery step that stops one statement in, and had never been executed.** The step
+only ever needed the two `auth.users` triggers back; everything else is in `schema.sql` and already
+restored. `scripts/reapply-managed-triggers.sh` does exactly that, extracting them from the
+migrations with the same slurping scan the verifier uses to decide which must exist — so the two
+cannot drift — and prefixing `drop trigger if exists` so it is replayable. §5a is corrected.
+
+### The drill, green
+
+```
+restore_target_widened=storage.buckets.versioning_status,storage.objects.archived_at,
+                       storage.objects.is_delete_marker,storage.objects.is_versioned
+managed_triggers_reapplied=2
+restore_migrations_reapplied=true
+restore_verified=true
+database_tables=64        database_rows=1397        storage_objects=135
+target_only_empty_tables=storage.iceberg_namespaces,storage.iceberg_tables
+```
+
+**96 seconds**, on `nightly-2026-08-31T070134Z`, unattended. Teardown confirmed: zero
+`*coditurestore*` containers, zero volumes, nothing listening on 546xx, no temporary directory left.
+
+### The heartbeat contract, proved against a stub
+
+A run whose source database was deliberately unreachable, with `HEARTBEAT_URL` pointed at a local
+listener:
+
+```
+POST /ping/stub/start :: local-nightly 2026-08-31T102023Z on Mac
+POST /ping/stub/fail  :: backup: backup.sh did not complete
+```
+
+The start ping opens the window, and the failure carries **which step** — not just that something
+broke.
+
+**The original first failure, kept because it is the more general lesson:**
+
+```
+verify-backup-restore: the restore target is missing columns this backup carries …
+Missing: storage.buckets: versioning_status
+         storage.objects: archived_at, is_delete_marker, is_versioned
+```
+
+The Supabase CLI's pinned images trail what hosted runs — exactly what `12-RECOVERY-RUNBOOK.md`
+predicted, and what Mohamed fixed by hand with four `alter table` statements on 2026-08-29. **A
+drill that needs four hand-written statements is a drill somebody has to remember**, which is the
+thing this change exists to stop. So `verify-backup-restore.sh` gained an **opt-in**
+`RESTORE_WIDEN_MANAGED_COLUMNS=1`: it adds the missing *managed* columns as nullable `text` and
+prints `restore_target_widened=…`. Off by default; a recovery never sets it; the runbook does not.
+
+### What is owed, and it is one thing
+
+**The healthchecks.io check does not exist.** Creating it needs an account. Until `HEARTBEAT_URL` is
+in `~/.config/coditu/nightly.env`, `install-nightly-agent.sh` refuses to install and the job refuses
+to run — which is the design, not a gap. The agent is written, tested and **not installed**.
+
+```bash
+scripts/install-nightly-agent.sh          # after the check exists
+scripts/install-nightly-agent.sh --status
+```
+
+### The one thing this pass did NOT do, and it is deliberate
+
+`npm run recovery:check` is **red on this branch**:
+
+```
+sync-recovery-repo: the recovery repository tree has drifted:
+  staged c8ccccc8…, recorded b8bdb737…
+```
+
+That is correct and expected: `verify-backup-restore.sh` gained the two opt-ins and
+`nightly-backup.yml` lost its schedule, and neither has been pushed to `MooTamer/coditu-recovery`.
+**`npm run recovery:sync` is the step that follows the merge, not one that precedes it** — pushing
+live backup infrastructure from a laptop, ahead of a PR that may not merge, would leave the recovery
+repository running ahead of `main`. `reapply-managed-triggers.sh` is deliberately **not** on the
+sync list: it reads `supabase/migrations/`, and the recovery repository carries no migrations on
+purpose.
