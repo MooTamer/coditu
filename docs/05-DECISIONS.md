@@ -7126,3 +7126,26 @@ is the wrong direction.
 Revisit when either half changes: a second runner, or an understanding of the wedge good enough to
 prevent it. Until then the cost is visible, bounded, and paid in minutes rather than in a frozen
 trunk.
+
+## 2026-10-12 · The repository is public, so CI leaves the Mac
+
+**Decision.** `MooTamer/coditu` is public. Every CI job runs on GitHub-hosted `ubuntu-latest`
+through `CI_RUNNER`, and the self-hosted runner `coditu-mac` is retired.
+
+**Why the runner could not stay.** On 2026-08-31 the Mac was chosen because the repository was
+private with a single writer, and `ci.yml` said in as many words that this was a property of the
+repository, not a safe rule. Going public breaks it: a fork's pull request runs the workflow file
+from the fork, and on a self-hosted runner that is somebody else's code running as Mohamed, on the
+machine that holds the only copy of the age key.
+
+**Rejected: keep the Mac and require approval for every outside contributor.** That makes the
+backup key's safety a button nobody may ever press out of habit. A control that depends on nobody
+clicking is not a control.
+
+**What it costs.** Nothing in minutes: hosted runners are free for a public repository, which also
+takes this repository's CI off the 3,000-minute pool the private recovery repository's nightly
+backup needs. `ci.yml` keeps the switch and its Mac-specific guards (the 547xx stack isolation, the
+hosted-only npm cache), so going private again is a variable change plus a registration.
+
+**Revisit** if the repository goes private again. Until then, never register a self-hosted runner
+on it.

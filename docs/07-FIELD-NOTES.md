@@ -2602,3 +2602,33 @@ Three things to take from it:
 The way out is not more cancelling. It is the ordering already in `ci.yml`: `browser` and
 `lighthouse` `needs: [scope, check, deploy]`, so the jobs worth waiting for are never behind the
 jobs that gate nothing.
+
+## A Mac runner hides macOS-only shell until the day CI leaves it
+
+Measured 2026-10-12. CI had run only on `coditu-mac` since 2026-08-31. The first run on
+`ubuntu-latest` after the repository went public failed one unit test, and the cause was a
+command, not a change:
+
+```
+expected 'offsite_disk_days_since=0'
+received 'offsite_disk_days_since=20738'      # days since 1970-01-01
+```
+
+`date -j -f fmt stamp +%s` is BSD date. GNU date has no `-j`, so the call failed into its
+`|| echo 0` and the age became the whole epoch. Three shapes to recognise:
+
+- **`date -j -f` without `-u` reads a `…Z` stamp as local time.** The Z is only a literal in the
+  format. On this Mac that made every age three hours too old. Add `-u`; on GNU, use `date -u -d`
+  with the time's colons put back.
+- **GNU `stat -f` is a flag, not a format.** On Linux, `stat -f '%m' file` prints the
+  *filesystem* of `file`, fails on a file named `%m`, and a `|| stat -c …` fallback then appends to
+  that output. Ask GNU's `-c` first: BSD rejects it with nothing on stdout. It remains in the
+  Mac-only local mode of `check-backup-freshness.sh`, which ships to the recovery repository —
+  edit it only together with `scripts/sync-recovery-repo.sh`, or `recovery:check` fails on the
+  drift.
+- **`sed -i ''` is BSD-only**; GNU reads the `''` as a file name. It remains only in
+  `local-nightly.sh`, which is macOS by design.
+
+Before trusting a script on both platforms, grep it for `date -j`, `stat -f` and `sed -i ''`, and
+run it on the other one. The `coditu-mac` notes above are history from 2026-10-12, when the runner
+was retired because the repository went public.

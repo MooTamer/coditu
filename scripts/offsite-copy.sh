@@ -158,6 +158,16 @@ sha256_file() {
   fi
 }
 
+# Seconds since the epoch for a stamp written by `date -u +%Y-%m-%dT%H%M%SZ`.
+# BSD date (this Mac) parses the format, and needs `-u`: without it the Z is
+# only a literal and the clock is read as local time — three hours early in
+# Cairo. GNU date (CI) has no `-j`, and reads the same instant once the time
+# has its colons back. Each form fails silently on the other's date.
+stamp_epoch() {
+  date -j -u -f '%Y-%m-%dT%H%M%SZ' "$1" +%s 2>/dev/null ||
+    date -u -d "$(printf '%s' "$1" | sed -E 's/T([0-9]{2})([0-9]{2})([0-9]{2})Z$/T\1:\2:\3Z/')" +%s 2>/dev/null
+}
+
 # --------------------------------------------------------------------------
 # 0. Is the destination there at all?
 #
@@ -182,7 +192,7 @@ if [ "$offsite_present" = 0 ]; then
   offsite_seen_file=${CODITU_NIGHTLY_LOG_DIR:-$HOME/.local/state/coditu}/offsite-$OFFSITE_NAME.seen
   if [ -f "$offsite_seen_file" ]; then
     offsite_last=$(cat "$offsite_seen_file")
-    offsite_age_days=$(( ( $(date +%s) - $(date -j -f '%Y-%m-%dT%H%M%SZ' "$offsite_last" +%s 2>/dev/null || echo 0) ) / 86400 ))
+    offsite_age_days=$(( ( $(date +%s) - $(stamp_epoch "$offsite_last" || echo 0) ) / 86400 ))
     printf 'offsite_%s=absent\n' "$OFFSITE_NAME"
     printf 'offsite_%s_last_seen=%s\n' "$OFFSITE_NAME" "$offsite_last"
     printf 'offsite_%s_days_since=%s\n' "$OFFSITE_NAME" "$offsite_age_days"

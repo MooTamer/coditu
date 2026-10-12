@@ -7011,3 +7011,59 @@ did not. Every teardown now names `--project-id codituci`, and a test asserts it
 **The cost was small by luck, not design.** Local is seeded rather than real data, so it comes back
 with `supabase start && supabase db reset`. That it was survivable is exactly why it is worth
 recording: it is the one place this class of mistake could have gone unnoticed.
+
+## 2026-10-12 · The repository is public, and CI leaves the Mac
+
+`MooTamer/coditu` was made public, by Mohamed's decision. Three things were checked before the
+switch rather than assumed:
+
+- **No credential in the history.** Every ref and every added line, excluding
+  `package-lock.json`, scanned for JWTs, `sb_secret_` and `sbp_` keys, GitHub tokens, private and
+  age secret keys, database URLs carrying a password, and assigned secrets. Nothing live: the hits
+  were test-only values and the `:PASSWORD@db.<ref>` placeholder. The repository holds no Actions
+  secrets, and `ops/emergency-card.pdf` carries only the public age recipient.
+- **No production account still takes the seed password.** `supabase/seed.sql` sets `coditu`, and
+  the seed once reached hosted. A read-only comparison with no sign-in —
+  `extensions.crypt('coditu', encrypted_password) = encrypted_password` over `auth.users` — came
+  back false for all four accounts.
+- **The self-hosted runner went first.** `ci.yml` ran every pull-request job on `coditu-mac` and
+  said itself that this was safe only while the repository was private. It was idle; it was
+  stopped, its launchd agent uninstalled, its registration deleted, and the `CI_RUNNER` variable
+  set to `["ubuntu-latest"]`, which is free for a public repository. See `05-DECISIONS.md`.
+
+Public by that decision, and not retractable: EVIM's imported tickets (`supabase/seed.sql`,
+`supabase/notion-*.json`, `supabase/seeds/`), the four admin addresses in `07-FIELD-NOTES.md`, and
+every past Actions log.
+
+### The first hosted run in six weeks found the Mac in the scripts
+
+Run `38253703308` — `main` at `1bba226`, dispatched by hand — failed `blocking release checks` at
+`npm run test`, on one test: `tests/offsite-copy.test.ts` expected `offsite_disk_days_since=0` and
+read **20738**, the number of days since 1970. `offsite-copy.sh` parsed its last-seen stamp with
+`date -j -f`, which GNU date does not have, and the parse fell through to `echo 0`. Nothing had run
+on Linux since `60861d0` on 2026-08-31: 38 commits had only ever been tested on macOS.
+
+- `offsite-copy.sh` reads the stamp through `stamp_epoch`, BSD first and GNU second. The BSD form
+  gained `-u`, which fixes a Mac bug the test could not see: the stamp is written in UTC and was
+  read back as Cairo time, **three hours early** (`1791795600` against `1791806400` for
+  `2026-10-12T120000Z`).
+- `check-backup-freshness.sh` has the same shape — BSD `stat -f` first, which on GNU prints the
+  file's filesystem and fails, so the fallback appends the mtime to that. **Left as it is, on
+  purpose.** Only its local mode reaches the line, and that runs on the Mac. The script is also part
+  of the recovery repository's tree, so changing it means re-syncing `MooTamer/coditu-recovery`
+  first — this branch's second CI run failed `recovery:check` on exactly that drift.
+- `local-nightly.sh` and `install-nightly-agent.sh` stay macOS-only by design (`launchctl`,
+  `osascript`, `sed -i ''`).
+- `14-DEPENDENCY-LEDGER.md` no longer lists the Mac as the CI runner or the repository as private.
+
+**Verification:** this branch's `blocking release checks` on `ubuntu-latest`. Locally:
+`npx vitest run tests/offsite-copy.test.ts tests/ci-runner.test.ts tests/backup-custody.test.ts tests/fail-closed-controls.test.ts`.
+
+### Owed
+
+- **Vercel's Git fork protection** could not be read back through the API. It is on by default,
+  and it matters now: a fork's preview would build with the Preview environment, which points at
+  production Supabase. Confirm it under Settings → Git.
+- `ci.yml`'s fallback still names `coditu-mac`, and `tests/ci-runner.test.ts` pins it. Unsetting
+  `CI_RUNNER` therefore queues every job against a runner that no longer exists — closed, not
+  open. Making `ubuntu-latest` the default rewrites that file's design, and is not done here.
