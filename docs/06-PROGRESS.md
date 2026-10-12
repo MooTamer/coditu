@@ -7047,9 +7047,11 @@ on Linux since `60861d0` on 2026-08-31: 38 commits had only ever been tested on 
   gained `-u`, which fixes a Mac bug the test could not see: the stamp is written in UTC and was
   read back as Cairo time, **three hours early** (`1791795600` against `1791806400` for
   `2026-10-12T120000Z`).
-- `check-backup-freshness.sh` asks GNU `stat -c` before BSD `stat -f`. In the old order GNU prints
-  the file's filesystem and fails, and the fallback appends the mtime to that. Only its local mode
-  reaches the line, and that runs on the Mac, so it had not bitten.
+- `check-backup-freshness.sh` has the same shape — BSD `stat -f` first, which on GNU prints the
+  file's filesystem and fails, so the fallback appends the mtime to that. **Left as it is, on
+  purpose.** Only its local mode reaches the line, and that runs on the Mac. The script is also part
+  of the recovery repository's tree, so changing it means re-syncing `MooTamer/coditu-recovery`
+  first — this branch's second CI run failed `recovery:check` on exactly that drift.
 - `local-nightly.sh` and `install-nightly-agent.sh` stay macOS-only by design (`launchctl`,
   `osascript`, `sed -i ''`).
 - `14-DEPENDENCY-LEDGER.md` no longer lists the Mac as the CI runner or the repository as private.

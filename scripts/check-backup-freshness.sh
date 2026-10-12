@@ -125,10 +125,7 @@ if [ "$canary_store" = local ]; then
   canary_notes_id=$canary_id
 
   # `date -r` on BSD, `date -r` on GNU means something else — so ask `stat`.
-  # GNU's form first: BSD rejects `-c` without printing anything, but GNU's
-  # `-f` is a flag, so `stat -f '%m' file` prints the file's filesystem AND
-  # fails, on a file called `%m` — and the fallback appends to that output.
-  canary_mtime=$(stat -c '%Y' "$canary_archive_path" 2>/dev/null || stat -f '%m' "$canary_archive_path")
+  canary_mtime=$(stat -f '%m' "$canary_archive_path" 2>/dev/null || stat -c '%Y' "$canary_archive_path")
   canary_uploaded_at=$(CANARY_EPOCH="$canary_mtime" node -e \
     'process.stdout.write(new Date(Number(process.env.CANARY_EPOCH) * 1000).toISOString())')
 else

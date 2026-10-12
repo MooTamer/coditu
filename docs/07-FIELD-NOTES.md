@@ -2622,7 +2622,10 @@ received 'offsite_disk_days_since=20738'      # days since 1970-01-01
   with the time's colons put back.
 - **GNU `stat -f` is a flag, not a format.** On Linux, `stat -f '%m' file` prints the
   *filesystem* of `file`, fails on a file named `%m`, and a `|| stat -c …` fallback then appends to
-  that output. Ask GNU's `-c` first: BSD rejects it with nothing on stdout.
+  that output. Ask GNU's `-c` first: BSD rejects it with nothing on stdout. It remains in the
+  Mac-only local mode of `check-backup-freshness.sh`, which ships to the recovery repository —
+  edit it only together with `scripts/sync-recovery-repo.sh`, or `recovery:check` fails on the
+  drift.
 - **`sed -i ''` is BSD-only**; GNU reads the `''` as a file name. It remains only in
   `local-nightly.sh`, which is macOS by design.
 
