@@ -7,6 +7,11 @@ import { describe, expect, it } from "vitest";
  * CI runs on a self-hosted runner on Mohamed's Mac, and these are the tripwires
  * on that arrangement.
  *
+ * **Since 2026-10-12 the repository is public**: `CI_RUNNER` sends every job to
+ * GitHub-hosted runners and the Mac runner is retired — see `ci.yml`. The
+ * tripwires stay, because every job still reads that one switch and says where
+ * it ran.
+ *
  * On 2026-08-31 the account's GitHub Actions allowance ran out. Every job in
  * both repositories began finishing in two seconds with zero steps, `main`
  * froze because the one required check could not run, and the nightly backup

@@ -26,7 +26,21 @@ on:
 permissions:
   contents: read
 
-# ── Where these jobs run, and why it is not `ubuntu-latest` ─────────────────
+# ── Where these jobs run ────────────────────────────────────────────────────
+#
+# **Since 2026-10-12 this repository is PUBLIC, and every job runs on
+# GitHub-hosted `ubuntu-latest`: the `CI_RUNNER` variable is set to
+# `["ubuntu-latest"]` and must stay set.** Hosted minutes are free for a public
+# repository, so the reason below for leaving them no longer applies — and the
+# reason the Mac was safe no longer holds. A fork PR's workflow is the fork
+# author's code; on a self-hosted runner it runs on Mohamed's Mac, as him. The
+# `coditu-mac` runner was deregistered the same day. **Do not register a
+# self-hosted runner on this repository while it is public.** With `CI_RUNNER`
+# unset, every job waits for that missing runner: queued, never run.
+#
+# What follows is why CI ran on the Mac from 2026-08-31 to 2026-10-12. It is
+# kept because the shared-allowance reasoning still governs the private
+# recovery repository.
 #
 # On 2026-08-31 the account's Actions allowance ran out. Every job in both
 # repositories began finishing in two seconds with zero steps; `main` froze,
